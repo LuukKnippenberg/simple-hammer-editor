@@ -1,0 +1,11 @@
+{
+  "//": "Copy to editor.config.json to override. Every field is optional; missing ones fall back to auto-detection.",
+  "gameDirs": [
+    "C:/Program Files (x86)/Steam/steamapps/common/lambdawars-game",
+    "C:/Program Files (x86)/Steam/steamapps/common/Lambda Wars"
+  ],
+  "mod": "lambdawars",
+  "searchDirs": ["lambdawars", "swarm", "swarm_base", "platform"],
+  "sdkBinDir": "D:/SteamLibrary/steamapps/common/Alien Swarm/bin",
+  "runGameDir": "C:/Program Files (x86)/Steam/steamapps/common/Lambda Wars"
+}

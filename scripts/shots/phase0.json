@@ -1,0 +1,5 @@
+[
+  { "name": "phase0-overview", "map": "repo:hlw_City16.vmf" },
+  { "name": "phase0-closeup", "map": "repo:hlw_City16.vmf", "view": { "pos": [-1400, -2600, 1100], "target": [200, -600, 0] } },
+  { "name": "phase0-tool-brushes", "map": "repo:hlw_City16.vmf", "eval": "document.querySelectorAll('#topbar button').forEach(b => { if (/Tool brushes|Wireframe/.test(b.textContent)) b.click(); })" }
+]
