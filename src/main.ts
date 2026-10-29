@@ -1,6 +1,7 @@
 import { Editor } from './editor.ts';
 import { mountTopBar } from './ui/viewBar.ts';
 import { mountStats } from './ui/stats.ts';
+import { mountDocumentPanel } from './ui/documentPanel.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -11,6 +12,7 @@ viewport.append(loading);
 const editor = new Editor(viewport);
 mountTopBar(editor, document.getElementById('topbar')!, loading);
 mountStats(editor, viewport, document.getElementById('statusbar')!);
+mountDocumentPanel(editor, document.getElementById('sidebar')!);
 
 /** Hooks for scripted screenshots and debugging from the console. */
 declare global {

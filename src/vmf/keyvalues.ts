@@ -1,55 +1,91 @@
+/** A `"key" "value"` line. */
+export class KVPair {
+  constructor(public key: string, public value: string) {}
+}
+
 /**
  * Valve KeyValues, as used by VMF and VMT files.
  *
- * A node has an ordered list of `key "value"` pairs and an ordered list of child blocks.
- * Hammer always writes the pairs of a block before its child blocks, so keeping the two lists
- * separate is enough to write a VMF back out byte for byte.
+ * Pairs and child blocks are kept in one ordered list: Hammer sometimes writes a child block
+ * (e.g. `connections`) before later pairs, and a byte-identical round-trip needs that order.
  */
 export class KVNode {
   name: string;
-  props: [string, string][] = [];
-  children: KVNode[] = [];
+  items: (KVPair | KVNode)[] = [];
 
   constructor(name: string) {
     this.name = name;
   }
 
+  /** Key/value pairs in order (a fresh array; mutate through set/addProp/delete). */
+  get props(): [string, string][] {
+    const out: [string, string][] = [];
+    for (const it of this.items) if (it instanceof KVPair) out.push([it.key, it.value]);
+    return out;
+  }
+
+  get children(): KVNode[] {
+    const out: KVNode[] = [];
+    for (const it of this.items) if (it instanceof KVNode) out.push(it);
+    return out;
+  }
+
   get(key: string): string | undefined {
     const k = key.toLowerCase();
-    for (const p of this.props) if (p[0].toLowerCase() === k) return p[1];
+    for (const it of this.items) if (it instanceof KVPair && it.key.toLowerCase() === k) return it.value;
     return undefined;
   }
 
   set(key: string, value: string): void {
     const k = key.toLowerCase();
-    for (const p of this.props) {
-      if (p[0].toLowerCase() === k) {
-        p[1] = value;
+    for (const it of this.items) {
+      if (it instanceof KVPair && it.key.toLowerCase() === k) {
+        it.value = value;
         return;
       }
     }
-    this.props.push([key, value]);
+    this.addProp(key, value);
+  }
+
+  /** Appends a pair after the last existing pair (before child blocks, as Hammer writes new keys). */
+  addProp(key: string, value: string): void {
+    let at = 0;
+    for (let i = 0; i < this.items.length; i++) if (this.items[i] instanceof KVPair) at = i + 1;
+    this.items.splice(at, 0, new KVPair(key, value));
+  }
+
+  addChild(node: KVNode): KVNode {
+    this.items.push(node);
+    return node;
+  }
+
+  removeChild(node: KVNode): boolean {
+    const i = this.items.indexOf(node);
+    if (i >= 0) this.items.splice(i, 1);
+    return i >= 0;
   }
 
   delete(key: string): void {
     const k = key.toLowerCase();
-    this.props = this.props.filter((p) => p[0].toLowerCase() !== k);
+    this.items = this.items.filter((it) => !(it instanceof KVPair && it.key.toLowerCase() === k));
   }
 
   child(name: string): KVNode | undefined {
     const n = name.toLowerCase();
-    return this.children.find((c) => c.name.toLowerCase() === n);
+    for (const it of this.items) if (it instanceof KVNode && it.name.toLowerCase() === n) return it;
+    return undefined;
   }
 
   childrenNamed(name: string): KVNode[] {
     const n = name.toLowerCase();
-    return this.children.filter((c) => c.name.toLowerCase() === n);
+    const out: KVNode[] = [];
+    for (const it of this.items) if (it instanceof KVNode && it.name.toLowerCase() === n) out.push(it);
+    return out;
   }
 
   clone(): KVNode {
     const n = new KVNode(this.name);
-    n.props = this.props.map((p) => [p[0], p[1]]);
-    n.children = this.children.map((c) => c.clone());
+    n.items = this.items.map((it) => (it instanceof KVPair ? new KVPair(it.key, it.value) : it.clone()));
     return n;
   }
 }
@@ -107,7 +143,7 @@ export function parseKeyValues(text: string): KVNode[] {
     if (t === LBRACE) {
       const node = new KVNode(pending ?? '');
       pending = null;
-      if (stack.length) stack[stack.length - 1].children.push(node);
+      if (stack.length) stack[stack.length - 1].items.push(node);
       else roots.push(node);
       stack.push(node);
     } else if (t === RBRACE) {
@@ -119,7 +155,7 @@ export function parseKeyValues(text: string): KVNode[] {
       if (pending === null) {
         pending = t;
       } else {
-        if (stack.length) stack[stack.length - 1].props.push([pending, t]);
+        if (stack.length) stack[stack.length - 1].items.push(new KVPair(pending, t));
         pending = null;
       }
     }
@@ -134,8 +170,10 @@ export function writeKeyValues(nodes: KVNode[], eol = '\r\n'): string {
     const ind = '\t'.repeat(depth);
     out.push(ind + n.name, ind + '{');
     const ind2 = ind + '\t';
-    for (const [k, v] of n.props) out.push(`${ind2}"${k}" "${v}"`);
-    for (const c of n.children) write(c, depth + 1);
+    for (const it of n.items) {
+      if (it instanceof KVPair) out.push(`${ind2}"${it.key}" "${it.value}"`);
+      else write(it, depth + 1);
+    }
     out.push(ind + '}');
   };
   for (const n of nodes) write(n, 0);

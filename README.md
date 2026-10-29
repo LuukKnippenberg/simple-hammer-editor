@@ -64,6 +64,20 @@ Development is split into phases; each phase ends with screenshots in `docs/scre
 ![Phase 1 street level](docs/screenshots/phase1-street-level.png)
 ![Phase 1 displacement blend](docs/screenshots/phase1-displacement-blend.png)
 
+### Phase 2: writing VMF files
+
+- KeyValues nodes keep pairs and child blocks in one ordered list, so a parse → write round-trip is
+  byte-identical. Verified by the test suite against the sample map and all 55 VMFs in the game's `mapsrc/`.
+- Edits go through typed wrappers (`MapSide`, `MapSolid`, `MapEntity`) that write back into the tree, so
+  anything the editor does not understand (visgroups, editor colours, connections, cameras) survives.
+- Save (Ctrl+S), Save as and Download. Saves go to this repo's `maps/` folder and bump `mapversion` like
+  Hammer does; the game's own `mapsrc/` is never overwritten.
+- Document panel with a "Verify round-trip" check. Changed brushes rebuild incrementally (about 3 ms).
+
+![Phase 2 round-trip verified](docs/screenshots/phase2-roundtrip-verified.png)
+![Phase 2 edited, unsaved](docs/screenshots/phase2-edited-unsaved.png)
+![Phase 2 saved and reloaded](docs/screenshots/phase2-saved-and-reloaded.png)
+
 ## Development
 
 ```bash

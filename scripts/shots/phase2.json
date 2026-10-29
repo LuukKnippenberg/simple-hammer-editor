@@ -1,0 +1,42 @@
+[
+  {
+    "name": "phase2-roundtrip-verified",
+    "map": "repo:hlw_City16.vmf",
+    "eval": "[...document.querySelectorAll('#sidebar button')].find(b => b.textContent.includes('Verify')).click()"
+  },
+  {
+    "name": "phase2-edited-unsaved",
+    "map": "repo:hlw_City16.vmf",
+    "view": {
+      "pos": [
+        -760,
+        -980,
+        560
+      ],
+      "target": [
+        0,
+        0,
+        60
+      ]
+    },
+    "eval": "(async () => { const ed = window.__editor.editor; for (const s of ed.doc.allSolids()) { const b = ed.world.solidBounds(s); if (!b || s.entity) continue; const c = b.getCenter(b.min.clone()); if (Math.hypot(c.x, c.y) < 520 && b.max.z > 100 && b.max.z < 400) { for (const side of s.sides) { for (const p of side.plane) p.z += 96; side.material = 'DEV/DEV_MEASUREGENERIC01'; } s.commit(); } } ed.changed(); [...document.querySelectorAll('#sidebar button')].find(b => b.textContent.includes('Verify')).click(); })()",
+    "after": "window.__editor.editor.save('hlw_City16_phase2_edit.vmf')"
+  },
+  {
+    "name": "phase2-saved-and-reloaded",
+    "map": "repo:hlw_City16_phase2_edit.vmf",
+    "view": {
+      "pos": [
+        -760,
+        -980,
+        560
+      ],
+      "target": [
+        0,
+        0,
+        60
+      ]
+    },
+    "eval": "[...document.querySelectorAll('#sidebar button')].find(b => b.textContent.includes('Verify')).click()"
+  }
+]

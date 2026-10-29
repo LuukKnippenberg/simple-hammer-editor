@@ -31,6 +31,10 @@ export class Editor {
   readonly grid: GridHelper;
   doc: VmfDocument = VmfDocument.empty();
   mapName = 'untitled.vmf';
+  /** Unsaved changes since load or last save. */
+  dirty = false;
+  /** The text the document was loaded from, for the round-trip check. */
+  sourceText = '';
   frame: FrameStats = { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0 };
   private listeners = new Map<string, Set<() => void>>();
   private frameTimes: number[] = [];
@@ -110,9 +114,11 @@ export class Editor {
     };
   };
 
-  loadDocument(doc: VmfDocument, name: string): void {
+  loadDocument(doc: VmfDocument, name: string, sourceText = ''): void {
     this.doc = doc;
     this.mapName = name;
+    this.sourceText = sourceText;
+    this.dirty = false;
     const t0 = performance.now();
     this.world.sync(doc);
     this.entities.sync(doc);
@@ -134,7 +140,35 @@ export class Editor {
     const t0 = performance.now();
     const doc = VmfDocument.parse(text);
     console.log(`[editor] parsed ${id} in ${Math.round(performance.now() - t0)} ms`);
-    this.loadDocument(doc, id.split(':')[1] ?? id);
+    this.loadDocument(doc, id.split(':')[1] ?? id, text);
+  }
+
+  /** Call after mutating the document: rebuilds what changed and marks the map unsaved. */
+  changed(): void {
+    this.world.sync(this.doc);
+    this.entities.sync(this.doc);
+    this.dirty = true;
+    this.emit('change');
+  }
+
+  /** Writes the VMF to the repo's maps/ folder. Bumps mapversion like Hammer does. */
+  async save(name = this.mapName): Promise<{ id: string; bytes: number }> {
+    if (!name.toLowerCase().endsWith('.vmf')) name += '.vmf';
+    if (this.dirty) {
+      const vi = this.doc.roots.find((r) => r.name.toLowerCase() === 'versioninfo');
+      const v = (parseInt(vi?.get('mapversion') ?? '0', 10) || 0) + 1;
+      vi?.set('mapversion', String(v));
+      if (this.doc.world.get('mapversion') !== undefined) this.doc.world.set('mapversion', String(v));
+    }
+    const text = this.doc.serialize();
+    const res = await fetch(`/api/map/save?name=${encodeURIComponent(name)}`, { method: 'POST', body: text });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error ?? 'save failed');
+    this.mapName = name;
+    this.sourceText = text;
+    this.dirty = false;
+    this.emit('saved');
+    return out;
   }
 
   /** True while textures or models are still streaming in. */

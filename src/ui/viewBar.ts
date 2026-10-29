@@ -32,8 +32,39 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
   fileInput.addEventListener('change', () => {
     const f = fileInput.files?.[0];
     if (!f) return;
-    busy(`Loading ${f.name}…`, async () => editor.loadDocument(VmfDocument.parse(await f.text()), f.name));
+    busy(`Loading ${f.name}…`, async () => {
+      const text = await f.text();
+      editor.loadDocument(VmfDocument.parse(text), f.name, text);
+    });
   });
+
+  const save = async (name?: string) => {
+    try {
+      const r = await editor.save(name);
+      toast(editor.container, `Saved maps/${editor.mapName} (${(r.bytes / 1024).toFixed(0)} KB)`);
+      await refreshMaps(r.id);
+    } catch (e) {
+      toast(editor.container, `Save failed: ${(e as Error).message}`);
+    }
+  };
+  const saveAs = () => {
+    const name = prompt('Save as (in maps/):', editor.mapName.replace(/\.vmf$/i, '') + '_copy.vmf');
+    if (name) void save(name);
+  };
+  const download = () => {
+    const blob = new Blob([editor.doc.serialize()], { type: 'text/plain' });
+    const a = h('a', { href: URL.createObjectURL(blob), download: editor.mapName });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      void save();
+    }
+  });
+  const syncTitle = () => (document.title = `${editor.dirty ? '• ' : ''}${editor.mapName} – Simple Hammer Editor`);
+  for (const ev of ['document', 'change', 'saved']) editor.on(ev, syncTitle);
 
   const toggle = (label: string, title: string, get: () => boolean, set: (v: boolean) => void) => {
     const b = h('button', { title }, label);
@@ -49,6 +80,9 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     select,
     h('button', { onclick: () => fileInput.click(), title: 'Open a .vmf from disk' }, 'Open file…'),
     fileInput,
+    h('button', { onclick: () => save(), title: 'Save to maps/ (Ctrl+S)' }, 'Save'),
+    h('button', { onclick: () => saveAs(), title: 'Save under a new name in maps/' }, 'Save as…'),
+    h('button', { onclick: () => download(), title: 'Download the .vmf' }, 'Download'),
     h('div.spacer'),
     toggle('Tool brushes', 'Show clip, trigger, nodraw and other tool brushes', () => wr.visibleKinds.tool, (v) => { wr.visibleKinds.tool = v; wr.applyVisibility(); }),
     toggle('Sky brushes', 'Show skybox brushes', () => wr.visibleKinds.sky, (v) => { wr.visibleKinds.sky = v; wr.applyVisibility(); }),
@@ -60,24 +94,28 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     toggle('Grid', 'Show the ground grid', () => editor.grid.visible, (v) => (editor.grid.visible = v)),
   );
 
-  fetch('/api/maps')
-    .then((r) => r.json())
-    .then((maps: { id: string; name: string }[]) => {
-      select.append(h('option', { value: '' }, '— open map —'));
-      const groups = new Map<string, HTMLOptGroupElement>();
-      for (const m of maps) {
-        const prefix = m.id.split(':')[0];
-        if (!groups.has(prefix)) {
-          const g = h('optgroup', { label: prefix === 'repo' ? 'Editor maps/' : 'Game mapsrc/' }) as HTMLOptGroupElement;
-          groups.set(prefix, g);
-          select.append(g);
-        }
-        groups.get(prefix)!.append(h('option', { value: m.id }, m.name));
+  const refreshMaps = async (selectId?: string) => {
+    const maps: { id: string; name: string }[] = await fetch('/api/maps').then((r) => r.json());
+    select.replaceChildren(h('option', { value: '' }, '— open map —'));
+    const groups = new Map<string, HTMLOptGroupElement>();
+    for (const m of maps) {
+      const prefix = m.id.split(':')[0];
+      if (!groups.has(prefix)) {
+        const g = h('optgroup', { label: prefix === 'repo' ? 'Editor maps/' : 'Game mapsrc/' }) as HTMLOptGroupElement;
+        groups.set(prefix, g);
+        select.append(g);
       }
-      const wanted = new URL(location.href).searchParams.get('map') ?? maps.find((m) => m.id.startsWith('repo:'))?.id;
-      if (wanted) {
-        select.value = wanted;
-        select.dispatchEvent(new Event('change'));
-      }
-    });
+      groups.get(prefix)!.append(h('option', { value: m.id }, m.name));
+    }
+    if (selectId) select.value = selectId;
+    return maps;
+  };
+
+  void refreshMaps().then((maps) => {
+    const wanted = new URL(location.href).searchParams.get('map') ?? maps.find((m) => m.id.startsWith('repo:'))?.id;
+    if (wanted) {
+      select.value = wanted;
+      select.dispatchEvent(new Event('change'));
+    }
+  });
 }

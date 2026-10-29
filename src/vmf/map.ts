@@ -160,7 +160,7 @@ export class VmfDocument {
     let world = roots.find((r) => r.name.toLowerCase() === 'world');
     if (!world) {
       world = new KVNode('world');
-      world.props.push(['id', '1'], ['mapversion', '1'], ['classname', 'worldspawn'], ['skyname', 'sky_day01_01']);
+      for (const [k, v] of [['id', '1'], ['mapversion', '1'], ['classname', 'worldspawn'], ['skyname', 'sky_day01_01']]) world.addProp(k, v);
       roots.push(world);
     }
     this.world = world;

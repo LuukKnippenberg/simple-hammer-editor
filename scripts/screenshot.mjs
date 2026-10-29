@@ -4,6 +4,7 @@
 //
 // shots.json: [{ "name": "phase0-overview", "map": "repo:hlw_City16.vmf",
 //               "view": { "pos": [x,y,z], "target": [x,y,z] }, "eval": "optional JS run before capture",
+//               "after": "optional JS run after capture",
 //               "width": 1600, "height": 900 }]
 // The dev server must be running (npm run dev).
 import { chromium } from 'playwright-core';
@@ -47,6 +48,7 @@ for (const shot of shots) {
   await page.screenshot({ path: file });
   const fps = await page.evaluate(() => window.__editor.editor.frame);
   console.log(`saved ${file}  (fps ${fps.fps}, draw calls ${fps.drawCalls}, tris ${fps.triangles})`);
+  if (shot.after) await page.evaluate(shot.after);
   await page.close();
 }
 await browser.close();

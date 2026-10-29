@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig, type EditorConfig } from './config.ts';
 import { AssetFS } from './assets.ts';
@@ -77,6 +77,18 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           const file = resolveMap(cfg, url.searchParams.get('id') ?? '');
           if (!file || !existsSync(file)) return send(res, 404, JSON.stringify({ error: 'map not found' }));
           send(res, 200, readFileSync(file), 'text/plain; charset=utf-8');
+        },
+
+        // Saves always go to this repo's maps/ folder, so editing a game map never overwrites the game's copy.
+        '/api/map/save': async (req, res, url) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          const name = (url.searchParams.get('name') ?? '').trim();
+          if (!/^[\w\- .]+\.vmf$/i.test(name) || name.includes('..')) return send(res, 400, JSON.stringify({ error: 'invalid file name' }));
+          const body = await readBody(req);
+          const dir = join(cfg.rootDir, 'maps');
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, name), body);
+          send(res, 200, JSON.stringify({ id: `repo:${name}`, bytes: body.length }));
         },
 
         ...extraRoutes({ cfg, assets }),
