@@ -16,7 +16,9 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
       `<span class="k">Draw calls</span>${f.drawCalls}<br>` +
       `<span class="k">Triangles</span>${f.triangles.toLocaleString()}<br>` +
       `<span class="k">Brushes</span>${w.brushes.toLocaleString()}<br>` +
-      `<span class="k">Faces</span>${w.faces.toLocaleString()}`;
+      `<span class="k">Faces</span>${w.faces.toLocaleString()}<br>` +
+      `<span class="k">Props</span>${editor.entities.stats.props} (${editor.entities.stats.models} models)` +
+      (editor.busy() ? `<br><span class="k">Loading</span>assets…` : '');
     const p = editor.camera.position;
     status.innerHTML =
       `<span><b>${editor.mapName}</b></span>` +

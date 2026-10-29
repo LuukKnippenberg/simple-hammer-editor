@@ -18,6 +18,7 @@ declare global {
     __editor: {
       editor: Editor;
       ready: boolean;
+      busy(): boolean;
       setView(pos: [number, number, number], target: [number, number, number]): void;
     };
   }
@@ -25,6 +26,7 @@ declare global {
 window.__editor = {
   editor,
   ready: false,
+  busy: () => editor.busy(),
   setView(pos, target) {
     editor.camera.position.set(...pos);
     editor.controls.lookAt(new Vector3(...target));

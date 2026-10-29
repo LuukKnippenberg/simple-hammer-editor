@@ -1,0 +1,7 @@
+[
+  { "name": "phase1-overview", "map": "repo:hlw_City16.vmf", "wait": 2500 },
+  { "name": "phase1-center-control-point", "map": "repo:hlw_City16.vmf", "view": { "pos": [-760, -980, 560], "target": [0, 0, 60] } },
+  { "name": "phase1-street-level", "map": "repo:hlw_City16.vmf", "view": { "pos": [1250, -1850, 230], "target": [1900, -1100, 140] } },
+  { "name": "phase1-rts-camera-base", "map": "repo:hlw_City16.vmf", "view": { "pos": [-5000, -600, 1300], "target": [-4000, 100, 80] } },
+  { "name": "phase1-displacement-blend", "map": "repo:hlw_City16.vmf", "view": { "pos": [2350, -3800, 650], "target": [3100, -2950, 60] } }
+]

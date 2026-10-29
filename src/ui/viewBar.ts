@@ -52,6 +52,8 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     h('div.spacer'),
     toggle('Tool brushes', 'Show clip, trigger, nodraw and other tool brushes', () => wr.visibleKinds.tool, (v) => { wr.visibleKinds.tool = v; wr.applyVisibility(); }),
     toggle('Sky brushes', 'Show skybox brushes', () => wr.visibleKinds.sky, (v) => { wr.visibleKinds.sky = v; wr.applyVisibility(); }),
+    toggle('Props', 'Show prop models', () => editor.entities.showProps, (v) => editor.entities.setVisibility(v, editor.entities.showMarkers)),
+    toggle('Entities', 'Show point entity markers', () => editor.entities.showMarkers, (v) => editor.entities.setVisibility(editor.entities.showProps, v)),
     toggle('Wireframe', 'Draw brushes as wireframe', () => !!(editor.materials.all()[0]?.material as MeshLambertMaterial | undefined)?.wireframe, (v) => {
       for (const m of editor.materials.all()) (m.material as MeshLambertMaterial).wireframe = v;
     }),
