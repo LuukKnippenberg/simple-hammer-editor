@@ -13,6 +13,18 @@ export interface Part {
   kind: 'main' | 'annex';
   /** Edge indices of shaped corners (cut or rounded faces), which get an entrance on the ground floor. */
   cornerEdges: number[];
+  /** The block corner this building turns, if any: where a corner tower can stand. */
+  corner?: StreetCorner;
+}
+
+export interface StreetCorner {
+  shape: CornerShape;
+  /** The original (square) corner point. */
+  at: Vector2;
+  /** Unit steps from the corner into the building along x and y (±1). */
+  inward: Vector2;
+  /** Cut leg or rounding radius (0 for square). */
+  size: number;
 }
 
 export interface BuildingPlan {
@@ -115,21 +127,24 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
   const addLot = (box: Box2, floors: number, extra: Part[] = []) => {
     let poly = rectPoly(box);
     const cornerEdges: number[] = [];
+    let corner: StreetCorner | undefined;
     // Shape at most one corner per building (the reference buildings turn one street corner).
     const touching = poly.map((p, i) => ({ p, i })).filter(({ p }) => blockCorners.some((c) => c.equals(p)));
     const bsize = box.getSize(new Vector2());
     if (touching.length && Math.min(bsize.x, bsize.y) >= 256) {
-      const { i } = rng.pick(touching);
+      const { p, i } = rng.pick(touching);
       const shape: CornerShape = o.corners === 'mixed' ? rng.pick(['square', 'chamfer', 'chamfer', 'round', 'round'] as const) : o.corners;
       const room = Math.min(bsize.x, bsize.y) - 128;
       const sizeFor = shape === 'round' ? Math.min(room, rng.pick([128, 192, 256])) : Math.min(room, rng.pick([64, 128]));
+      const inward = new Vector2(Math.sign(box.getCenter(new Vector2()).x - p.x), Math.sign(box.getCenter(new Vector2()).y - p.y));
       if (sizeFor >= 64) {
         const r = shapeCorner(poly, i, shape, sizeFor);
         poly = r.poly;
         cornerEdges.push(...r.edges);
+        corner = { shape, at: p.clone(), inward, size: shape === 'square' ? 0 : sizeFor };
       }
     }
-    out.buildings.push({ parts: [{ poly, floors, kind: 'main', cornerEdges }, ...extra], styleSlot: slot++ });
+    out.buildings.push({ parts: [{ poly, floors, kind: 'main', cornerEdges, corner }, ...extra], styleSlot: slot++ });
     out.lots.push({ box, floors });
   };
 

@@ -433,6 +433,30 @@ compiler never sees a redundant side.
 ![All gabled](docs/screenshots/buildings-p3-gable.png)
 ![All hipped](docs/screenshots/buildings-p3-hip.png)
 
+### Building phase 4: corner towers and domes
+
+Corner buildings of 3+ floors get a tower on their street corner: most rounded corners, a third of the
+cut ones and a fifth of the square ones (`src/gen/towers.ts`).
+
+- **Placement**: on a rounded corner the tower continues the curved facade upwards (radius up to 160,
+  touching the curve at its apex); on cut and square corners an eight- to twelve-sided tower stands
+  tangent to both walls. It rises one or two floors above the eaves, and always clears the roof.
+- **Body**: windows from the building's own facade (fitted per side, about one bay per side), a cornice
+  ring and a drum.
+- **Caps**: a profile revolved into stacked frustums, each one a convex brush, so even the onion's
+  bulge is valid. Baroque **bell** (most common, as on City 17's corner towers), **dome**, **onion** and
+  **spire**; bells and domes get a small windowed lantern with its own dome; all end in a finial.
+  Copper, slate or grey metal.
+- Building panel: **Towers** on or off. Six blocks with rounded corners at High detail (53 buildings,
+  about 2,500 brushes) compile through vbsp, vvis and vrad in 19 seconds.
+- Rooftop signs were left out: the game has only five single-letter sign models, too few to spell
+  anything.
+
+![A district with towers over the rooftops](docs/screenshots/buildings-p4-overview.png)
+![Bell, onion and dome towers](docs/screenshots/buildings-p4-tower1.png)
+![Copper dome with lantern, onion and spire](docs/screenshots/buildings-p4-tower2.png)
+![A rounded corner rising into a tower with a copper spire](docs/screenshots/buildings-p4-tower4.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

@@ -148,6 +148,7 @@ function buildingPanel(editor: Editor): HTMLElement {
     h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'mansard' }, 'Mansard with dormers'),
     h('option', { value: 'hip' }, 'Hipped'), h('option', { value: 'gable' }, 'Gabled'),
     h('option', { value: 'curved' }, 'Curved (bell)'), h('option', { value: 'flat' }, 'Flat with parapet')) as HTMLSelectElement;
+  const towers = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const courtyards = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const annexes = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const go = () => {
@@ -156,7 +157,7 @@ function buildingPanel(editor: Editor): HTMLElement {
       minFloors: lo, maxFloors: Math.max(lo, parseInt(maxF.value, 10) || lo),
       alleys: alleys.checked, roofProps: props.checked, style: (style.value || undefined) as FacadeStyle | undefined,
       corners: corners.value as CornerOption, courtyards: courtyards.checked, annexes: annexes.checked,
-      detail: Number(detail.value) as DetailLevel, roofs: roofs.value as RoofOption,
+      detail: Number(detail.value) as DetailLevel, roofs: roofs.value as RoofOption, towers: towers.checked,
     });
     toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''}` : 'Selection is too small for a building (min 128×128)');
   };
@@ -168,6 +169,7 @@ function buildingPanel(editor: Editor): HTMLElement {
     h('div.row', {}, h('label', {}, 'Corners'), corners),
     h('div.row', {}, h('label', {}, 'Roofs'), roofs),
     h('div.row', {}, h('label', {}, 'Detail'), detail),
+    h('div.row', {}, h('label', {}, 'Towers'), towers, h('span.hint', {}, 'domes and spires on corners')),
     h('div.row', {}, h('label', {}, 'Courtyards'), courtyards, h('span.hint', {}, 'blocks of 896+ units')),
     h('div.row', {}, h('label', {}, 'Annexes'), annexes, h('span.hint', {}, 'sheds in yards')),
     h('div.row', {}, h('label', {}, 'Alleys'), alleys, h('span.hint', {}, 'with sky bridges')),

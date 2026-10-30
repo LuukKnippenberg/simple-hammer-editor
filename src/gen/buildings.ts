@@ -6,6 +6,7 @@ import { Rng } from './rng.ts';
 import { FLOOR, bayCount, cleanPolygon, convexHull, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
 import { planBlock, type CornerOption, type Part, type WallPlan } from './buildingPlan.ts';
 import { chooseRoof, roofSolids, type RoofKind, type RoofOption } from './roofs.ts';
+import { chooseCap, towerSides, towerSolids } from './towers.ts';
 
 const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
 
@@ -49,6 +50,8 @@ export interface BuildingOptions {
   detail?: DetailLevel;
   /** Roof shape: one kind for every building, or a mix (default). */
   roofs?: RoofOption;
+  /** Towers with domes, bells, onions or spires on some street corners (default on). */
+  towers?: boolean;
 }
 
 export interface GeneratedBuildings {
@@ -104,8 +107,9 @@ function cornerBlock(doc: VmfDocument, poly: Vector2[], i: number, width: number
  */
 function partSolids(
   doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel, roof: { kind: RoofKind; material: string },
-): { world: KVNode[]; detail: KVNode[] } {
+): { world: KVNode[]; detail: KVNode[]; roofHeight: (p: Vector2) => number; windows: FacadeTile } {
   const world: KVNode[] = [], detail: KVNode[] = [];
+  let roofHeight = (_p: Vector2) => z0 + part.floors * FLOOR + 32;
   const add = (n: KVNode | null) => { if (n) detail.push(n); };
   const poly = part.poly;
   const top = z0 + part.floors * FLOOR;
@@ -166,10 +170,12 @@ function partSolids(
     });
   }
   if (pitched) {
-    detail.push(...roofSolids(doc, poly, top, {
+    const r = roofSolids(doc, poly, top, {
       kind: roof.kind, material: roof.material, wall: s.plain, window: windows, overhang,
       dormers: main && level >= 1, chimneys: main && level >= 1,
-    }, deco).solids);
+    }, deco);
+    detail.push(...r.solids);
+    roofHeight = r.heightAt;
   } else if (main) {
     // Parapet: one brush per edge between the cornice line and 4 units inside the wall.
     const outer = cleanPolygon(offsetPolygon(poly, overhang));
@@ -182,7 +188,33 @@ function partSolids(
       });
     }
   }
-  return { world, detail };
+  return { world, detail, roofHeight, windows };
+}
+
+/**
+ * A tower on the building's street corner: on a rounded corner it continues the curved facade (up to a
+ * radius of 160, touching the curve at its apex); on cut and square corners it stands tangent to both walls.
+ */
+function cornerTower(doc: VmfDocument, part: Part, s: Style, windows: FacadeTile, z0: number, roofHeight: (p: Vector2) => number, rng: Rng): KVNode[] {
+  const c = part.corner!;
+  const diag = c.inward.clone().normalize();
+  let radius: number, centre: Vector2;
+  if (c.shape === 'round') {
+    radius = Math.min(c.size, 160);
+    const arcCentre = c.at.clone().addScaledVector(c.inward, c.size);
+    centre = arcCentre.addScaledVector(diag, -(c.size - radius));
+  } else {
+    radius = rng.pick([96, 112, 128]);
+    centre = c.at.clone().addScaledVector(c.inward, radius);
+  }
+  const top = z0 + part.floors * FLOOR;
+  let z1 = top + rng.int(1, 2) * FLOOR;
+  while (z1 < roofHeight(centre) + 64) z1 += FLOOR;
+  const { cap, material } = chooseCap(rng);
+  return towerSolids(doc, {
+    centre: new Vector2(Math.round(centre.x), Math.round(centre.y)), radius, sides: towerSides(radius),
+    z0: top - 24, z1, windows, trim: s.trim, plain: s.plain, cap, capMaterial: material,
+  }).solids;
 }
 
 /** A func_detail entity holding `solids` (decoration that should not cut visibility), or null when empty. */
@@ -232,6 +264,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   // Decoration draws from its own sequence, so the layout and textures don't change with the detail level.
   const deco = new Rng(opts.seed * 31 + 7);
   const roofRng = new Rng(opts.seed * 17 + 3);
+  const towerRng = new Rng(opts.seed * 13 + 5);
   const plan = planBlock(area, rng, {
     minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
     corners: opts.corners ?? 'mixed', courtyards: opts.courtyards ?? true, annexes: opts.annexes ?? true,
@@ -251,6 +284,11 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
       const r = partSolids(doc, part, s, z0, rng, deco, level, partRoof);
       out.solids.push(...r.world);
       out.detail.push(...r.detail);
+      // Corner towers: most rounded corners, some cut and square ones.
+      if (part.corner && part.floors >= 3 && (opts.towers ?? true)) {
+        const chance = part.corner.shape === 'round' ? 0.6 : part.corner.shape === 'chamfer' ? 0.35 : 0.2;
+        if (towerRng.chance(chance)) out.detail.push(...cornerTower(doc, part, s, r.windows, z0, r.roofHeight, towerRng));
+      }
     }
     if (main.kind === 'main') out.buildings++;
     if (opts.roofProps && main.kind === 'main' && roof.kind === 'flat') {
