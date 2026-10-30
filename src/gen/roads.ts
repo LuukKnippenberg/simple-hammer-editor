@@ -6,8 +6,8 @@ import { planeBrush, type PlaneSpec } from './roofs.ts';
 /**
  * Roads drawn as a line of points: asphalt, cobble, tram or dirt surfaces, kerbs and pavements, as
  * func_detail brushes. Corners are rounded (filleted) so every piece stays a small convex brush. Roads are
- * rebuilt together: where roads meet, the earlier road's surface wins and kerbs and pavements give way, which
- * opens the crossing.
+ * rebuilt together: where roads meet, the earlier road's surface wins and kerbs and pavements give way to it,
+ * which opens the crossing, while the kerbs run on around the block corners.
  */
 
 export type RoadStyle = 'asphalt' | 'cobble' | 'tram' | 'dirt';
@@ -284,19 +284,21 @@ function pieceBrush(doc: VmfDocument, piece: Piece, r: RoadSpec): KVNode | null 
 }
 
 /**
- * Brushes for a set of roads, one list per road. Surfaces of later roads give way to earlier ones; kerbs and
- * pavements give way to other roads' surfaces (and kerbs to other roads' pavements), which opens crossings.
+ * Brushes for a set of roads, one list per road. Kerbs and pavements give way to other roads' surfaces, which
+ * opens crossings, and pavements give way to other roads' kerbs, so the kerb runs on around a block corner.
+ * Otherwise later roads give way to earlier ones (surface to surface, kerb to kerb, pavement to pavement), so
+ * no two brushes overlap.
  */
 export function buildRoads(doc: VmfDocument, roads: RoadSpec[]): KVNode[][] {
   const all = roads.map((r, i) => (r.points.length >= 2 ? roadPieces(r, i) : []));
-  const surfaces = all.flat().filter((p) => p.kind === 'surface');
-  const pavements = all.flat().filter((p) => p.kind === 'pavement');
+  const of = (kind: Kind) => all.flat().filter((p) => p.kind === kind);
+  const surfaces = of('surface'), kerbs = of('kerb'), pavements = of('pavement');
   return roads.map((r, i) => {
     const out: KVNode[] = [];
     for (const piece of all[i]) {
       const cutters = piece.kind === 'surface' ? surfaces.filter((c) => c.road < i)
-        : piece.kind === 'pavement' ? surfaces.filter((c) => c.road !== i)
-          : piece.kind === 'kerb' ? [...surfaces, ...pavements].filter((c) => c.road !== i)
+        : piece.kind === 'kerb' ? [...surfaces.filter((c) => c.road !== i), ...kerbs.filter((c) => c.road < i)]
+          : piece.kind === 'pavement' ? [...surfaces, ...kerbs].filter((c) => c.road !== i).concat(pavements.filter((c) => c.road < i))
             : [];
       let polys = [piece.poly];
       for (const c of cutters) polys = polys.flatMap((p) => subtract(p, c.poly));
