@@ -34,6 +34,8 @@ export class CameraControls {
     window.addEventListener('keydown', (e) => {
       if (isTyping(e) || e.ctrlKey || e.metaKey) return;
       this.keys.add(e.code);
+      // Shift pressed during a look drag (to fly faster) would open Firefox's menu on release.
+      if (e.key === 'Shift' && this.mode === 'look') lockForShiftDrag(this.dom);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
@@ -90,12 +92,12 @@ export class CameraControls {
     e.preventDefault();
     this.last.set(e.clientX, e.clientY);
     this.dom.setPointerCapture(e.pointerId);
+    if (this.mode === 'look' && e.shiftKey) lockForShiftDrag(this.dom);
   };
 
   private onMove = (e: PointerEvent) => {
     if (this.mode === 'none') return;
-    const dx = e.clientX - this.last.x, dy = e.clientY - this.last.y;
-    this.last.set(e.clientX, e.clientY);
+    const { x: dx, y: dy } = dragDelta(this.dom, e, this.last);
     if (this.mode === 'look' || this.mode === 'orbit') {
       this.yaw -= dx * 0.004;
       this.pitch = Math.max(-1.55, Math.min(1.55, this.pitch - dy * 0.004));
@@ -113,6 +115,7 @@ export class CameraControls {
   };
 
   private onUp = (e: PointerEvent) => {
+    if (this.mode === 'look' && e.button === 2) unlockAfterDrag();
     if (this.mode !== 'none' && [0, 1, 2].includes(e.button)) this.mode = 'none';
   };
 
@@ -148,6 +151,39 @@ export class CameraControls {
     this.apply();
     return true;
   }
+}
+
+let unlockTimer = 0;
+
+/**
+ * Locks the pointer during a Shift + right drag. Firefox opens its own context menu on Shift + right
+ * click and ignores preventDefault, but it never opens one while the pointer is locked.
+ */
+export function lockForShiftDrag(dom: HTMLElement): void {
+  clearTimeout(unlockTimer);
+  if (document.pointerLockElement === dom) return;
+  try {
+    Promise.resolve(dom.requestPointerLock()).catch(() => {});
+  } catch {
+    // Without the lock the drag still works; Firefox just shows its menu.
+  }
+}
+
+/** Releases the lock shortly after the button is released, so the contextmenu event that follows still sees it. */
+export function unlockAfterDrag(): void {
+  clearTimeout(unlockTimer);
+  unlockTimer = window.setTimeout(() => {
+    if (document.pointerLockElement) document.exitPointerLock();
+  }, 150);
+}
+
+/** Mouse movement since the last event; a locked pointer reports movement instead of a position. */
+export function dragDelta(dom: HTMLElement, e: PointerEvent, last: Vector2): Vector2 {
+  const d = document.pointerLockElement === dom
+    ? new Vector2(e.movementX, e.movementY)
+    : new Vector2(e.clientX - last.x, e.clientY - last.y);
+  last.set(e.clientX, e.clientY);
+  return d;
 }
 
 export function isTyping(e: KeyboardEvent): boolean {

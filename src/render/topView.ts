@@ -1,5 +1,5 @@
 import { OrthographicCamera, Vector2, Vector3, Box3 } from 'three';
-import { isTyping } from './cameraControls.ts';
+import { dragDelta, isTyping, lockForShiftDrag, unlockAfterDrag } from './cameraControls.ts';
 
 /**
  * Orthographic top-down view (north up), like Hammer's 2D top view.
@@ -26,16 +26,20 @@ export class TopView {
       this.panning = true;
       this.last.set(e.clientX, e.clientY);
       dom.setPointerCapture(e.pointerId);
+      if (e.button === 2 && e.shiftKey) lockForShiftDrag(dom);
     });
     window.addEventListener('pointermove', (e) => {
       if (!this.panning) return;
       const k = (2 * this.zoom) / dom.clientHeight;
-      this.center.x -= (e.clientX - this.last.x) * k;
-      this.center.y += (e.clientY - this.last.y) * k;
-      this.last.set(e.clientX, e.clientY);
+      const d = dragDelta(dom, e, this.last);
+      this.center.x -= d.x * k;
+      this.center.y += d.y * k;
       this.apply();
     });
-    window.addEventListener('pointerup', () => (this.panning = false));
+    window.addEventListener('pointerup', (e) => {
+      if (this.panning && e.button === 2) unlockAfterDrag();
+      this.panning = false;
+    });
     dom.addEventListener('wheel', (e) => {
       if (!this.enabled) return;
       e.preventDefault();
