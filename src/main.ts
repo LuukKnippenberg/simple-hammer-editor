@@ -23,6 +23,9 @@ import { setSoundscapeController } from './ui/soundUi.ts';
 import { audio } from './audio/engine.ts';
 import { mountMissionPanel } from './ui/missionPanel.ts';
 import { mountMissionFlow } from './ui/missionFlow.ts';
+import { pickArea } from './edit/areaPick.ts';
+import { buildMission } from './lw/missionAction.ts';
+import { toast } from './ui/dom.ts';
 import { GameplayOverlay } from './render/gameplayOverlay.ts';
 import { LightingPreview } from './render/lightingPreview.ts';
 import { mountLightingPanel } from './ui/lightingPanel.ts';
@@ -64,7 +67,21 @@ document.getElementById('topbar')!.querySelector('.spacer')!.after(audioBtn);
 const tabs = mountSidebar(document.getElementById('sidebar')!);
 tabs.add('Selection', mountInspector(editor));
 tabs.add('Materials', mountMaterialBrowser(editor));
-const missionFlow = mountMissionFlow(editor);
+const missionFlow = mountMissionFlow(editor, {
+  pickArea: async () => {
+    // Hide the flowchart while the area is drawn in the viewport.
+    const backdrop = missionFlow.dialog.parentElement!;
+    backdrop.hidden = true;
+    const area = await pickArea(editor);
+    backdrop.hidden = false;
+    return area;
+  },
+  build: () => {
+    if (!editor.mission) return;
+    const r = buildMission(editor, editor.mission);
+    toast(editor.container, `Mission built: ${r.entities} entities, ${r.connections} outputs${r.warnings.length ? ` \u00b7 ${r.warnings.length} warning${r.warnings.length > 1 ? 's' : ''}` : ''}`, 4000);
+  },
+});
 tabs.add('Mission', mountMissionPanel(editor, () => missionFlow.open()));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[title^="Entity"]')?.click()));
 const mapPanel = h('div');

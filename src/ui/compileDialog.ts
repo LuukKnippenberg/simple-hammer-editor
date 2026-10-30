@@ -4,6 +4,8 @@ import { h, toast } from './dom.ts';
 import { missionRes } from './missionPanel.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { applyMapSettings } from '../lw/mapSettings.ts';
+import { buildMissionInto } from '../lw/missionBuild.ts';
+import { logicAnchor } from '../lw/missionAction.ts';
 
 export interface CompileOutcome {
   ok: boolean;
@@ -26,6 +28,12 @@ export async function compileCurrent(
   const copy = VmfDocument.parse(editor.doc.serialize());
   const added = applyMapSettings(copy);
   if (added.length) onLine('step', `Map settings added with default values: ${added.join(', ')}`);
+  // The mission flowchart is always compiled as it stands now.
+  if (editor.mission?.stages.length) {
+    const r = buildMissionInto(copy, editor.mission, logicAnchor(copy));
+    onLine('step', `Mission flow built: ${r.entities} entities, ${r.connections} outputs`);
+    for (const w of r.warnings) onLine('warn', w);
+  }
   const q = new URLSearchParams({ name: opts.name, quality: opts.quality, navmesh: opts.navmesh ? '1' : '0' });
   const res = await fetch(`/api/compile?${q}`, { method: 'POST', body: copy.serialize() });
   if (!res.ok || !res.body) {

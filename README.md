@@ -728,6 +728,39 @@ rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), d
 ![Sofia's mission as a flowchart](docs/screenshots/mission-flow.png)
 ![Editing a stage: messages, objectives, a capture transition](docs/screenshots/mission-flow-stage.png)
 
+### Mission flow: building it into the map
+
+**Build into map** (in the flowchart) turns the flowchart into entities as one undo step
+(`src/lw/missionBuild.ts`, `src/lw/missionAction.ts`). **Compile & test** (and
+`scripts/compile-map.mjs`) does the same on the compiled copy, so the map always gets the flowchart as it
+stands. Built entities carry `she_mission 1` and are named `mf_<stage>_...`; building again replaces them
+and the outputs they added to map entities, so they are never edited by hand.
+
+- `mf_start` (logic_auto) triggers the start stage's `mf_<stage>_enter` relay. Entering a stage shows its
+  messages one after another (each `wars_messagebox` displays the next on Continue), makes its objectives
+  visible and in progress, and enables its transitions.
+- Each transition is a disabled relay `mf_<stage>_tN` fed by its condition. When it fires it disables the
+  stage's other transitions, switches their condition sources off, completes or fails the objectives and
+  triggers the next stage, or `PlayerVictory` / `PlayerLost` on a `wars_win_condition` after 3 s.
+- How each condition is built:
+
+  | Condition | Entities |
+  |---|---|
+  | 📍 reach | a disabled `trigger_multiple` brush over the drawn area (ground −32 to +320), filtered to the owner with `filter_owner` |
+  | 💥 destroy | its death output (`OnUnitKilled`, `OnBreak` for props, `OnAllSpawnedDead` for a unit_maker); several entities with one name count up a `math_counter` |
+  | 🛡 lose | the death output of the unit or object goes straight to the transition |
+  | ☠ / 👥 faction, troops | `wars_population_listener` + `logic_compare` (population is food used, not unit count) |
+  | ⏱ survive | `wars_mission_timer`, started with the stage, paused when it ends |
+  | ⚑ capture | the control point's `OnCaptured_Player<n>` |
+  | 💰 resources | not built: a warning. The game has no entity that reports a player's resources; it needs a small Python entity in the game repo |
+
+- **Draw in viewport** (or **Redraw**) on a reach transition hides the flowchart and lets you drag a box in the
+  top view. Esc cancels.
+
+![Drawing the tram line's area over the Largo](docs/screenshots/mission-draw-area.png)
+![Built: the reach triggers in the viewport (tool brushes on)](docs/screenshots/mission-built-triggers.png)
+![The built logic in the logic graph](docs/screenshots/mission-built-logic.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
