@@ -2,10 +2,12 @@ import type { Editor } from '../editor.ts';
 import type { BlockTool, KitTool } from '../edit/tools.ts';
 import type { RoadTool } from '../edit/roadTool.ts';
 import { ROAD_STYLES, type RoadStyle } from '../gen/roads.ts';
+import { makeTerrain, type GroundTool } from '../edit/groundTool.ts';
+import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
-import { h } from './dom.ts';
+import { h, toast } from './dom.ts';
 
-const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road' } as const;
+const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground' } as const;
 const HINTS = {
   select: 'Click to select · Shift adds · drag the gizmo · M move / R resize',
   block: 'Drag on a surface to draw a block',
@@ -14,6 +16,7 @@ const HINTS = {
   kit: 'Click a surface to place · settings in the Mission tab',
   decal: 'Click a wall or floor to place · pick decals in the Materials tab',
   road: 'Click points · snaps onto roads to join them · Enter or double-click builds · Backspace removes a point',
+  ground: 'Drag on terrain to paint or sculpt',
 } as const;
 
 /** Small panel in the viewport corner with the active tool's settings. */
@@ -80,6 +83,32 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
         h('div.row', {}, h('label', {}, 'Corners'), num(tool.radius, (v) => (tool.radius = v), 32, 0)),
       );
     }
+    if (name === 'ground') {
+      const tool = editor.tools.tools.ground as GroundTool;
+      const modes: [GroundMode, string][] = [['paint', 'Paint'], ['erase', 'Erase'], ['raise', 'Raise'], ['lower', 'Lower'], ['smooth', 'Smooth'], ['flatten', 'Flatten']];
+      const seg = h('div.seg', {}, ...modes.map(([m, l]) => {
+        const b = h('button', { onclick: () => { tool.mode = m; render(); } }, l);
+        b.classList.toggle('active', tool.mode === m);
+        return b;
+      }));
+      const set = h('select', { title: 'Paint shows the second texture; Erase brings back the first' }, ...GROUND_SETS.map((g) => h('option', { value: g.material }, g.label))) as HTMLSelectElement;
+      set.value = tool.set;
+      set.addEventListener('change', () => { tool.set = set.value; set.blur(); });
+      const radius = h('input', { type: 'range', min: 32, max: 512, step: 16, value: tool.radius }) as HTMLInputElement;
+      radius.addEventListener('input', () => (tool.radius = Number(radius.value)));
+      const strength = h('input', { type: 'range', min: 0.05, max: 1, step: 0.05, value: tool.strength }) as HTMLInputElement;
+      strength.addEventListener('input', () => (tool.strength = Number(strength.value)));
+      const floors = [...editor.selection.solids].filter((s) => !s.entity && !s.isDisplacement);
+      rows.push(seg,
+        h('div.row', {}, h('label', {}, 'Ground'), set),
+        h('div.row', {}, h('label', {}, 'Radius'), radius),
+        h('div.row', {}, h('label', {}, 'Strength'), strength),
+        h('button', {
+          disabled: !floors.length,
+          title: 'Replace the selected floor brushes with displacement terrain in this ground set',
+          onclick: () => { const n = makeTerrain(editor, floors, tool.set); render(); toast(editor.container, `Made ${n} terrain patches`); },
+        }, floors.length ? `Turn ${floors.length} selected floor${floors.length > 1 ? 's' : ''} into terrain` : 'Select a floor brush to turn it into terrain'));
+    }
     if (name === 'kit') {
       const kit = (editor.tools.tools.kit as KitTool).kit;
       rows.push(h('div', {}, kit.icon, ' ', kit.label));
@@ -90,6 +119,6 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
     }
     box.replaceChildren(...rows);
   };
-  for (const ev of ['toolchange', 'material', 'entityclass', 'kit', 'decal', 'roadstyle']) editor.on(ev, render);
+  for (const ev of ['toolchange', 'material', 'entityclass', 'kit', 'decal', 'roadstyle', 'selection']) editor.on(ev, render);
   render();
 }

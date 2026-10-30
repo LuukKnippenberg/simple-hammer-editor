@@ -12,6 +12,7 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'kit', icon: '⚔', label: 'Lambda Wars kit: click to place the kit chosen in the Mission tab', key: '5' },
   { name: 'decal', icon: '◩', label: 'Decal: click a surface to place the decal chosen in the Materials tab', key: '6' },
   { name: 'road', icon: '🛣', label: 'Road: click points, Enter or double-click to build', key: '7' },
+  { name: 'ground', icon: '⛰', label: 'Ground: paint and sculpt terrain', key: '8' },
 ];
 const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
 

@@ -189,12 +189,12 @@ function block(name: string, size: number, rowFn: (r: number) => string): KVNode
 }
 
 /** A square terrain patch: a thin world brush whose top face is a displacement (power 3: 9×9, power 4: 17×17 vertices). */
-export function terrainPatch(doc: VmfDocument, x0: number, y0: number, size: number, material: string, heightAt: (x: number, y: number) => number, alphaAt: (x: number, y: number) => number, power = 3): KVNode {
-  const min = new Vector3(x0, y0, -16), max = new Vector3(x0 + size, y0 + size, 0);
+export function terrainPatch(doc: VmfDocument, x0: number, y0: number, size: number, material: string, heightAt: (x: number, y: number) => number, alphaAt: (x: number, y: number) => number, power = 3, z0 = 0, sizeY = size): KVNode {
+  const min = new Vector3(x0, y0, z0 - 16), max = new Vector3(x0 + size, y0 + sizeY, z0);
   const node = solidNode(doc, boxFaces(min, max, { top: material, bottom: 'TOOLS/TOOLSNODRAW', sides: 'TOOLS/TOOLSNODRAW' }));
   const solid = new MapSolid(node, null);
   const top = buildBrushFaces(solid).find((f) => f.plane.normal.z > 0.99)!;
-  const start = new Vector3(x0, y0, 0);
+  const start = new Vector3(x0, y0, z0);
   const n = (1 << power) + 1;
   const grid = dispBaseGrid(dispCorners(top, start), n);
   const fmt = (v: number) => String(Math.round(v * 100) / 100);
@@ -203,7 +203,7 @@ export function terrainPatch(doc: VmfDocument, x0: number, y0: number, size: num
     new KVPair('power', String(power)), new KVPair('startposition', `[${vecStr(start)}]`), new KVPair('flags', '0'),
     new KVPair('elevation', '0'), new KVPair('subdiv', '0'),
     block('normals', n, () => Array(n).fill('0 0 1').join(' ')),
-    block('distances', n, (r) => grid.slice(r * n, r * n + n).map((p) => fmt(heightAt(p.x, p.y))).join(' ')),
+    block('distances', n, (r) => grid.slice(r * n, r * n + n).map((p) => fmt(heightAt(p.x, p.y) - z0)).join(' ')),
     block('offsets', n, () => Array(n).fill('0 0 0').join(' ')),
     block('offset_normals', n, () => Array(n).fill('0 0 1').join(' ')),
     block('alphas', n, (r) => grid.slice(r * n, r * n + n).map((p) => fmt(alphaAt(p.x, p.y))).join(' ')),

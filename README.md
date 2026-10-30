@@ -585,6 +585,32 @@ cancels. The preview shows the rounded centre line and the edges of the carriage
 ![The rounded bend](docs/screenshots/roads-bend.png)
 ![The Road panel](docs/screenshots/roads-panel.png)
 
+### Ground painting
+
+The **Ground tool** (8) paints and sculpts displacement terrain (`src/edit/terrain.ts`):
+
+- **Paint / Erase**: displacements blend two textures by a per-vertex alpha; Paint brings in the second
+  texture of the chosen **ground set**, Erase the first. Eight sets from the game's blend materials:
+  grass → dirt, grass → mud, gravel → dirt, rubble → dirt, cobble → dirt, dirt → concrete debris,
+  rock → sand, snow → trodden snow. Painting with another set switches the touched patches to it.
+- **Raise, Lower, Smooth, Flatten** (to the height where the stroke started).
+- Radius and strength sliders; a ring follows the cursor; one undo step per stroke. Dabs are spaced a
+  quarter radius apart, so strokes stay even at any mouse speed.
+- Vertices are found by world position, so the shared edges of neighbouring patches always change alike:
+  no cracks, and smoothing works across patch edges.
+- **Turn into terrain**: select a flat floor brush and the tool options replace it with displacement
+  patches (512 units, 9×9 vertices) in the chosen set.
+- **Blend into ground** (Road panel): paints a worn dirt verge along both outer edges of a road, or the
+  whole width under a dirt track.
+- A 64-patch test terrain with a hill, painted paths and two blended roads compiles through vbsp, vvis
+  and vrad without errors.
+
+![Painted dirt paths and a raised, smoothed hill](docs/screenshots/ground-painted.png)
+![Roads on the terrain, blended into the ground](docs/screenshots/ground-overview.png)
+![A worn verge along the road](docs/screenshots/ground-road-verge.png)
+![The dirt track across the grass](docs/screenshots/ground-dirt-track.png)
+![The Ground tool's options and brush ring on the hill](docs/screenshots/ground-hill-tool.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

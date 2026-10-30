@@ -11,7 +11,7 @@ import type { CornerOption } from '../gen/buildingPlan.ts';
 import type { RoofOption } from '../gen/roofs.ts';
 import { ioSection } from './ioEditor.ts';
 import { ROAD_STYLES, centreline, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
-import { rebuildRoads } from '../gen/roadAction.ts';
+import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -155,7 +155,15 @@ function roadPanel(editor: Editor, e: MapEntity, road: RoadSpec): HTMLElement {
     h('div.row', {}, h('label', {}, 'Width'), num('width', 32, 64)),
     h('div.row', {}, h('label', {}, 'Pavement'), num('pavement', 16, 0)),
     h('div.row', {}, h('label', {}, 'Corners'), num('radius', 32, 0)),
-    h('button', { onclick: () => rebuildRoads(editor, 'Rebuild roads') }, 'Rebuild all roads'));
+    h('div.row', {},
+      h('button', { onclick: () => rebuildRoads(editor, 'Rebuild roads') }, 'Rebuild all roads'),
+      h('button', {
+        title: 'Paint the terrain\'s second texture along the road (its verges, or under a dirt track)',
+        onclick: () => {
+          const n = blendRoadIntoGround(editor, road);
+          toast(editor.container, n ? `Blended into ${n} terrain patch${n > 1 ? 'es' : ''}` : 'No terrain under this road (Ground tool: turn the floor into terrain)');
+        },
+      }, 'Blend into ground')));
 }
 
 /** Turns the selected block brushes into buildings. */
