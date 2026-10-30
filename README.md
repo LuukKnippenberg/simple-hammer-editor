@@ -351,6 +351,34 @@ file pickers:
 ![Map settings on the Sofia map, with fog in the lighting preview](docs/screenshots/settings-sofia.png)
 ![A new map: four settings marked Default, added when compiling](docs/screenshots/settings-new-map.png)
 
+## Building generator: City 17 architecture
+
+The phase 5 generator made one box per lot. These phases rebuild it after the architecture of Half-Life 2's
+City 17 (shaped corners, real roofs, layered facades); each one is usable from the Building panel,
+Generate map, Sketch and the Sofia script.
+
+### Building phase 1: footprints and corners
+
+- **Block planner** (`src/gen/buildingPlan.ts`): blocks of 896+ units become a ring of buildings around a
+  courtyard (corner buildings, lots along each side); smaller blocks become a row of lots, deep lots
+  sometimes L-shaped around a back yard. Buildings vary in height, corner buildings tend to be a floor taller.
+- **Corners**: buildings on a block corner get a square, 45° cut or rounded corner (radius 128–256, built
+  from 64-unit segments). Cut and rounded faces get entrance doors on the ground floor.
+- **Whole windows on every face** (`src/gen/facade.ts`): each wall's texture starts at its corner and is
+  stretched slightly so it shows a whole number of window bays, so angled and curved faces never cut a
+  window in half.
+- **Annexes and walls**: one- and two-storey sheds in courtyards and yards, and a wall with a gateway on
+  one side of most courtyards.
+- Building panel options: corners (mixed, cut, rounded, square), courtyards, annexes.
+- A 32-building test set (alleys, sky bridges, gates) compiles through vbsp, vvis and vrad without errors.
+
+Before: [the phase 5 boxes](docs/screenshots/phase5-buildings-generated.png).
+
+![Five blocks: two courtyard rings, L-shaped lots, shaped corners](docs/screenshots/buildings-p1-overview.png)
+![A courtyard with a shed, closed by a wall with a gateway](docs/screenshots/buildings-p1-courtyard.png)
+![A rounded corner: one window per segment, an arcade of doors](docs/screenshots/buildings-p1-round-corner.png)
+![A cut corner with its entrance](docs/screenshots/buildings-p1-cut-corner.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

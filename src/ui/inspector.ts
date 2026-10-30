@@ -7,6 +7,7 @@ import type { MapEntity } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
 import { buildingsFromSelection } from '../gen/buildingAction.ts';
 import { FACADE_STYLES, type FacadeStyle } from '../gen/buildings.ts';
+import type { CornerOption } from '../gen/buildingPlan.ts';
 import { ioSection } from './ioEditor.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
@@ -136,19 +137,28 @@ function buildingPanel(editor: Editor): HTMLElement {
   const style = h('select', {}, h('option', { value: '' }, 'Mixed'), ...Object.keys(FACADE_STYLES).map((k) => h('option', { value: k }, k))) as HTMLSelectElement;
   const alleys = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const props = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
+  const corners = h('select', {},
+    h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'chamfer' }, 'Cut (45°)'),
+    h('option', { value: 'round' }, 'Rounded'), h('option', { value: 'square' }, 'Square')) as HTMLSelectElement;
+  const courtyards = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
+  const annexes = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const go = () => {
     const lo = Math.max(1, parseInt(minF.value, 10) || 2);
     const n = buildingsFromSelection(editor, {
       minFloors: lo, maxFloors: Math.max(lo, parseInt(maxF.value, 10) || lo),
       alleys: alleys.checked, roofProps: props.checked, style: (style.value || undefined) as FacadeStyle | undefined,
+      corners: corners.value as CornerOption, courtyards: courtyards.checked, annexes: annexes.checked,
     });
     toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''}` : 'Selection is too small for a building (min 128×128)');
   };
   return h('div.section', {},
     h('h3', {}, 'Generate buildings'),
-    h('p.hint', {}, 'Replaces the selected block(s) with a block of connected buildings on a 128-unit grid.'),
+    h('p.hint', {}, 'Replaces the selected block(s) with a city block: a ring around a courtyard when large enough, otherwise a row of buildings.'),
     h('div.row', {}, h('label', {}, 'Floors'), minF, h('span.muted', {}, 'to'), maxF),
     h('div.row', {}, h('label', {}, 'Facade'), style),
+    h('div.row', {}, h('label', {}, 'Corners'), corners),
+    h('div.row', {}, h('label', {}, 'Courtyards'), courtyards, h('span.hint', {}, 'blocks of 896+ units')),
+    h('div.row', {}, h('label', {}, 'Annexes'), annexes, h('span.hint', {}, 'sheds in yards')),
     h('div.row', {}, h('label', {}, 'Alleys'), alleys, h('span.hint', {}, 'with sky bridges')),
     h('div.row', {}, h('label', {}, 'Roof props'), props),
     h('button.primary', { onclick: go }, '🏢 Generate buildings'));

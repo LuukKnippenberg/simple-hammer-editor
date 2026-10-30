@@ -1,23 +1,29 @@
-import { Box3, Vector2, Vector3 } from 'three';
+import { Box2, Box3, Vector2, Vector3 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
-import type { TexAxis, VmfDocument } from '../vmf/map.ts';
-import { prismFaces, solidNode, type FaceSpec } from '../edit/brushes.ts';
+import type { VmfDocument } from '../vmf/map.ts';
+import { solidNode } from '../edit/brushes.ts';
 import { Rng } from './rng.ts';
+import { FLOOR, cleanPolygon, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
+import { planBlock, type CornerOption, type Part, type WallPlan } from './buildingPlan.ts';
 
-/** Facade sets from the game's building_template materials: one 512px tile is one 128-unit floor. */
+const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
+
+/**
+ * Facade sets from the game's building_template materials: one 512px tile is one 128-unit floor and
+ * holds `bays` windows across.
+ */
 export const FACADE_STYLES = {
-  stucco: { windows: ['building_template002b', 'building_template002c'], ground: ['building_template002e', 'building_template002f'], plain: 'building_template002h', trim: 'building_template002k' },
-  stone: { windows: ['building_template003e', 'building_template003d'], ground: ['building_template003c'], plain: 'building_template003a', trim: 'building_template003a' },
-  brown: { windows: ['building_template001b'], ground: ['building_template001d'], plain: 'building_template001d', trim: 'building_template001f' },
-  brick: { windows: ['building_template011c'], ground: ['building_template011g'], plain: 'building_template011b', trim: 'building_template011b' },
-  pale: { windows: ['building_template002o', 'building_template002p'], ground: ['building_template002f'], plain: 'building_template004h', trim: 'building_template002k' },
+  stucco: { windows: [t('building_template002b', 2), t('building_template002c', 2)], ground: [t('building_template002e', 1), t('building_template002f', 1)], door: t('building_template002e', 1), plain: t('building_template002h', 0), trim: t('building_template002k', 0) },
+  stone: { windows: [t('building_template003e', 2), t('building_template003d', 2)], ground: [t('building_template003c', 2)], door: t('building_template002e', 1), plain: t('building_template003a', 0), trim: t('building_template003a', 0) },
+  brown: { windows: [t('building_template001b', 2)], ground: [t('building_template001d', 2)], door: t('building_template002e', 1), plain: t('building_template001d', 0), trim: t('building_template001f', 0, 256) },
+  brick: { windows: [t('building_template011c', 1)], ground: [t('building_template011g', 1)], door: t('building_template011g', 1), plain: t('building_template011b', 0), trim: t('building_template011b', 0) },
+  pale: { windows: [t('building_template002o', 2), t('building_template002p', 2)], ground: [t('building_template002f', 1)], door: t('building_template002e', 1), plain: t('building_template004h', 0), trim: t('building_template002k', 0) },
 } as const;
 export type FacadeStyle = keyof typeof FACADE_STYLES;
+type Style = (typeof FACADE_STYLES)[FacadeStyle];
 
 const ROOF = 'CONCRETE/CONCRETEFLOOR028C';
 const NODRAW = 'TOOLS/TOOLSNODRAW';
-const FLOOR = 128;
-const TEX_SCALE = 0.25;
 const ROOF_PROPS = [
   'models/props_rooftop/roof_vent003.mdl', 'models/props_rooftop/roof_vent004.mdl', 'models/props_rooftop/chimneypipe01a.mdl',
   'models/props_rooftop/antenna01a.mdl', 'models/props_rooftop/roof_dish001.mdl', 'models/props_rooftop/rooftopcluser01a.mdl',
@@ -32,6 +38,12 @@ export interface BuildingOptions {
   /** Restrict to one facade style; mixed when omitted. */
   style?: FacadeStyle;
   roofProps: boolean;
+  /** Corners of buildings on the block's corners: square, cut, rounded, or a mix (default). */
+  corners?: CornerOption;
+  /** Build large blocks as a ring of buildings around a courtyard (default on). */
+  courtyards?: boolean;
+  /** Low sheds in yards and courtyards (default on). */
+  annexes?: boolean;
 }
 
 export interface GeneratedBuildings {
@@ -41,121 +53,104 @@ export interface GeneratedBuildings {
   buildings: number;
 }
 
-/** Texture axes so a facade tile starts at the building corner and each floor gets exactly one tile row. */
-function facadeAxes(normal: Vector3, baseZ: number): { u: TexAxis; v: TexAxis } {
-  const horizontal = Math.abs(normal.x) > Math.abs(normal.y) ? new Vector3(0, normal.x > 0 ? 1 : -1, 0) : new Vector3(normal.y > 0 ? -1 : 1, 0, 0);
-  const tile = 512;
-  return {
-    u: { axis: horizontal, shift: 0, scale: TEX_SCALE },
-    v: { axis: new Vector3(0, 0, -1), shift: (((baseZ / TEX_SCALE) % tile) + tile) % tile, scale: TEX_SCALE },
-  };
-}
+const inside = (poly: Vector2[], p: Vector2) => poly.every((a, i) => {
+  const b = poly[(i + 1) % poly.length];
+  return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) >= 0;
+});
 
-/** A box whose four sides use a facade material aligned to `alignZ`, top and bottom given separately. */
-function facadeBox(min: Vector3, max: Vector3, side: string, top: string, alignZ: number, bottom = NODRAW): FaceSpec[] {
-  const fp = [new Vector2(min.x, min.y), new Vector2(max.x, min.y), new Vector2(max.x, max.y), new Vector2(min.x, max.y)];
-  const faces = prismFaces(fp, min.z, max.z, { top, bottom, sides: side });
-  for (const f of faces.slice(2)) {
-    const [a, b, c] = f.points;
-    const n = new Vector3().subVectors(c, a).cross(new Vector3().subVectors(b, a)).normalize();
-    Object.assign(f, facadeAxes(n, alignZ));
+/** Brushes of one wing: ground floor, upper floors, cornice and (for main buildings) a parapet. */
+function partSolids(doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng): KVNode[] {
+  const out: KVNode[] = [];
+  const poly = part.poly;
+  const top = z0 + part.floors * FLOOR;
+  const ground = rng.pick(s.ground);
+  const groundTiles = poly.map((_, i) => (part.cornerEdges.includes(i) ? s.door : ground));
+  // Ground floor, sunk a little so the building sits on uneven ground.
+  out.push(solidNode(doc, facadePrism(poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : ROOF, z0)));
+  if (part.floors > 1) out.push(solidNode(doc, facadePrism(poly, z0 + FLOOR, top, rng.pick(s.windows), ROOF, z0)));
+  // Cornice band sticking out 8 units.
+  const cornice = cleanPolygon(offsetPolygon(poly, 8));
+  if (isConvexCcw(cornice)) out.push(solidNode(doc, facadePrism(cornice, top - 16, top, s.trim, ROOF, top - 16, s.trim.material)));
+  if (part.kind === 'main') {
+    // Parapet: one brush per edge between the cornice line and 4 units inside the wall.
+    const inner = cleanPolygon(offsetPolygon(poly, -4));
+    if (inner.length === cornice.length && isConvexCcw(inner)) {
+      cornice.forEach((a, i) => {
+        const b = cornice[(i + 1) % cornice.length];
+        const quad = [a, b, inner[(i + 1) % inner.length], inner[i]];
+        if (isConvexCcw(quad)) out.push(solidNode(doc, facadePrism(quad, top, top + 32, s.plain, s.plain.material, top, NODRAW)));
+      });
+    }
   }
-  return faces;
+  return out;
 }
 
-function mat(name: string): string {
-  return `BUILDING_TEMPLATE/${name.toUpperCase()}`;
-}
-
-/** Splits a rectangle into lots on a 128-unit grid. */
-function splitLots(rect: Box3, rng: Rng, maxLot: number, minLot: number): Box3[] {
-  const size = rect.getSize(new Vector3());
-  const axis = size.x >= size.y ? 'x' : 'y';
-  const len = size[axis];
-  if (len <= maxLot || len < minLot * 2) return [rect];
-  const steps = Math.floor(len / FLOOR);
-  const minSteps = Math.ceil(minLot / FLOOR);
-  const cut = rng.int(minSteps, steps - minSteps) * FLOOR;
-  const a = rect.clone(), b = rect.clone();
-  a.max[axis] = rect.min[axis] + cut;
-  b.min[axis] = rect.min[axis] + cut;
-  return [...splitLots(a, rng, maxLot, minLot), ...splitLots(b, rng, maxLot, minLot)];
+/** A 16-unit wall along a→b; a gateway leaves a 128-unit opening under a lintel. */
+function wallSolids(doc: VmfDocument, w: WallPlan, s: Style, z0: number): KVNode[] {
+  const dir = new Vector2().subVectors(w.b, w.a);
+  const len = dir.length();
+  dir.normalize();
+  const side = new Vector2(dir.y, -dir.x).multiplyScalar(8);
+  const seg = (from: number, to: number, zMin: number, zMax: number) => {
+    const p = w.a.clone().addScaledVector(dir, from), q = w.a.clone().addScaledVector(dir, to);
+    // Counter-clockwise: along the outer side, back along the inner side.
+    const poly = cleanPolygon([p.clone().add(side), q.clone().add(side), q.clone().sub(side), p.clone().sub(side)]);
+    return isConvexCcw(poly) ? [solidNode(doc, facadePrism(poly, zMin, zMax, s.plain, s.trim.material, z0))] : [];
+  };
+  const top = z0 + w.height;
+  if (!w.gate || len < 256) return seg(0, len, z0 - 32, top);
+  const g0 = Math.round((len / 2 - 64) / 16) * 16, g1 = g0 + 128;
+  return [...seg(0, g0, z0 - 32, top), ...seg(g1, len, z0 - 32, top), ...seg(g0, g1, z0 + 160, top)];
 }
 
 /**
- * Fills a footprint with a block of buildings: lots of varying height and facade style, a ground floor
- * with doors or shop fronts, a cornice, a roof with parapet, optional rooftop props, and (with alleys)
- * sky bridges linking neighbouring buildings. Everything snaps to the 128-unit facade grid.
+ * Fills a footprint with a block of buildings: a ring around a courtyard or a row of lots (some L-shaped),
+ * shaped corners with entrances on the block corners, varying heights, annexes, walls with gateways,
+ * cornices, parapets, optional rooftop props and (with alleys) sky bridges.
  */
 export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: BuildingOptions): GeneratedBuildings {
   const rng = new Rng(opts.seed);
   const g = FLOOR;
-  const area = new Box3(
-    new Vector3(Math.ceil(footprint.min.x / g) * g, Math.ceil(footprint.min.y / g) * g, footprint.min.z),
-    new Vector3(Math.floor(footprint.max.x / g) * g, Math.floor(footprint.max.y / g) * g, footprint.min.z),
+  const area = new Box2(
+    new Vector2(Math.ceil(footprint.min.x / 64) * 64, Math.ceil(footprint.min.y / 64) * 64),
+    new Vector2(Math.floor(footprint.max.x / 64) * 64, Math.floor(footprint.max.y / 64) * 64),
   );
   const out: GeneratedBuildings = { solids: [], entities: [], buildings: 0 };
-  if (area.max.x - area.min.x < g || area.max.y - area.min.y < g) return out;
   const z0 = footprint.min.z;
+  const plan = planBlock(area, rng, {
+    minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
+    corners: opts.corners ?? 'mixed', courtyards: opts.courtyards ?? true, annexes: opts.annexes ?? true,
+  });
   const styles = Object.keys(FACADE_STYLES) as FacadeStyle[];
-  const lots = splitLots(area, rng, 768, 256);
-  const placed: { box: Box3; floors: number }[] = [];
-  let lastStyle: FacadeStyle | null = null;
+  const first = rng.int(0, styles.length - 1);
+  const styleOf = (slot: number) => FACADE_STYLES[opts.style ?? styles[(first + slot) % styles.length]];
 
-  for (const lot0 of lots) {
-    const lot = lot0.clone();
-    if (opts.alleys) {
-      // Shrink lots that border another lot to open a 64-unit alley (keeps outer edges flush).
-      for (const axis of ['x', 'y'] as const) {
-        if (lot.min[axis] > area.min[axis]) lot.min[axis] += 32;
-        if (lot.max[axis] < area.max[axis]) lot.max[axis] -= 32;
-      }
-    }
-    const size = lot.getSize(new Vector3());
-    if (size.x < 128 || size.y < 128) continue;
-    const floors = rng.int(opts.minFloors, opts.maxFloors);
-    let style = opts.style ?? rng.pick(styles);
-    if (!opts.style && style === lastStyle) style = styles[(styles.indexOf(style) + 1) % styles.length];
-    lastStyle = style;
-    const s = FACADE_STYLES[style];
-    const top = z0 + floors * g;
-    const lo = new Vector3(lot.min.x, lot.min.y, z0 - 32);
-    // Ground floor (sunk a little so the building sits on uneven ground).
-    out.solids.push(solidNode(doc, facadeBox(lo, new Vector3(lot.max.x, lot.max.y, z0 + g), mat(rng.pick(s.ground)), NODRAW, z0)));
-    if (floors > 1) {
-      out.solids.push(solidNode(doc, facadeBox(new Vector3(lot.min.x, lot.min.y, z0 + g), new Vector3(lot.max.x, lot.max.y, top), mat(rng.pick(s.windows)), ROOF, z0)));
-    } else {
-      // Single storey: the ground floor box needs a roof of its own.
-      out.solids.pop();
-      out.solids.push(solidNode(doc, facadeBox(lo, new Vector3(lot.max.x, lot.max.y, top), mat(rng.pick(s.ground)), ROOF, z0)));
-    }
-    // Cornice band sticking out 8 units, then a parapet ring on the roof.
-    out.solids.push(solidNode(doc, facadeBox(new Vector3(lot.min.x - 8, lot.min.y - 8, top - 16), new Vector3(lot.max.x + 8, lot.max.y + 8, top), mat(s.trim), ROOF, top - 16, mat(s.trim))));
-    const p = 12, ph = 32;
-    const ring: [Vector3, Vector3][] = [
-      [new Vector3(lot.min.x - 8, lot.min.y - 8, top), new Vector3(lot.max.x + 8, lot.min.y - 8 + p, top + ph)],
-      [new Vector3(lot.min.x - 8, lot.max.y + 8 - p, top), new Vector3(lot.max.x + 8, lot.max.y + 8, top + ph)],
-      [new Vector3(lot.min.x - 8, lot.min.y - 8 + p, top), new Vector3(lot.min.x - 8 + p, lot.max.y + 8 - p, top + ph)],
-      [new Vector3(lot.max.x + 8 - p, lot.min.y - 8 + p, top), new Vector3(lot.max.x + 8, lot.max.y + 8 - p, top + ph)],
-    ];
-    for (const [a, b] of ring) out.solids.push(solidNode(doc, facadeBox(a, b, mat(s.plain), mat(s.plain), top, NODRAW)));
-
-    if (opts.roofProps) {
+  for (const b of plan.buildings) {
+    const s = styleOf(b.styleSlot);
+    for (const part of b.parts) out.solids.push(...partSolids(doc, part, s, z0, rng));
+    const main = b.parts[0];
+    if (main.kind === 'main') out.buildings++;
+    if (opts.roofProps && main.kind === 'main') {
+      const box = new Box2().setFromPoints(main.poly);
+      const size = box.getSize(new Vector2());
       const n = Math.min(3, Math.floor((size.x * size.y) / (256 * 256)));
+      const top = z0 + main.floors * g;
       for (let i = 0; i < n; i++) {
+        const p = new Vector2(Math.round(rng.range(box.min.x + 48, box.max.x - 48)), Math.round(rng.range(box.min.y + 48, box.max.y - 48)));
+        if (!inside(cleanPolygon(offsetPolygon(main.poly, -40)), p)) continue;
         out.entities.push({
           classname: 'prop_static',
-          origin: new Vector3(Math.round(rng.range(lot.min.x + 48, lot.max.x - 48)), Math.round(rng.range(lot.min.y + 48, lot.max.y - 48)), top),
+          origin: new Vector3(p.x, p.y, top),
           keys: { model: rng.pick(ROOF_PROPS), angles: `0 ${rng.int(0, 3) * 90} 0`, solid: '6' },
         });
       }
     }
-    placed.push({ box: lot, floors });
-    out.buildings++;
   }
+  for (const w of plan.walls) out.solids.push(...wallSolids(doc, w, styleOf(rng.int(0, 4)), z0));
 
   if (opts.alleys) {
     // Sky bridges between neighbours that are both at least three floors high.
+    const placed = plan.lots;
     for (let i = 0; i < placed.length; i++) {
       for (let j = i + 1; j < placed.length; j++) {
         const a = placed[i], b = placed[j];
@@ -173,11 +168,11 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
           else continue;
           const mid = Math.round((lo2 + hi2) / 2 / 16) * 16;
           const zb = z0 + floor * g;
-          const min = new Vector3(), max = new Vector3();
+          const min = new Vector2(), max = new Vector2();
           min[axis] = from; max[axis] = to;
           min[other] = mid - 64; max[other] = mid + 64;
-          min.z = zb; max.z = zb + g;
-          out.solids.push(solidNode(doc, facadeBox(min, max, mat(FACADE_STYLES.stone.windows[0]), ROOF, z0, mat(FACADE_STYLES.stone.plain))));
+          const poly = [new Vector2(min.x, min.y), new Vector2(max.x, min.y), new Vector2(max.x, max.y), new Vector2(min.x, max.y)];
+          out.solids.push(solidNode(doc, facadePrism(poly, zb, zb + g, FACADE_STYLES.stone.windows[0], ROOF, z0, FACADE_STYLES.stone.plain.material)));
         }
       }
     }
