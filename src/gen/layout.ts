@@ -5,7 +5,8 @@ import { boxFaces, solidNode } from '../edit/brushes.ts';
 import { buildBrushFaces } from '../geom/brush.ts';
 import { dispBaseGrid, dispCorners } from '../geom/displacement.ts';
 import { ARCHITECTURES, detailEntityNode, generateBuildings, type ArchitectureName } from './buildings.ts';
-import { streetDressing, type BlockDressing } from './streets.ts';
+import type { BlockDressing } from './streets.ts';
+import { blockIntoDoc, blockUids, groupStreet, type BlockSpec } from './buildingStore.ts';
 import { standZ } from './props.ts';
 import { Rng } from './rng.ts';
 import { cameraSpawnFor } from '../lw/kits.ts';
@@ -346,23 +347,31 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
     }
   }
 
-  // Buildings on city blocks, trees in forest cells.
-  const dressings: BlockDressing[] = [];
+  // Buildings on city blocks, trees in forest cells. Each block is a stored block (with a handle), all of them
+  // one group sharing the street dressing.
+  const blocks: { spec: BlockSpec; dressing: BlockDressing }[] = [];
+  const ids = new Rng(opts.seed * 37 + 5), uid = blockUids(ids);
+  const group = { id: uid(), seed: ids.int(1, 1e9) };
+  const addBlock = (r: Box3, options: BlockSpec['options']) => {
+    const spec: BlockSpec = {
+      uid: uid(), group: group.id, street: 'ground', groupSeed: group.seed, z: r.min.z,
+      rect: { x0: r.min.x + ox, y0: r.min.y + oy, x1: r.max.x + ox, y1: r.max.y + oy }, options,
+    };
+    const b = blockIntoDoc(doc, spec, (c, o, k) => entity(doc, c, o, k), new Vector3(ox, oy, 0));
+    solids.push(...b.world);
+    ents.push(...b.entities);
+    blocks.push({ spec, dressing: b.out.dressing });
+  };
   for (const region of regions(L, Cell.Block)) {
     for (const r of rectangles(L, region)) {
       const inset = r.clone();
       inset.min.x += 32; inset.min.y += 32; inset.max.x -= 32; inset.max.y -= 32;
       inset.min.z = inset.max.z = 0;
       const arch = ARCHITECTURES[opts.architecture ?? 'mixed'];
-      const b = generateBuildings(doc, inset, {
+      addBlock(inset, {
         seed: rng.int(1, 1e9), minFloors: Math.min(arch.floors[0], 5), maxFloors: Math.min(arch.floors[1], 7), alleys: rng.chance(0.5), roofProps: true, architecture: opts.architecture,
         interiors: opts.interiors ?? (opts.theme === 'rural' ? 'some' : undefined),
       });
-      solids.push(...b.solids);
-      const d = detailEntityNode(doc, b.detail);
-      if (d) ents.push(d);
-      for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
-      dressings.push(b.dressing);
     }
   }
   // Enterable houses: village houses in the countryside, shacks in the city, with gaps between them.
@@ -373,18 +382,13 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
       inset.min.x += 32; inset.min.y += 32; inset.max.x -= 32; inset.max.y -= 32;
       inset.min.z = inset.max.z = 0;
       const village = opts.theme === 'rural';
-      const b = generateBuildings(doc, inset, {
+      addBlock(inset, {
         seed: houseRng.int(1, 1e9), minFloors: 1, maxFloors: village ? 2 : 1, alleys: true, roofProps: false, courtyards: false,
         architecture: village ? 'village' : 'slum', interiors: 'all',
       });
-      solids.push(...b.solids);
-      const d = detailEntityNode(doc, b.detail);
-      if (d) ents.push(d);
-      for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
-      dressings.push(b.dressing);
     }
   }
-  for (const e of streetDressing(dressings, rng, { groundAt: ground })) ents.push(entity(doc, e.classname, e.origin, e.keys));
+  for (const e of groupStreet(blocks.map((b) => b.spec), ground, blocks.map((b) => b.dressing), rng)) ents.push(entity(doc, e.classname, e.origin, e.keys));
   const cells = (type: Cell) => L.cells.flatMap((c, i) => (c === type ? [{ x: i % L.w, y: Math.floor(i / L.w) }] : []));
   for (const c of cells(Cell.Forest)) {
     for (let k = 0; k < 3; k++) {

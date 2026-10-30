@@ -2,8 +2,9 @@ import { Box2, Box3, Vector2, Vector3 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
-import { detailEntityNode, generateBuildings, type ArchitectureName, type FacadeStyle } from './buildings.ts';
-import { streetDressing, type BlockDressing } from './streets.ts';
+import type { ArchitectureName, FacadeStyle } from './buildings.ts';
+import type { BlockDressing } from './streets.ts';
+import { blockIntoDoc, blockUids, groupStreet, type BlockSpec } from './buildingStore.ts';
 import { buildRoads, defaultRoad, roadEntityNode, roadGround, type RoadSpec } from './roads.ts';
 import { PROP_BOUNDS, standZ } from './props.ts';
 import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
@@ -334,24 +335,31 @@ export function generateFromSketch(s: Sketch): SketchResult {
   const groundAt = (x: number, y: number) => onRoad(x, y)?.z ?? flatHeight(x, y);
   const carriageway = (x: number, y: number) => { const g = onRoad(x, y); return !!g && (g.kind === 'surface' || g.kind === 'rail'); };
 
-  // Buildings: one generated block per rectangle of building cells, on that cell's height level.
-  const dressings: BlockDressing[] = [];
+  // Buildings: one generated block per rectangle of building cells, on that cell's height level. Each is a stored
+  // block (with a handle); the blocks on one level are a group, which shares its street dressing.
+  const blocks: { spec: BlockSpec; dressing: BlockDressing }[] = [];
+  const ids = new Rng(s.seed * 23 + 9), uid = blockUids(ids);
+  const groups = new Map<number, { id: string; seed: number }>();
   for (const { box, level } of featureRects(s, Feature.Building)) {
     const z = level * s.levelHeight;
-    const fp = box.clone();
-    fp.min.z = fp.max.z = z;
-    const b = generateBuildings(doc, fp, { seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture, interiors: s.interiors });
-    solids.push(...b.solids);
-    const d = detailEntityNode(doc, b.detail);
-    if (d) ents.push(d);
-    for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
-    dressings.push(b.dressing);
+    let group = groups.get(z);
+    if (!group) groups.set(z, (group = { id: uid(), seed: ids.int(1, 1e9) }));
+    const spec: BlockSpec = {
+      uid: uid(), group: group.id, street: 'ground', groupSeed: group.seed, z,
+      rect: { x0: box.min.x + shift.x, y0: box.min.y + shift.y, x1: box.max.x + shift.x, y1: box.max.y + shift.y },
+      options: { seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture, interiors: s.interiors },
+    };
+    const b = blockIntoDoc(doc, spec, (c, o, k) => entity(doc, c, o, k), shift);
+    solids.push(...b.world);
+    ents.push(...b.entities);
+    blocks.push({ spec, dressing: b.out.dressing });
   }
   // Cables across streets, lamps and trees: only between blocks on the same level. Lamps and trees stand on
   // the pavement, never on a carriageway.
   const standing: Vector2[] = [];
-  for (const z of new Set(dressings.map((d) => d.z0))) {
-    for (const e of streetDressing(dressings.filter((d) => d.z0 === z), rng, { groundAt: (x, y) => (carriageway(x, y) ? null : groundAt(x, y)) })) {
+  for (const g of groups.values()) {
+    const mine = blocks.filter((b) => b.spec.group === g.id);
+    for (const e of groupStreet(mine.map((b) => b.spec), (x, y) => (carriageway(x, y) ? null : groundAt(x, y)), mine.map((b) => b.dressing), rng)) {
       ents.push(entity(doc, e.classname, e.origin, e.keys));
       if (e.classname === 'prop_static') standing.push(new Vector2(e.origin.x, e.origin.y));
     }

@@ -76,6 +76,9 @@ export function decodeBlock(s: string): BlockSpec | null {
 /** A fresh short id for a new block or group. */
 export const newBlockUid = (): string => Math.random().toString(36).slice(2, 8);
 
+/** Short ids drawn from a seed, for generators whose output must not depend on chance. */
+export const blockUids = (rng: Rng): (() => string) => () => rng.int(0, 36 ** 6 - 1).toString(36).padStart(6, '0');
+
 /** The stored spec of a block's func_detail, or null for anything else. */
 export function blockOf(e: MapEntity | null | undefined): BlockSpec | null {
   const v = e?.classname === 'func_detail' ? e.get(BLOCK_KEY) : undefined;
@@ -247,13 +250,15 @@ export function dressingOf(b: BlockSpec): BlockDressing {
 
 /**
  * The street dressing of a group of blocks, tagged with the group: cables across the streets between them,
- * lamps and trees. `groundAt` gives the height lamps and trees stand at (null: none there).
+ * lamps and trees. `groundAt` gives the height lamps and trees stand at (null: none there). It is dealt from
+ * the group's seed, unless a generator passes its own sequence (Sketch and Generate map do, so their maps stay
+ * as they were; a rebuild then deals the group's dressing anew).
  */
-export function groupStreet(blocks: BlockSpec[], groundAt?: (x: number, y: number) => number | null, known: BlockDressing[] = []): FeatureEntity[] {
+export function groupStreet(blocks: BlockSpec[], groundAt?: (x: number, y: number) => number | null, known: BlockDressing[] = [], rng?: Rng): FeatureEntity[] {
   const lead = blocks[0];
   if (!lead || lead.street === 'none') return [];
   const ds = blocks.map((b, i) => known[i] ?? dressingOf(b));
-  return streetDressing(ds, new Rng(lead.groupSeed * 3 + 1), { groundAt: lead.street === 'ground' ? groundAt : undefined })
+  return streetDressing(ds, rng ?? new Rng(lead.groupSeed * 3 + 1), { groundAt: lead.street === 'ground' ? groundAt : undefined })
     .map((e) => ({ ...e, keys: { ...ropeNames(e.keys, lead.group), [GROUP_KEY]: lead.group } }));
 }
 

@@ -11,10 +11,12 @@ import {
   BLOCK_WORLD_KEY, GROUP_KEY, blockMembers, blockOf, blockOfSolid, blocksInGroup, decodeBlock, encodeBlock, groupDressing, type BlockSpec,
 } from '../src/gen/buildingStore.ts';
 import { BUILDING_HANDLE, HANDLE_HEIGHT, findHandle, handleBox, stripHandles } from '../src/gen/handle.ts';
+import { generateFromSketch } from '../src/gen/sketch.ts';
+import { generateMap, randomLayout } from '../src/gen/layout.ts';
+import { buildDistrictSketch } from '../src/examples/district.ts';
 
 /** Enough of an Editor for building actions, with a selection that remembers what was selected. */
-function stubEditor(): Editor {
-  const doc = VmfDocument.empty();
+function stubEditor(doc = VmfDocument.empty()): Editor {
   const selection = {
     solids: new Set<MapSolid>(), entities: new Set<MapEntity>(),
     set(s: MapSolid[], e: MapEntity[] = []) { this.solids = new Set(s); this.entities = new Set(e); },
@@ -222,5 +224,42 @@ describe('stored blocks of buildings', () => {
     expect(copy.entities.filter((e) => e.classname === 'func_detail' && !e.solids.length)).toHaveLength(0);
     // The blocks themselves stay.
     expect(copy.entities.filter((e) => blockOf(e)).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('Sketch and Generate map store their blocks too, one group per level', () => {
+    for (const doc of [generateFromSketch(buildDistrictSketch()).doc, generateMap(randomLayout(16, 16, 'city', 7), { theme: 'city', seed: 7, highGround: 192 })]) {
+      const blocks = doc.entities.filter((e) => blockOf(e));
+      expect(blocks.length).toBeGreaterThan(3);
+      for (const d of blocks) {
+        const b = blockOf(d)!;
+        // The stored footprint, the handle and the brushes are all where the map was centred to.
+        expect(handleBox(findHandle(doc, BUILDING_HANDLE, b.uid)!)!.min.toArray().map((v) => v + 0)).toEqual([b.rect.x0, b.rect.y0, b.z]);
+        const world = blockMembers(doc, b.uid).world;
+        expect(d.get(BLOCK_WORLD_KEY) ?? '').toMatch(/^(\d+-\d+|\d+)?$/);
+        for (const s of world) {
+          const box = solidBounds(s);
+          expect(box.min.x).toBeGreaterThanOrEqual(b.rect.x0 - 1);
+          expect(box.max.x).toBeLessThanOrEqual(b.rect.x1 + 1);
+        }
+      }
+      const groups = new Set(blocks.map((d) => blockOf(d)!.group));
+      const dressing = doc.entities.filter((e) => e.get(GROUP_KEY));
+      expect(dressing.length).toBeGreaterThan(0);
+      expect(dressing.every((e) => groups.has(e.get(GROUP_KEY)!))).toBe(true);
+    }
+  });
+
+  it('a sketched block rebuilds in the editor with its group', () => {
+    const ed = stubEditor(generateFromSketch(buildDistrictSketch()).doc);
+    const d = ed.doc.entities.find((e) => blockOf(e))!;
+    const b = blockOf(d)!;
+    const others = ed.doc.entities.filter((e) => e.get(GROUP_KEY) && e.get(GROUP_KEY) !== b.group);
+    const before = parts(ed, d);
+    regenerateBlock(ed, d, { options: { seed: 5 } });
+    for (const s of before.world) expect(ed.doc.worldEntity.solids).not.toContain(s);
+    expect(parts(ed, d).world.length).toBeGreaterThan(0);
+    expect(groupDressing(ed.doc, b.group).length).toBeGreaterThan(0);
+    // Other groups' dressing is left alone.
+    for (const e of others) expect(ed.doc.entities).toContain(e);
   });
 });
