@@ -639,6 +639,44 @@ function the point-of-interest generator calls) now builds real houses instead o
 ![From above](docs/screenshots/interiors-p2-top.png)
 ![A shack at eye level: boarded window, plank walls inside](docs/screenshots/interiors-p2-street.png)
 
+### Interior phase 3: furniture, lights and grime
+
+`src/gen/interiorDressing.ts` furnishes the planned rooms; `interiorHouse()` gets **Furnish** (none,
+sparse, full), **Lights** and **Weathering** options.
+
+- **Models**: a table of the game's furniture with its bounds measured from the MDL hulls and the
+  static-prop check of each model (`FURNITURE`): couches, beds, mattresses, bed frames, bathtubs, stoves,
+  sinks, toilets, a fridge, a boiler, a pot-belly heater, a control-room desk, a cafeteria bench, crates,
+  boxes and oil drums as `prop_static`; the tables and chairs have no static version and become
+  `prop_dynamic` (solid 6). All models face +x, which was checked in the editor.
+- **Room sets**: kitchens get a stove, fridge, sink and a table; living rooms a couch, heater, table and
+  chair; bedrooms a bed, frame or mattress and boxes; baths a tub, toilet and sink; storage rooms and
+  workshops crates, drums, a desk or bench; halls a boiler or a box. Sparse puts one or two items in a
+  room, full up to four by floor area.
+- **Placement**: wall items stand with their back (or long side, for tubs) against a wall, facing into
+  the room, turned in 90° steps; free items (tables, chairs) stand in the room, chairs next to the
+  table. Nothing goes on a **lane** (48 wide, door to door through the middle), in a **door zone**
+  (64 deep on both sides of every doorway), over the stairs, on another prop, or (when taller than 36)
+  in front of a window; nothing taller than the cut walls. The navmesh sees static props, so the lanes
+  keep every room walkable.
+- **Lights**: three rooms in four get a caged wall lamp (`light_cagelight01_on`) away from doors and
+  windows, with a warm `light` (255 214 170, brightness 80–150, `_lightHDR` copying the LDR value, a
+  pool of 96 to half brightness and 320 to dark) in front of it. The rest stay dark on purpose.
+- **Grime**: blood, burns, rubble and stain decals on floors, stains, posters and graffiti on inner
+  walls, by floor area and the Weathering setting; plaster debris piles in some rooms when weathering
+  is high.
+- Dressing draws from its own random sequence (`seed × 23 + 13`), so furnishing never changes the plan
+  or the shell.
+- Tests (`tests/interiorDressing.test.ts`): props inside their room and clear of lanes, door zones,
+  stairs and each other; only checked static models as `prop_static`; one lamp and one light per lit
+  room; no furniture with Furnish none; the same plan with and without furniture.
+
+![Furnished farmhouses from the RTS angle](docs/screenshots/interiors-p3-farmhouse.png)
+![Close: couch and heater in the living room, tub in the tiled bath, a chair, wall lamps (the yellow boxes are the light entities)](docs/screenshots/interiors-p3-rooms.png)
+![Shacks with sparse furniture](docs/screenshots/interiors-p3-shack-sparse.png)
+![Brick cottages at full weathering: blood, rubble, plaster debris](docs/screenshots/interiors-p3-brick-grime.png)
+![Concrete outbuildings as workshops and storage, the last one unfurnished](docs/screenshots/interiors-p3-workshops.png)
+
 ## Roads, powerlines, audio and mission flow
 
 ### Roads

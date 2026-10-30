@@ -4,6 +4,7 @@ import type { VmfDocument } from '../vmf/map.ts';
 import { Rng } from './rng.ts';
 import { planInterior, type InteriorPlan } from './interiorPlan.ts';
 import { interiorShell, shellMaterials } from './interiorShell.ts';
+import { dressInterior } from './interiorDressing.ts';
 import { INTERIOR_STYLES, type InteriorStyleName } from './styles.ts';
 import type { FeatureEntity } from './facadeFeatures.ts';
 
@@ -19,8 +20,12 @@ export interface InteriorHouseOptions {
   style?: string;
   /** Height the walls are cut off at (default 112). */
   cutHeight?: number;
+  /** Furniture (default full). */
   furnish?: 'none' | 'sparse' | 'full';
+  /** Wall lamps with lights in most rooms (default on). */
   lights?: boolean;
+  /** Stains, blood, posters and debris, 0 to 1 (default 0.5). */
+  weathering?: number;
   wideDoors?: boolean;
   /** Footprint edges that must get an entrance (e.g. the side facing a square). */
   entranceEdges?: number[];
@@ -42,5 +47,7 @@ export function interiorHouse(doc: VmfDocument, footprint: Vector2[], z0: number
   // Materials and window fills draw from their own sequence, so they never change the floor plan.
   const rng = new Rng(opts.seed * 29 + 1);
   const shell = interiorShell(doc, plan, z0, shellMaterials(plan, style, rng), rng);
-  return { world: shell.floors, detail: [...shell.walls, ...shell.fills, ...shell.porch], entities: [], plan };
+  // Furniture, lamps and grime draw from a third sequence.
+  const dressing = dressInterior(plan, z0, new Rng(opts.seed * 23 + 13), { furnish: opts.furnish, lights: opts.lights, weathering: opts.weathering });
+  return { world: shell.floors, detail: [...shell.walls, ...shell.fills, ...shell.porch], entities: dressing.entities, plan };
 }
