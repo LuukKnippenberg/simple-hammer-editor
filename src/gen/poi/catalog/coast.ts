@@ -109,7 +109,8 @@ export const BEACH: PoiType = {
     const sy = shore(k, 640);
     k.pad(rect(0, 0, W, sy), SAND, 2);
     k.sea(rect(0, sy, W, D));
-    k.route([0, 224], [W, 224]);
+    // The promenade runs behind the huts (it used to cross their footprints).
+    k.route([0, 112], [W, 112]);
     k.route([W * 0.5, 0], [W * 0.5, sy - 32]);
     // Huts in a row at the back of the beach, doors to the sea.
     const n = Math.max(0, Math.min(6, Math.round(k.num('huts', 3))));
