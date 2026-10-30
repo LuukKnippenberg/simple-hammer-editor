@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CONDITIONS, defaultCondition, describeCondition, emptyMission, messageText, parseMission, type ConditionKind } from '../src/lw/mission.ts';
+import { CONDITIONS, defaultCondition, describeCondition, emptyMission, messageText, messageTexts, parseMission, type ConditionKind } from '../src/lw/mission.ts';
 
 describe('mission graph', () => {
   it('every condition kind has a default, a label and a description', () => {
@@ -38,6 +38,25 @@ describe('mission messages', () => {
     // The <br> before the hint would straddle character 200: it is pushed past it.
     expect(long.indexOf('<br>')).toBe(200);
     expect(messageText({ text: '  ', speaker: 'Dispatch' })).toBe('');
+  });
+
+  it('splits a message the game would cut off into boxes of at most 200 characters, at sentence ends', () => {
+    const m = {
+      speaker: 'Dispatch', text: 'Unit 09, sector compliance is at 71 percent. Acceptable is 100. Begin your shift.',
+      hint: 'Left-click your officer to select him, then right-click the ration line to walk there. Drag with the middle mouse button or move to the screen edge to pan, scroll to zoom.',
+    };
+    const boxes = messageTexts(m);
+    expect(boxes).toEqual([
+      '<b>Dispatch:</b> Unit 09, sector compliance is at 71 percent. Acceptable is 100. Begin your shift.',
+      '<i>Left-click your officer to select him, then right-click the ration line to walk there. Drag with the middle mouse button or move to the screen edge to pan, scroll to zoom.</i>',
+    ]);
+    // A short message stays whole; an overlong sentence is packed by word.
+    expect(messageTexts({ text: 'Go.', hint: 'Press B' })).toEqual(['Go.<br><i>Press B</i>']);
+    const words = messageTexts({ text: Array.from({ length: 80 }, (_, i) => `word${i}`).join(' ') });
+    expect(words.length).toBe(3);
+    expect(words.every((b) => b.length <= 200 && !b.startsWith(' ') && !b.endsWith(' '))).toBe(true);
+    expect(words.join(' ').split(' ')).toHaveLength(80);
+    expect(messageTexts({ text: '  ' })).toEqual([]);
   });
 
   it('describes the new conditions with game names', () => {

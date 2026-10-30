@@ -156,6 +156,35 @@ export function messageText(m: MissionMessage | string): string {
   return out;
 }
 
+/** The game's client reads the text into a 255-byte buffer (srcpy_usermessage.cpp), so it shows 254 bytes at most. */
+const BOX_BYTES = 254;
+const fits = (s: string) => s.length <= BOX_SPLIT && new TextEncoder().encode(s).length <= BOX_BYTES;
+
+/**
+ * The Text keyvalues for a message, one per box: the text (with its speaker) and the hint each go in boxes of
+ * their own when the whole doesn't fit, packed by sentence (by word for an overlong sentence), so no box is
+ * cut short by the game or broken mid-word at character 200. The boxes are shown one after another.
+ */
+export function messageTexts(m: MissionMessage | string): string[] {
+  const whole = messageText(m);
+  if (!whole || fits(whole)) return whole ? [whole] : [];
+  const { text, speaker, hint } = asMessage(m);
+  if (text.trim().startsWith('#')) return [whole];
+  const out: string[] = [];
+  const pack = (body: string, box: (part: string) => string) => {
+    const words = body.replace(/\s+/g, ' ').trim().split(/(?<=[.!?]) /).flatMap((s) => (fits(box(s)) ? [s] : s.split(' ')));
+    let cur = '';
+    for (const w of words) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (cur && !fits(box(next))) { out.push(box(cur)); cur = w; } else cur = next;
+    }
+    if (cur) out.push(box(cur));
+  };
+  pack(text, (part) => messageText({ text: part, speaker }));
+  if (hint?.trim()) pack(hint, (part) => `<i>${part.replace(/"/g, "'")}</i>`);
+  return out;
+}
+
 export function emptyMission(): MissionGraph {
   const s: Stage = { id: 'start', title: 'Briefing', x: 80, y: 120, messages: [{ text: 'Your mission begins.' }], objectives: [], actions: [], gates: [], transitions: [] };
   return { version: 1, start: s.id, stages: [s] };

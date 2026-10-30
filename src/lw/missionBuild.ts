@@ -1,10 +1,10 @@
-import { Vector3 } from 'three';
+import { Vector2, Vector3 } from 'three';
 import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import { MapEntity, type VmfDocument } from '../vmf/map.ts';
 import { getConnections, setConnections, type Connection } from '../vmf/io.ts';
-import { boxSolid } from '../edit/brushes.ts';
+import { boxSolid, solidBounds, solidNode, type FaceSpec } from '../edit/brushes.ts';
 import { entity } from '../gen/layout.ts';
-import { GATE_OPS, messageText, type Condition, type MissionGraph, type Stage, type Transition } from './mission.ts';
+import { GATE_OPS, messageTexts, type Condition, type MissionGraph, type Stage, type Transition } from './mission.ts';
 
 /**
  * Builds a mission flowchart into entities and I/O. Everything it creates carries `she_mission` so a
@@ -26,6 +26,8 @@ import { GATE_OPS, messageText, type Condition, type MissionGraph, type Stage, t
  * - "All of" gives each sub-condition a relay that adds one to a math_counter and then disables itself; the
  *   counter reaching the number of sub-conditions triggers the transition.
  * - Ability gates go to one wars_ability_manager per player (`mf_abilN`), whose inputs act on its owner.
+ * - Where a stage's objective is (a reach area, a capture point, a single unit to destroy) gets the marker of
+ *   sp_radio_tower: a striped outline on the ground and an arrow above it, shown while the stage runs.
  */
 
 const MARK = 'she_mission';
@@ -79,10 +81,106 @@ function deathOutput(e: MapEntity): string {
   return 'OnUnitKilled';
 }
 
+type Toggle = [string, string, string][];
+
+const MARKER_MATERIAL = 'PG_TEX/PG_RED_STRIPE_MARKER';
+const ARROW_MODEL = 'models/pg_props/pg_marks/pg_spawn_flag.mdl';
+/** sp_radio_tower's marker: 18.4 units tall, leaning out 8, its 128x32 texture stretched to the height. */
+const MARKER_HEIGHT = 18.4;
+const MARKER_LEAN = 8;
+const MARKER_U = 0.62;
+const MARKER_V = 0.58;
+/** The arrow model hangs below its origin: this high above the ground it points at the area. */
+const ARROW_HEIGHT = 140;
+
+/**
+ * An objective marker as sp_radio_tower builds them: a never-solid func_brush around the area whose four
+ * outward-leaning sides carry the animated red stripe (top and bottom nodraw), and the orange arrow model
+ * above it. Both start hidden; `on` shows them with the stage and `off` hides them again. With `parent` the
+ * arrow follows that entity (a unit) and there is no outline.
+ */
+function marker(ctx: Ctx, name: string, area: [number, number, number, number] | null, z: number, arrow: Vector3, parent?: string): { on: Toggle; off: Toggle } {
+  const on: Toggle = [], off: Toggle = [];
+  if (area) {
+    const [x0, y0, x1, y1] = area;
+    const inner = [new Vector2(x0, y0), new Vector2(x1, y0), new Vector2(x1, y1), new Vector2(x0, y1)];
+    const outer = inner.map((q, i) => new Vector2(q.x + (i === 0 || i === 3 ? -MARKER_LEAN : MARKER_LEAN), q.y + (i < 2 ? -MARKER_LEAN : MARKER_LEAN)));
+    const zb = z + 1, zt = zb + MARKER_HEIGHT;
+    const p = (q: Vector2, h: number) => new Vector3(q.x, q.y, h);
+    const faces: FaceSpec[] = [
+      { points: [p(outer[0], zt), p(outer[2], zt), p(outer[1], zt)], material: 'TOOLS/TOOLSNODRAW' },
+      { points: [p(inner[0], zb), p(inner[1], zb), p(inner[2], zb)], material: 'TOOLS/TOOLSNODRAW' },
+    ];
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4;
+      const along = new Vector3(inner[j].x - inner[i].x, inner[j].y - inner[i].y, 0).normalize();
+      faces.push({
+        points: [p(outer[i], zt), p(outer[j], zt), p(inner[i], zb)], material: MARKER_MATERIAL,
+        u: { axis: along, shift: 0, scale: MARKER_U },
+        v: { axis: new Vector3(0, 0, -1), shift: (zt / MARKER_V) % 32, scale: MARKER_V },
+      });
+    }
+    const outline = add(ctx, 'func_brush', {
+      targetname: `${name}_mk`, StartDisabled: '1', Solidity: '1', spawnflags: '2', solidbsp: '0', InputFilter: '0', invert_exclusion: '0',
+      disableshadows: '1', disablereceiveshadows: '1', vrad_brush_cast_shadows: '0', rendermode: '0', renderamt: '255', rendercolor: '255 255 255',
+    }, new Vector3((x0 + x1) / 2, (y0 + y1) / 2, z));
+    outline.node.delete('origin');
+    outline.node.items.push(solidNode(ctx.doc, faces, '220 30 220'));
+    outline.reload();
+    on.push([`${name}_mk`, 'Enable', '']);
+    off.push([`${name}_mk`, 'Disable', '']);
+  }
+  add(ctx, 'prop_dynamic', {
+    targetname: `${name}_arrow`, model: ARROW_MODEL, skin: '1', solid: '0', StartDisabled: '1', DefaultAnim: 'idle',
+    disableshadows: '1', fademindist: '-1', angles: '0 0 0', ...(parent ? { parentname: parent } : {}),
+  }, arrow);
+  on.push([`${name}_arrow`, 'Enable', '']);
+  off.push([`${name}_arrow`, 'Disable', '']);
+  return { on, off };
+}
+
+/** The marker for a condition's location, if it has one: a reach area, a capture point, a single unit. */
+function conditionMarker(ctx: Ctx, base: string, c: Condition): { on: Toggle; off: Toggle } | null {
+  const doc = ctx.doc;
+  if (c.kind === 'reach' && c.area) {
+    const [x0, y0, x1, y1] = c.area;
+    return marker(ctx, base, c.area, c.z, new Vector3((x0 + x1) / 2, (y0 + y1) / 2, c.z + ARROW_HEIGHT));
+  }
+  if (c.kind === 'capture') {
+    const point = mapNamed(doc, c.target).find((e) => e.classname === 'control_point' && e.origin);
+    if (!point) return null;
+    const zone = doc.entities.find((e) => e.classname === 'trigger_capture_area' && e.get('control_point')?.toLowerCase() === c.target.trim().toLowerCase() && e.solids.length);
+    const at = point.origin!;
+    let area: [number, number, number, number] = [at.x - 128, at.y - 128, at.x + 128, at.y + 128];
+    let z = at.z;
+    if (zone) {
+      const box = zone.solids.map(solidBounds).reduce((a, b) => a.union(b));
+      area = [box.min.x, box.min.y, box.max.x, box.max.y];
+      z = box.min.z;
+    }
+    return marker(ctx, base, area, z, new Vector3(at.x, at.y, z + ARROW_HEIGHT));
+  }
+  if (c.kind === 'destroy') {
+    // One unit: the arrow rides on it. A group or a wave has no single place to point at.
+    const ents = mapNamed(doc, c.target);
+    const unit = ents.length === 1 && ents[0].origin && /^unit_/.test(ents[0].classname) && ents[0].classname !== 'unit_maker' ? ents[0] : null;
+    if (!unit) return null;
+    return marker(ctx, base, null, unit.origin!.z, unit.origin!.clone().add(new Vector3(0, 0, ARROW_HEIGHT - 30)), c.target.trim());
+  }
+  return null;
+}
+
 /**
  * The condition's entities. Returns how to start and stop them with the stage: [entity name, input, param][].
  */
-function buildCondition(ctx: Ctx, s: Stage, t: Transition, rel: string, c: Condition): { on: [string, string, string][]; off: [string, string, string][] } {
+function buildCondition(ctx: Ctx, s: Stage, t: Transition, rel: string, c: Condition): { on: Toggle; off: Toggle } {
+  const parts = conditionEntities(ctx, s, t, rel, c);
+  // Only the way forward is marked, not what leads to defeat.
+  const mk = t.completes && t.to !== 'defeat' ? conditionMarker(ctx, `${rel}_c`, c) : null;
+  return mk ? { on: [...parts.on, ...mk.on], off: [...parts.off, ...mk.off] } : parts;
+}
+
+function conditionEntities(ctx: Ctx, s: Stage, t: Transition, rel: string, c: Condition): { on: Toggle; off: Toggle } {
   const doc = ctx.doc;
   const base = `${rel}_c`;
   const named = (n: string) => mapNamed(doc, n);
@@ -181,6 +279,8 @@ function buildCondition(ctx: Ctx, s: Stage, t: Transition, rel: string, c: Condi
         link(ctx, r, 'OnTrigger', `${rel}_all`, 'Add', '1');
         link(ctx, r, 'OnTrigger', name, 'Disable');
         const part = buildCondition(ctx, s, t, name, sub);
+        // A part that is done stops (and its marker goes away) while the others still run.
+        for (const [n, input, p] of part.off) link(ctx, r, 'OnTrigger', n, input, p);
         on.push([name, 'Enable', ''], ...part.on);
         off.push([name, 'Disable', ''], ...part.off);
       });
@@ -224,7 +324,7 @@ export function buildMissionInto(doc: VmfDocument, g: MissionGraph, near: Vector
     ctx.row = 0;
     const enter = relay(ctx, `mf_${s.id}_enter`);
     // Messages, one after another.
-    s.messages.map(messageText).filter((m) => m).forEach((m, i, all) => {
+    s.messages.flatMap(messageTexts).forEach((m, i, all) => {
       const name = `mf_${s.id}_msg${i}`;
       const box = add(ctx, 'wars_messagebox', { targetname: name, Text: m });
       if (i === 0) link(ctx, enter, 'OnTrigger', name, 'Display', '', 0.5);

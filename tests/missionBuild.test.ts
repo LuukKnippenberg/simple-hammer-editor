@@ -81,6 +81,42 @@ describe('mission build', () => {
     expect(outs(named(doc, 'wave1'))).toEqual(['OnAllSpawnedDead>mf_c_t2.Trigger']);
   });
 
+  it('marks the reach area and capture point with the striped outline and arrow while the stage runs', () => {
+    const doc = map();
+    buildMissionInto(doc, graph, new Vector3());
+    expect(validateConnections(doc).filter((p) => p.severity === 'error')).toEqual([]);
+    const outline = named(doc, 'mf_b_t0_c_mk');
+    expect(outline.classname).toBe('func_brush');
+    expect(outline.get('StartDisabled')).toBe('1');
+    expect(outline.get('Solidity')).toBe('1');
+    expect(outline.get('origin')).toBeUndefined();
+    const sides = outline.node.child('solid')!.childrenNamed('side').map((sd) => sd.get('material'));
+    expect(sides.filter((m) => m === 'PG_TEX/PG_RED_STRIPE_MARKER')).toHaveLength(4);
+    expect(sides.filter((m) => m === 'TOOLS/TOOLSNODRAW')).toHaveLength(2);
+    const arrow = named(doc, 'mf_b_t0_c_arrow');
+    expect(arrow.get('model')).toBe('models/pg_props/pg_marks/pg_spawn_flag.mdl');
+    expect(arrow.origin!.toArray()).toEqual([256, 256, 140]);
+    expect(outs(named(doc, 'mf_b_enter'))).toEqual(expect.arrayContaining(['OnTrigger>mf_b_t0_c_mk.Enable', 'OnTrigger>mf_b_t0_c_arrow.Enable']));
+    // Either way out of the stage hides it.
+    for (const t of ['mf_b_t0', 'mf_b_t1']) expect(outs(named(doc, t))).toEqual(expect.arrayContaining(['OnTrigger>mf_b_t0_c_mk.Disable', 'OnTrigger>mf_b_t0_c_arrow.Disable']));
+    // The capture point is marked; the group, the wave and the ways to defeat are not.
+    expect(named(doc, 'mf_c_t0_c_arrow')).toBeDefined();
+    expect(named(doc, 'mf_c_t0_c_mk')).toBeDefined();
+    for (const n of ['mf_a_t0_c_arrow', 'mf_a_t1_c_arrow', 'mf_b_t1_c_arrow', 'mf_c_t2_c_arrow']) expect(named(doc, n)).toBeUndefined();
+  });
+
+  it('puts the arrow on a single unit to destroy', () => {
+    const doc = map();
+    const g: MissionGraph = { version: 1, start: 'a', stages: [{ id: 'a', title: 'Correct him', x: 0, y: 0, messages: [], objectives: [], actions: [], transitions: [
+      { id: 't', condition: { kind: 'destroy', target: 'medic' }, to: 'victory', completes: true },
+    ] }] };
+    buildMissionInto(doc, g, new Vector3());
+    const arrow = named(doc, 'mf_a_t0_c_arrow');
+    expect(arrow.get('parentname')).toBe('medic');
+    expect(named(doc, 'mf_a_t0_c_mk')).toBeUndefined();
+    expect(outs(named(doc, 'mf_a_t0'))).toEqual(expect.arrayContaining(['OnTrigger>mf_a_t0_c_arrow.Disable']));
+  });
+
   it('rebuilding replaces its own entities and outputs, and clearing removes them', () => {
     const doc = map();
     const before = doc.entities.length;
