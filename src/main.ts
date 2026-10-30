@@ -16,6 +16,10 @@ import { Hover } from './edit/hover.ts';
 import { mountLogicPanel } from './ui/logicPanel.ts';
 import { IoLines } from './render/ioLines.ts';
 import { RopeRenderer } from './render/ropeRenderer.ts';
+import { SoundRenderer } from './render/soundRenderer.ts';
+import { SoundscapeController } from './audio/listener.ts';
+import { setSoundscapeController } from './ui/soundUi.ts';
+import { audio } from './audio/engine.ts';
 import { mountMissionPanel } from './ui/missionPanel.ts';
 import { GameplayOverlay } from './render/gameplayOverlay.ts';
 import { LightingPreview } from './render/lightingPreview.ts';
@@ -46,6 +50,15 @@ document.getElementById('topbar')!.querySelector('.spacer')!.before(
   h('button.primary', { onclick: () => compileDialog.open(), title: 'Compile the map and run it in Lambda Wars' }, '▶ Compile & test'),
   mountInstallPicker(editor),
 );
+// Audio preview: soundscapes (and local sounds) where the camera looks.
+const audioBtn = h('button', { title: 'Hear the map: soundscapes where the camera looks, and local sounds' }, '🔇 Audio');
+const syncAudio = () => {
+  audioBtn.classList.toggle('active', audio.enabled);
+  audioBtn.textContent = audio.enabled ? '🔊 Audio' : '🔇 Audio';
+};
+audioBtn.addEventListener('click', async () => { await audio.setEnabled(!audio.enabled); syncAudio(); });
+document.addEventListener('she-audio', syncAudio);
+document.getElementById('topbar')!.querySelector('.spacer')!.after(audioBtn);
 const tabs = mountSidebar(document.getElementById('sidebar')!);
 tabs.add('Selection', mountInspector(editor));
 tabs.add('Materials', mountMaterialBrowser(editor));
@@ -66,6 +79,10 @@ const logic = mountLogicPanel(editor);
 tabs.add('Logic', logic.panel);
 new IoLines(editor);
 new RopeRenderer(editor);
+const soundscapes = new SoundscapeController(editor);
+setSoundscapeController(soundscapes);
+const sounds = new SoundRenderer(editor);
+editor.on('soundscape', () => sounds.update(soundscapes.active?.entity ?? null));
 new GameplayOverlay(editor);
 editor.on('selection', () => {
   if (!editor.selection.isEmpty && editor.tools.current.name === 'select') tabs.show('Selection');
@@ -81,6 +98,8 @@ declare global {
       tabs: typeof tabs;
       logic: typeof logic;
       lighting: LightingPreview;
+      soundscapes: SoundscapeController;
+      audio: typeof audio;
       sketch: typeof sketchDialog;
       setView(pos: [number, number, number], target: [number, number, number]): void;
       /** Page coordinates of a world point (for scripted mouse input). */
@@ -97,6 +116,8 @@ window.__editor = {
   tabs,
   logic,
   lighting,
+  soundscapes,
+  audio,
   sketch: sketchDialog,
   setView(pos, target) {
     editor.camera.position.set(...pos);

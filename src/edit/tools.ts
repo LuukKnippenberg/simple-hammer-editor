@@ -13,9 +13,10 @@ import { shapeSolids, type ShapeKind } from './shapes.ts';
 import { RoadTool } from './roadTool.ts';
 import { GroundTool } from './groundTool.ts';
 import { PowerlineTool } from './powerlineTool.ts';
+import { SoundTool } from './soundTool.ts';
 import { isTyping } from '../render/cameraControls.ts';
 
-export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline';
+export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound';
 
 export interface Tool {
   name: ToolName;
@@ -443,7 +444,7 @@ export class ToolManager {
     this.select = new SelectTool(editor);
     this.tools = {
       select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor),
-      kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor), ground: new GroundTool(editor), powerline: new PowerlineTool(editor),
+      kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor), ground: new GroundTool(editor), powerline: new PowerlineTool(editor), sound: new SoundTool(editor),
     };
     this.current = this.select;
     const dom = editor.renderer.domElement;

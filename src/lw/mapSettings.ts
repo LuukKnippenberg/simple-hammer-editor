@@ -22,7 +22,9 @@ export type FieldKind =
   | { kind: 'angle'; component: 0 | 1; min: number; max: number }
   | { kind: 'choice'; options: [string, string][] }
   /** A file picked from the game's assets; `name` turns a listed path into the stored value. */
-  | { kind: 'file'; folder: string; ext: string; name: (path: string) => string | null };
+  | { kind: 'file'; folder: string; ext: string; name: (path: string) => string | null }
+  /** A soundscape name from scripts/soundscapes_*.txt, with a preview button. */
+  | { kind: 'soundscape' };
 
 export type Field = FieldKind & {
   label: string;
@@ -44,6 +46,8 @@ export interface SettingGroup {
   /** Keys written when the entity is created and never shown (master flags, global falloff). */
   base: Record<string, string>;
   fields: Field[];
+  /** Which entity of the class is this setting's (when the class is also used for other things). */
+  match?: (e: MapEntity) => boolean;
 }
 
 const num = (key: string, label: string, def: number, min: number, max: number, step: number, extra: Partial<Field> = {}): Field =>
@@ -202,16 +206,25 @@ export const SETTING_GROUPS: SettingGroup[] = [
       },
     ],
   },
+  {
+    id: 'soundscape', title: 'Ambient sound', classname: 'env_soundscape',
+    description: 'The soundscape heard everywhere outside soundscape zones (Sound tool, 0). Turn on Audio in the top bar to hear it.',
+    base: { targetname: 'soundscape_default', radius: '-1', StartDisabled: '0' },
+    match: (e) => e.get('radius') === '-1' || e.get('targetname') === 'soundscape_default',
+    fields: [{ kind: 'soundscape', key: 'soundscape', label: 'Soundscape', default: 'wars.city16' }],
+  },
 ];
 
-/** Classes managed here; their markers are not drawn in the viewport. */
-export const SETTING_CLASSES = new Set(SETTING_GROUPS.map((g) => g.classname).filter((c) => c !== 'worldspawn'));
+/** Entities managed by the Settings tab; their markers are not drawn in the viewport. */
+export function isSettingsEntity(e: MapEntity): boolean {
+  return SETTING_GROUPS.some((g) => g.classname === e.classname && (!g.match || g.match(e)));
+}
 
 const OFF_KEY = 'she_settings_off';
 
 export function settingsEntity(doc: VmfDocument, g: SettingGroup): MapEntity | null {
   if (g.classname === 'worldspawn') return doc.worldEntity;
-  return doc.entities.find((e) => e.classname === g.classname) ?? null;
+  return doc.entities.find((e) => e.classname === g.classname && (!g.match || g.match(e))) ?? null;
 }
 
 export function switchedOff(doc: VmfDocument): Set<string> {

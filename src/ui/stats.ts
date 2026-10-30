@@ -1,5 +1,6 @@
 import type { Editor } from '../editor.ts';
 import { h } from './dom.ts';
+import { audio } from '../audio/engine.ts';
 
 /** Performance overlay in the viewport plus the status bar text. */
 export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLElement, hoverLabel: () => string = () => ''): void {
@@ -18,7 +19,10 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
       `<span class="k">Brushes</span>${w.brushes.toLocaleString()}<br>` +
       `<span class="k">Faces</span>${w.faces.toLocaleString()}<br>` +
       `<span class="k">Props</span>${editor.entities.stats.props} (${editor.entities.stats.models} models)` +
-      (editor.busy() ? `<br><span class="k">Loading</span>assets…` : '');
+      (editor.busy() ? `<br><span class="k">Loading</span>assets…` : '') +
+      (audio.enabled ? `<br><span class="k">Soundscape</span><b>${audio.stats.soundscape || '–'}</b>` +
+        `<br><span class="k">Sounds</span>${audio.stats.loops} loops, ${audio.stats.oneShots} played` +
+        (audio.stats.local ? `, ${audio.stats.local} local` : '') : '');
     const p = editor.camera.position;
     status.innerHTML =
       `<span><b>${editor.mapName}</b></span>` +

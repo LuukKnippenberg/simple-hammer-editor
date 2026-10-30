@@ -167,7 +167,11 @@ export class Editor {
     if (this.view === 'top') this.topView.update(dt);
     else this.controls.update(dt);
     this.emit('frame');
+    // Distance fog makes no sense from the top view's camera, high above the map.
+    const fog = this.scene.fog;
+    if (this.view === 'top') this.scene.fog = null;
     this.renderer.render(this.scene, this.activeCamera);
+    this.scene.fog = fog;
 
     this.frameTimes.push(now);
     while (this.frameTimes.length && this.frameTimes[0] < now - 1000) this.frameTimes.shift();

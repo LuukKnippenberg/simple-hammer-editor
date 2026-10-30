@@ -642,6 +642,35 @@ rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), d
 ![Wide-crossarm poles over the hill](docs/screenshots/powerlines-hill.png)
 ![The Powerline panel](docs/screenshots/powerlines-panel.png)
 
+### Ambient sound
+
+- **Soundscapes** (`src/audio/soundscapes.ts`): the editor reads `scripts/soundscapes_manifest.txt` and
+  every script it lists (30 soundscapes in Lambda Wars, plus the base game's): looping beds, random
+  one-shots with time, volume and pitch ranges, and nested soundscapes.
+- **Map default**: an **Ambient sound** card in the Settings tab (an `env_soundscape` with radius -1),
+  with the soundscapes grouped by script and a ▶ button to listen for 15 seconds.
+- **Zones**: the **Sound tool** (0) places `env_soundscape` zones with a soundscape and radius; the
+  viewport draws them as cylinders, the one heard now brighter. Selecting a zone shows its soundscape,
+  preview and radius in the inspector.
+- **Audio preview** (🔊 **Audio** in the top bar; browsers only allow sound after a click): the editor
+  plays the soundscape of the zone at the ground point in the middle of the screen (the RTS camera hangs
+  high above it), or of the camera itself when it's low, cross-fading between soundscapes. Loops play
+  continuously, random sounds at random times panned to a random side, as the game does. The viewport
+  readout shows the soundscape and how many sounds are playing.
+- Zones act as columns (distance on the ground plan), so a zone dropped on a roof still covers the street
+  below. In game the last zone heard keeps playing until another takes over; the preview falls back to
+  the map default instead, which shows each zone's extent more clearly.
+- Fixed: with the lighting preview on, the top view was all fog.
+- Checked with the test district: default `wars.city16`, `wars.canals.street` in a west street zone,
+  `wars.ruins` on the square; the readout switched correctly as the camera moved, the game's PCM WAVs
+  decoded, and all four `env_soundscape`s are in the compiled BSP.
+
+![The Ambient sound card](docs/screenshots/sound-settings-card.png)
+![Zones placed from the top view](docs/screenshots/sound-zones-top.png)
+![Looking into the canal street zone: wars.canals.street plays](docs/screenshots/sound-zone-canal-street.png)
+![On the square: wars.ruins](docs/screenshots/sound-zone-square.png)
+![A zone selected](docs/screenshots/sound-zone-panel.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

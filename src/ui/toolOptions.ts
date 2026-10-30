@@ -4,12 +4,14 @@ import type { RoadTool } from '../edit/roadTool.ts';
 import { ROAD_STYLES, type RoadStyle } from '../gen/roads.ts';
 import { makeTerrain, type GroundTool } from '../edit/groundTool.ts';
 import type { PowerlineTool } from '../edit/powerlineTool.ts';
+import type { SoundTool, SoundToolMode } from '../edit/soundTool.ts';
+import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 import { POLE_TYPES, type PoleType } from '../gen/powerlines.ts';
 import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
 import { h, toast } from './dom.ts';
 
-const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline' } as const;
+const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound' } as const;
 const HINTS = {
   select: 'Click to select · Shift adds · drag the gizmo · M move / R resize',
   block: 'Drag on a surface to draw a block',
@@ -20,6 +22,7 @@ const HINTS = {
   road: 'Click points · snaps onto roads to join them · Enter or double-click builds · Backspace removes a point',
   ground: 'Drag on terrain to paint or sculpt',
   powerline: 'Click points along the route · Enter or double-click places poles and wires',
+  sound: 'Click to place · turn on Audio in the top bar to hear the map',
 } as const;
 
 /** Small panel in the viewport corner with the active tool's settings. */
@@ -125,6 +128,25 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
       feeds.addEventListener('change', () => (tool.feeds = feeds.checked));
       rows.push(h('div.row', {}, h('label', {}, 'Poles'), pole), h('div.row', {}, h('label', {}, 'Spacing'), spacing), h('div.row', {}, h('label', {}, 'Sag'), sag),
         h('div.row', {}, h('label', {}, 'House feeds'), feeds));
+    }
+    if (name === 'sound') {
+      const tool = editor.tools.tools.sound as SoundTool;
+      const modes: [SoundToolMode, string][] = [['zone', 'Soundscape zone'], ['sound', 'Local sound']];
+      const seg = h('div.seg', {}, ...modes.map(([m, l]) => {
+        const b = h('button', { onclick: () => { tool.mode = m; render(); } }, l);
+        b.classList.toggle('active', tool.mode === m);
+        return b;
+      }));
+      rows.push(seg);
+      if (tool.mode === 'zone') {
+        const sel = soundscapeSelect(tool.soundscape, (v) => (tool.soundscape = v));
+        const radius = h('input', { type: 'number', value: String(tool.radius), step: '64', min: '64' }) as HTMLInputElement;
+        radius.addEventListener('change', () => { tool.radius = Math.max(64, Number(radius.value) || 768); radius.blur(); });
+        rows.push(
+          h('div.row', {}, h('label', {}, 'Soundscape'), sel, h('button', { title: 'Listen for 15 seconds', onclick: () => void auditionSoundscape(sel.value) }, '▶')),
+          h('div.row', {}, h('label', {}, 'Radius'), radius),
+        );
+      }
     }
     if (name === 'kit') {
       const kit = (editor.tools.tools.kit as KitTool).kit;

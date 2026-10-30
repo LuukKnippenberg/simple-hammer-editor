@@ -14,6 +14,7 @@ import { ROAD_STYLES, centreline, roadOf, type RoadSpec, type RoadStyle } from '
 import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
 import { POLE_TYPES, powerlineOf, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
 import { editPowerline } from '../edit/powerlineTool.ts';
+import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -55,6 +56,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     const roadEnt = ents.length === 1 ? ents[0] : !ents.length && owners.size === 1 ? [...owners][0] : null;
     const road = roadEnt ? roadOf(roadEnt) : null;
     if (roadEnt && road) panel.append(roadPanel(editor, roadEnt, road));
+    if (ents.length === 1 && ents[0].classname === 'env_soundscape') panel.append(soundscapePanel(editor, ents[0]));
     const line = ents.length === 1 ? powerlineOf(editor.doc.entities, ents[0]) : null;
     if (line) panel.append(powerlinePanel(editor, ents[0], line.spec, line.members.length));
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
@@ -168,6 +170,23 @@ function roadPanel(editor: Editor, e: MapEntity, road: RoadSpec): HTMLElement {
           toast(editor.container, n ? `Blended into ${n} terrain patch${n > 1 ? 'es' : ''}` : 'No terrain under this road (Ground tool: turn the floor into terrain)');
         },
       }, 'Blend into ground')));
+}
+
+/** A soundscape zone: which soundscape and how far it reaches. */
+function soundscapePanel(editor: Editor, e: MapEntity): HTMLElement {
+  const set = (key: string, value: string) => {
+    const end = editor.history.begin('Edit soundscape', [], [e]);
+    e.set(key, value);
+    end();
+    editor.changed();
+  };
+  const sel = soundscapeSelect(e.get('soundscape') ?? '', (v) => set('soundscape', v));
+  const radius = h('input', { type: 'number', value: e.get('radius') ?? '128', step: '64', min: '-1' }) as HTMLInputElement;
+  radius.addEventListener('change', () => set('radius', String(Math.round(Number(radius.value) || -1))));
+  return h('div.section', {}, h('h3', {}, 'Soundscape'),
+    h('p.hint', {}, e.get('radius') === '-1' ? 'Heard everywhere outside other zones (the map default).' : 'Heard while the camera looks at a point inside the radius.'),
+    h('div.row', {}, h('label', {}, 'Soundscape'), sel, h('button', { title: 'Listen for 15 seconds', onclick: () => void auditionSoundscape(sel.value) }, '▶')),
+    h('div.row', {}, h('label', {}, 'Radius'), radius, h('span.unit', {}, '-1 = everywhere')));
 }
 
 /** A powerline's settings; changes rebuild its poles and wires. */

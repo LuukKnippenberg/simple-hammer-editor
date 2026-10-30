@@ -6,6 +6,7 @@ import {
   type Field, type SettingGroup,
 } from '../lw/mapSettings.ts';
 import { h } from './dom.ts';
+import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 
 const hex = (rgb: string) => '#' + rgb.trim().split(/\s+/).slice(0, 3).map((x) => Math.max(0, Math.min(255, Number(x) || 0)).toString(16).padStart(2, '0')).join('');
 const rgbOf = (hx: string) => [1, 3, 5].map((i) => parseInt(hx.slice(i, i + 2), 16)).join(' ');
@@ -136,6 +137,10 @@ export function mountMapSettingsPanel(editor: Editor, preview: LightingPreview):
       sel.value = value;
       sel.addEventListener('change', () => { s.set(f, sel.value); commit(); });
       return h('div.row', {}, label, sel);
+    }
+    if (f.kind === 'soundscape') {
+      const sel = soundscapeSelect(value, (v) => { s.set(f, v); commit(); });
+      return h('div.row', {}, label, sel, h('button', { title: 'Listen for 15 seconds', onclick: () => void auditionSoundscape(sel.value) }, '▶'));
     }
     // file
     const sel = h('select', {}, h('option', { value }, value || '(none)')) as HTMLSelectElement;
