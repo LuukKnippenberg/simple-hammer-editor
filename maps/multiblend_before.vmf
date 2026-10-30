@@ -568,8 +568,8 @@ entity
 {
 	"id" "143"
 	"classname" "func_detail"
-	"she_poi" "mine|q71b9k|64006|-704 -576 704 576|0|0|rocky|height=384;lights=1;capture=0;scrap=0;units=none;unitCount=5;level=1"
-	"she_poi_id" "q71b9k"
+	"she_poi" "mine|5r9u89|15201|-704 -576 704 576|0|0|rocky|height=384;lights=1;capture=0;scrap=0;units=none;unitCount=5;level=1"
+	"she_poi_id" "5r9u89"
 	"she_poi_anchor" "-704 -576"
 	solid
 	{
@@ -2026,8 +2026,8 @@ entity
 {
 	"id" "144"
 	"classname" "info_target"
-	"targetname" "poi_q71b9k_tunnel"
-	"she_poi_id" "q71b9k"
+	"targetname" "poi_5r9u89_tunnel"
+	"she_poi_id" "5r9u89"
 	"angles" "0 0 0"
 	"origin" "0 480 16"
 }
@@ -2038,7 +2038,7 @@ entity
 	"model" "models/pg_props/pg_obj/pg_rail_512.mdl"
 	"angles" "0 0 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2061,7 +2061,7 @@ entity
 	"model" "models/pg_props/pg_obj/pg_rail_512.mdl"
 	"angles" "0 0 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2084,7 +2084,7 @@ entity
 	"model" "models/props_mining/flatbed_cart01.mdl"
 	"angles" "0 0 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2107,7 +2107,7 @@ entity
 	"model" "models/props_mining/flatbed_cart02.mdl"
 	"angles" "0 0 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2130,7 +2130,7 @@ entity
 	"model" "models/brush/lamp_industrial01.mdl"
 	"angles" "0 90 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2156,7 +2156,7 @@ entity
 	"_quadratic_attn" "1"
 	"_distance" "500"
 	"style" "0"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"origin" "-120 144 202"
 }
 entity
@@ -2166,7 +2166,7 @@ entity
 	"model" "models/brush/lamp_industrial01.mdl"
 	"angles" "0 90 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2192,17 +2192,17 @@ entity
 	"_quadratic_attn" "1"
 	"_distance" "500"
 	"style" "0"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"origin" "120 144 202"
 }
 entity
 {
 	"id" "153"
 	"classname" "prop_static"
-	"model" "models/props_mining/diesel_generator_static.mdl"
-	"angles" "0 223 0"
+	"model" "models/props_junk/wood_crate001a_static.mdl"
+	"angles" "0 339 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2216,16 +2216,16 @@ entity
 	"ignorenormals" "0"
 	"renderamt" "255"
 	"rendercolor" "255 255 255"
-	"origin" "613 49 3"
+	"origin" "514 -449 22"
 }
 entity
 {
 	"id" "154"
 	"classname" "prop_static"
-	"model" "models/props_junk/wood_pallet001a_static.mdl"
-	"angles" "0 295 0"
+	"model" "models/props_junk/wood_crate001a_static.mdl"
+	"angles" "0 110 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2239,16 +2239,16 @@ entity
 	"ignorenormals" "0"
 	"renderamt" "255"
 	"rendercolor" "255 255 255"
-	"origin" "-470 -495 6"
+	"origin" "156 -330 22"
 }
 entity
 {
 	"id" "155"
 	"classname" "prop_static"
 	"model" "models/props_junk/wood_crate001a_static.mdl"
-	"angles" "0 28 0"
+	"angles" "0 257 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2262,16 +2262,16 @@ entity
 	"ignorenormals" "0"
 	"renderamt" "255"
 	"rendercolor" "255 255 255"
-	"origin" "237 -504 22"
+	"origin" "-460 -474 22"
 }
 entity
 {
 	"id" "156"
 	"classname" "prop_static"
-	"model" "models/props_junk/wood_crate001a_static.mdl"
-	"angles" "0 189 0"
+	"model" "models/props_c17/oildrum001_static.mdl"
+	"angles" "0 106 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2285,16 +2285,16 @@ entity
 	"ignorenormals" "0"
 	"renderamt" "255"
 	"rendercolor" "255 255 255"
-	"origin" "506 -423 22"
+	"origin" "-633 -505 2"
 }
 entity
 {
 	"id" "157"
 	"classname" "prop_static"
-	"model" "models/props_mining/diesel_generator_static.mdl"
-	"angles" "0 6 0"
+	"model" "models/props_junk/wood_crate001a_static.mdl"
+	"angles" "0 206 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2308,16 +2308,16 @@ entity
 	"ignorenormals" "0"
 	"renderamt" "255"
 	"rendercolor" "255 255 255"
-	"origin" "-548 -292 3"
+	"origin" "-312 -330 22"
 }
 entity
 {
 	"id" "158"
 	"classname" "prop_static"
-	"model" "models/props_junk/wood_crate001a_static.mdl"
-	"angles" "0 76 0"
+	"model" "models/props_c17/oildrum001_static.mdl"
+	"angles" "0 301 0"
 	"solid" "6"
-	"she_poi_id" "q71b9k"
+	"she_poi_id" "5r9u89"
 	"mindxlevel" "0"
 	"maxdxlevel" "0"
 	"skin" "0"
@@ -2331,7 +2331,7 @@ entity
 	"ignorenormals" "0"
 	"renderamt" "255"
 	"rendercolor" "255 255 255"
-	"origin" "-456 80 22"
+	"origin" "-392 -259 2"
 }
 entity
 {
@@ -2807,4 +2807,29 @@ entity
 	"classname" "info_player_start"
 	"angles" "0 135 0"
 	"origin" "520 -620 64"
+}
+entity
+{
+	"id" "245"
+	"classname" "point_broadcastclientcommand"
+	"targetname" "she_cam"
+	"origin" "0 0 256"
+}
+entity
+{
+	"id" "246"
+	"classname" "logic_auto"
+	"spawnflags" "1"
+	"origin" "0 0 288"
+	connections
+	{
+		"OnMapSpawn" "she_cam,Command,setpos 0 -900 700,6,-1"
+		"OnMapSpawn" "she_cam,Command,setang 38 90 0,6,-1"
+		"OnMapSpawn" "she_cam,Command,setpos 0 -900 700,10,-1"
+		"OnMapSpawn" "she_cam,Command,setang 38 90 0,10,-1"
+		"OnMapSpawn" "she_cam,Command,setpos 0 -900 700,14,-1"
+		"OnMapSpawn" "she_cam,Command,setang 38 90 0,14,-1"
+		"OnMapSpawn" "she_cam,Command,setpos 0 -900 700,18,-1"
+		"OnMapSpawn" "she_cam,Command,setang 38 90 0,18,-1"
+	}
 }

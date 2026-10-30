@@ -67,6 +67,12 @@ Development is split into phases; each phase ends with screenshots in `docs/scre
 - VMT parsing (including `patch` materials and `%compile*` tool flags) and a VTF decoder for every common
   format. DXT textures go to the GPU compressed; mip chains are kept.
 - `WorldVertexTransition` displacements blend their two textures by the painted vertex alpha.
+- `MultiBlend` displacements mix up to four textures by per-vertex weights (the `multiblend` rows), shaded
+  like the engine does it: slot 1 first, slot 4 (the base) gets the rest, base alpha and `$spectexture`
+  alpha set the edge. The Ground tool paints a layer, noise-fills all layers so big areas stop tiling, and
+  makes new blends (`content/materials/she/blend/*.vmt`, packed into the BSP with bspzip on compile).
+  Demo: `scripts/multiblend-demo.mjs` (maps `multiblend_before` / `multiblend_after`). Compile with final
+  lighting: fast vrad leaves dark lightmap seams along the edges of displacement patches.
 - MDL/VVD/VTX loader for props (LOD 0, skins, multiple `$cdmaterials`), drawn as instanced meshes:
   346 props from 94 models in under 100 extra draw calls.
 - Point entities are colour-coded markers (green spawns, orange control points, yellow lights, ...).

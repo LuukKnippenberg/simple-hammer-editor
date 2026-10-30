@@ -66,20 +66,24 @@ export function editorContent(cfg: EditorConfig, vmf: string): string[] {
   return [...out];
 }
 
-/** Copies editor content into the mod folder for the compile tools; returns the files it created. */
+/**
+ * Copies editor content into the mod folder for the compile tools. Returns what it created, files first and
+ * then folders deepest first, so removing them in order leaves the game folder as it was.
+ */
 function stageContent(cfg: EditorConfig, files: string[], mod: string, log: Log): string[] {
-  const created: string[] = [];
+  const created: string[] = [], dirs: string[] = [];
   for (const rel of files) {
     const dest = join(mod, rel);
     if (existsSync(dest)) {
       log('warn', `${rel} already exists in the game folder; compiling against that copy`);
       continue;
     }
+    for (let d = dirname(dest); d.length > mod.length && !existsSync(d); d = dirname(d)) dirs.push(d);
     mkdirSync(dirname(dest), { recursive: true });
     copyFileSync(join(contentDir(cfg), rel), dest);
     created.push(dest);
   }
-  return created;
+  return [...created, ...dirs.sort((a, b) => b.length - a.length)];
 }
 
 /** Packs editor content into the BSP's pakfile with bspzip, so the map works without the loose files. */
@@ -158,7 +162,7 @@ export async function compileMap(cfg: EditorConfig, name: string, vmf: string, o
       return { ok: false, leaked, seconds: seconds() };
     }
   } finally {
-    for (const f of staged) rmSync(f, { force: true });
+    for (const f of staged) rmSync(f, { force: true, recursive: true });
   }
 
   // Install. Stale navmesh/heightmap files from an earlier version of the map would be wrong now.

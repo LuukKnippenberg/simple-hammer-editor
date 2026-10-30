@@ -46,6 +46,21 @@ const finish = (name) => d.eval(async (name) => {
     n.items.push(new KVPair('id', String(ed.doc.nextId())), new KVPair('classname', 'info_player_start'), new KVPair('angles', '0 135 0'), new KVPair('origin', '520 -620 64'));
     ed.doc.addEntity(n);
   }
+  // For in-game screenshots: put the camera where the editor's overview shot looks from, a few times
+  // while the client finishes connecting (needs sv_cheats 1).
+  if (!ed.doc.entities.some((e) => e.get('targetname') === 'she_cam')) {
+    const { KVNode, KVPair } = await import('/src/vmf/keyvalues.ts');
+    const cmd = new KVNode('entity');
+    cmd.items.push(new KVPair('id', String(ed.doc.nextId())), new KVPair('classname', 'point_broadcastclientcommand'), new KVPair('targetname', 'she_cam'), new KVPair('origin', '0 0 256'));
+    const auto = new KVNode('entity');
+    const conn = new KVNode('connections');
+    for (const t of [6, 10, 14, 18]) {
+      conn.items.push(new KVPair('OnMapSpawn', `she_cam,Command,setpos 0 -900 700,${t},-1`), new KVPair('OnMapSpawn', `she_cam,Command,setang 38 90 0,${t},-1`));
+    }
+    auto.items.push(new KVPair('id', String(ed.doc.nextId())), new KVPair('classname', 'logic_auto'), new KVPair('spawnflags', '1'), new KVPair('origin', '0 0 288'), conn);
+    ed.doc.addEntity(cmd);
+    ed.doc.addEntity(auto);
+  }
   ed.changed();
   const text = ed.doc.serialize();
   const r = await fetch(`/api/map/save?name=${encodeURIComponent(name)}`, { method: 'POST', body: text });
