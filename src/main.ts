@@ -25,6 +25,7 @@ import { mountMissionPanel } from './ui/missionPanel.ts';
 import { mountMissionFlow } from './ui/missionFlow.ts';
 import { pickArea } from './edit/areaPick.ts';
 import { buildMission } from './lw/missionAction.ts';
+import { checkMission } from './lw/missionCheck.ts';
 import { toast } from './ui/dom.ts';
 import { GameplayOverlay } from './render/gameplayOverlay.ts';
 import { LightingPreview } from './render/lightingPreview.ts';
@@ -81,6 +82,7 @@ const missionFlow = mountMissionFlow(editor, {
     const r = buildMission(editor, editor.mission);
     toast(editor.container, `Mission built: ${r.entities} entities, ${r.connections} outputs${r.warnings.length ? ` \u00b7 ${r.warnings.length} warning${r.warnings.length > 1 ? 's' : ''}` : ''}`, 4000);
   },
+  check: () => (editor.mission ? checkMission(editor.mission, editor.doc) : []),
 });
 tabs.add('Mission', mountMissionPanel(editor, () => missionFlow.open()));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[title^="Entity"]')?.click()));

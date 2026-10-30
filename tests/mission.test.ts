@@ -17,7 +17,7 @@ describe('mission graph', () => {
   it('parses saved graphs, filling in missing lists, and rejects junk', () => {
     const g = parseMission('{"stages":[{"id":"a","title":"A","x":0,"y":0}]}')!;
     expect(g.start).toBe('a');
-    expect(g.stages[0]).toMatchObject({ messages: [], objectives: [], transitions: [] });
+    expect(g.stages[0]).toMatchObject({ messages: [], objectives: [], actions: [], transitions: [] });
     expect(parseMission('not json')).toBeNull();
     expect(emptyMission().stages).toHaveLength(1);
   });

@@ -1,5 +1,7 @@
 import type { Editor } from '../editor.ts';
 import { OWNERS } from '../lw/kits.ts';
+import { fgdClass } from '../assets/fgd.ts';
+import { simContinue, simStart, simTake, simWaiting, type SimState } from '../lw/missionSim.ts';
 import {
   CONDITIONS, END_NODES, defaultCondition, describeCondition, emptyMission, newId, stageById,
   type Condition, type ConditionKind, type MissionGraph, type Stage, type Transition,
@@ -10,11 +12,11 @@ const NODE_W = 240;
 const END_LABEL: Record<string, string> = { victory: '🏆 Victory', defeat: '💀 Defeat' };
 
 export interface MissionFlowHooks {
-  /** Phase 7: draw a reach area in the viewport; resolves with the box, or null when cancelled. */
+  /** Draws a reach area in the viewport; resolves with the box, or null when cancelled. */
   pickArea?: () => Promise<[number, number, number, number, number] | null>;
-  /** Phase 7: build the graph into entities. */
+  /** Builds the graph into entities. */
   build?: () => void;
-  /** Phase 8: check the graph and the map. */
+  /** Checks the graph against the map. */
   check?: () => { severity: 'error' | 'warning'; text: string; stage?: string }[];
 }
 
@@ -42,6 +44,8 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
   let zoom = 1;
   const applyView = () => (plane.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`);
   let issues: ReturnType<NonNullable<MissionFlowHooks['check']>> = [];
+  /** The play-through, while one runs. */
+  let sim: SimState | null = null;
 
   const graph = (): MissionGraph => (editor.mission ??= emptyMission());
   const changed = () => {
@@ -73,7 +77,7 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
         const x1 = (a.left + a.width / 2 - prect.left) / zoom, y1 = (a.top + a.height / 2 - prect.top) / zoom;
         const x2 = (b.left - prect.left) / zoom, y2 = (b.top - prect.top) / zoom + 22;
         const dx = Math.max(60, Math.abs(x2 - x1) / 2);
-        const cls = t.to === 'victory' ? 'win' : t.to === 'defeat' ? 'lose' : '';
+        const cls = `${t.to === 'victory' ? 'win' : t.to === 'defeat' ? 'lose' : ''}${sim?.taken.includes(t.id) ? ' taken' : ''}`;
         paths.push(`<path class="${cls}" d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}"/><circle class="${cls}" cx="${x2}" cy="${y2}" r="4"/>`);
       }
     }
@@ -171,15 +175,17 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     drawEdges();
   };
 
+  const issueFor = (id: string) => issues.filter((i) => i.stage === id);
+
   const renderCanvas = () => {
     const g = graph();
     for (const el of nodeEls.values()) el.remove();
     nodeEls.clear();
     handleEls.clear();
-    const issueFor = (id: string) => issues.filter((i) => i.stage === id);
     for (const s of g.stages) {
-      const bad = issueFor(s.id);
-      const el = h(`div.mf-node${s.id === selected ? '.selected' : ''}${bad.some((i) => i.severity === 'error') ? '.error' : bad.length ? '.warn' : ''}` as 'div', {
+      const bad = sim ? [] : issueFor(s.id);
+      const simCls = sim ? (sim.stage === s.id ? '.sim-current' : sim.path.includes(s.id) ? '.sim-visited' : '.sim-idle') : '';
+      const el = h(`div.mf-node${s.id === selected && !sim ? '.selected' : ''}${simCls}${bad.some((i) => i.severity === 'error') ? '.error' : bad.length ? '.warn' : ''}` as 'div', {
         style: { left: `${s.x}px`, top: `${s.y}px`, width: `${NODE_W}px` },
         title: bad.map((i) => i.text).join('\n'),
       });
@@ -187,6 +193,7 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
       el.append(h('div.mf-title', {}, s.id === g.start ? h('span.mf-start', {}, 'START') : null, s.title || '(untitled)'));
       if (s.messages.length) el.append(h('div.mf-msg', { title: s.messages.join('\n\n') }, `💬 ${s.messages[0].slice(0, 70)}${s.messages[0].length > 70 ? '…' : ''}${s.messages.length > 1 ? ` (+${s.messages.length - 1})` : ''}`));
       for (const o of s.objectives) el.append(h('div.mf-obj', {}, `🎯 ${o.text}`));
+      for (const a of s.actions ?? []) if (a.target) el.append(h('div.mf-act', {}, `⚡ ${a.target}.${a.input}${a.delay ? ` +${a.delay}s` : ''}`));
       for (const t of s.transitions) {
         const handle = h('span.mf-handle', { title: 'Drag onto a stage to send this transition there' });
         handleEls.set(t.id, handle);
@@ -199,7 +206,7 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     }
     for (const id of END_NODES) {
       const p = endPos(id);
-      const el = h(`div.mf-node.mf-end.${id}` as 'div', { style: { left: `${p.x}px`, top: `${p.y}px` } }, h('div.mf-title', {}, END_LABEL[id]));
+      const el = h(`div.mf-node.mf-end.${id}${sim?.result === id ? '.sim-current' : ''}` as 'div', { style: { left: `${p.x}px`, top: `${p.y}px` } }, h('div.mf-title', {}, END_LABEL[id]));
       el.dataset.id = id;
       nodeEls.set(id, el);
       plane.append(el);
@@ -267,15 +274,62 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     }
   };
 
+  const issueList = (list: typeof issues) => list.map((i) => h(`div.mf-issue.${i.severity}` as 'div', {
+    title: i.stage ? 'Select the stage' : '',
+    onclick: i.stage && i.stage !== selected ? () => { selected = i.stage!; render(); } : undefined,
+  }, `${i.severity === 'error' ? '⛔' : '⚠'} ${i.text}`));
+
+  /** The play-through: the message on screen, the HUD objectives, and the conditions to pick from. */
+  const renderSim = (st: SimState) => {
+    const g = graph();
+    const s = st.stage ? stageById(g, st.stage) : undefined;
+    const titleOf = (id: string) => END_LABEL[id] ?? stageById(g, id)?.title ?? id;
+    const els: HTMLElement[] = [
+      h('h3', {}, 'Play-through'),
+      h('p.hint', {}, 'Steps through the flowchart the way the built map plays it. Pick the condition that is met next.'),
+    ];
+    if (st.result) els.push(h(`div.mf-sim-end.${st.result}` as 'div', {}, END_LABEL[st.result]));
+    else if (s) els.push(h('div.mf-sim-stage', {}, h('span.hint', {}, 'Stage '), s.title));
+    if (s && st.messages.length) {
+      const total = s.messages.filter((m) => m.trim()).length;
+      els.push(h('div.mf-sim-msg', {},
+        h('div', {}, st.messages[0]),
+        h('div.row', {}, h('span.hint', {}, `${total - st.messages.length + 1} of ${total}`), h('button.primary', { onclick: () => { sim = simContinue(st); render(); } }, 'Continue'))));
+    }
+    if (st.objectives.length) {
+      els.push(h('h3', {}, 'Objectives'));
+      for (const o of st.objectives) els.push(h(`div.mf-sim-obj.${o.state}` as 'div', {}, `${o.state === 'completed' ? '✓' : o.state === 'failed' ? '✗' : '◻'} ${o.text}`));
+    }
+    const waiting = simWaiting(g, st);
+    if (waiting.length) {
+      els.push(h('h3', {}, 'Waiting for', h('span.hint', {}, ' click the one that happens')));
+      for (const t of waiting) {
+        els.push(h(`button.mf-sim-tr${t.to === 'victory' ? '.win' : t.to === 'defeat' ? '.lose' : ''}` as 'button', { onclick: () => { sim = simTake(g, st, t.id); render(); } },
+          `${CONDITIONS[t.condition.kind].icon} ${describeCondition(t.condition)}`, h('span.hint', {}, ` → ${titleOf(t.to)}`)));
+      }
+    }
+    els.push(h('div.row', {},
+      h('button', { onclick: () => { sim = simStart(g); render(); } }, st.result ? 'Play again' : 'Restart'),
+      h('button', { onclick: () => { sim = null; render(); } }, 'Stop')));
+    els.push(h('h3', {}, 'What happened'));
+    const icon: Record<string, string> = { stage: '▶', message: '💬', objective: '🎯', action: '⚡', timer: '⏱', transition: '✔', end: '■' };
+    const line = (kind: string, text: string) => h(`div.${kind}` as 'div', {}, `${icon[kind]} ${kind === 'message' ? `“${text.slice(0, 90)}${text.length > 90 ? '…' : ''}”` : text}`);
+    els.push(h('div.mf-sim-log', {}, ...st.log.map((e) => line(e.kind, e.text))));
+    side.replaceChildren(...els);
+  };
+
   const renderSide = () => {
     const g = graph();
+    if (sim) { renderSim(sim); return; }
     const s = selected ? stageById(g, selected) : undefined;
     if (!s) {
       side.replaceChildren(
         h('h3', {}, 'Mission flow'),
-        h('p.hint', {}, 'Each card is a stage of the mission. When a stage starts it shows its messages and objectives; its transitions wait for their condition and lead to the next stage, to Victory or to Defeat.'),
-        h('p.hint', {}, 'Click a card to edit it. Drag cards to arrange them, drag the background to pan, drag a transition\'s dot onto a card to connect it.'),
+        h('p.hint', {}, 'Each card is a stage of the mission. When a stage starts it shows its messages and objectives and fires its actions; its transitions wait for their condition and lead to the next stage, to Victory or to Defeat.'),
+        h('p.hint', {}, 'Click a card to edit it. Drag cards to arrange them, drag the background to pan, drag a transition\'s dot onto a card to connect it. ▶ Play through steps through the mission.'),
         h('p.hint', {}, `${g.stages.length} stage${g.stages.length === 1 ? '' : 's'}, ${g.stages.reduce((n, x) => n + x.transitions.length, 0)} transitions.`),
+        h('h3', {}, 'Check', h('span.hint', {}, issues.length ? ` ${issues.length} issue${issues.length > 1 ? 's' : ''}` : ' no issues')),
+        ...issueList(issues),
       );
       return;
     }
@@ -291,6 +345,22 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
       const input = h('input', { value: o.text }) as HTMLInputElement;
       input.addEventListener('change', () => { o.text = input.value; changed(); });
       return h('div.mf-item', {}, input, h('button', { title: 'Remove', onclick: () => { s.objectives.splice(i, 1); changed(); } }, '×'));
+    });
+    const actions = (s.actions ??= []).map((a, i) => {
+      const cls = editor.doc.entities.find((e) => e.get('targetname')?.toLowerCase() === a.target.toLowerCase())?.classname;
+      const inputs = (cls && fgdClass(cls)?.inputs.map((x) => x.name)) || [];
+      const list = h('datalist', { id: newId('dl') }, ...inputs.map((n) => h('option', { value: n })));
+      const input = h('input', { value: a.input, list: list.id, placeholder: 'input' }) as HTMLInputElement;
+      input.addEventListener('change', () => { a.input = input.value.trim(); changed(); });
+      const param = h('input', { value: a.param, placeholder: 'none' }) as HTMLInputElement;
+      param.addEventListener('change', () => { a.param = param.value; changed(); });
+      const delay = h('input', { type: 'number', value: String(a.delay), min: '0', step: '0.5' }) as HTMLInputElement;
+      delay.addEventListener('change', () => { a.delay = Math.max(0, Number(delay.value) || 0); changed(); });
+      return h('div.mf-transition', {},
+        h('div.row', {}, targetInput(a.target, (v) => { a.target = v; changed(); }), h('button', { title: 'Remove', onclick: () => { s.actions.splice(i, 1); changed(); } }, '×')),
+        h('div.row', {}, h('label', {}, 'Input'), input, list),
+        h('div.row', {}, h('label', {}, 'Value'), param),
+        h('div.row', {}, h('label', {}, 'After (s)'), delay));
     });
     const targets = [...g.stages.filter((x) => x.id !== s.id).map((x) => [x.id, x.title] as const), ['victory', END_LABEL.victory] as const, ['defeat', END_LABEL.defeat] as const];
     const transitions = s.transitions.map((t, i) => {
@@ -311,6 +381,7 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     });
     side.replaceChildren(
       h('h3', {}, 'Stage'),
+      ...issueList(issueFor(s.id)),
       h('div.row', {}, h('label', {}, 'Title'), title),
       h('div.row', {},
         h('button', { disabled: g.start === s.id, onclick: () => { g.start = s.id; changed(); } }, g.start === s.id ? 'Start stage' : 'Make start'),
@@ -321,6 +392,9 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
       h('h3', {}, 'Objectives', h('span.hint', {}, ' shown while the stage runs')),
       ...objectives,
       h('button', { onclick: () => { s.objectives.push({ id: newId('o'), text: 'New objective' }); changed(); } }, '+ Objective'),
+      h('h3', {}, 'Actions', h('span.hint', {}, ' fired when the stage starts: enable a wave, open a gate')),
+      ...actions,
+      h('button', { onclick: () => { s.actions.push({ id: newId('a'), target: '', input: 'Enable', param: '', delay: 0 }); changed(); } }, '+ Action'),
       h('h3', {}, 'Transitions', h('span.hint', {}, ' the first condition met wins')),
       ...transitions,
       h('button', { onclick: () => { s.transitions.push({ id: newId('t'), condition: defaultCondition('reach'), to: 'victory', completes: true }); changed(); } }, '+ Transition'),
@@ -332,31 +406,34 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     renderSide();
     const g = graph();
     status.textContent = `${g.stages.length} stages · ${issues.filter((i) => i.severity === 'error').length} errors · ${issues.filter((i) => i.severity === 'warning').length} warnings`;
+    playBtn.textContent = sim ? '■ Stop' : '▶ Play through';
   };
 
   const addStage = () => {
     const g = graph();
     const last = g.stages[g.stages.length - 1];
-    const s: Stage = { id: newId('s'), title: `Stage ${g.stages.length + 1}`, x: (last?.x ?? 0) + NODE_W + 80, y: last?.y ?? 120, messages: [], objectives: [], transitions: [] };
+    const s: Stage = { id: newId('s'), title: `Stage ${g.stages.length + 1}`, x: (last?.x ?? 0) + NODE_W + 80, y: last?.y ?? 120, messages: [], objectives: [], actions: [], transitions: [] };
     g.stages.push(s);
     if (!g.start) g.start = s.id;
     selected = s.id;
     changed();
   };
 
-  const close = () => { backdrop.hidden = true; };
+  const close = () => { backdrop.hidden = true; sim = null; };
+  const playBtn = h('button', { title: 'Step through the mission stage by stage', onclick: () => { sim = sim ? null : simStart(graph()); render(); } });
   dialog.append(
     h('div.modal-head', {},
       h('b', {}, 'Mission flow'),
       status,
       h('button', { onclick: addStage }, '+ Stage'),
       h('button', { title: 'Fit the whole flowchart in view', onclick: () => fit() }, '\u2922 Fit'),
-      hooks.check ? h('button', { onclick: () => { issues = hooks.check!(); render(); } }, '✓ Check') : null,
+      playBtn,
+      hooks.check ? h('button', { onclick: () => { issues = hooks.check!(); selected = null; sim = null; render(); } }, '✓ Check') : null,
       hooks.build ? h('button.primary', { onclick: () => { hooks.build!(); issues = hooks.check?.() ?? []; render(); } }, '⚙ Build into map') : null,
       h('button', { onclick: close }, '✕')),
     h('div.mf-body', {}, canvas, side),
   );
-  editor.on('document', () => { selected = null; issues = []; });
+  editor.on('document', () => { selected = null; issues = []; sim = null; });
 
   return {
     dialog,

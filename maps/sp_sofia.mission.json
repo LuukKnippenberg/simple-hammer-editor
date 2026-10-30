@@ -16,6 +16,7 @@
      "text": "Fight through the old town to the tram line"
     }
    ],
+   "actions": [],
    "transitions": [
     {
      "id": "t1",
@@ -47,15 +48,24 @@
   {
    "id": "tram",
    "title": "The tram line",
-   "x": 360,
-   "y": 40,
+   "x": 380,
+   "y": 60,
    "messages": [
     "The tram line. The Largo is just north and the Combine are dug in around the Party House. Reinforcements are coming up the line from the east."
    ],
    "objectives": [
     {
      "id": "o2",
-     "text": "Take the Largo"
+     "text": "Push north into the Largo"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a1",
+     "target": "rebel_reinforce",
+     "input": "Enable",
+     "param": "",
+     "delay": 6
     }
    ],
    "transitions": [
@@ -64,10 +74,10 @@
      "condition": {
       "kind": "reach",
       "area": [
-       -1536,
-       128,
-       1408,
-       2688
+       -1664,
+       -256,
+       1664,
+       128
       ],
       "z": 128,
       "owner": "2"
@@ -89,20 +99,32 @@
   {
    "id": "assault",
    "title": "Assault on the Largo",
-   "x": 680,
+   "x": 720,
    "y": 60,
    "messages": [
-    "They have seen us! Combine reinforcements from the Party House and the cathedral.",
-    "Capture the flag in the middle of the Largo."
+    "They have seen us! Combine reinforcements are pouring out of the Party House and the cathedral.",
+    "Take the flag in front of the Party House and the Largo is ours."
    ],
    "objectives": [
     {
      "id": "o3",
-     "text": "Capture the flag at the Largo"
+     "text": "Take the Largo: capture the flag at the Party House"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a2",
+     "target": "party_house_wave",
+     "input": "Enable",
+     "param": "",
+     "delay": 4
     },
     {
-     "id": "o4",
-     "text": "Hold out against the counter-attack"
+     "id": "a3",
+     "target": "cathedral_wave",
+     "input": "Enable",
+     "param": "",
+     "delay": 25
     }
    ],
    "transitions": [

@@ -14,7 +14,7 @@ import type { Condition, MissionGraph, Stage, Transition } from './mission.ts';
  * Per stage `S`:
  * - `mf_S_enter` (logic_relay) starts the stage: shows the first message (each message's Continue shows
  *   the next), makes the objectives visible and in progress, enables the stage's transitions and starts
- *   their condition entities.
+ *   their condition entities, and fires the stage's actions (map entity inputs).
  * - `mf_S_tK` (logic_relay, starts disabled) is transition K. Its condition entities trigger it; when it
  *   fires it disables all of the stage's transitions and conditions, completes or fails the objectives, and
  *   starts the next stage (or calls PlayerVictory / PlayerLost on the win condition).
@@ -61,6 +61,9 @@ function ownerFilter(ctx: Ctx, owner: string): string {
   return name;
 }
 
+/** Map entities (not the build's own) with this targetname. */
+const mapNamed = (doc: VmfDocument, n: string) => doc.entities.filter((e) => e.get('targetname')?.toLowerCase() === n.trim().toLowerCase() && e.get(MARK) !== '1');
+
 /** The output an entity fires when it dies. */
 function deathOutput(e: MapEntity): string {
   if (e.classname === 'unit_maker') return 'OnAllSpawnedDead';
@@ -74,7 +77,7 @@ function deathOutput(e: MapEntity): string {
 function buildCondition(ctx: Ctx, s: Stage, t: Transition, rel: string, c: Condition): { on: [string, string, string][]; off: [string, string, string][] } {
   const doc = ctx.doc;
   const base = `${rel}_c`;
-  const named = (n: string) => doc.entities.filter((e) => e.get('targetname')?.toLowerCase() === n.toLowerCase() && e.get(MARK) !== '1');
+  const named = (n: string) => mapNamed(doc, n);
   switch (c.kind) {
     case 'reach': {
       if (!c.area) { ctx.report.warnings.push(`${s.title}: "reach" has no area`); return { on: [], off: [] }; }
@@ -172,6 +175,11 @@ export function buildMissionInto(doc: VmfDocument, g: MissionGraph, near: Vector
       link(ctx, enter, 'OnTrigger', name, 'SetInProgress', '', 1);
       return name;
     });
+    for (const a of s.actions ?? []) {
+      if (!a.target.trim() || !a.input.trim()) continue;
+      if (!mapNamed(doc, a.target).length) ctx.report.warnings.push(`${s.title}: the action's target "${a.target}" is not in the map`);
+      link(ctx, enter, 'OnTrigger', a.target.trim(), a.input.trim(), a.param, a.delay);
+    }
     ctx.col++;
     ctx.row = 0;
     const offs: [string, string, string][] = [];

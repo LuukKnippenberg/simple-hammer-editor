@@ -711,8 +711,10 @@ rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), d
 `src/ui/missionFlow.ts`), saved next to the map as `maps/<name>.mission.json` (loaded and saved with it).
 
 - **Stages** are cards: a title, the **messages** shown when the stage starts, the **objectives** shown
-  while it runs, and **transitions**. The first transition whose condition is met wins; it leads to
-  another stage, to 🏆 Victory or to 💀 Defeat, and marks the stage's objectives completed or failed.
+  while it runs, **actions** fired as it starts (an entity input with a delay: enable a wave, open a gate;
+  the input field offers the target's inputs from the FGD), and **transitions**. The first transition
+  whose condition is met wins; it leads to another stage, to 🏆 Victory or to 💀 Defeat, and marks the
+  stage's objectives completed or failed.
 - **Conditions**: 📍 reach a location (an area drawn in the viewport), 💥 destroy units or an object (by
   name), ☠ destroy a faction, 👥 have an amount of troops (population at least / at most N), ⏱ survive for
   a time, 🛡 lose a unit or object (lead it to Defeat for "keep it alive"), ⚑ capture a point, and 💰 gain
@@ -720,8 +722,8 @@ rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), d
 - **Editing**: drag cards to arrange them, drag the background to pan, the wheel zooms, ⤢ Fit shows it
   all. Drag a transition's dot onto a card to send it there. The side panel edits the selected stage;
   name fields offer the map's targetnames (unit groups, capture points).
-- Sofia's mission (built by hand in the Sofia phase) as a flowchart: the old town → the tram line →
-  the assault on the Largo → Victory when the flag is captured, Defeat when you are wiped out.
+- Sofia's mission is a flowchart: the old town → the tram line → the assault on the Largo → Victory when
+  the flag is captured, Defeat when you are wiped out.
 
 ![The Mission tab before a flowchart exists](docs/screenshots/mission-tab-empty.png)
 ![Connecting a transition by dragging its dot onto Defeat](docs/screenshots/mission-flow-connecting.png)
@@ -761,11 +763,37 @@ and the outputs they added to map entities, so they are never edited by hand.
 ![Built: the reach triggers in the viewport (tool brushes on)](docs/screenshots/mission-built-triggers.png)
 ![The built logic in the logic graph](docs/screenshots/mission-built-logic.png)
 
+### Mission flow: checking and playing it through
+
+**✓ Check** (also run when the flowchart opens and after a build) lists problems in the side panel and
+outlines the stage cards they belong to; click one to select its stage (`src/lw/missionCheck.ts`).
+Compiling logs the errors too.
+
+- Errors: no start stage, nothing leading to Victory, a stage with no transitions (the mission would get
+  stuck), a transition to a deleted stage, a reach with no area, destroy / lose / capture targets that
+  aren't in the map, a capture by a non-player, an action on an entity that isn't in the map.
+- Warnings: stages nothing leads to, stages that can't reach Victory, nothing leading to Defeat, a start
+  stage without an objective, a destroy target that can't die (a logic entity), an action input the
+  target's class doesn't have, the resources condition, and messages or objectives placed by hand (and the
+  logic driving them), which would show next to the flowchart's.
+
+**▶ Play through** steps through the mission the way the built map plays it (`src/lw/missionSim.ts`):
+the current stage lights up, its messages show one by one with Continue, the HUD objectives tick off,
+and the side panel lists the conditions the stage waits for. Click the one that happens to move on; the
+path taken is drawn in orange and a log records the messages, objectives, actions and timers on the way.
+It follows the flowchart only; it does not run the game.
+
+![The check: an action on a missing entity and a misspelt capture point](docs/screenshots/mission-check-issues.png)
+![Stage actions: the Combine waves of the Largo assault](docs/screenshots/mission-flow-actions.png)
+![Playing it through: the assault on the Largo](docs/screenshots/mission-sim-assault.png)
+![Playing it through: victory and the log](docs/screenshots/mission-sim-victory.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
 tools by `scripts/build-sofia.mjs` (map logic and landmarks in `src/examples/sofia.ts`). It is saved as
-`maps/sp_sofia.vmf` with its sketch `maps/sp_sofia.sketch.json`, so it opens and edits like any map.
+`maps/sp_sofia.vmf` with its sketch `maps/sp_sofia.sketch.json` and its mission flowchart
+`maps/sp_sofia.mission.json`, so it opens and edits like any map.
 
 **Layout** (64×64 cells, 8192 units square), drawn with the map sketch:
 
@@ -781,15 +809,18 @@ tools by `scripts/build-sofia.mjs` (map logic and landmarks in `src/examples/sof
 - **Combine garrison** on the Largo: soldiers, shotgunners, elites and Metropolice (27) behind barricades,
   bunkers and a fence, plus two reinforcement waves.
 
-**Mission script** (wired with the kits and the outputs editor; 15 connections, see the logic graph):
+**Mission** (the flowchart `sofiaMission()`, built into 26 entities and 70 outputs when compiling):
 
-1. At map start: player relations apply and the intro message tells the player to push north. Objective
-   *"Fight through the old town to the tram line"* is shown.
-2. Reaching the tram line (`trigger_once` filtered to the player's units) completes it, shows the next
-   message, reveals *"Take the Largo"* and brings 4 rebel reinforcements up the tram line.
-3. Entering the Largo shows the alarm message and enables the Party House wave; the cathedral wave
-   follows 25 seconds later. Both waves are ordered to the flag.
-4. Capturing the flag (`OnCaptured_Player0`) completes the objective, which ends the mission in victory.
+1. *The old town*: the intro message tells the player to push north; objective *"Fight through the old
+   town to the tram line"*. Player relations apply at map start (a kit, not part of the flowchart).
+2. Reaching the tram line completes it and starts *The tram line*: the next message, objective *"Push
+   north into the Largo"*, and 4 rebel reinforcements come up the tram line (an action, after 6 s).
+3. Entering the Largo starts *Assault on the Largo*: the alarm messages, objective *"Take the Largo"*,
+   and the Party House wave (after 4 s) and the cathedral wave (after 25 s), both ordered to the flag.
+4. Capturing the flag wins. Losing all your units in any stage loses.
+
+The map was first built with hand-wired messages, objectives and `trigger_once` brushes; those were
+replaced by the flowchart (the check flagged them as hand-placed logic until they were removed).
 
 The map compiles sealed (vbsp, vvis, vrad -hdr) with a navmesh in about 30 seconds, and a dedicated server
 loads it with the mission gamerules without script errors. Because it starts with `sp_` and has a
@@ -808,7 +839,7 @@ loads it with the mission gamerules without script errors. Because it starts wit
 ![The corner tower on the tram line](docs/screenshots/sofia-11-corner-tower.png)
 ![Lighting preview](docs/screenshots/sofia-12-lit-overview.png)
 ![The Largo with the lighting preview](docs/screenshots/sofia-13-lit-largo.png)
-![Mission logic graph](docs/screenshots/sofia-14-logic-graph.png)
+![The mission flowchart, checked with no issues](docs/screenshots/mission-check-ok.png)
 ![Mission summary](docs/screenshots/sofia-15-mission-summary.png)
 ![Compile checks](docs/screenshots/sofia-16-compile-checks.png)
 ![Compiled with the navmesh](docs/screenshots/sofia-17-compiled.png)

@@ -136565,10 +136565,6 @@ entity
 	"Uncontrollable" "0"
 	"unittype" "control_point_char"
 	"origin" "-64 1280 128"
-	connections
-	{
-		"OnCaptured_Player0" "obj_largoSetCompleted0-1"
-	}
 }
 entity
 {
@@ -140591,27 +140587,6 @@ entity
 }
 entity
 {
-	"id" "8837"
-	"classname" "filter_owner"
-	"targetname" "player_filter"
-	"ownernumber" "2"
-	"Negated" "0"
-	"origin" "-160 -3904 64"
-}
-entity
-{
-	"id" "8838"
-	"classname" "wars_messagebox"
-	"targetname" "msg_intro"
-	"Text" "Sofia, old town. The Combine garrison holds the Largo, but the alleys between us are crawling with the dead. Push north through the courtyards to the tram line."
-	"angles" "0 0 0"
-	"StartDisabled" "0"
-	"locked" "0"
-	"SmoothClose" "0"
-	"origin" "-64 -3904 96"
-}
-entity
-{
 	"id" "8839"
 	"classname" "logic_auto"
 	"targetname" "map_start"
@@ -140619,37 +140594,8 @@ entity
 	"origin" "-64 -3904 96"
 	connections
 	{
-		"OnMapSpawn" "msg_introDisplay2-1"
 		"OnMapSpawn" "player_hates_1ApplyRelation0-1"
 		"OnMapSpawn" "player_hates_3ApplyRelation0-1"
-	}
-}
-entity
-{
-	"id" "8840"
-	"classname" "wars_mission_objective"
-	"targetname" "obj_oldtown"
-	"description" "Fight through the old town to the tram line"
-	"priority" "10"
-	"visible" "1"
-	"angles" "0 0 0"
-	"StartDisabled" "0"
-	"origin" "-32 -3904 96"
-}
-entity
-{
-	"id" "8841"
-	"classname" "wars_mission_objective"
-	"targetname" "obj_largo"
-	"description" "Take the Largo: capture the flag at the Party House"
-	"priority" "20"
-	"visible" "0"
-	"angles" "0 0 0"
-	"StartDisabled" "0"
-	"origin" "0 -3904 96"
-	connections
-	{
-		"OnCompleted" "mission_resultPlayerVictory3-1"
 	}
 }
 entity
@@ -140660,30 +140606,6 @@ entity
 	"angles" "0 0 0"
 	"StartDisabled" "0"
 	"origin" "0 -3872 96"
-}
-entity
-{
-	"id" "8843"
-	"classname" "wars_messagebox"
-	"targetname" "msg_tram"
-	"Text" "The tram line. The Largo is just north and the Combine are dug in around the Party House. Reinforcements are coming up the line from the east."
-	"angles" "0 0 0"
-	"StartDisabled" "0"
-	"locked" "0"
-	"SmoothClose" "0"
-	"origin" "-64 -3872 96"
-}
-entity
-{
-	"id" "8844"
-	"classname" "wars_messagebox"
-	"targetname" "msg_largo"
-	"Text" "They have seen us! Combine reinforcements are pouring out of the Party House and the cathedral."
-	"angles" "0 0 0"
-	"StartDisabled" "0"
-	"locked" "0"
-	"SmoothClose" "0"
-	"origin" "-32 -3872 96"
 }
 entity
 {
@@ -140722,201 +140644,6 @@ entity
 	connections
 	{
 		"OnSpawnNPC" "rebel_reinforce_orderPerformOrderUnit0-1"
-	}
-}
-entity
-{
-	"id" "8848"
-	"classname" "trigger_once"
-	"targetname" "trigger_tramline"
-	"spawnflags" "2"
-	"StartDisabled" "0"
-	"filtername" "player_filter"
-	connections
-	{
-		"OnStartTouch" "obj_oldtownSetCompleted0-1"
-		"OnStartTouch" "msg_tramDisplay1-1"
-		"OnStartTouch" "obj_largoSetVisible12-1"
-		"OnStartTouch" "rebel_reinforceEnable6-1"
-	}
-	solid
-	{
-		"id" "8849"
-		side
-		{
-			"id" "8850"
-			"plane" "(-4064 -1024 512) (4064 -512 512) (4064 -1024 512)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[1 0 0 0] 0.25"
-			"vaxis" "[0 -1 0 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8851"
-			"plane" "(-4064 -1024 112) (4064 -1024 112) (4064 -512 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[1 0 0 0] 0.25"
-			"vaxis" "[0 -1 0 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8852"
-			"plane" "(-4064 -1024 512) (4064 -1024 512) (-4064 -1024 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[1 0 0 0] 0.25"
-			"vaxis" "[0 0 -1 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8853"
-			"plane" "(4064 -1024 512) (4064 -512 512) (4064 -1024 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[0 1 0 0] 0.25"
-			"vaxis" "[0 0 -1 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8854"
-			"plane" "(4064 -512 512) (-4064 -512 512) (4064 -512 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[1 0 0 0] 0.25"
-			"vaxis" "[0 0 -1 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8855"
-			"plane" "(-4064 -512 512) (-4064 -1024 512) (-4064 -512 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[0 1 0 0] 0.25"
-			"vaxis" "[0 0 -1 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		editor
-		{
-			"color" "0 180 220"
-			"visgroupshown" "1"
-			"visgroupautoshown" "1"
-		}
-	}
-	editor
-	{
-		"color" "220 30 220"
-		"visgroupshown" "1"
-		"visgroupautoshown" "1"
-	}
-}
-entity
-{
-	"id" "8856"
-	"classname" "trigger_once"
-	"targetname" "trigger_largo"
-	"spawnflags" "2"
-	"StartDisabled" "0"
-	"filtername" "player_filter"
-	connections
-	{
-		"OnStartTouch" "msg_largoDisplay0-1"
-		"OnStartTouch" "party_house_waveEnable4-1"
-		"OnStartTouch" "cathedral_waveEnable25-1"
-	}
-	solid
-	{
-		"id" "8857"
-		side
-		{
-			"id" "8858"
-			"plane" "(-1664 -256 512) (1664 128 512) (1664 -256 512)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[1 0 0 0] 0.25"
-			"vaxis" "[0 -1 0 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8859"
-			"plane" "(-1664 -256 112) (1664 -256 112) (1664 128 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[1 0 0 0] 0.25"
-			"vaxis" "[0 -1 0 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8860"
-			"plane" "(-1664 -256 512) (1664 -256 512) (-1664 -256 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[1 0 0 0] 0.25"
-			"vaxis" "[0 0 -1 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8861"
-			"plane" "(1664 -256 512) (1664 128 512) (1664 -256 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[0 1 0 0] 0.25"
-			"vaxis" "[0 0 -1 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8862"
-			"plane" "(1664 128 512) (-1664 128 512) (1664 128 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[1 0 0 0] 0.25"
-			"vaxis" "[0 0 -1 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		side
-		{
-			"id" "8863"
-			"plane" "(-1664 128 512) (-1664 -256 512) (-1664 128 112)"
-			"material" "TOOLS/TOOLSTRIGGER"
-			"uaxis" "[0 1 0 0] 0.25"
-			"vaxis" "[0 0 -1 0] 0.25"
-			"rotation" "0"
-			"lightmapscale" "16"
-			"smoothing_groups" "0"
-		}
-		editor
-		{
-			"color" "0 180 220"
-			"visgroupshown" "1"
-			"visgroupautoshown" "1"
-		}
-	}
-	editor
-	{
-		"color" "220 30 220"
-		"visgroupshown" "1"
-		"visgroupautoshown" "1"
 	}
 }
 entity

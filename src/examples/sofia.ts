@@ -1,7 +1,7 @@
 /**
  * "Sofia: Battle for the Largo" – a singleplayer Lambda Wars mission built with the editor's own tools:
  * the map sketch (layout, height levels, surfaces, markers), the building generator, primitive shapes,
- * the Lambda Wars kits, decals and entity I/O.
+ * the Lambda Wars kits, decals, and the mission flowchart (stages, conditions, messages, objectives).
  *
  * Story: rebels start in the south of Sofia's old town, fight north through zombie-infested alleys and
  * courtyards, climb to the tram line, and must take the Largo (the main square) from the Combine.
@@ -10,14 +10,14 @@
  */
 import { Box3, Raycaster, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
-import type { MapEntity } from '../vmf/map.ts';
 import { Feature, Surface, emptySketch, type Sketch, type SketchMarker } from '../gen/sketch.ts';
 import { detailEntityNode, generateBuildings, type FacadeStyle } from '../gen/buildings.ts';
 import { shapeSolids, type ShapeKind } from '../edit/shapes.ts';
 import { boxSolid } from '../edit/brushes.ts';
-import { editorBlock, entityNode } from '../edit/actions.ts';
+import { entityNode } from '../edit/actions.ts';
 import { KITS, applyStandardRelations, recordKit, type ParamValue } from '../lw/kits.ts';
-import { getConnections, setConnections, type Connection } from '../vmf/io.ts';
+import type { MissionGraph } from '../lw/mission.ts';
+import { getConnections } from '../vmf/io.ts';
 import { placeDecalRay } from '../edit/decals.ts';
 import { Rng } from '../gen/rng.ts';
 
@@ -139,7 +139,6 @@ const MAT = {
   rail: 'METAL/METALTRACK001A',
   glass: 'GLASS/GLASSWINDOW007A',
   nodraw: 'TOOLS/TOOLSNODRAW',
-  trigger: 'TOOLS/TOOLSTRIGGER',
 };
 
 /** Props with their origin offsets (models whose origin is not at their base). */
@@ -313,54 +312,17 @@ export async function decorateSofia(editor: Editor): Promise<SofiaReport> {
 
   // --- Mission logic ------------------------------------------------------------------------------------
   const byName = (n: string) => doc.entities.find((e) => e.get('targetname') === n);
-  const connect = (e: MapEntity | undefined, c: Partial<Connection> & { output: string; target: string; input: string }) => {
-    if (e) setConnections(e, [...getConnections(e), { param: '', delay: 0, times: -1, ...c }]);
-  };
   const kit = (id: string, at: Vector3, params: Record<string, ParamValue>) => {
     const k = KITS.find((x) => x.id === id)!;
     const defaults = Object.fromEntries(k.params.map((p) => [p.key, p.default]));
     return k.place(editor, at, { ...defaults, ...params });
   };
-  const trigger = (name: string, min: Vector3, max: Vector3) => {
-    const node = entityNode(editor, 'trigger_once', null, { targetname: name, spawnflags: '2', StartDisabled: '0', filtername: 'player_filter' });
-    const e = doc.addEntity(node);
-    node.items.push(boxSolid(doc, min, max, MAT.trigger), editorBlock());
-    e.reload();
-    return e;
-  };
 
   recordKit(editor, 'Sofia mission', () => {
     doc.world.set('message', 'Sofia: Battle for the Largo');
     doc.world.set('she_description', 'Lead the rebels north through the zombie-infested alleys of Sofia\'s old town, then take the Largo from the Combine.');
-    const logicAt = new Vector3(mid(31), mid(1), 64);
-    doc.addEntity(entityNode(editor, 'filter_owner', logicAt.clone().add(new Vector3(-96, 0, 0)), { targetname: 'player_filter', ownernumber: '2', Negated: '0' }));
-
-    const [intro] = kit('message', logicAt, { text: 'Sofia, old town. The Combine garrison holds the Largo, but the alleys between us are crawling with the dead. Push north through the courtyards to the tram line.', when: 'start', delay: 2 });
-    intro.set('targetname', 'msg_intro');
-    const start = byName('map_start')!;
-    setConnections(start, getConnections(start).map((c) => (c.input === 'Display' ? { ...c, target: 'msg_intro' } : c)));
-    const [oldtown] = kit('objective', logicAt.clone().add(new Vector3(32, 0, 0)), { text: 'Fight through the old town to the tram line', visible: true, wins: false, priority: 10 });
-    oldtown.set('targetname', 'obj_oldtown');
-    const [largo] = kit('objective', logicAt.clone().add(new Vector3(64, 0, 0)), { text: 'Take the Largo: capture the flag at the Party House', visible: false, wins: true, priority: 20 });
-    largo.set('targetname', 'obj_largo');
-    const [tramMsg] = kit('message', logicAt.clone().add(new Vector3(0, 32, 0)), { text: 'The tram line. The Largo is just north and the Combine are dug in around the Party House. Reinforcements are coming up the line from the east.', when: 'none' });
-    tramMsg.set('targetname', 'msg_tram');
-    const [largoMsg] = kit('message', logicAt.clone().add(new Vector3(32, 32, 0)), { text: 'They have seen us! Combine reinforcements are pouring out of the Party House and the cathedral.', when: 'none' });
-    largoMsg.set('targetname', 'msg_largo');
-
-    // Rebel reinforcements arrive along the tram line when the player reaches it.
+    // Rebel reinforcements arrive along the tram line when the player reaches it (an action of that stage).
     kit('wave', new Vector3(edge(62), mid(26), STREET + 8), { name: 'rebel_reinforce', unit: 'rebel_ar2', count: 4, live: 4, freq: 1, owner: '2', goal: -1600, disabled: true });
-
-    const tram = trigger('trigger_tramline', new Vector3(edge(0) + 32, edge(24), STREET - 16), new Vector3(edge(N) - 32, edge(28), STREET + 384));
-    connect(tram, { output: 'OnStartTouch', target: 'obj_oldtown', input: 'SetCompleted' });
-    connect(tram, { output: 'OnStartTouch', target: 'msg_tram', input: 'Display', delay: 1 });
-    connect(tram, { output: 'OnStartTouch', target: 'obj_largo', input: 'SetVisible', param: '1', delay: 2 });
-    connect(tram, { output: 'OnStartTouch', target: 'rebel_reinforce', input: 'Enable', delay: 6 });
-    const enter = trigger('trigger_largo', new Vector3(edge(19), edge(30), STREET - 16), new Vector3(edge(45), edge(33), STREET + 384));
-    connect(enter, { output: 'OnStartTouch', target: 'msg_largo', input: 'Display' });
-    connect(enter, { output: 'OnStartTouch', target: 'party_house_wave', input: 'Enable', delay: 4 });
-    connect(enter, { output: 'OnStartTouch', target: 'cathedral_wave', input: 'Enable', delay: 25 });
-    connect(byName('largo_flag'), { output: 'OnCaptured_Player0', target: 'obj_largo', input: 'SetCompleted' });
     // Both Combine waves converge on the flag.
     const flag = byName('largo_flag')?.origin;
     for (const w of ['party_house_wave', 'cathedral_wave']) {
@@ -379,7 +341,57 @@ export async function decorateSofia(editor: Editor): Promise<SofiaReport> {
     }
     doc.entities.find((e) => e.classname === 'env_fog_controller')?.set('fogcolor', '196 186 168');
   });
+  // Messages, objectives and progress are the mission flowchart, built into entities when compiling.
+  editor.mission = sofiaMission();
   editor.changed();
   const connections = doc.entities.reduce((n, e) => n + getConnections(e).length, 0);
   return { brushes, props, decals, connections };
+}
+
+/**
+ * Sofia's mission as a flowchart: the old town → the tram line → the assault on the Largo. Reaching the
+ * tram line and the Largo moves the mission on (the areas are the street strips at level 1), capturing the
+ * flag wins, and losing all your units loses.
+ */
+export function sofiaMission(): MissionGraph {
+  const lost = (id: string) => ({ id, condition: { kind: 'destroy_faction', owner: '2' } as const, to: 'defeat', completes: false });
+  return {
+    version: 1,
+    start: 'oldtown',
+    stages: [
+      {
+        id: 'oldtown', title: 'The old town', x: 40, y: 60,
+        messages: ['Sofia, old town. The Combine garrison holds the Largo, but the alleys between us are crawling with the dead. Push north through the courtyards to the tram line.'],
+        objectives: [{ id: 'o1', text: 'Fight through the old town to the tram line' }],
+        actions: [],
+        transitions: [
+          { id: 't1', condition: { kind: 'reach', area: [edge(0) + 32, edge(24), edge(N) - 32, edge(28)], z: STREET, owner: '2' }, to: 'tram', completes: true },
+          lost('t2'),
+        ],
+      },
+      {
+        id: 'tram', title: 'The tram line', x: 380, y: 60,
+        messages: ['The tram line. The Largo is just north and the Combine are dug in around the Party House. Reinforcements are coming up the line from the east.'],
+        objectives: [{ id: 'o2', text: 'Push north into the Largo' }],
+        actions: [{ id: 'a1', target: 'rebel_reinforce', input: 'Enable', param: '', delay: 6 }],
+        transitions: [
+          { id: 't3', condition: { kind: 'reach', area: [edge(19), edge(30), edge(45), edge(33)], z: STREET, owner: '2' }, to: 'assault', completes: true },
+          lost('t4'),
+        ],
+      },
+      {
+        id: 'assault', title: 'Assault on the Largo', x: 720, y: 60,
+        messages: ['They have seen us! Combine reinforcements are pouring out of the Party House and the cathedral.', 'Take the flag in front of the Party House and the Largo is ours.'],
+        objectives: [{ id: 'o3', text: 'Take the Largo: capture the flag at the Party House' }],
+        actions: [
+          { id: 'a2', target: 'party_house_wave', input: 'Enable', param: '', delay: 4 },
+          { id: 'a3', target: 'cathedral_wave', input: 'Enable', param: '', delay: 25 },
+        ],
+        transitions: [
+          { id: 't5', condition: { kind: 'capture', target: 'largo_flag', owner: '2' }, to: 'victory', completes: true },
+          lost('t6'),
+        ],
+      },
+    ],
+  };
 }

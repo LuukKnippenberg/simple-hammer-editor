@@ -38,6 +38,9 @@ export interface Transition {
 
 export interface Objective { id: string; text: string }
 
+/** Something a stage does as it starts, as an entity input: enable a wave, open a gate, give an order. */
+export interface StageAction { id: string; target: string; input: string; param: string; delay: number }
+
 export interface Stage {
   id: string;
   title: string;
@@ -47,6 +50,8 @@ export interface Stage {
   /** Shown one after another when the stage starts. */
   messages: string[];
   objectives: Objective[];
+  /** Fired when the stage starts. */
+  actions: StageAction[];
   transitions: Transition[];
 }
 
@@ -86,7 +91,7 @@ export function defaultCondition(kind: ConditionKind): Condition {
 }
 
 export function emptyMission(): MissionGraph {
-  const s = { id: 'start', title: 'Briefing', x: 80, y: 120, messages: ['Your mission begins.'], objectives: [], transitions: [] };
+  const s = { id: 'start', title: 'Briefing', x: 80, y: 120, messages: ['Your mission begins.'], objectives: [], actions: [], transitions: [] };
   return { version: 1, start: s.id, stages: [s] };
 }
 
@@ -117,6 +122,7 @@ export function parseMission(text: string): MissionGraph | null {
     for (const s of g.stages) {
       s.messages ??= [];
       s.objectives ??= [];
+      s.actions ??= [];
       s.transitions ??= [];
     }
     g.start ??= g.stages[0]?.id ?? '';

@@ -6,6 +6,7 @@ import { VmfDocument } from '../vmf/map.ts';
 import { applyMapSettings } from '../lw/mapSettings.ts';
 import { buildMissionInto } from '../lw/missionBuild.ts';
 import { logicAnchor } from '../lw/missionAction.ts';
+import { checkMission } from '../lw/missionCheck.ts';
 
 export interface CompileOutcome {
   ok: boolean;
@@ -33,6 +34,7 @@ export async function compileCurrent(
     const r = buildMissionInto(copy, editor.mission, logicAnchor(copy));
     onLine('step', `Mission flow built: ${r.entities} entities, ${r.connections} outputs`);
     for (const w of r.warnings) onLine('warn', w);
+    for (const i of checkMission(editor.mission, editor.doc)) if (i.severity === 'error') onLine('warn', `Mission: ${i.text}`);
   }
   const q = new URLSearchParams({ name: opts.name, quality: opts.quality, navmesh: opts.navmesh ? '1' : '0' });
   const res = await fetch(`/api/compile?${q}`, { method: 'POST', body: copy.serialize() });

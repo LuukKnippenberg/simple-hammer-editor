@@ -20,7 +20,7 @@ const graph: MissionGraph = {
   version: 1, start: 'a',
   stages: [
     {
-      id: 'a', title: 'Clear the courtyard', x: 0, y: 0, messages: ['First message', 'Second message'], objectives: [{ id: 'o', text: 'Kill the zombies' }],
+      id: 'a', title: 'Clear the courtyard', x: 0, y: 0, messages: ['First message', 'Second message'], objectives: [{ id: 'o', text: 'Kill the zombies' }], actions: [],
       transitions: [
         { id: 't1', condition: { kind: 'destroy', target: 'courtyard_zombies' }, to: 'b', completes: true },
         { id: 't2', condition: { kind: 'lost', target: 'medic' }, to: 'defeat', completes: false },
@@ -28,13 +28,14 @@ const graph: MissionGraph = {
     },
     {
       id: 'b', title: 'Take the square', x: 300, y: 0, messages: ['Go'], objectives: [{ id: 'o2', text: 'Take the flag' }],
+      actions: [{ id: 'a1', target: 'wave1', input: 'Enable', param: '', delay: 5 }],
       transitions: [
         { id: 't3', condition: { kind: 'reach', area: [0, 0, 512, 512], z: 0, owner: '2' }, to: 'c', completes: true },
         { id: 't4', condition: { kind: 'survive', seconds: 90 }, to: 'defeat', completes: false },
       ],
     },
     {
-      id: 'c', title: 'Hold', x: 600, y: 0, messages: [], objectives: [],
+      id: 'c', title: 'Hold', x: 600, y: 0, messages: [], objectives: [], actions: [],
       transitions: [
         { id: 't5', condition: { kind: 'capture', target: 'largo_flag', owner: '2' }, to: 'victory', completes: true },
         { id: 't6', condition: { kind: 'troops', owner: '2', count: 5, compare: 'atmost' }, to: 'defeat', completes: false },
@@ -70,7 +71,8 @@ describe('mission build', () => {
     expect(trig.solids).toHaveLength(1);
     expect(trig.get('origin')).toBeUndefined();
     expect(named(doc, trig.get('filtername')!).get('ownernumber')).toBe('2');
-    expect(outs(named(doc, 'mf_b_enter'))).toEqual(expect.arrayContaining(['OnTrigger>mf_b_t0_c.Enable', 'OnTrigger>mf_b_t1_c.Start']));
+    expect(outs(named(doc, 'mf_b_enter'))).toEqual(expect.arrayContaining(['OnTrigger>mf_b_t0_c.Enable', 'OnTrigger>mf_b_t1_c.Start', 'OnTrigger>wave1.Enable']));
+    expect(getConnections(named(doc, 'mf_b_enter')).find((c) => c.target === 'wave1')?.delay).toBe(5);
     expect(outs(named(doc, 'mf_b_t0'))).toEqual(expect.arrayContaining(['OnTrigger>mf_b_t0_c.Disable', 'OnTrigger>mf_b_t1_c.Pause']));
     // Capture, population and wave conditions.
     expect(outs(named(doc, 'largo_flag'))).toEqual(['OnCaptured_Player0>mf_c_t0.Trigger']);

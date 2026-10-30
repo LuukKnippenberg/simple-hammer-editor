@@ -268,6 +268,28 @@ input.switch:checked::before { transform: translateX(14px); background: #fff; }
 .mf-transition .row select:first-child { flex: 1; }
 .mf-target { display: flex; flex: 1; min-width: 0; }
 .mf-target input { flex: 1; min-width: 0; }
+.mf-act { margin: 2px 0; color: #d9c48f; }
+.mf-issue { font-size: 12px; line-height: 1.35; padding: 4px 6px; margin-bottom: 4px; border-radius: 4px; border-left: 3px solid #c9a227; background: #24221a; }
+.mf-issue.error { border-left-color: var(--danger); background: #2a1b1b; }
+.mf-issue[title="Select the stage"] { cursor: pointer; }
+.mf-node.sim-current { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(255, 160, 60, .35); }
+.mf-node.sim-idle { opacity: .45; }
+.mf-edges .taken { stroke: var(--accent); stroke-width: 3; }
+.mf-edges circle.taken { fill: var(--accent); }
+.mf-sim-stage { font-size: 15px; font-weight: 600; margin: 6px 0; }
+.mf-sim-end { font-size: 20px; font-weight: 700; text-align: center; padding: 12px; border-radius: 6px; margin: 6px 0; }
+.mf-sim-end.victory { background: #1b2a20; border: 1px solid #3d7a50; }
+.mf-sim-end.defeat { background: #2a1b1b; border: 1px solid #7a3d3d; }
+.mf-sim-msg { background: #1e2a36; border: 1px solid #3a5670; border-radius: 6px; padding: 10px; line-height: 1.45; margin: 6px 0; }
+.mf-sim-msg .row { justify-content: space-between; margin-top: 8px; }
+.mf-sim-obj { margin: 3px 0; }
+.mf-sim-obj.completed { color: #6fd08c; }
+.mf-sim-obj.failed { color: #e06c6c; text-decoration: line-through; }
+.mf-sim-tr { display: block; width: 100%; text-align: left; margin-bottom: 4px; border-left: 3px solid #8fb3d9; }
+.mf-sim-tr.win { border-left-color: #6fd08c; }
+.mf-sim-tr.lose { border-left-color: #e06c6c; }
+.mf-sim-log { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.mf-sim-log .stage, .mf-sim-log .end { color: var(--text); font-weight: 600; margin-top: 4px; }
 
 /* Sound browser */
 .sound-browser { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
