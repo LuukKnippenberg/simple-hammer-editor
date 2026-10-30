@@ -135,6 +135,18 @@ export class WorldRenderer {
   hidden: Set<object> = new Set();
   visibleKinds: Record<MaterialKind, boolean> = { opaque: true, blend: true, translucent: true, tool: false, sky: false };
   stats = { brushes: 0, faces: 0, triangles: 0, batches: 0, buildMs: 0 };
+  private shadows = false;
+
+  setShadows(on: boolean): void {
+    this.shadows = on;
+    for (const b of this.batches.values()) this.shadowFlags(b.mesh, b.kind);
+  }
+
+  private shadowFlags(mesh: Mesh, kind: MaterialKind): void {
+    const solid = kind === 'opaque' || kind === 'blend';
+    mesh.castShadow = this.shadows && solid;
+    mesh.receiveShadow = this.shadows && kind !== 'tool' && kind !== 'sky';
+  }
 
   constructor(materials: MaterialLibrary) {
     this.materials = materials;
@@ -210,6 +222,7 @@ export class WorldRenderer {
     mesh.name = key;
     mesh.matrixAutoUpdate = false;
     if (info.kind === 'tool' || info.kind === 'sky' || info.kind === 'translucent') mesh.renderOrder = 1;
+    this.shadowFlags(mesh, info.kind);
     this.group.add(mesh);
     this.batches.set(key, { mesh, kind: info.kind, triSolid, triSide });
   }
@@ -221,6 +234,7 @@ export class WorldRenderer {
       b.kind = info.kind;
       if (b.mesh.material !== info.material) b.mesh.material = info.material;
       b.mesh.visible = this.visibleKinds[b.kind];
+      this.shadowFlags(b.mesh, b.kind);
     }
   }
 

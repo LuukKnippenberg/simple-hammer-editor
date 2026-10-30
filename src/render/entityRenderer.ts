@@ -67,6 +67,12 @@ export class EntityRenderer {
   showMarkers = true;
   showProps = true;
   stats = { props: 0, markers: 0, models: 0 };
+  private shadows = false;
+
+  setShadows(on: boolean): void {
+    this.shadows = on;
+    for (const g of this.groups.values()) for (const m of g.meshes) m.castShadow = m.receiveShadow = on;
+  }
 
   constructor(materials: MaterialLibrary) {
     this.materials = materials;
@@ -136,6 +142,7 @@ export class EntityRenderer {
       const mesh = new InstancedMesh(part.geometry, mat.material, ents.length);
       mesh.name = key;
       mesh.frustumCulled = false;
+      mesh.castShadow = mesh.receiveShadow = this.shadows;
       g.meshes.push(mesh);
       this.group.add(mesh);
     }

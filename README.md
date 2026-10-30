@@ -242,6 +242,25 @@ feature needs and wires their outputs, as one undo step:
 ![Mission summary](docs/screenshots/phase8-mission-summary.png)
 ![Mission compiled](docs/screenshots/phase8-compiled.png)
 
+### Phase 9: lighting preview
+
+**Lighting** (top bar, or L) switches the viewport from flat editor lighting to an approximation of the
+compiled result:
+
+- The sun from `light_environment` (pitch, yaw, colour, brightness) with real-time shadows from brushes and
+  props, and its `_ambient` as the sky fill.
+- `light`, `light_spot` and Lambda Wars' `light_deferred` entities as point and spot lights. A fixed pool
+  (24 point, 8 spot) is assigned to the lights nearest the camera, so moving never triggers shader rebuilds.
+- Sun height, direction, colour and ambient sliders in the Map tab edit `light_environment` live
+  (one undo step per drag). Point, spot and dynamic lights are in the Entities palette.
+- City16 with sun shadows runs at about 180 FPS.
+
+![Editor lighting](docs/screenshots/phase9-editor-lighting.png)
+![Lighting preview of the same view](docs/screenshots/phase9-preview-lighting.png)
+![Low evening sun from the sliders](docs/screenshots/phase9-low-sun.png)
+![Night with placed point and spot lights](docs/screenshots/phase9-night-lights.png)
+![Lighting controls](docs/screenshots/phase9-lighting-panel.png)
+
 ## Development
 
 ```bash

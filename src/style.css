@@ -196,3 +196,6 @@ kbd { font: 12px Consolas, monospace; background: var(--panel-2); border: 1px so
 .kits .kit .icon { width: 18px; text-align: center; }
 .row textarea { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; resize: vertical; }
 .tabs button { font-size: 12px; padding: 7px 1px; }
+label.check { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; }
+.row input[type='range'] { flex: 1; }
+.row input[type='color'] { flex: 0 0 44px; padding: 0 2px; height: 26px; }

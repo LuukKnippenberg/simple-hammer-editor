@@ -14,6 +14,8 @@ const FEATURED: { cls: string; label: string; hint: string }[] = [
   { cls: 'light_environment', label: 'Sun light', hint: 'One per map: sun and ambient light.' },
   { cls: 'env_fog_controller', label: 'Fog', hint: 'Map fog colour and distances.' },
   { cls: 'light', label: 'Point light', hint: 'Local light source.' },
+  { cls: 'light_spot', label: 'Spot light', hint: 'Cone light; aim it with the angles.' },
+  { cls: 'light_deferred', label: 'Dynamic light', hint: 'Lambda Wars deferred light (radius, colour, optional shadows).' },
 ];
 
 /** Picks the class the Entity tool places, plus the model for props. */

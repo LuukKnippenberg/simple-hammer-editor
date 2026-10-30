@@ -17,6 +17,8 @@ import { mountLogicPanel } from './ui/logicPanel.ts';
 import { IoLines } from './render/ioLines.ts';
 import { mountMissionPanel } from './ui/missionPanel.ts';
 import { GameplayOverlay } from './render/gameplayOverlay.ts';
+import { LightingPreview } from './render/lightingPreview.ts';
+import { mountLightingPanel } from './ui/lightingPanel.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -44,7 +46,13 @@ tabs.add('Mission', mountMissionPanel(editor));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[title^="Entity"]')?.click()));
 const mapPanel = h('div');
 mountDocumentPanel(editor, mapPanel);
-mapPanel.append(mountOutliner(editor));
+const lighting = new LightingPreview(editor);
+mapPanel.append(mountLightingPanel(editor, lighting), mountOutliner(editor));
+window.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() !== 'l' || e.ctrlKey || e.metaKey || (e.target as HTMLElement)?.closest?.('input, textarea, select')) return;
+  lighting.setEnabled(!lighting.enabled);
+  editor.emit('lighting');
+});
 tabs.add('Map', mapPanel);
 const logic = mountLogicPanel(editor);
 tabs.add('Logic', logic.panel);
@@ -63,6 +71,7 @@ declare global {
       busy(): boolean;
       tabs: typeof tabs;
       logic: typeof logic;
+      lighting: LightingPreview;
       setView(pos: [number, number, number], target: [number, number, number]): void;
       /** Page coordinates of a world point (for scripted mouse input). */
       project(p: [number, number, number]): [number, number];
@@ -77,6 +86,7 @@ window.__editor = {
   busy: () => editor.busy(),
   tabs,
   logic,
+  lighting,
   setView(pos, target) {
     editor.camera.position.set(...pos);
     editor.controls.lookAt(new Vector3(...target));

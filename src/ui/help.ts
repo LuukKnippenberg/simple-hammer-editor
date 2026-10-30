@@ -12,6 +12,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+T', 'Tie selected brushes to a trigger_once'],
   ['Ctrl+Z · Ctrl+Y', 'Undo · redo'],
   ['H · U', 'Hide selection · unhide all (editor only)'],
+  ['L', 'Toggle the lighting preview'],
   ['[ ]', 'Grid size'],
   [', .', 'Rotate entities (Shift: 90°)'],
   ['F', 'Focus the selection'],

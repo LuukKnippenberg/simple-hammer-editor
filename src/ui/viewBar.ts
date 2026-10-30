@@ -78,6 +78,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     const sync = () => b.classList.toggle('active', get());
     b.addEventListener('click', () => { set(!get()); sync(); });
     editor.on('view', sync);
+    editor.on('lighting', sync);
     sync();
     return b;
   };
@@ -94,6 +95,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     h('button', { onclick: () => download(), title: 'Download the .vmf' }, 'Download'),
     h('div.spacer'),
     toggle('Top view', 'Orthographic top-down view (T)', () => editor.view === 'top', (v) => editor.setView3dOrTop(v ? 'top' : '3d')),
+    toggle('Lighting', 'Preview in-game lighting: sun with shadows, ambient and light entities (L)', () => !!window.__editor?.lighting?.enabled, (v) => { window.__editor.lighting.setEnabled(v); editor.emit('lighting'); }),
     toggle('Tool brushes', 'Show clip, trigger, nodraw and other tool brushes', () => wr.visibleKinds.tool, (v) => { wr.visibleKinds.tool = v; wr.applyVisibility(); }),
     toggle('Sky brushes', 'Show skybox brushes', () => wr.visibleKinds.sky, (v) => { wr.visibleKinds.sky = v; wr.applyVisibility(); }),
     toggle('Props', 'Show prop models', () => editor.entities.showProps, (v) => editor.entities.setVisibility(v, editor.entities.showMarkers)),
