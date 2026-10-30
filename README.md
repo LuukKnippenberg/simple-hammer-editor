@@ -226,8 +226,8 @@ feature needs and wires their outputs, as one undo step:
 |---|---|
 | Capture point | `control_point` (flag) + `trigger_capture_area` with the chosen radius, owner and capture time |
 | Multiplayer start | `info_start_wars` (HQ spawn, team hint) + its `info_player_wars` camera |
-| Mission player start | camera spawn, `wars_player_setup` (faction, colour, applied at start) and a starting squad |
-| Unit group | N units of a type (zombies, Combine, Metropolice, rebels, ...) for an owner, with a shared name |
+| Mission player start | camera spawn, `wars_player_setup` (faction, colour, applied at start) and a starting squad of mixed units |
+| Unit group | N units of any unit type of the game, for an owner, with a shared name and an optional custom unittype |
 | Attack wave | `unit_maker` → `wars_give_order` → `info_target` goal; starts disabled so a trigger can enable it |
 | Mission message | `wars_messagebox`, shown at map start through a shared `logic_auto` or wired to a trigger |
 | Objective | `wars_mission_objective`; "completing wins" wires it to the map's `wars_win_condition` |
@@ -246,6 +246,55 @@ feature needs and wires their outputs, as one undo step:
 ![Wave route and capture ring](docs/screenshots/phase8-wave-and-capture-ring.png)
 ![Mission summary](docs/screenshots/phase8-mission-summary.png)
 ![Mission compiled](docs/screenshots/phase8-compiled.png)
+
+### Unit types in the kits
+
+The kits' unit list is built from the game, not kept by hand. `scripts/gen-unit-catalog.py` reads the
+install (`editor.config.json`, or a path argument) and writes `src/lw/unitCatalog.ts` (checked in, 143 types):
+
+- `lambdawars.fgd`: every `unit_*` class, its `studio()` model and the `unittype` choices it accepts.
+- `python/wars_game/**.py`, parsed with `ast` (nothing is imported): each `UnitInfo` class's `name`
+  (the unittype), `cls_name` (the entity class to place), `modelname`, `displayname`, `image_name`,
+  `hulltype`, `zoffset` and `scale`, inherited through its bases. Display names come from
+  `resource/lambdawars_english.txt`.
+- The unit entity classes (`@entity('unit_x')`) that use `UnitBaseAirLocomotion`, with the height their
+  locomotion keeps above the ground (`locomotion.desiredheight`, or the helicopters' `flyheight`).
+- Faction: from the unit's icon folder (`vgui/combine/...`), else the module it lives in; refugees
+  (`citizen.py`) are their own **Citizens** group. Helper classes (`unit_dummy`, damage controllers,
+  `unit_scan`) are left out. Game-mode copies (`overrun_`, `char_`, `mission_`, `destroyhq_`, ...) are listed
+  after each faction's own units.
+
+Re-run it after the game's unit list changes: `python scripts/gen-unit-catalog.py`.
+
+In the Mission tab, **Unit group**, **Attack wave** and **Mission player start** use a searchable drop-down
+grouped by faction (search matches name, unittype and class; ✈ marks air units). Old kit ids (`zombie`,
+`metropolice`, ...) still resolve, so the POI catalogue keeps working.
+
+- **Custom unittype**: a free field on Unit group and Attack wave (and per squad row). It replaces the
+  `unittype` key (or the wave's `NPCType`) while the entity class stays that of the chosen unit, for
+  mission-only variants such as a future `sp_tutorial_unit_metropolice_baton` on `unit_metropolice`.
+- **Air units**: placed units spawn where they stand and the air locomotion keeps them at its height above
+  the ground, so the kits place them at that height (dropship 600, gunship 350, scanners 370, manhack 52)
+  instead of on the floor; nothing snaps them down. `unit_maker` (Attack wave) goes through the game's
+  `PlaceUnit`: it drops the unit to the floor, adds `zoffset` (128 for dropship and gunship) and the unit
+  climbs, so the maker itself stays on the ground.
+- **Spacing**: big hulls get more room than the kit's spacing (Strider, dropship, gunship 320).
+- **Mixed start squad**: Mission player start takes rows of unit, count and optional custom unittype
+  (stored as `unit_metropolice_riot:1, unit_stalker:1`), placed as one grid named `player_squad` and owned
+  by you. A unit placed elsewhere (say the Stalker for Unit 09) is a Unit group with owner *Player 0 (you)*.
+- **Viewport**: units are drawn with the model of their unittype (riot police use `police_extended.mdl`,
+  not the class's `police.mdl`) and the unit info's scale (dropship and gunship 0.75); an unknown custom
+  unittype draws as its class.
+- Test map: `node --experimental-transform-types scripts/unit-kits-map.mjs` writes
+  `maps/sp_unit_kits_test.vmf` (a group of Stalkers, citizens, a Strider, a dropship, a gunship, riot police,
+  scanners and manhacks for you and for the enemy, plus the mixed start squad); `scripts/unit-kits-demo.mjs`
+  takes the editor screenshots.
+- In game (`sp_unit_kits_test`, compiled with the navmesh, mission gamerules): all 40 units spawn for
+  both owners and stay alive; `scripts/she_unitprobe.py` (copy it to the game's `cfg/`, the map runs it
+  at 4, 15 and 30 s) printed heights above the ground of dropship 618–628, gunship 368–374, scanners
+  376–394 and manhacks 46–55, bobbing with the fly noise, so the air units hover from the first second.
+  Ground units stand at 0–1; the Strider's origin sits at 341 (its body height). The mixed start squad
+  (riot officer + Stalker) spawned as yours. Not checked: ordering air units to move, and combat.
 
 ### Phase 9: lighting preview
 
