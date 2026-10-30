@@ -457,6 +457,29 @@ cut ones and a fifth of the square ones (`src/gen/towers.ts`).
 ![Copper dome with lantern, onion and spire](docs/screenshots/buildings-p4-tower2.png)
 ![A rounded corner rising into a tower with a copper spire](docs/screenshots/buildings-p4-tower4.png)
 
+### Building phase 5: bays, balconies and the street level
+
+Walls on the block's outline face the street; only they get these features (`src/gen/facadeFeatures.ts`).
+Courtyard walls and party walls stay plain. Features sit on whole window bays and never overlap.
+
+- **Oriels** (Medium detail and up, 4+ floors, walls of 384+): one or two per wall, two bays wide,
+  rectangular, angled or half-round, from the first floor to under the cornice (or a floor lower), with
+  windows fitted per face, a stepped corbel underneath and a cap band.
+- **Balconies** (Medium and up, 3+ floors): a long one on the first floor, or single-window balconies
+  stacked up the facade: a slab on two brackets with a **wrought-iron railing** (the game's
+  see-through `metal/metalrail001a`) on three sides.
+- **Shopfront awnings** (Low and up): the game's striped awning props over some ground-floor bays, facing
+  the street. **Basement vents**: vent decals at the foot of the wall every third bay.
+- **Entrance steps** in front of a cut-corner entrance.
+- Six blocks at High detail (51 buildings, about 3,200 brushes, 112 decals, 47 props) compile through
+  vbsp, vvis and vrad in 19 seconds.
+
+![A narrow street between blocks: steps at a cut-corner entrance, balconies](docs/screenshots/buildings-p5-street-north.png)
+![Balconies stacked up a facade, an awning on the ground floor](docs/screenshots/buildings-p5-street-east.png)
+![An oriel running up the upper floors](docs/screenshots/buildings-p5-oriel.png)
+![An awning over a shop window, a balcony above](docs/screenshots/buildings-p5-awning.png)
+![The district from above](docs/screenshots/buildings-p5-corner.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

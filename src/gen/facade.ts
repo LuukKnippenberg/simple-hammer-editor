@@ -93,6 +93,13 @@ export function cleanPolygon(poly: Vector2[]): Vector2[] {
   });
 }
 
+/** The same polygon, counter-clockwise. */
+export function ccw(poly: Vector2[]): Vector2[] {
+  let area = 0;
+  poly.forEach((a, i) => { const b = poly[(i + 1) % poly.length]; area += a.x * b.y - b.x * a.y; });
+  return area < 0 ? [...poly].reverse() : poly;
+}
+
 /** Counter-clockwise convex hull (monotone chain), for small decoration footprints. */
 export function convexHull(points: Vector2[]): Vector2[] {
   const pts = points.map((p) => p.clone()).sort((a, b) => a.x - b.x || a.y - b.y);
