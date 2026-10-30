@@ -137,6 +137,17 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           }
         },
 
+        // Mission list entry (maps/<name>.res) next to the compiled map.
+        '/api/mapres': async (req, res, url) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          const name = safeMapName(url.searchParams.get('name') ?? '');
+          const mod = cfg.runGameDir ? join(cfg.runGameDir, cfg.mod, 'maps') : null;
+          if (!mod) return send(res, 500, JSON.stringify({ error: 'no game folder' }));
+          mkdirSync(mod, { recursive: true });
+          writeFileSync(join(mod, `${name}.res`), await readBody(req));
+          send(res, 200, JSON.stringify({ name }));
+        },
+
         '/api/launch': (req, res, url) => {
           if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
           const name = safeMapName(url.searchParams.get('name') ?? '');

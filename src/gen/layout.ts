@@ -6,6 +6,7 @@ import { buildBrushFaces } from '../geom/brush.ts';
 import { dispBaseGrid, dispCorners } from '../geom/displacement.ts';
 import { generateBuildings } from './buildings.ts';
 import { Rng } from './rng.ts';
+import { cameraSpawnFor } from '../lw/kits.ts';
 
 export const CELL = 256;
 /** Scenery border outside the playable area (two terrain patches wide). */
@@ -347,7 +348,7 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
     const z = Math.round(ground(cx, cy));
     const yaw = Math.round((Math.atan2(L.h * CELL / 2 - cy, L.w * CELL / 2 - cx) * 180) / Math.PI);
     ents.push(entity(doc, 'info_start_wars', new Vector3(Math.round(cx), Math.round(cy), z + 8), { angles: `0 ${yaw} 0` }));
-    ents.push(entity(doc, 'info_player_wars', new Vector3(Math.round(cx), Math.round(cy), z + 700), { angles: `0 ${yaw} 0`, ownernumber: String(2 + i) }));
+    ents.push(entity(doc, 'info_player_wars', cameraSpawnFor(new Vector3(cx, cy, z)), { angles: '65 135 0', ownernumber: String(2 + i) }));
   });
   // Control points with their capture areas.
   let cp = 1;

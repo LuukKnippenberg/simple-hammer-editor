@@ -7,8 +7,9 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity, MapSolid, TexAxis } from '../vmf/map.ts';
 import { boxSolid, remapSolid, translateSolid } from './brushes.ts';
 import { placeEntity } from './actions.ts';
+import { KITS, recordKit, type ParamValue } from '../lw/kits.ts';
 
-export type ToolName = 'select' | 'block' | 'paint' | 'entity';
+export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit';
 
 export interface Tool {
   name: ToolName;
@@ -364,6 +365,38 @@ export class EntityTool implements Tool {
   }
 }
 
+/** Places the Lambda Wars kit chosen in the Mission tab (capture point, wave, message, ...). */
+export class KitTool implements Tool {
+  name: ToolName = 'kit';
+  private editor: Editor;
+  kitId = 'capture_point';
+  params: Record<string, Record<string, ParamValue>> = {};
+  constructor(editor: Editor) {
+    this.editor = editor;
+  }
+  get kit() {
+    return KITS.find((k) => k.id === this.kitId) ?? KITS[0];
+  }
+  paramsFor(id: string): Record<string, ParamValue> {
+    const kit = KITS.find((k) => k.id === id)!;
+    this.params[id] ??= Object.fromEntries(kit.params.map((p) => [p.key, p.default]));
+    return this.params[id];
+  }
+  activate(): void {}
+  deactivate(): void {}
+  down(): void {}
+  move(): void {}
+  up(_e: PointerEvent, ndc: Vector2): void {
+    const hit = pickSurface(this.editor, ndc);
+    if (!hit) return;
+    const g = this.editor.grid;
+    const at = new Vector3(snap(hit.point.x, g), snap(hit.point.y, g), Math.round(hit.point.z));
+    const kit = this.kit;
+    const created = recordKit(this.editor, `Place ${kit.label}`, () => kit.place(this.editor, at, this.paramsFor(kit.id)));
+    this.editor.selection.set([], created.filter((e) => !e.solids.length).slice(0, 1));
+  }
+}
+
 /** Routes left-button pointer events from the viewport to the active tool. */
 export class ToolManager {
   readonly tools: Record<ToolName, Tool>;
@@ -373,7 +406,7 @@ export class ToolManager {
 
   constructor(editor: Editor) {
     this.select = new SelectTool(editor);
-    this.tools = { select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor) };
+    this.tools = { select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor), kit: new KitTool(editor) };
     this.current = this.select;
     const dom = editor.renderer.domElement;
     dom.addEventListener('pointerdown', (e) => {

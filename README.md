@@ -212,6 +212,36 @@ Map scripting in Source is done with entity inputs and outputs. The editor now e
 ![A trigger wired to a message box and an objective](docs/screenshots/phase7-trigger-outputs.png)
 ![Logic graph of the scripted arena](docs/screenshots/phase7-arena-graph.png)
 
+### Phase 8: Lambda Wars entities and mission scripting
+
+A **Mission** tab with Lambda Wars kits, placed with the kit tool (5). Each kit creates the entities a
+feature needs and wires their outputs, as one undo step:
+
+| Kit | Creates |
+|---|---|
+| Capture point | `control_point` (flag) + `trigger_capture_area` with the chosen radius, owner and capture time |
+| Multiplayer start | `info_start_wars` (HQ spawn, team hint) + its `info_player_wars` camera |
+| Mission player start | camera spawn, `wars_player_setup` (faction, colour, applied at start) and a starting squad |
+| Unit group | N units of a type (zombies, Combine, Metropolice, rebels, ...) for an owner, with a shared name |
+| Attack wave | `unit_maker` → `wars_give_order` → `info_target` goal; starts disabled so a trigger can enable it |
+| Mission message | `wars_messagebox`, shown at map start through a shared `logic_auto` or wired to a trigger |
+| Objective | `wars_mission_objective`; "completing wins" wires it to the map's `wars_win_condition` |
+
+- **Apply standard relations** makes the player hate every other unit owner (`wars_player_relation` +
+  `ApplyRelation` at map start), as the shipped missions do.
+- Mission title and description are stored on worldspawn; compiling a map named `sp_*` writes the
+  `maps/<name>.res` entry the game's mission list reads.
+- **Gameplay overlay**: capture-area rings coloured by owner, base rings around player starts, and the route
+  from each wave to its goal.
+- Camera spawns account for the game forcing the spawn camera to pitch 65°, yaw 135°
+  (`GetPlayerSpawnSpot`), so the camera looks at the start position.
+- Launching an `sp_` map uses the mission gamerules (a listen-server config runs `wars_setgamerules mission`).
+
+![Kits placed in the arena](docs/screenshots/phase8-kits-placed.png)
+![Wave route and capture ring](docs/screenshots/phase8-wave-and-capture-ring.png)
+![Mission summary](docs/screenshots/phase8-mission-summary.png)
+![Mission compiled](docs/screenshots/phase8-compiled.png)
+
 ## Development
 
 ```bash

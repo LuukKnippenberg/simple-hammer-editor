@@ -4,7 +4,7 @@ const SHORTCUTS: [string, string][] = [
   ['Right drag · WASD · E/Q', 'Look and fly (3D view)'],
   ['Middle drag · Alt+left drag', 'Pan · orbit'],
   ['T', 'Toggle the top view (right drag pans, wheel zooms)'],
-  ['1 2 3 4', 'Select · Block · Paint · Entity tool'],
+  ['1 2 3 4 5', 'Select · Block · Paint · Entity · Lambda Wars kit tool'],
   ['Click · Shift+click · drag', 'Select · add to selection · box select'],
   ['M · R', 'Gizmo: move · resize'],
   ['Ctrl+C · Ctrl+V', 'Copy · paste at the cursor'],

@@ -9,17 +9,25 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'block', icon: '▣', label: 'Block: drag on a surface to create a brush', key: '2' },
   { name: 'paint', icon: '🖌', label: 'Paint: click a face (Shift: whole brush, Ctrl: pick material)', key: '3' },
   { name: 'entity', icon: '⚑', label: 'Entity: click to place the class chosen in the Entities tab', key: '4' },
+  { name: 'kit', icon: '⚔', label: 'Lambda Wars kit: click to place the kit chosen in the Mission tab', key: '5' },
 ];
 const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
 
 /** Left tool palette, grid size, undo/redo, and the global keyboard shortcuts. */
+export function setToolButtons(editor: Editor, name: ToolName): void {
+  editor.tools.set(name);
+  editor.emit('toolchange');
+}
+
 export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoint: () => import('three').Vector3 | null; help: () => void }): void {
   const buttons = new Map<ToolName, HTMLButtonElement>();
   const setTool = (name: ToolName) => {
     editor.tools.set(name);
-    for (const [n, b] of buttons) b.classList.toggle('active', n === name);
     editor.emit('toolchange');
   };
+  editor.on('toolchange', () => {
+    for (const [n, b] of buttons) b.classList.toggle('active', n === editor.tools.current.name);
+  });
   for (const t of TOOLS) {
     const b = h('button', { title: `${t.label} (${t.key})`, onclick: () => setTool(t.name) }, t.icon);
     buttons.set(t.name, b);

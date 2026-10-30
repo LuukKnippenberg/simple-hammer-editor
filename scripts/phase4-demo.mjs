@@ -30,7 +30,7 @@ console.log('status:', await page.textContent('.compile-status'));
 await d.shot(`${prefix}-compiled`);
 
 // Save the fixed-up map so the compiled version is the one in the repo.
-await page.click('.modal-head button');
+await page.click('.modal-backdrop:not([hidden]) .modal-head button');
 const saved = await d.eval(() => window.__editor.editor.save());
 console.log('saved', saved);
 

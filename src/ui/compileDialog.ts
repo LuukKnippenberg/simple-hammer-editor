@@ -1,6 +1,7 @@
 import type { Editor } from '../editor.ts';
 import { runChecks } from '../edit/preflight.ts';
 import { h, toast } from './dom.ts';
+import { missionRes } from './missionPanel.ts';
 
 export interface CompileOutcome {
   ok: boolean;
@@ -15,6 +16,10 @@ export async function compileCurrent(
   opts: { name: string; quality: 'fast' | 'final'; navmesh: boolean },
   onLine: (kind: string, text: string) => void,
 ): Promise<CompileOutcome | null> {
+  if (opts.name.toLowerCase().startsWith('sp_')) {
+    await fetch(`/api/mapres?name=${encodeURIComponent(opts.name)}`, { method: 'POST', body: missionRes(editor, opts.name.toLowerCase()) });
+    onLine('step', `Wrote maps/${opts.name.toLowerCase()}.res (mission list entry)`);
+  }
   const q = new URLSearchParams({ name: opts.name, quality: opts.quality, navmesh: opts.navmesh ? '1' : '0' });
   const res = await fetch(`/api/compile?${q}`, { method: 'POST', body: editor.doc.serialize() });
   if (!res.ok || !res.body) {

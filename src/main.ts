@@ -15,6 +15,8 @@ import { mountHelp } from './ui/help.ts';
 import { Hover } from './edit/hover.ts';
 import { mountLogicPanel } from './ui/logicPanel.ts';
 import { IoLines } from './render/ioLines.ts';
+import { mountMissionPanel } from './ui/missionPanel.ts';
+import { GameplayOverlay } from './render/gameplayOverlay.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -38,6 +40,7 @@ document.getElementById('topbar')!.querySelector('.spacer')!.before(
 const tabs = mountSidebar(document.getElementById('sidebar')!);
 tabs.add('Selection', mountInspector(editor));
 tabs.add('Materials', mountMaterialBrowser(editor));
+tabs.add('Mission', mountMissionPanel(editor));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[title^="Entity"]')?.click()));
 const mapPanel = h('div');
 mountDocumentPanel(editor, mapPanel);
@@ -46,6 +49,7 @@ tabs.add('Map', mapPanel);
 const logic = mountLogicPanel(editor);
 tabs.add('Logic', logic.panel);
 new IoLines(editor);
+new GameplayOverlay(editor);
 editor.on('selection', () => {
   if (!editor.selection.isEmpty && editor.tools.current.name === 'select') tabs.show('Selection');
 });

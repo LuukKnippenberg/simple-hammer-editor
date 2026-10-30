@@ -178,7 +178,16 @@ export function launchGame(cfg: EditorConfig, name: string): boolean {
   if (!cfg.runGameDir) return false;
   const exe = join(cfg.runGameDir, 'lambdawars.exe');
   if (!existsSync(exe)) return false;
-  const p = spawn(exe, ['-game', cfg.mod, '-windowed', '-noborder', '-w', '1600', '-h', '900', '-novid', '-dev', '+map', name], {
+  const extra: string[] = [];
+  if (name.startsWith('sp_')) {
+    // +map alone runs the sandbox gamerules; switch to the mission rules once the level is up.
+    const cfgDir = join(cfg.runGameDir, cfg.mod, 'cfg');
+    mkdirSync(cfgDir, { recursive: true });
+    // Reset the config first: installing new gamerules runs the listen server config again.
+    writeFileSync(join(cfgDir, 'she_mission.cfg'), 'lservercfgfile listenserver.cfg\nwars_setgamerules mission\n');
+    extra.push('+sv_cheats', '1', '+lservercfgfile', 'she_mission.cfg');
+  }
+  const p = spawn(exe, ['-game', cfg.mod, '-windowed', '-noborder', '-w', '1600', '-h', '900', '-novid', '-dev', ...extra, '+map', name], {
     cwd: cfg.runGameDir, detached: true, stdio: 'ignore',
   });
   p.unref();
