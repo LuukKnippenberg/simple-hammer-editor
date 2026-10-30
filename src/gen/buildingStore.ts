@@ -138,9 +138,17 @@ export const groupDressing = (doc: VmfDocument, group: string): MapEntity[] => d
 
 /** The block a world brush belongs to (its func_detail), if any. */
 export function blockOfSolid(doc: VmfDocument, solid: MapSolid): MapEntity | null {
-  if (solid.entity) return blockOwner(doc, solid.entity);
-  const id = Number(solid.node.get('id'));
-  return doc.entities.find((e) => e.get(BLOCK_WORLD_KEY) && blockOf(e) && idTest(e.get(BLOCK_WORLD_KEY))(id)) ?? null;
+  return blockFinder(doc)(solid);
+}
+
+/** Looks up the blocks of many brushes: the blocks' id ranges are read once. */
+export function blockFinder(doc: VmfDocument): (solid: MapSolid) => MapEntity | null {
+  const blocks = doc.entities.filter((e) => e.get(BLOCK_WORLD_KEY) && e.get(BLOCK_KEY)).map((e) => ({ e, has: idTest(e.get(BLOCK_WORLD_KEY)) }));
+  return (solid) => {
+    if (solid.entity) return blockOwner(doc, solid.entity);
+    const id = Number(solid.node.get('id'));
+    return blocks.find((b) => b.has(id))?.e ?? null;
+  };
 }
 
 /** The block an entity belongs to (its func_detail), if any. */

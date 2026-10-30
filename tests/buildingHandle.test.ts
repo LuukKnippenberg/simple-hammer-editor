@@ -48,7 +48,7 @@ describe('stored blocks of buildings', () => {
       options: {
         seed: 4242, minFloors: 2, maxFloors: 7, alleys: true, roofProps: false, style: 'brick', architecture: 'tenement', weathering: 0.3,
         corners: 'round', courtyards: false, annexes: true, detail: 3, roofs: 'mansard', towers: false, interiors: 'some',
-        interiorStyle: 'worker', cutHeight: 104, furnish: 'sparse', interiorLights: true, wideDoors: false,
+        interiorStyle: 'farmhouse', cutHeight: 104, furnish: 'sparse', interiorLights: true, wideDoors: false,
       },
     };
     expect(decodeBlock(encodeBlock(spec))).toEqual(spec);
