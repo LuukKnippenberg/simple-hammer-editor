@@ -5,15 +5,20 @@ import type { EditorConfig } from './config.ts';
 
 type Source = { kind: 'dir'; root: string } | { kind: 'vpk'; vpk: VpkArchive };
 
+/** Content made in the editor (MultiBlend materials), laid out like a game folder and packed into maps that use it. */
+export const contentDir = (cfg: EditorConfig) => join(cfg.rootDir, 'content');
+
 /**
  * Resolves game-relative paths (`materials/brick/brick01.vtf`) against the same search order the
- * engine uses: for every search dir (lambdawars, swarm, ...) the loose files of each game root, then its VPKs.
+ * engine uses: the editor's own content first, then for every search dir (lambdawars, swarm, ...) the
+ * loose files of each game root, then its VPKs.
  */
 export class AssetFS {
   readonly sources: Source[] = [];
   private cache = new Map<string, Buffer | null>();
 
   constructor(cfg: EditorConfig) {
+    this.sources.push({ kind: 'dir', root: contentDir(cfg) });
     for (const sub of cfg.searchDirs) {
       for (const game of cfg.gameDirs) {
         const dir = join(game, sub);
@@ -30,6 +35,11 @@ export class AssetFS {
         }
       }
     }
+  }
+
+  /** Drops a cached file (or a cached miss) after it was written. */
+  forget(path: string): void {
+    this.cache.delete(path.toLowerCase().replace(/\\/g, '/').replace(/^\/+/, ''));
   }
 
   read(path: string): Buffer | null {

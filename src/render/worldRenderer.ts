@@ -15,6 +15,8 @@ interface Chunk {
   nrm: Float32Array;
   uv: Float32Array;
   alpha: Float32Array;
+  /** MultiBlend weights, four per vertex. */
+  blend: Float32Array;
   /** Side index (into solid.sides) per triangle. */
   sides: Uint16Array;
 }
@@ -45,6 +47,7 @@ class ChunkBuilder {
   nrm: number[] = [];
   uv: number[] = [];
   alpha: number[] = [];
+  blend: number[] = [];
   sides: number[] = [];
   build(): Chunk {
     return {
@@ -52,6 +55,7 @@ class ChunkBuilder {
       nrm: new Float32Array(this.nrm),
       uv: new Float32Array(this.uv),
       alpha: new Float32Array(this.alpha),
+      blend: new Float32Array(this.blend),
       sides: new Uint16Array(this.sides),
     };
   }
@@ -99,6 +103,7 @@ export function buildSolidChunks(solid: MapSolid): SolidGeom {
         const [u, v] = texelUV(face.side, grid.base[i]);
         b.uv.push(u, v);
         b.alpha.push(grid.alpha[i]);
+        b.blend.push(grid.blend[i * 4], grid.blend[i * 4 + 1], grid.blend[i * 4 + 2], grid.blend[i * 4 + 3]);
         if (k % 3 === 0) b.sides.push(sideIndex);
       }
     } else {
@@ -112,6 +117,7 @@ export function buildSolidChunks(solid: MapSolid): SolidGeom {
           b.nrm.push(n.x, n.y, n.z);
           b.uv.push(uvs[i][0], uvs[i][1]);
           b.alpha.push(0);
+          b.blend.push(0, 0, 0, 0);
         }
         b.sides.push(sideIndex);
       }
@@ -199,12 +205,12 @@ export class WorldRenderer {
     }
     if (!tris) return;
     const pos = new Float32Array(tris * 9), nrm = new Float32Array(tris * 9);
-    const uv = new Float32Array(tris * 6), alpha = new Float32Array(tris * 3);
+    const uv = new Float32Array(tris * 6), alpha = new Float32Array(tris * 3), blend = new Float32Array(tris * 12);
     const triSolid: MapSolid[] = new Array(tris);
     const triSide = new Uint16Array(tris);
     let t = 0;
     for (const [s, c] of parts) {
-      pos.set(c.pos, t * 9); nrm.set(c.nrm, t * 9); uv.set(c.uv, t * 6); alpha.set(c.alpha, t * 3);
+      pos.set(c.pos, t * 9); nrm.set(c.nrm, t * 9); uv.set(c.uv, t * 6); alpha.set(c.alpha, t * 3); blend.set(c.blend, t * 12);
       triSide.set(c.sides, t);
       for (let i = 0; i < c.sides.length; i++) triSolid[t + i] = s;
       t += c.sides.length;
@@ -214,6 +220,7 @@ export class WorldRenderer {
     geo.setAttribute('normal', new BufferAttribute(nrm, 3));
     geo.setAttribute('uv', new BufferAttribute(uv, 2));
     geo.setAttribute('alpha', new BufferAttribute(alpha, 1));
+    geo.setAttribute('mblend', new BufferAttribute(blend, 4));
     geo.computeBoundingBox();
     geo.computeBoundingSphere();
     // The BVH is built lazily on the first raycast, so drags that rebuild batches every frame stay cheap.

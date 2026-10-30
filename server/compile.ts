@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { EditorConfig } from './config.ts';
+import { contentDir } from './assets.ts';
 
 export interface CompileOptions {
   /** fast: vvis -fast, vrad -fast. final: full vvis, vrad -final. */
@@ -55,6 +56,49 @@ export function runModDir(cfg: EditorConfig): string | null {
   return cfg.runGameDir ? join(cfg.runGameDir, cfg.mod) : null;
 }
 
+/** Game-relative paths of the editor content (content/materials/...) that the VMF's brushes use. */
+export function editorContent(cfg: EditorConfig, vmf: string): string[] {
+  const out = new Set<string>();
+  for (const m of vmf.matchAll(/"material"\s+"([^"]+)"/gi)) {
+    const rel = `materials/${m[1].toLowerCase().replace(/\\/g, '/')}.vmt`;
+    if (existsSync(join(contentDir(cfg), rel))) out.add(rel);
+  }
+  return [...out];
+}
+
+/** Copies editor content into the mod folder for the compile tools; returns the files it created. */
+function stageContent(cfg: EditorConfig, files: string[], mod: string, log: Log): string[] {
+  const created: string[] = [];
+  for (const rel of files) {
+    const dest = join(mod, rel);
+    if (existsSync(dest)) {
+      log('warn', `${rel} already exists in the game folder; compiling against that copy`);
+      continue;
+    }
+    mkdirSync(dirname(dest), { recursive: true });
+    copyFileSync(join(contentDir(cfg), rel), dest);
+    created.push(dest);
+  }
+  return created;
+}
+
+/** Packs editor content into the BSP's pakfile with bspzip, so the map works without the loose files. */
+async function packContent(cfg: EditorConfig, mod: string, work: string, bspPath: string, files: string[], log: Log): Promise<boolean> {
+  log('step', `bspzip: packing ${files.length} editor material${files.length > 1 ? 's' : ''} into the map`);
+  const list = join(work, 'pack.txt');
+  writeFileSync(list, files.map((rel) => `${rel}\n${join(contentDir(cfg), rel)}\n`).join(''));
+  const packed = bspPath.replace(/\.bsp$/i, '.packed.bsp');
+  rmSync(packed, { force: true });
+  const code = await run(join(cfg.sdkBinDir!, 'bspzip.exe'), ['-addlist', bspPath, list, packed, '-game', mod], work, log);
+  if (code !== 0 || !existsSync(packed)) {
+    log('error', `bspzip failed (exit ${code})`);
+    return false;
+  }
+  copyFileSync(packed, bspPath);
+  rmSync(packed, { force: true });
+  return true;
+}
+
 /**
  * VMF → BSP with the Alien Swarm SDK tools, then installs it into the game's maps/ folder and
  * optionally builds the Recast navmesh with a headless dedicated server.
@@ -82,28 +126,39 @@ export async function compileMap(cfg: EditorConfig, name: string, vmf: string, o
   const bin = (t: string) => join(cfg.sdkBinDir!, t);
   let leaked = false;
 
-  log('step', 'vbsp: building geometry');
-  let code = await run(bin('vbsp.exe'), ['-game', mod, vmfPath], work, log, (l) => {
-    if (l.includes('**** leaked ****')) leaked = true;
-  });
-  if (code !== 0 || !existsSync(bspPath)) {
-    log('error', `vbsp failed (exit ${code})`);
-    return { ok: false, leaked, seconds: seconds() };
-  }
+  // Editor-made materials have to be visible to vbsp/vrad, then travel inside the BSP.
+  const content = editorContent(cfg, vmf);
+  const staged = stageContent(cfg, content, mod, log);
+  try {
+    log('step', 'vbsp: building geometry');
+    let code = await run(bin('vbsp.exe'), ['-game', mod, vmfPath], work, log, (l) => {
+      if (l.includes('**** leaked ****')) leaked = true;
+    });
+    if (code !== 0 || !existsSync(bspPath)) {
+      log('error', `vbsp failed (exit ${code})`);
+      return { ok: false, leaked, seconds: seconds() };
+    }
 
-  if (leaked) {
-    log('warn', 'The map leaks (it is not sealed by world brushes). Skipping vvis; use "Add sky shell" in the compile checks.');
-  } else {
-    log('step', `vvis: visibility${opts.quality === 'fast' ? ' (fast)' : ''}`);
-    code = await run(bin('vvis.exe'), [...(opts.quality === 'fast' ? ['-fast'] : []), '-game', mod, join(work, name)], work, log);
-    if (code !== 0) log('warn', `vvis exited with ${code}`);
-  }
+    if (leaked) {
+      log('warn', 'The map leaks (it is not sealed by world brushes). Skipping vvis; use "Add sky shell" in the compile checks.');
+    } else {
+      log('step', `vvis: visibility${opts.quality === 'fast' ? ' (fast)' : ''}`);
+      code = await run(bin('vvis.exe'), [...(opts.quality === 'fast' ? ['-fast'] : []), '-game', mod, join(work, name)], work, log);
+      if (code !== 0) log('warn', `vvis exited with ${code}`);
+    }
 
-  log('step', `vrad: lighting (HDR${opts.quality === 'fast' ? ', fast' : ', final'})`);
-  code = await run(bin('vrad.exe'), ['-hdr', opts.quality === 'fast' ? '-fast' : '-final', '-game', mod, join(work, name)], work, log);
-  if (code !== 0) {
-    log('error', `vrad failed (exit ${code})`);
-    return { ok: false, leaked, seconds: seconds() };
+    log('step', `vrad: lighting (HDR${opts.quality === 'fast' ? ', fast' : ', final'})`);
+    code = await run(bin('vrad.exe'), ['-hdr', opts.quality === 'fast' ? '-fast' : '-final', '-game', mod, join(work, name)], work, log);
+    if (code !== 0) {
+      log('error', `vrad failed (exit ${code})`);
+      return { ok: false, leaked, seconds: seconds() };
+    }
+
+    if (content.length && !(await packContent(cfg, mod, work, bspPath, content, log))) {
+      return { ok: false, leaked, seconds: seconds() };
+    }
+  } finally {
+    for (const f of staged) rmSync(f, { force: true });
   }
 
   // Install. Stale navmesh/heightmap files from an earlier version of the map would be wrong now.

@@ -11,6 +11,7 @@ import { SOUND_PRESETS } from '../lw/soundPresets.ts';
 import { POLE_TYPES, type PoleType } from '../gen/powerlines.ts';
 import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
+import { multiblendRows, multiblendSets } from './blendUi.ts';
 import { h, toast } from './dom.ts';
 
 const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest' } as const;
@@ -22,7 +23,7 @@ const HINTS = {
   kit: 'Click a surface to place · settings in the Mission tab',
   decal: 'Click a wall or floor to place · pick decals in the Materials tab',
   road: 'Click points · snaps onto roads to join them · Enter or double-click builds · Backspace removes a point',
-  ground: 'Drag on terrain to paint or sculpt',
+  ground: 'Drag on terrain to paint or sculpt · with terrain selected, only that changes',
   powerline: 'Click points along the route · Enter or double-click places poles and wires',
   sound: 'Click to place · turn on Audio in the top bar to hear the map',
   poi: 'Drag a rectangle (or click) to place · pick the type and settings in the POI tab',
@@ -100,9 +101,20 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
         b.classList.toggle('active', tool.mode === m);
         return b;
       }));
-      const set = h('select', { title: 'Paint shows the second texture; Erase brings back the first' }, ...GROUND_SETS.map((g) => h('option', { value: g.material }, g.label))) as HTMLSelectElement;
+      const blends = h('optgroup', { label: 'MultiBlend (up to 4 textures)' });
+      const set = h('select', { title: 'Paint shows the second texture (or the MultiBlend layer); Erase brings back the first' },
+        h('optgroup', { label: 'Two textures' }, ...GROUND_SETS.map((g) => h('option', { value: g.material }, g.label))), blends) as HTMLSelectElement;
+      void multiblendSets().then((sets) => {
+        blends.append(...sets.map((g) => h('option', { value: g.material }, g.label)));
+        set.value = tool.set;
+      });
       set.value = tool.set;
-      set.addEventListener('change', () => { tool.set = set.value; set.blur(); });
+      set.addEventListener('change', () => {
+        tool.set = set.value;
+        set.blur();
+        // The layer controls depend on the material's VMT.
+        void editor.materials.ready(tool.set).then(render);
+      });
       const radius = h('input', { type: 'range', min: 32, max: 512, step: 16, value: tool.radius }) as HTMLInputElement;
       radius.addEventListener('input', () => (tool.radius = Number(radius.value)));
       const strength = h('input', { type: 'range', min: 0.05, max: 1, step: 0.05, value: tool.strength }) as HTMLInputElement;
@@ -112,6 +124,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
         h('div.row', {}, h('label', {}, 'Ground'), set),
         h('div.row', {}, h('label', {}, 'Radius'), radius),
         h('div.row', {}, h('label', {}, 'Strength'), strength),
+        ...multiblendRows(editor, tool, render),
         h('button', {
           disabled: !floors.length,
           title: 'Replace the selected floor brushes with displacement terrain in this ground set',

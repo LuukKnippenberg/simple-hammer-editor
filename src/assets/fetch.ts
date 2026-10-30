@@ -21,6 +21,11 @@ export function fetchGameFile(path: string): Promise<ArrayBuffer | null> {
   return p;
 }
 
+/** Drops a fetched file, so the next request reads it again (after the editor rewrote it). */
+export function forgetGameFile(path: string): void {
+  inflight.delete(path.toLowerCase().replace(/\\/g, '/'));
+}
+
 export async function fetchGameText(path: string): Promise<string | null> {
   const buf = await fetchGameFile(path);
   return buf ? new TextDecoder('latin1').decode(buf) : null;
