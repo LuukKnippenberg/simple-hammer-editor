@@ -101,7 +101,7 @@ export const POWERNODE: PoiType = {
     k.pad(rect(96, 96, W - 96, D - 96), CONCRETE, 2);
     // One way in: the gate on the south side, a route up to the plinth.
     k.route([cx, 0], [cx, cy - 192]);
-    k.route([96 + 64, 96 + 64], [W - 160, 96 + 64]);
+    k.route([160, 208], [W - 160, 208]);
     // The plinth (16 high) and the generator on it.
     k.box(rect(cx - 160, cy - 160, cx + 160, cy + 160), -4, 16, METAL, { occupy: true });
     k.prop('pg_props/pg_buildings/combine/pg_combine_power_generator', cx, cy, 0, { z: 16, force: true });
@@ -117,7 +117,7 @@ export const POWERNODE: PoiType = {
       k.prop('props_combine/combine_light001a', x, y, yaw, { margin: 4 });
       if (k.flag('lights')) k.light(x, y, 64, '200 225 255 220', 700);
     }
-    breencast(k, cx + 224, 200, 224);
+    breencast(k, cx + 224, 320, 224);
     k.scatter(['pg_props/pg_obj/ja_combine_crate', 'pg_props/pg_obj/ja_combine_crate_big', 'props_combine/combine_barricade_short02a'], rect(160, 200, W - 160, D - 160), 5, { margin: 16, yaw: 'right' });
     k.perimeter('combine', 64);
     k.gameplay([cx - 240, cy - 200]);

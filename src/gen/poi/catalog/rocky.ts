@@ -52,7 +52,8 @@ export const QUARRY: PoiType = {
   build(k) {
     const { W, D } = k;
     const n = Math.max(1, Math.min(3, Math.round(k.num('terraces', 2))));
-    const step = 64, band = 224;
+    // Terraces 288 deep and ramps 192 wide: room for large units (radius 58) on both.
+    const step = 64, band = 288;
     k.pad(k.bounds, GRAVEL, 2);
     // The floor in the middle is the open ground; terraces rise round three sides (open to the front).
     const floor = rect(band * n + 64, 160, W - band * n - 64, D - band * n - 64);
@@ -71,9 +72,11 @@ export const QUARRY: PoiType = {
       const hTop = (n - t) * step, hBase = hTop - step;
       const inset = t * band;
       const onRight = (n - 1 - t) % 2 === 0;
-      const x = onRight ? W - inset - band / 2 : inset + band / 2;
-      const y1 = D - inset - band - 8, y0 = y1 - step * 3;
-      const rr = rect(x - 72, y0, x + 72, y1);
+      // On the level below (the next terrace in, or the floor), beside this terrace's side strip.
+      const x = onRight ? W - inset - band - 96 : inset + band + 96;
+      // Into the terrace face a little: a gap between ramp and face would cut the navmesh there.
+      const y1 = D - inset - band + 8, y0 = y1 - step * 3;
+      const rr = rect(x - 96, y0, x + 96, y1);
       k.slope(rr, 'y', hBase, hTop, 8, ROCK);
       k.keepClear(rect(rr.x0, rr.y0 - 96, rr.x1, rr.y1));
       k.out.routes.push(k.worldRect(rect(rr.x0, rr.y0, rr.x1, rr.y1)));

@@ -1,0 +1,130 @@
+[
+ {
+  "label": "powernode@2720,-1792 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "907.541015625",
+  "straight": 896,
+  "direct": true
+ },
+ {
+  "label": "powernode@2720,-1792 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "906.9335327148438",
+  "straight": 896,
+  "direct": true
+ },
+ {
+  "label": "powernode@2720,-1792 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1365.6390380859375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "powernode@2720,-1792 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1364.6234130859375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "powernode@-2720,1792 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "914.5963134765625",
+  "straight": 896,
+  "direct": true
+ },
+ {
+  "label": "powernode@-2720,1792 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "921.303955078125",
+  "straight": 896,
+  "direct": true
+ },
+ {
+  "label": "powernode@-2720,1792 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1378.7874755859375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "powernode@-2720,1792 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1364.118408203125",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "thumper@-2656,-736 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1951.7254638671875",
+  "straight": 1920,
+  "direct": true
+ },
+ {
+  "label": "thumper@-2656,-736 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1945.202392578125",
+  "straight": 1920,
+  "direct": true
+ },
+ {
+  "label": "thumper@-2656,-736 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1696.22802734375",
+  "straight": 1664,
+  "direct": true
+ },
+ {
+  "label": "thumper@-2656,-736 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1732.6749267578125",
+  "straight": 1664,
+  "direct": true
+ },
+ {
+  "label": "thumper@2656,736 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1940.3240966796875",
+  "straight": 1920,
+  "direct": true
+ },
+ {
+  "label": "thumper@2656,736 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1938.556396484375",
+  "straight": 1920,
+  "direct": true
+ },
+ {
+  "label": "thumper@2656,736 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1685.0997314453125",
+  "straight": 1664,
+  "direct": true
+ },
+ {
+  "label": "thumper@2656,736 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1683.2442626953125",
+  "straight": 1664,
+  "direct": true
+ }
+]

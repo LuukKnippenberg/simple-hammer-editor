@@ -134,8 +134,13 @@ export const FOOTBALL: PoiType = {
       arc(k, gx + dir * 176, pcy, 110, dir > 0 ? -0.95 : Math.PI - 0.95 + 0.0, dir > 0 ? 0.95 : Math.PI + 0.95, 6);
       goal(k, gx, pcy, dir === 1 ? -1 : 1);
     }
-    if (stands !== 'none') bleachers(k, rect(cx - pw * 0.35, D - 64 - standD, cx + pw * 0.35, D - 64), 'y0');
-    if (stands === 'both') bleachers(k, rect(cx - pw * 0.35, 64, cx + pw * 0.35, 64 + standD), 'y1');
+    // Each stand in two halves, with the route along the middle between them.
+    const halves = (y0: number, y1: number, front: 'y0' | 'y1') => {
+      bleachers(k, rect(cx - pw * 0.35, y0, cx - 112, y1), front);
+      bleachers(k, rect(cx + 112, y0, cx + pw * 0.35, y1), front);
+    };
+    if (stands !== 'none') halves(D - 64 - standD, D - 64, 'y0');
+    if (stands === 'both') halves(64, 64 + standD, 'y1');
     if (k.flag('masts')) {
       for (const [x, y, f] of [[48, 48, 45], [W - 48, 48, 135], [W - 48, D - 48, 225], [48, D - 48, 315]] as [number, number, number][]) mast(k, x, y, f);
     }

@@ -160,8 +160,8 @@ export const RATIONS: PoiType = {
     const cx = W / 2;
     k.pad(k.bounds, CONCRETE);
     const n = Math.max(2, Math.min(5, Math.round(k.num('lanes', 3))));
-    // Lanes 144 apart: a 128-wide route in each and room for the railing between.
-    const lw = 144;
+    // Lanes 176 apart: a route in each and room for the railing between.
+    const lw = 176;
     const total = n * lw;
     const lx0 = Math.round(cx - total / 2);
     const qy0 = 96, qy1 = D - 320;

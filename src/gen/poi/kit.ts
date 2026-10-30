@@ -22,8 +22,13 @@ export const EXTRA_UNITS = [
   { id: 'antlion', label: 'Antlion', cls: 'unit_antlion', unittype: '' },
   { id: 'antlionguard', label: 'Antlion guard', cls: 'unit_antlionguard', unittype: '' },
 ];
-/** Large units have a radius of 58: routes and gaps are at least this wide. */
-export const ROUTE_WIDTH = 128;
+/**
+ * Width of the through-routes. Large units have a radius of 58 (116 across) and the large navmesh is eroded
+ * by that radius from every obstacle, so a 128 lane next to props leaves them almost no room: 160 does.
+ */
+export const ROUTE_WIDTH = 160;
+/** Extra width on each side of a gap that a route opens in a fence or wall (fence posts stick out). */
+const GAP_MARGIN = 32;
 /** Pads and paths stand this far above the ground (keeps them clear of the ground's own faces). */
 const LIFT = 2;
 /** Longest pad piece: very long faces collect more t-junctions than vbsp can fix. */
@@ -407,7 +412,9 @@ export class PoiKit {
         const x = a[0] + ((b[0] - a[0]) * k) / steps, y = a[1] + ((b[1] - a[1]) * k) / steps;
         this.reserved.push(rect(x - h, y - h, x + h, y + h));
       }
-      this.out.routes.push(this.worldRect(rect(a[0] - h, a[1] - h, a[0] + h, a[1] + h)));
+      // As routes: a straight strip, or (for a slanted segment) a square at each end, in pairs.
+      if (a[0] === b[0] || a[1] === b[1]) this.out.routes.push(this.worldRect(a[0] === b[0] ? rect(a[0] - h, a[1], a[0] + h, b[1]) : rect(a[0], a[1] - h, b[0], a[1] + h)));
+      else this.out.routes.push(this.worldRect(rect(a[0] - h, a[1] - h, a[0] + h, a[1] + h)), this.worldRect(rect(b[0] - h, b[1] - h, b[0] + h, b[1] + h)));
     }
     for (const p of points.slice(1, -1)) this.cylinder(p[0], p[1], h, -6, top, { top: material, bottom: NODRAW, sides: NODRAW }, 8);
   }
@@ -581,7 +588,7 @@ export class PoiKit {
         if (s.axis === 'x' ? r.y0 <= s.at && r.y1 >= s.at : r.x0 <= s.at && r.x1 >= s.at) {
           const [lo, hi] = s.axis === 'x' ? [r.x0, r.x1] : [r.y0, r.y1];
           const from = s.key === 's' ? lo - i : s.key === 'n' ? (W - i) - hi : s.key === 'e' ? lo - i : (D - i) - hi;
-          gaps.push([from, from + (hi - lo)]);
+          gaps.push([from - GAP_MARGIN, from + (hi - lo) + GAP_MARGIN]);
         }
       }
       gaps.push(...(o.extraGaps?.[s.key] ?? []));

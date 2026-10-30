@@ -1,0 +1,1474 @@
+[
+ {
+  "label": "square@-8832,-4992 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "594.0234375",
+  "straight": 576,
+  "direct": true
+ },
+ {
+  "label": "square@-8832,-4992 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "593.2507934570312",
+  "straight": 576,
+  "direct": true
+ },
+ {
+  "label": "square@-8832,-4992 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "596.6058349609375",
+  "straight": 576,
+  "direct": true
+ },
+ {
+  "label": "square@-8832,-4992 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "597.037353515625",
+  "straight": 576,
+  "direct": true
+ },
+ {
+  "label": "square@-8832,-4992 route 3",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "583.8021240234375",
+  "straight": 576,
+  "direct": true
+ },
+ {
+  "label": "square@-8832,-4992 route 3",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "593.2507934570312",
+  "straight": 576,
+  "direct": true
+ },
+ {
+  "label": "square@-8832,-4992 route 4",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "597.641845703125",
+  "straight": 576,
+  "direct": true
+ },
+ {
+  "label": "square@-8832,-4992 route 4",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "595.2120361328125",
+  "straight": 576,
+  "direct": true
+ },
+ {
+  "label": "parking@-6016,-4992 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1364.4024658203125",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "parking@-6016,-4992 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1365.84130859375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "parking@-6016,-4992 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1621.39111328125",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "parking@-6016,-4992 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1620.081787109375",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "playground@-3200,-4992 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1238.198974609375",
+  "straight": 1216,
+  "direct": true
+ },
+ {
+  "label": "playground@-3200,-4992 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1238.198974609375",
+  "straight": 1216,
+  "direct": true
+ },
+ {
+  "label": "playground@-3200,-4992 path 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "843.71142578125",
+  "straight": 736,
+  "direct": true
+ },
+ {
+  "label": "playground@-3200,-4992 path 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "836.5272216796875",
+  "straight": 736,
+  "direct": true
+ },
+ {
+  "label": "market@-384,-4960 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1620.0687255859375",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "market@-384,-4960 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1621.6907958984375",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "market@-384,-4960 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1620.378173828125",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "market@-384,-4960 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1944.2529296875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "market@-384,-4960 route 3",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1629.2354736328125",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "market@-384,-4960 route 3",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1622.551025390625",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "market@-384,-4960 route 4",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1428.90283203125",
+  "straight": 1408,
+  "direct": true
+ },
+ {
+  "label": "market@-384,-4960 route 4",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1430.171875",
+  "straight": 1408,
+  "direct": true
+ },
+ {
+  "label": "basketball@2432,-4992 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1110.222412109375",
+  "straight": 1088,
+  "direct": true
+ },
+ {
+  "label": "basketball@2432,-4992 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1108.5234375",
+  "straight": 1088,
+  "direct": true
+ },
+ {
+  "label": "basketball@2432,-4992 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "853.5213012695312",
+  "straight": 832,
+  "direct": true
+ },
+ {
+  "label": "basketball@2432,-4992 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "851.2169189453125",
+  "straight": 832,
+  "direct": true
+ },
+ {
+  "label": "checkpoint@5248,-4992 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "854.4446411132812",
+  "straight": 832,
+  "direct": true
+ },
+ {
+  "label": "checkpoint@5248,-4992 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "854.2908325195312",
+  "straight": 832,
+  "direct": true
+ },
+ {
+  "label": "barricade@8064,-4992 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "726.3436889648438",
+  "straight": 704,
+  "direct": true
+ },
+ {
+  "label": "barricade@8064,-4992 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "726.3436889648438",
+  "straight": 704,
+  "direct": true
+ },
+ {
+  "label": "rations@-8832,-2688 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "835.22119140625",
+  "straight": 816,
+  "direct": true
+ },
+ {
+  "label": "rations@-8832,-2688 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "822.9398803710938",
+  "straight": 816,
+  "direct": true
+ },
+ {
+  "label": "rations@-8832,-2688 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "835.22119140625",
+  "straight": 816,
+  "direct": true
+ },
+ {
+  "label": "rations@-8832,-2688 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "822.9398803710938",
+  "straight": 816,
+  "direct": true
+ },
+ {
+  "label": "rations@-8832,-2688 route 3",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "923.7603149414062",
+  "straight": 816,
+  "direct": true
+ },
+ {
+  "label": "rations@-8832,-2688 route 3",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "986.1735229492188",
+  "straight": 816,
+  "direct": true
+ },
+ {
+  "label": "junkyard@-6016,-2688 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1622.1512451171875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "junkyard@-6016,-2688 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1622.1512451171875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "junkyard@-6016,-2688 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1366.1800537109375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "junkyard@-6016,-2688 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1364.1776123046875",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "construction@-3200,-2688 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1755.61181640625",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "construction@-3200,-2688 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "2274.55908203125",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "construction@-3200,-2688 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "construction@-3200,-2688 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "tankfarm@-384,-2688 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1748.3404541015625",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "tankfarm@-384,-2688 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1750.1400146484375",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "tankfarm@-384,-2688 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1622.1512451171875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "tankfarm@-384,-2688 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1622.1512451171875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "railyard@2432,-2688 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1492.896240234375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "railyard@2432,-2688 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1492.499755859375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "railyard@2432,-2688 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "2517.3955078125",
+  "straight": 2496,
+  "direct": true
+ },
+ {
+  "label": "railyard@2432,-2688 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "2518.096923828125",
+  "straight": 2496,
+  "direct": true
+ },
+ {
+  "label": "gasstation@5248,-2688 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "gasstation@5248,-2688 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "gasstation@5248,-2688 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1235.910400390625",
+  "straight": 1216,
+  "direct": true
+ },
+ {
+  "label": "gasstation@5248,-2688 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1235.8175048828125",
+  "straight": 1216,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "218.5645294189453",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "216.38404846191406",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "219.30726623535156",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "217.12745666503906",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 3",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "218.5645294189453",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 3",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "216.38404846191406",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 4",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "218.5645294189453",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 4",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "216.38404846191406",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 5",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "219.30726623535156",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 5",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "217.12745666503906",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 6",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "218.5645294189453",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 6",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "216.38404846191406",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 7",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "218.5645294189453",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 7",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "216.38404846191406",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 8",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "219.30726623535156",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 8",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "217.12745666503906",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 9",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "218.5645294189453",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 9",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "216.38404846191406",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 10",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "218.5645294189453",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 10",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "216.38404846191406",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 11",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "221.03665161132812",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 11",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "217.12745666503906",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 12",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "218.5645294189453",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 12",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "216.38404846191406",
+  "straight": 199,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 13",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "281.7413024902344",
+  "straight": 262,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 13",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "279.6042785644531",
+  "straight": 262,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 14",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "281.7413024902344",
+  "straight": 262,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 14",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "281.48980712890625",
+  "straight": 262,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 15",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "281.32232666015625",
+  "straight": 262,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 15",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "279.18505859375",
+  "straight": 262,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 16",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "282.66583251953125",
+  "straight": 262,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 16",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "281.6800231933594",
+  "straight": 262,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 17",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "275.8287353515625",
+  "straight": 256,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 17",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "273.68853759765625",
+  "straight": 256,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 18",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "276.32720947265625",
+  "straight": 256,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 18",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "275.8638610839844",
+  "straight": 256,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 19",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "278.8018493652344",
+  "straight": 259,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 19",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "276.6632385253906",
+  "straight": 259,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 20",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "278.8018493652344",
+  "straight": 259,
+  "direct": true
+ },
+ {
+  "label": "park@8064,-2688 path 20",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "278.8994140625",
+  "straight": 259,
+  "direct": true
+ },
+ {
+  "label": "football@-8832,-352 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "2134.114501953125",
+  "straight": 2112,
+  "direct": true
+ },
+ {
+  "label": "football@-8832,-352 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "2134.114501953125",
+  "straight": 2112,
+  "direct": true
+ },
+ {
+  "label": "football@-8832,-352 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1814.135009765625",
+  "straight": 1792,
+  "direct": true
+ },
+ {
+  "label": "football@-8832,-352 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1814.135009765625",
+  "straight": 1792,
+  "direct": true
+ },
+ {
+  "label": "football@-8832,-352 high ground",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1746.4495849609375",
+  "straight": 1593,
+  "direct": true
+ },
+ {
+  "label": "football@-8832,-352 high ground",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1753.9268798828125",
+  "straight": 1593,
+  "direct": true
+ },
+ {
+  "label": "rebelcamp@-6016,-384 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1622.1512451171875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "rebelcamp@-6016,-384 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1622.1512451171875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "rebelcamp@-6016,-384 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1366.1800537109375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "rebelcamp@-6016,-384 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1366.1800537109375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "thumper@-3200,-384 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "thumper@-3200,-384 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "thumper@-3200,-384 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "thumper@-3200,-384 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "crashsite@-384,-384 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1622.1512451171875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "crashsite@-384,-384 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1624.0281982421875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "crashsite@-384,-384 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1366.1800537109375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "crashsite@-384,-384 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1366.1800537109375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "farmstead@2432,-384 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "2006.1219482421875",
+  "straight": 1984,
+  "direct": true
+ },
+ {
+  "label": "farmstead@2432,-384 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "2006.1219482421875",
+  "straight": 1984,
+  "direct": true
+ },
+ {
+  "label": "farmstead@2432,-384 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1750.1400146484375",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "farmstead@2432,-384 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1750.1400146484375",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "graveyard@5248,-384 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1621.45703125",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "graveyard@5248,-384 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1622.1512451171875",
+  "straight": 1600,
+  "direct": true
+ },
+ {
+  "label": "graveyard@5248,-384 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1750.1400146484375",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "graveyard@5248,-384 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1747.041259765625",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "lookout@8064,-384 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1366.1800537109375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "lookout@8064,-384 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1366.1800537109375",
+  "straight": 1344,
+  "direct": true
+ },
+ {
+  "label": "lookout@8064,-384 high ground",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1316.9215087890625",
+  "straight": 660,
+  "direct": true
+ },
+ {
+  "label": "lookout@8064,-384 high ground",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "-1.0",
+  "straight": 660,
+  "direct": false
+ },
+ {
+  "label": "logging@-8832,1920 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1750.1400146484375",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "logging@-8832,1920 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1750.1400146484375",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "logging@-8832,1920 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "logging@-8832,1920 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "powernode@-6016,1920 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "465.1840515136719",
+  "straight": 448,
+  "direct": true
+ },
+ {
+  "label": "powernode@-6016,1920 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "458.680908203125",
+  "straight": 448,
+  "direct": true
+ },
+ {
+  "label": "powernode@-6016,1920 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "784.8780517578125",
+  "straight": 768,
+  "direct": true
+ },
+ {
+  "label": "powernode@-6016,1920 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "785.1881103515625",
+  "straight": 768,
+  "direct": true
+ },
+ {
+  "label": "dock@-3200,1920 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1757.8321533203125",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "dock@-3200,1920 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1778.5509033203125",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "dock@-3200,1920 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "621.1389770507812",
+  "straight": 608,
+  "direct": true
+ },
+ {
+  "label": "dock@-3200,1920 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "610.5872192382812",
+  "straight": 608,
+  "direct": true
+ },
+ {
+  "label": "dock@-3200,1920 route 3",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "621.1389770507812",
+  "straight": 608,
+  "direct": true
+ },
+ {
+  "label": "dock@-3200,1920 route 3",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "610.5872192382812",
+  "straight": 608,
+  "direct": true
+ },
+ {
+  "label": "beach@-384,1920 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "2007.4935302734375",
+  "straight": 1984,
+  "direct": true
+ },
+ {
+  "label": "beach@-384,1920 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "2014.057373046875",
+  "straight": 1984,
+  "direct": true
+ },
+ {
+  "label": "beach@-384,1920 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "898.5272827148438",
+  "straight": 864,
+  "direct": true
+ },
+ {
+  "label": "beach@-384,1920 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "887.6278076171875",
+  "straight": 864,
+  "direct": true
+ },
+ {
+  "label": "shipwreck@2432,1920 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "2014.2734375",
+  "straight": 1984,
+  "direct": true
+ },
+ {
+  "label": "shipwreck@2432,1920 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "2003.5692138671875",
+  "straight": 1984,
+  "direct": true
+ },
+ {
+  "label": "shipwreck@2432,1920 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "883.2088623046875",
+  "straight": 864,
+  "direct": true
+ },
+ {
+  "label": "shipwreck@2432,1920 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "881.167236328125",
+  "straight": 864,
+  "direct": true
+ },
+ {
+  "label": "lighthouse@5248,1920 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1747.86279296875",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "lighthouse@5248,1920 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1747.778564453125",
+  "straight": 1728,
+  "direct": true
+ },
+ {
+  "label": "lighthouse@5248,1920 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "451.7270202636719",
+  "straight": 432,
+  "direct": true
+ },
+ {
+  "label": "lighthouse@5248,1920 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "445.7366638183594",
+  "straight": 432,
+  "direct": true
+ },
+ {
+  "label": "bunker@8064,1920 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1877.37158203125",
+  "straight": 1856,
+  "direct": true
+ },
+ {
+  "label": "bunker@8064,1920 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1875.0972900390625",
+  "straight": 1856,
+  "direct": true
+ },
+ {
+  "label": "bunker@8064,1920 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "819.2255859375",
+  "straight": 800,
+  "direct": true
+ },
+ {
+  "label": "bunker@8064,1920 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "817.1806030273438",
+  "straight": 800,
+  "direct": true
+ },
+ {
+  "label": "quarry@-8832,4224 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1171.1566162109375",
+  "straight": 1152,
+  "direct": true
+ },
+ {
+  "label": "quarry@-8832,4224 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1169.1253662109375",
+  "straight": 1152,
+  "direct": true
+ },
+ {
+  "label": "quarry@-8832,4224 high ground",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "2975.23876953125",
+  "straight": 1471,
+  "direct": true
+ },
+ {
+  "label": "quarry@-8832,4224 high ground",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "3355.025390625",
+  "straight": 1471,
+  "direct": true
+ },
+ {
+  "label": "mine@-6016,4224 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1187.154541015625",
+  "straight": 1168,
+  "direct": true
+ },
+ {
+  "label": "mine@-6016,4224 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1183.7294921875",
+  "straight": 1168,
+  "direct": true
+ },
+ {
+  "label": "overlook@-3200,4224 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "overlook@-3200,4224 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "overlook@-3200,4224 high ground",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1786.49072265625",
+  "straight": 1069,
+  "direct": true
+ },
+ {
+  "label": "overlook@-3200,4224 high ground",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1925.370849609375",
+  "straight": 1069,
+  "direct": true
+ },
+ {
+  "label": "pass@-384,4224 path 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "790.8621215820312",
+  "straight": 769,
+  "direct": true
+ },
+ {
+  "label": "pass@-384,4224 path 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "787.5150146484375",
+  "straight": 769,
+  "direct": true
+ },
+ {
+  "label": "pass@-384,4224 path 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "790.8621215820312",
+  "straight": 769,
+  "direct": true
+ },
+ {
+  "label": "pass@-384,4224 path 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "790.8621215820312",
+  "straight": 769,
+  "direct": true
+ },
+ {
+  "label": "relay@2432,4224 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "relay@2432,4224 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1494.1644287109375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "relay@2432,4224 high ground",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "803.8251342773438",
+  "straight": 742,
+  "direct": true
+ },
+ {
+  "label": "relay@2432,4224 high ground",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "833.617919921875",
+  "straight": 742,
+  "direct": true
+ },
+ {
+  "label": "canal@5248,4224 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1492.862548828125",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "canal@5248,4224 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1490.447509765625",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "canal@5248,4224 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "1492.896240234375",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "canal@5248,4224 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "1490.447509765625",
+  "straight": 1472,
+  "direct": true
+ },
+ {
+  "label": "lot@8064,4224 route 1",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "980.9742431640625",
+  "straight": 960,
+  "direct": true
+ },
+ {
+  "label": "lot@8064,4224 route 1",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "979.8681030273438",
+  "straight": 960,
+  "direct": true
+ },
+ {
+  "label": "lot@8064,4224 route 2",
+  "probe": "human",
+  "mesh": "human",
+  "dist": "981.996337890625",
+  "straight": 960,
+  "direct": true
+ },
+ {
+  "label": "lot@8064,4224 route 2",
+  "probe": "large",
+  "mesh": "large",
+  "dist": "978.406494140625",
+  "straight": 960,
+  "direct": true
+ }
+]

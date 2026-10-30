@@ -818,7 +818,8 @@ offers cover, chokepoints, high ground or a place to capture, and always leaves 
     `fow_blocker` along hedges and high walls on request; `perimeter()` opens a gap wherever a route leaves;
   - placement: single props, rows, scatter with spacing; every prop stands on the pad or terrain under it
     (from its measured bounds) and is refused on a reserved route or on top of something placed;
-  - **routes**: through-routes at least 128 wide (large units have a radius of 58) are reserved first;
+  - **routes**: through-routes 160 wide (large units have a radius of 58; phase 7's route check found 128 too
+    tight) are reserved first, and the gaps they open in fences and walls are 64 wider still;
   - overlays and painted lines on the pads, lights, lamp posts;
   - gameplay hooks each type opts into: a capture point at its focus (control point + capture area), scrap
     piles, enemy unit groups. They show up as parameters automatically.
@@ -1093,8 +1094,8 @@ the water *surface*. The ground under water stays walkable. So:
 
 **Rocky set and the canal:**
 
-- **Quarry** (1536 to 3072): a gravel floor open to the front with one to three terraces of rock round the
-  other three sides, each step 64 high (too high to climb), one 1:3 ramp per terrace alternating sides (the
+- **Quarry** (1536 to 3072): a gravel floor open to the front with one to three 288-deep terraces of rock round the
+  other three sides, each step 64 high (too high to climb), one 192-wide 1:3 ramp per terrace alternating sides (the
   chokepoints), a conveyor from the top down to the floor, a crane frame, mining carts on rails, a bulldozer.
 - **Mine entrance** (1024×896 to 2560×2048): a cliff face of rock brushes across the back with a tunnel mouth
   cut into it (dark at the back), timber frames along the tunnel, rails running out with carts, industrial
@@ -1119,6 +1120,69 @@ the water *surface*. The ground under water stays walkable. So:
 ![Radio relay](docs/screenshots/poi-p6-relay.png)
 ![Canal crossing](docs/screenshots/poi-p6-canal.png)
 ![The canal and its bridges](docs/screenshots/poi-p6-canal-close.png)
+
+### POI phase 7: map integration, showcase and the route check
+
+- **Sketch**: a **POIs** layer. Pick a type (grouped by landscape) and a rotation, drag a rectangle (grown to
+  the type's minimum and cut to its maximum size), right-click one to remove it. Generating levels the
+  terrain under each POI (and cuts its sea, pits or canal into it), builds it at that height with its spec
+  stored, so it can be changed in the editor like any other POI. The sketch keeps them in `pois`.
+- **Generate map**: a *POIs* count (default 2). The largest free rectangles away from the bases (ground,
+  woods, or building blocks in a dense city, which they clear) get a POI of the theme each, mirrored through
+  the map centre like the layout itself, so both players get the same; the pair nearest the centre gets
+  capture points.
+- `scripts/poi-demo.mjs` builds **`maps/poi_showcase.vmf`** (all 35 types at their default size and
+  settings with capture points, on displacement terrain without detail sprites: grass on a map this size
+  passes vbsp's 64K detail-prop limit) and **`maps/poi_test.vmf`** (a playable two-player map from *Generate
+  map*, rural, four POIs between the bases).
+- **Compiled** with `compile-map.mjs`: both without vbsp errors or leaks, no static props deleted (the
+  generator's own rocks that aren't static props are turned into `prop_dynamic`, as the compile dialog does),
+  the showcase's water brushes compile, navmeshes built (all five meshes).
+- **Route check in the game** (`scripts/poi-navcheck.mjs <map>`): loads the compiled map in a hidden
+  dedicated server, which loads its navmesh, and asks the game's own `NavMeshGetPathDistance` for a path along
+  every POI route (from 96 outside the POI where a route reaches its edge, through to the other side), and up
+  to the high ground of the lookout, overlook, relay, quarry and the football bleachers, once with a probe the
+  size of a human unit and once of a large unit (the server picks the `human` and `large` meshes for them).
+  A path more than 1.3 times the straight line counts as a detour round the POI, not a route through it.
+  Results (`docs/poi-navcheck-*.json`):
+
+  | Map | Checks | Human | Large |
+  |---|---|---|---|
+  | poi_showcase (35 POIs) | 92 | 92 paths, all direct | 91 paths, all direct |
+  | poi_test (4 POIs) | 8 | 8, all direct | 8, all direct |
+
+  The one miss is by design: the lookout tower's stair is 96 wide, for infantry; large units can't climb it.
+  The first run found real problems, now fixed: 128-wide routes and fence gaps were too tight for large units
+  (the large navmesh is eroded by their 58 radius), so routes are now 160 wide and gaps in fences and walls 64
+  wider than their route; the bleachers blocked the football pitch's middle route (now two halves per side);
+  the lighthouse path ran into the keeper's house; a Breencast screen stood on the power node's inner route;
+  the quarry's ramps sat inside the terrace they led to and stopped 8 short of the next one (a gap the navmesh
+  can't cross), and its terraces were too narrow for large units (now 288 deep, ramps 192 wide). The
+  high-ground checks only accept the top itself (the end point is looked for at most 48 below it), not the
+  ground beside it.
+- **Not done in the game client**: the checks above ran the game's server code on the compiled navmeshes,
+  not the game window. No in-game screenshots were taken (`capture-window.ps1` has given black frames).
+
+![The POI layer of the sketch](docs/screenshots/poi-p7-sketch.png)
+![The map generated from it](docs/screenshots/poi-p7-sketch-generated.png)
+![Generate map (city) with two mirrored pairs of POIs](docs/screenshots/poi-p7-generate-map.png)
+![poi_showcase: every POI type](docs/screenshots/poi-p7-showcase.png)
+![poi_test: a playable map with four POIs between the bases](docs/screenshots/poi-p7-test-map.png)
+
+### POI types skipped or changed
+
+None of the catalogue's types were skipped. Differences from the plan:
+
+- Houses inside POIs (gas station kiosk, farmhouse, chapel nave, beach huts, lighthouse keeper's house) come
+  from `interiorHouse()`, which on this branch is still the stub (a closed box). They become enterable when
+  the interiors branch is merged; nothing here needs to change for that.
+- Lines on sport fields and parking bays are overlays of one bar of the street-marking texture (there is no
+  plain white line material).
+- The football bleachers and the lookout tower are high ground for infantry; the bleachers' tops are reached
+  by large units too, the tower's deck only by human-size units.
+- Sea needs displacement terrain: a coast POI lowers displacements under its sea part, but on brush ground
+  the ground there has to be cut away by hand.
+- One tool shortcut was added: **P** (all number keys were taken).
 
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 

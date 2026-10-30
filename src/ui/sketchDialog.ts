@@ -6,8 +6,10 @@ import {
 import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle } from '../gen/buildings.ts';
 import { h, toast } from './dom.ts';
 import { VmfDocument } from '../vmf/map.ts';
+import { drawSketchPois, sketchPoiInput, sketchPoiPanel } from './sketchPoiLayer.ts';
+import { placePois } from '../gen/poi/sketchPois.ts';
 
-type Layer = 'height' | 'surface' | 'feature' | 'marker';
+type Layer = 'height' | 'surface' | 'feature' | 'marker' | 'poi';
 type Shape = 'brush' | 'rect' | 'fill';
 const LEVEL_COLORS = ['#1d2f22', '#4f7a3a', '#a3a14e', '#c98a45', '#f0e2c0'];
 
@@ -103,6 +105,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(mi.letter, cx, cy + 1);
     }
+    drawSketchPois(ctx, s, PX, Y, layer === 'poi');
     if (preview) {
       ctx.strokeStyle = '#e8a33d';
       ctx.setLineDash([4, 3]);
@@ -111,7 +114,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       ctx.setLineDash([]);
     }
     const n = (f: Feature) => s.features.filter((x) => x === f).length;
-    info.textContent = `${s.w}×${s.h} cells (${s.w * 128}×${s.h * 128} units) · ${n(Feature.Building)} building cells · ${s.markers.length} markers`;
+    info.textContent = `${s.w}×${s.h} cells (${s.w * 128}×${s.h * 128} units) · ${n(Feature.Building)} building cells · ${s.markers.length} markers · ${s.pois?.length ?? 0} POIs`;
   };
 
   /** Applies the current layer's value to one cell (plus its symmetric copies). */
@@ -167,20 +170,22 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       draw();
       return;
     }
-    if (shape === 'fill') { fillFrom(c.x, c.y, erase); draw(); return; }
+    if (layer === 'poi' && erase) { sketchPoiInput(s, c, c, true); draw(); return; }
+    if (shape === 'fill' && layer !== 'poi') { fillFrom(c.x, c.y, erase); draw(); return; }
     down = { x: c.x, y: c.y, erase };
     canvas.setPointerCapture(e.pointerId);
-    if (shape === 'brush') { paintAt(c.x, c.y, erase); draw(); }
+    if (shape === 'brush' && layer !== 'poi') { paintAt(c.x, c.y, erase); draw(); }
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!down) return;
     const c = cellOf(e);
-    if (shape === 'brush') { paintAt(c.x, c.y, down.erase); draw(); }
+    if (shape === 'brush' && layer !== 'poi') { paintAt(c.x, c.y, down.erase); draw(); }
     else draw({ x0: down.x, y0: down.y, x1: c.x, y1: c.y });
   });
   canvas.addEventListener('pointerup', (e) => {
     if (!down) return;
-    if (shape === 'rect') {
+    if (layer === 'poi') sketchPoiInput(s, down, cellOf(e), false);
+    else if (shape === 'rect') {
       const c = cellOf(e);
       for (let y = Math.min(down.y, c.y); y <= Math.max(down.y, c.y); y++) for (let x = Math.min(down.x, c.x); x <= Math.max(down.x, c.x); x++) applyCell(x, y, down.erase);
     }
@@ -208,7 +213,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       h('span.swatch', { style: { background: inf.color } }), inf.label)));
 
   const renderSide = () => {
-    const layerOpts: [Layer, string][] = [['height', 'Height'], ['surface', 'Surface'], ['feature', 'Features'], ['marker', 'Markers']];
+    const layerOpts: [Layer, string][] = [['height', 'Height'], ['surface', 'Surface'], ['feature', 'Features'], ['marker', 'Markers'], ['poi', 'POIs']];
     let paint: HTMLElement;
     if (layer === 'height') {
       paint = h('div', {},
@@ -220,6 +225,8 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       paint = swatches(Object.entries(SURFACE_INFO).map(([k, v]) => [Number(k) as Surface, v]), () => surface, (v) => (surface = v));
     } else if (layer === 'feature') {
       paint = swatches(Object.entries(FEATURE_INFO).filter(([k]) => Number(k) !== Feature.None).map(([k, v]) => [Number(k) as Feature, v]), () => feature, (v) => (feature = v));
+    } else if (layer === 'poi') {
+      paint = sketchPoiPanel(renderSide);
     } else {
       paint = h('div', {}, swatches(Object.entries(MARKER_INFO) as [MarkerKind, { label: string; color: string }][], () => marker, (v) => (marker = v)),
         h('p.hint', {}, 'Click to place, click a marker again to remove it.'));
@@ -258,13 +265,14 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
         s.levels[a] = old.levels[b]; s.ramps[a] = old.ramps[b]; s.surface[a] = old.surface[b]; s.features[a] = old.features[b];
       }
       s.markers = old.markers.filter((m) => m.x < n && m.y < n);
+      s.pois = (old.pois ?? []).filter((p) => p.x + p.w <= n && p.y + p.h <= n);
       draw();
     });
     side.replaceChildren(
       h('div.section', {}, h('h3', {}, 'Layer'), seg(layerOpts, () => layer, (v) => { layer = v; draw(); })),
       h('div.section', {}, h('h3', {}, 'Paint'), paint,
-        layer !== 'marker' ? h('div.row', {}, h('label', {}, 'Tool'), seg<Shape>([['brush', 'Brush'], ['rect', 'Rectangle'], ['fill', 'Fill']], () => shape, (v) => (shape = v))) : null,
-        layer !== 'marker' ? h('div.row', {}, h('label', {}, 'Brush size'), seg<number>([[1, '1'], [2, '2'], [3, '3'], [5, '5']], () => size, (v) => (size = v))) : null,
+        layer !== 'marker' && layer !== 'poi' ? h('div.row', {}, h('label', {}, 'Tool'), seg<Shape>([['brush', 'Brush'], ['rect', 'Rectangle'], ['fill', 'Fill']], () => shape, (v) => (shape = v))) : null,
+        layer !== 'marker' && layer !== 'poi' ? h('div.row', {}, h('label', {}, 'Brush size'), seg<number>([[1, '1'], [2, '2'], [3, '3'], [5, '5']], () => size, (v) => (size = v))) : null,
         h('div.row', {}, h('label', {}, 'Symmetry'), seg<'none' | 'mirror' | 'rotate'>([['none', 'None'], ['mirror', 'Mirror'], ['rotate', 'Rotate']], () => symmetry, (v) => (symmetry = v)))),
       h('div.section', {}, h('h3', {}, 'Map'),
         h('div.row', {}, h('label', {}, 'Theme'), theme),
@@ -285,6 +293,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
     const t0 = performance.now();
     const r = generateFromSketch(s);
     placeMarkers({ doc: r.doc }, s, r);
+    placePois(r.doc, s, r);
     // Markers were added through wrappers; re-read so every wrapper is fresh.
     const doc = VmfDocument.parse(r.doc.serialize());
     const name = editor.mapName.endsWith('.vmf') && editor.sketch ? editor.mapName : 'sketch_map.vmf';

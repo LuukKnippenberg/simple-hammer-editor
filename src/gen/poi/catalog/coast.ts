@@ -185,8 +185,9 @@ export const LIGHTHOUSE: PoiType = {
     k.pad(rect(0, 0, W, sy), 'NATURE/DIRTFLOOR006A', 2);
     k.sea(rect(0, sy, W, D));
     k.route([0, 160], [W, 160]);
-    // The point: a raised rock platform (16 high) at the shore, the tower on it.
+    // The point: a raised rock platform (16 high) at the shore, the tower on it, a path to it.
     const tx = W * 0.62, ty = sy - 240;
+    k.path([[tx - 200, 160], [tx - 200, ty]], 'NATURE/DIRTFLOOR008A', 160, 3);
     k.cylinder(tx, ty, 200, -136, 16, STONE, 12);
     k.occupied.push(rect(tx - 200, ty - 200, tx + 200, ty + 200));
     const plain = { material: 'PLASTER/PLASTERWALL003A', bays: 0 };
@@ -206,7 +207,6 @@ export const LIGHTHOUSE: PoiType = {
     }
     // The keeper's house, its door to the path.
     k.house(rect(W * 0.12, 320, W * 0.12 + 384, 320 + 288), { storeys: 1, furnish: 'sparse', doors: ['s', 'e'] });
-    k.path([[W * 0.12 + 192, 256], [W * 0.12 + 192, 290], [tx - 200, 290], [tx - 200, ty]], 'NATURE/DIRTFLOOR008A', 128, 3);
     k.scatter(SMALL_ROCKS, rect(64, 64, W - 64, sy - 32), 6, { margin: 16 });
     k.gameplay([tx - 360, ty - 120]);
   },
