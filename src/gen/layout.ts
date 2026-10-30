@@ -4,7 +4,7 @@ import { MapSolid, VmfDocument, vecStr } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
 import { buildBrushFaces } from '../geom/brush.ts';
 import { dispBaseGrid, dispCorners } from '../geom/displacement.ts';
-import { detailEntityNode, generateBuildings } from './buildings.ts';
+import { ARCHITECTURES, detailEntityNode, generateBuildings, type ArchitectureName } from './buildings.ts';
 import { Rng } from './rng.ts';
 import { cameraSpawnFor } from '../lw/kits.ts';
 
@@ -47,6 +47,8 @@ export interface GenerateOptions {
   theme: Theme;
   seed: number;
   highGround: number;
+  /** Kind of buildings on city blocks (default mixed). */
+  architecture?: ArchitectureName;
 }
 
 const THEMES = {
@@ -300,7 +302,7 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
   for (const r of ringRects) {
     if (opts.theme === 'city') {
       // Backdrop outside the playable area: lighter decoration.
-      const b = generateBuildings(doc, r, { seed: rng.int(1, 1e9), minFloors: 3, maxFloors: 7, alleys: false, roofProps: false, detail: 1 });
+      const b = generateBuildings(doc, r, { seed: rng.int(1, 1e9), minFloors: 3, maxFloors: 7, alleys: false, roofProps: false, detail: 1, architecture: opts.architecture });
       solids.push(...b.solids);
       const d = detailEntityNode(doc, b.detail);
       if (d) ents.push(d);
@@ -321,7 +323,10 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
       const inset = r.clone();
       inset.min.x += 32; inset.min.y += 32; inset.max.x -= 32; inset.max.y -= 32;
       inset.min.z = inset.max.z = 0;
-      const b = generateBuildings(doc, inset, { seed: rng.int(1, 1e9), minFloors: 2, maxFloors: 5, alleys: rng.chance(0.5), roofProps: true });
+      const arch = ARCHITECTURES[opts.architecture ?? 'mixed'];
+      const b = generateBuildings(doc, inset, {
+        seed: rng.int(1, 1e9), minFloors: Math.min(arch.floors[0], 5), maxFloors: Math.min(arch.floors[1], 7), alleys: rng.chance(0.5), roofProps: true, architecture: opts.architecture,
+      });
       solids.push(...b.solids);
       const d = detailEntityNode(doc, b.detail);
       if (d) ents.push(d);

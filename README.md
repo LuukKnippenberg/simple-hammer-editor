@@ -480,6 +480,36 @@ Courtyard walls and party walls stay plain. Features sit on whole window bays an
 ![An awning over a shop window, a balcony above](docs/screenshots/buildings-p5-awning.png)
 ![The district from above](docs/screenshots/buildings-p5-corner.png)
 
+### Building phase 6: architectures, colours and the generator panel
+
+**Architectures** (`src/gen/styles.ts`) bundle the choices into kinds of city building:
+
+| Architecture | Facades | Roofs | Corners, towers | Street features | Floors |
+|---|---|---|---|---|---|
+| Pre-war tenements | ochre, yellow, cream, framed stone, blue, rose, sand … | mansard, curved, hip, some gables | mixed, more towers | oriels, balconies | 3–6 |
+| Soviet blocks | grey concrete, stone, pale | flat with **rooftop stair houses** | square, no towers | balconies | 5–9 |
+| Brick houses | brick, brown, rose | gables, hips, a few mansards | cut, few towers | oriels | 2–4 |
+| Sheds and workshops | brick, brown, stone | gables, flat, hips | square | none | 1–2 |
+| Mixed | everything | everything | mixed | all | 3–6 |
+
+- **Eight new colour sets** from the game's facade textures, City 17's plaster colours: ochre with blue
+  windows, yellow with framed windows, framed stone, cream, blue, rose and sand courtyard plaster, and
+  grey concrete for the blocks, each with its own ground floor, door, plain and trim textures.
+- **Weathering**: stain and dirt decals on street walls, under the cornice and below window sills
+  (0 to 1, default 0.5).
+- **Building panel**: Architecture (sets the usual floor range), Facade and Corners can follow the
+  architecture, Weathering, and a **Seed** with a 🎲 button: the same seed and settings give the same
+  buildings, so a result can be recreated. **Sketch** and **Generate map** get an Architecture picker too.
+- Five blocks, one per architecture, at High detail (35 buildings, about 1,900 brushes, 93 decals) compile
+  through vbsp, vvis and vrad in 11 seconds.
+
+![One block per architecture, same seed: tenements, Soviet blocks, brick houses, sheds, mixed](docs/screenshots/buildings-p6-architectures.png)
+![Pre-war tenements: ochre with blue windows, a round corner tower, copper roofs](docs/screenshots/buildings-p6-tenement.png)
+![Soviet blocks: concrete slabs, stacked balconies, stair houses on the roofs](docs/screenshots/buildings-p6-soviet.png)
+![Brick houses with gables and hips](docs/screenshots/buildings-p6-brick.png)
+![Sheds and workshops around a yard](docs/screenshots/buildings-p6-sheds.png)
+![The Building panel](docs/screenshots/buildings-p6-panel.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

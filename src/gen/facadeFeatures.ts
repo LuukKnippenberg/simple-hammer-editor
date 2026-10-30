@@ -122,6 +122,8 @@ export interface StreetFacadeOptions {
   plain: FacadeTile;
   /** 2: oriels and balconies; 1: awnings and vents only. */
   level: number;
+  oriels?: boolean;
+  balconies?: boolean;
 }
 
 /**
@@ -137,7 +139,7 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
   const free = (from: number, to: number) => { for (let k = from; k < to; k++) if (k < 1 || k >= bays - 1 || used.has(k)) return false; return true; };
   const take = (from: number, to: number) => { for (let k = from; k < to; k++) used.add(k); };
 
-  if (o.level >= 2 && o.floors >= 4 && w.len >= 384) {
+  if ((o.oriels ?? true) && o.level >= 2 && o.floors >= 4 && w.len >= 384) {
     // One or two oriels, two bays wide, from the first floor up to under the cornice.
     const shape = rng.pick(['rect', 'angled', 'round'] as const);
     const count = w.len >= 768 ? rng.int(1, 2) : 1;
@@ -151,7 +153,7 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
       }));
     }
   }
-  if (o.level >= 2 && o.floors >= 3 && w.len >= 256) {
+  if ((o.balconies ?? true) && o.level >= 2 && o.floors >= 3 && w.len >= 256) {
     // Balconies: a long one on the first floor, or single-window ones stacked over several floors.
     if (rng.chance(0.5)) {
       const k = rng.int(1, Math.max(1, bays - 4));

@@ -3,7 +3,7 @@ import {
   FEATURE_INFO, MARKER_INFO, SURFACE_INFO, Feature, Surface, emptySketch, generateFromSketch, placeMarkers, symmetricCells,
   type MarkerKind, type Sketch, type SketchTheme,
 } from '../gen/sketch.ts';
-import { FACADE_STYLES, type FacadeStyle } from '../gen/buildings.ts';
+import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle } from '../gen/buildings.ts';
 import { h, toast } from './dom.ts';
 import { VmfDocument } from '../vmf/map.ts';
 
@@ -238,6 +238,9 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
     const facade = h('select', {}, h('option', { value: '' }, 'Mixed'), ...Object.keys(FACADE_STYLES).map((k) => h('option', { value: k }, k))) as HTMLSelectElement;
     facade.value = s.facade ?? '';
     facade.addEventListener('change', () => (s.facade = (facade.value || undefined) as FacadeStyle | undefined));
+    const arch = h('select', {}, ...Object.entries(ARCHITECTURES).map(([k, a]) => h('option', { value: k }, a.label))) as HTMLSelectElement;
+    arch.value = s.architecture ?? 'mixed';
+    arch.addEventListener('change', () => (s.architecture = arch.value as ArchitectureName));
     const num = (value: number, set: (v: number) => void, min = 1, max = 99) => {
       const i = h('input', { type: 'number', value, min, max }) as HTMLInputElement;
       i.addEventListener('change', () => set(Math.max(min, Math.min(max, parseInt(i.value, 10) || min))));
@@ -249,7 +252,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       if (n === s.w) return;
       snapshot();
       const old = s;
-      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade };
+      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade, architecture: old.architecture };
       for (let y = 0; y < Math.min(n, old.h); y++) for (let x = 0; x < Math.min(n, old.w); x++) {
         const a = y * n + x, b = y * old.w + x;
         s.levels[a] = old.levels[b]; s.ramps[a] = old.ramps[b]; s.surface[a] = old.surface[b]; s.features[a] = old.features[b];
@@ -268,6 +271,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
         h('div.row', {}, h('label', {}, 'Size'), sizeSel),
         h('div.row', {}, h('label', {}, 'Level height'), num(s.levelHeight, (v) => (s.levelHeight = v), 32, 512)),
         h('div.row', {}, h('label', {}, 'Floors'), num(s.floors[0], (v) => (s.floors[0] = v), 1, 12), h('span.muted', {}, 'to'), num(s.floors[1], (v) => (s.floors[1] = v), 1, 12)),
+        h('div.row', {}, h('label', {}, 'Architecture'), arch),
         h('div.row', {}, h('label', {}, 'Facade'), facade),
         h('div.row', {}, h('label', {}, 'Seed'), num(s.seed, (v) => (s.seed = v), 1, 1e9))),
       h('div.row', {}, h('button', { onclick: () => { if (confirm('Clear the sketch?')) { snapshot(); s = emptySketch(s.w, s.h, s.theme); draw(); } } }, 'Clear')),

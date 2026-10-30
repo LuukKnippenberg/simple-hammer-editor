@@ -17,7 +17,8 @@ export function buildingsFromSelection(editor: Editor, opts: Omit<BuildingOption
       const box = solidBounds(s);
       const footprint = box.clone();
       footprint.max.z = footprint.min.z;
-      const r = generateBuildings(doc, footprint, { ...opts, seed: (opts.seed ?? Date.now()) + i * 7919 });
+      // The panel's seed for the first block, a derived one for each further block.
+      const r = generateBuildings(doc, footprint, { ...opts, seed: (opts.seed ?? Date.now() % 100000) + i * 7919 });
       count += r.buildings;
       for (const node of r.solids) createdSolids.push(doc.addSolid(node));
       const detail = detailEntityNode(doc, r.detail);

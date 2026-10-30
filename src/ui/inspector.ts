@@ -6,7 +6,7 @@ import { remapSolid } from '../edit/brushes.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
 import { buildingsFromSelection } from '../gen/buildingAction.ts';
-import { FACADE_STYLES, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
+import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
 import type { CornerOption } from '../gen/buildingPlan.ts';
 import type { RoofOption } from '../gen/roofs.ts';
 import { ioSection } from './ioEditor.ts';
@@ -133,14 +133,25 @@ function entityEditor(editor: Editor, e: MapEntity): HTMLElement {
 
 /** Turns the selected block brushes into buildings. */
 function buildingPanel(editor: Editor): HTMLElement {
-  const minF = h('input', { type: 'number', value: '2', min: '1', max: '12' }) as HTMLInputElement;
-  const maxF = h('input', { type: 'number', value: '5', min: '1', max: '12' }) as HTMLInputElement;
-  const style = h('select', {}, h('option', { value: '' }, 'Mixed'), ...Object.keys(FACADE_STYLES).map((k) => h('option', { value: k }, k))) as HTMLSelectElement;
-  const alleys = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
+  const minF = h('input', { type: 'number', value: '3', min: '1', max: '12' }) as HTMLInputElement;
+  const maxF = h('input', { type: 'number', value: '6', min: '1', max: '12' }) as HTMLInputElement;
+  const arch = h('select', { title: 'Kind of buildings: facades, roofs, corners, towers and street features' },
+    ...Object.entries(ARCHITECTURES).map(([k, a]) => h('option', { value: k }, a.label))) as HTMLSelectElement;
+  // Each architecture has its usual height.
+  arch.addEventListener('change', () => {
+    const f = ARCHITECTURES[arch.value as ArchitectureName].floors;
+    minF.value = String(f[0]);
+    maxF.value = String(f[1]);
+  });
+  const style = h('select', {}, h('option', { value: '' }, 'From architecture'), ...Object.keys(FACADE_STYLES).map((k) => h('option', { value: k }, k))) as HTMLSelectElement;
+  const alleys = h('input', { type: 'checkbox', checked: false }) as HTMLInputElement;
   const props = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const corners = h('select', {},
-    h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'chamfer' }, 'Cut (45°)'),
+    h('option', { value: '' }, 'From architecture'), h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'chamfer' }, 'Cut (45°)'),
     h('option', { value: 'round' }, 'Rounded'), h('option', { value: 'square' }, 'Square')) as HTMLSelectElement;
+  const weathering = h('input', { type: 'range', min: 0, max: 1, step: 0.1, value: 0.5, title: 'Water stains and dirt on street walls' }) as HTMLInputElement;
+  const seed = h('input', { type: 'number', value: String(Math.floor(Math.random() * 100000)), title: 'The same seed and settings give the same buildings' }) as HTMLInputElement;
+  const reroll = h('button', { title: 'New seed', onclick: () => (seed.value = String(Math.floor(Math.random() * 100000))) }, '🎲');
   const detail = h('select', { title: 'Facade decoration, built as func_detail' },
     h('option', { value: '0' }, 'None'), h('option', { value: '1' }, 'Low: base and cornice'),
     h('option', { value: '2', selected: true }, 'Medium: + ledges, columns'), h('option', { value: '3' }, 'High: + brackets')) as HTMLSelectElement;
@@ -154,16 +165,19 @@ function buildingPanel(editor: Editor): HTMLElement {
   const go = () => {
     const lo = Math.max(1, parseInt(minF.value, 10) || 2);
     const n = buildingsFromSelection(editor, {
+      seed: parseInt(seed.value, 10) || 1,
       minFloors: lo, maxFloors: Math.max(lo, parseInt(maxF.value, 10) || lo),
       alleys: alleys.checked, roofProps: props.checked, style: (style.value || undefined) as FacadeStyle | undefined,
-      corners: corners.value as CornerOption, courtyards: courtyards.checked, annexes: annexes.checked,
+      architecture: arch.value as ArchitectureName, weathering: parseFloat(weathering.value),
+      corners: (corners.value || undefined) as CornerOption | undefined, courtyards: courtyards.checked, annexes: annexes.checked,
       detail: Number(detail.value) as DetailLevel, roofs: roofs.value as RoofOption, towers: towers.checked,
     });
-    toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''}` : 'Selection is too small for a building (min 128×128)');
+    toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''} (seed ${seed.value})` : 'Selection is too small for a building (min 128×128)');
   };
   return h('div.section', {},
     h('h3', {}, 'Generate buildings'),
     h('p.hint', {}, 'Replaces the selected block(s) with a city block: a ring around a courtyard when large enough, otherwise a row of buildings.'),
+    h('div.row', {}, h('label', {}, 'Architecture'), arch),
     h('div.row', {}, h('label', {}, 'Floors'), minF, h('span.muted', {}, 'to'), maxF),
     h('div.row', {}, h('label', {}, 'Facade'), style),
     h('div.row', {}, h('label', {}, 'Corners'), corners),
@@ -174,5 +188,7 @@ function buildingPanel(editor: Editor): HTMLElement {
     h('div.row', {}, h('label', {}, 'Annexes'), annexes, h('span.hint', {}, 'sheds in yards')),
     h('div.row', {}, h('label', {}, 'Alleys'), alleys, h('span.hint', {}, 'with sky bridges')),
     h('div.row', {}, h('label', {}, 'Roof props'), props),
+    h('div.row', {}, h('label', {}, 'Weathering'), weathering),
+    h('div.row', {}, h('label', {}, 'Seed'), seed, reroll),
     h('button.primary', { onclick: go }, '🏢 Generate buildings'));
 }

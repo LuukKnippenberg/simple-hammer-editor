@@ -1,5 +1,6 @@
 import type { Editor } from '../editor.ts';
 import { CELL, CELL_INFO, Cell, emptyLayout, generateMap, randomLayout, type Layout, type Theme } from '../gen/layout.ts';
+import { ARCHITECTURES, type ArchitectureName } from '../gen/buildings.ts';
 import { h, toast } from './dom.ts';
 
 type Symmetry = 'none' | 'mirror' | 'rotate';
@@ -24,6 +25,7 @@ export function mountGeneratorDialog(editor: Editor): { open(): void; generate()
   const theme = h('select', {}, h('option', { value: 'rural' }, 'Rural (grass, trees)'), h('option', { value: 'city' }, 'City (concrete, buildings)')) as HTMLSelectElement;
   const size = h('select', {}, ...[16, 24, 32].map((n) => h('option', { value: String(n), selected: n === 24 }, `${n}×${n} cells (${(n * CELL).toLocaleString()} units)`))) as HTMLSelectElement;
   const seed = h('input', { type: 'number', value: '1337' }) as HTMLInputElement;
+  const arch = h('select', { title: 'Kind of buildings on city blocks' }, ...Object.entries(ARCHITECTURES).map(([k, a]) => h('option', { value: k }, a.label))) as HTMLSelectElement;
   const high = h('select', {}, ...[128, 192, 256].map((n) => h('option', { value: String(n), selected: n === 192 }, `${n} units`))) as HTMLSelectElement;
   const sym = h('select', {}, h('option', { value: 'rotate' }, 'Rotational (2 players)'), h('option', { value: 'mirror' }, 'Mirror left/right'), h('option', { value: 'none' }, 'None')) as HTMLSelectElement;
   const brushSel = h('select', {}, ...[1, 2, 3].map((n) => h('option', { value: String(n) }, `${n}×${n}`))) as HTMLSelectElement;
@@ -96,7 +98,7 @@ export function mountGeneratorDialog(editor: Editor): { open(): void; generate()
   const generate = () => {
     if (editor.dirty && !confirm('Replace the current map with the generated one? Unsaved changes are lost.')) return;
     const t0 = performance.now();
-    const doc = generateMap(layout, { theme: theme.value as Theme, seed: parseInt(seed.value, 10) || 1, highGround: parseInt(high.value, 10) });
+    const doc = generateMap(layout, { theme: theme.value as Theme, seed: parseInt(seed.value, 10) || 1, highGround: parseInt(high.value, 10), architecture: arch.value as ArchitectureName });
     editor.loadDocument(doc, `generated_${theme.value}_${seed.value}.vmf`, '');
     editor.dirty = true;
     editor.emit('change');
@@ -116,6 +118,7 @@ export function mountGeneratorDialog(editor: Editor): { open(): void; generate()
         h('div.section', {}, h('h3', {}, 'Paint'), palette, h('div.row', {}, h('label', {}, 'Brush'), brushSel), h('div.row', {}, h('label', {}, 'Symmetry'), sym)),
         h('div.section', {}, h('h3', {}, 'Map'),
           h('div.row', {}, h('label', {}, 'Theme'), theme),
+          h('div.row', {}, h('label', {}, 'Buildings'), arch),
           h('div.row', {}, h('label', {}, 'Size'), size),
           h('div.row', {}, h('label', {}, 'High ground'), high),
           h('div.row', {}, h('label', {}, 'Seed'), seed)),

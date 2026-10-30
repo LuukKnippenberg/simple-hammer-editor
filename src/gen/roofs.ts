@@ -278,11 +278,18 @@ export function roofSolids(doc: VmfDocument, poly: Vector2[], top: number, o: Ro
   return r;
 }
 
-/** Picks a roof shape and covering for a building. */
-export function chooseRoof(rng: Rng, option: RoofOption, rectangular: boolean): { kind: RoofKind; material: string } {
-  let kind: RoofKind = option === 'mixed'
-    ? rng.pick(['flat', 'hip', 'hip', 'mansard', 'mansard', 'gable', 'curved'] as const)
-    : option;
+/** Picks a roof shape (by weight when mixed) and covering for a building. */
+export function chooseRoof(
+  rng: Rng, option: RoofOption, rectangular: boolean,
+  weights: Partial<Record<RoofKind, number>> = { flat: 1, hip: 2, mansard: 2, gable: 1, curved: 1 },
+): { kind: RoofKind; material: string } {
+  let kind: RoofKind;
+  if (option === 'mixed') {
+    const entries = Object.entries(weights).filter(([, w]) => (w ?? 0) > 0) as [RoofKind, number][];
+    let r = rng.next() * entries.reduce((s, [, w]) => s + w, 0);
+    kind = entries[entries.length - 1][0];
+    for (const [k, w] of entries) { if ((r -= w) < 0) { kind = k; break; } }
+  } else kind = option;
   if (kind === 'gable' && !rectangular) kind = 'hip';
   const covering: RoofCovering = kind === 'mansard' ? rng.pick(['slate', 'slate', 'copper', 'metal'] as const)
     : kind === 'curved' ? rng.pick(['copper', 'copper', 'slate'] as const)

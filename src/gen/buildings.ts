@@ -8,22 +8,13 @@ import { planBlock, type CornerOption, type Part, type WallPlan } from './buildi
 import { chooseRoof, roofSolids, type RoofKind, type RoofOption } from './roofs.ts';
 import { chooseCap, towerSides, towerSolids } from './towers.ts';
 import { entranceSteps, streetFacade, wallOf, type FeatureEntity } from './facadeFeatures.ts';
+import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle, type Style } from './styles.ts';
+
+export { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle };
 
 const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
-
-/**
- * Facade sets from the game's building_template materials: one 512px tile is one 128-unit floor and
- * holds `bays` windows across.
- */
-export const FACADE_STYLES = {
-  stucco: { windows: [t('building_template002b', 2), t('building_template002c', 2)], ground: [t('building_template002e', 1), t('building_template002f', 1)], door: t('building_template002e', 1), plain: t('building_template002h', 0), trim: t('building_template002k', 0) },
-  stone: { windows: [t('building_template003e', 2), t('building_template003d', 2)], ground: [t('building_template003c', 2)], door: t('building_template002e', 1), plain: t('building_template003a', 0), trim: t('building_template003a', 0) },
-  brown: { windows: [t('building_template001b', 2)], ground: [t('building_template001d', 2)], door: t('building_template002e', 1), plain: t('building_template019a', 0), trim: t('building_template001f', 0, 256) },
-  brick: { windows: [t('building_template011c', 1)], ground: [t('building_template011g', 1)], door: t('building_template011g', 1), plain: t('building_template011b', 0), trim: t('building_template011b', 0) },
-  pale: { windows: [t('building_template002o', 2), t('building_template002p', 2)], ground: [t('building_template002f', 1)], door: t('building_template002e', 1), plain: t('building_template004h', 0), trim: t('building_template002k', 0) },
-} as const;
-export type FacadeStyle = keyof typeof FACADE_STYLES;
-type Style = (typeof FACADE_STYLES)[FacadeStyle];
+/** Weathering on street walls: water stains and dirt. */
+const STAINS = ['decals/decalstain001a', 'decals/decalstain002a', 'decals/decalstain005a', 'decals/decalstain008a', 'decals/decalstain010a', 'decals/decalstain012a', 'decals/wallstain01a'];
 
 const ROOF = 'CONCRETE/CONCRETEFLOOR028C';
 const NODRAW = 'TOOLS/TOOLSNODRAW';
@@ -38,8 +29,12 @@ export interface BuildingOptions {
   maxFloors: number;
   /** Leave alleys between buildings and link some of them with sky bridges. */
   alleys: boolean;
-  /** Restrict to one facade style; mixed when omitted. */
+  /** Restrict to one facade style; the architecture's mix when omitted. */
   style?: FacadeStyle;
+  /** Kind of buildings: facades, roofs, corners, towers and street features (default mixed). */
+  architecture?: ArchitectureName;
+  /** Water stains and dirt on street walls, 0 to 1 (default 0.5). */
+  weathering?: number;
   roofProps: boolean;
   /** Corners of buildings on the block's corners: square, cut, rounded, or a mix (default). */
   corners?: CornerOption;
@@ -49,7 +44,7 @@ export interface BuildingOptions {
   annexes?: boolean;
   /** Facade decoration (default 2: base course, ledges, columns, stepped cornice). */
   detail?: DetailLevel;
-  /** Roof shape: one kind for every building, or a mix (default). */
+  /** Roof shape: one kind for every building, or the architecture's mix (default). */
   roofs?: RoofOption;
   /** Towers with domes, bells, onions or spires on some street corners (default on). */
   towers?: boolean;
@@ -108,7 +103,10 @@ function cornerBlock(doc: VmfDocument, poly: Vector2[], i: number, width: number
  */
 function partSolids(
   doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel, roof: { kind: RoofKind; material: string },
-  street: { isStreet?: (a: Vector2, b: Vector2) => boolean; rng: Rng; entities: FeatureEntity[] },
+  street: {
+    isStreet?: (a: Vector2, b: Vector2) => boolean; rng: Rng; entities: FeatureEntity[];
+    oriels: boolean; balconies: boolean; roofHuts: boolean; weathering: number;
+  },
 ): { world: KVNode[]; detail: KVNode[]; roofHeight: (p: Vector2) => number; windows: FacadeTile } {
   const world: KVNode[] = [], detail: KVNode[] = [];
   let roofHeight = (_p: Vector2) => z0 + part.floors * FLOOR + 32;
@@ -189,6 +187,20 @@ function partSolids(
         if (isConvexCcw(quad)) detail.push(solidNode(doc, facadePrism(quad, top, top + 32, s.plain, s.plain.material, top, NODRAW)));
       });
     }
+    // A stair house on the roof (lift machinery of the blocks), away from the edges.
+    if (street.roofHuts && level >= 1 && deco.chance(0.7)) {
+      const box = new Box2().setFromPoints(poly);
+      const size = box.getSize(new Vector2());
+      if (size.x >= 256 && size.y >= 256) {
+        const w = deco.pick([96, 128]), d = deco.pick([96, 128]);
+        const cx = Math.round(deco.range(box.min.x + 64 + w / 2, box.max.x - 64 - w / 2)), cy = Math.round(deco.range(box.min.y + 64 + d / 2, box.max.y - 64 - d / 2));
+        const hut = [new Vector2(cx - w / 2, cy - d / 2), new Vector2(cx + w / 2, cy - d / 2), new Vector2(cx + w / 2, cy + d / 2), new Vector2(cx - w / 2, cy + d / 2)];
+        if (hut.every((p) => inside(poly, p))) {
+          detail.push(solidNode(doc, facadePrism(hut, top, top + 96, s.plain, ROOF, top)));
+          detail.push(solidNode(doc, facadePrism(offsetPolygon(hut, 6), top + 96, top + 104, s.trim, s.trim.material, top + 96, s.trim.material)));
+        }
+      }
+    }
   }
   // Street fronts: oriels, balconies, awnings and vents on walls that face the street; steps at a cut-corner entrance.
   const isStreet = street.isStreet;
@@ -196,9 +208,19 @@ function partSolids(
     poly.forEach((a, i) => {
       const b = poly[(i + 1) % poly.length];
       if (part.cornerEdges.includes(i) || !isStreet(a, b)) return;
-      const f = streetFacade(doc, wallOf(a, b), { z0, floors: part.floors, windows, trim: s.trim, plain: s.plain, level }, street.rng);
+      const w = wallOf(a, b);
+      const f = streetFacade(doc, w, {
+        z0, floors: part.floors, windows, trim: s.trim, plain: s.plain, level, oriels: street.oriels, balconies: street.balconies,
+      }, street.rng);
       detail.push(...f.solids);
       street.entities.push(...f.entities);
+      // Weathering: stains running down from under the cornice and from window sills.
+      const stains = Math.round((w.len / 256) * street.weathering * 2 * street.rng.next());
+      for (let k = 0; k < stains; k++) {
+        const p = a.clone().addScaledVector(w.dir, street.rng.range(32, w.len - 32)).addScaledVector(w.out, 2);
+        const z = street.rng.chance(0.5) ? top - 64 - street.rng.int(0, 48) : z0 + street.rng.int(1, part.floors - 1) * FLOOR + 8;
+        street.entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), Math.round(z)), keys: { texture: street.rng.pick(STAINS) } });
+      }
     });
     if (level >= 1 && part.cornerEdges.length === 1) {
       const i = part.cornerEdges[0];
@@ -284,23 +306,25 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   const towerRng = new Rng(opts.seed * 13 + 5);
   // Walls on the block's outline face the street; the rest face courtyards, yards or neighbours.
   const onLine = (a: Vector2, b: Vector2, axis: 'x' | 'y', v: number) => Math.abs(a[axis] - v) < 1 && Math.abs(b[axis] - v) < 1;
+  const arch = ARCHITECTURES[opts.architecture ?? 'mixed'];
   const street = {
     isStreet: (a: Vector2, b: Vector2) => onLine(a, b, 'x', area.min.x) || onLine(a, b, 'x', area.max.x) || onLine(a, b, 'y', area.min.y) || onLine(a, b, 'y', area.max.y),
     rng: new Rng(opts.seed * 7 + 11),
     entities: out.entities,
+    oriels: arch.oriels, balconies: arch.balconies, roofHuts: arch.roofHuts, weathering: opts.weathering ?? 0.5,
   };
   const plan = planBlock(area, rng, {
     minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
-    corners: opts.corners ?? 'mixed', courtyards: opts.courtyards ?? true, annexes: opts.annexes ?? true,
+    corners: opts.corners ?? arch.corners, courtyards: opts.courtyards ?? true, annexes: opts.annexes ?? true,
   });
-  const styles = Object.keys(FACADE_STYLES) as FacadeStyle[];
+  const styles: readonly FacadeStyle[] = arch.facades;
   const first = rng.int(0, styles.length - 1);
   const styleOf = (slot: number) => FACADE_STYLES[opts.style ?? styles[(first + slot) % styles.length]];
 
   for (const b of plan.buildings) {
     const s = styleOf(b.styleSlot);
     const main = b.parts[0];
-    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', main.poly.length === 4);
+    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', main.poly.length === 4, arch.roofs);
     // Sheds get a low metal roof half of the time.
     const shedRoof = roofRng.chance(0.5) ? { kind: 'hip' as const, material: 'METAL/METALROOF005A' } : { kind: 'flat' as const, material: ROOF };
     for (const part of b.parts) {
@@ -310,7 +334,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
       out.detail.push(...r.detail);
       // Corner towers: most rounded corners, some cut and square ones.
       if (part.corner && part.floors >= 3 && (opts.towers ?? true)) {
-        const chance = part.corner.shape === 'round' ? 0.6 : part.corner.shape === 'chamfer' ? 0.35 : 0.2;
+        const chance = arch.towers * (part.corner.shape === 'round' ? 0.6 : part.corner.shape === 'chamfer' ? 0.35 : 0.2);
         if (towerRng.chance(chance)) out.detail.push(...cornerTower(doc, part, s, r.windows, z0, r.roofHeight, towerRng));
       }
     }
