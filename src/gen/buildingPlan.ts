@@ -60,6 +60,8 @@ export interface PlanOptions {
   corners: CornerOption;
   courtyards: boolean;
   annexes: boolean;
+  /** Share of a ring's side lots left open (0–1), so the courtyard opens onto the street (default 0). */
+  openings?: number;
 }
 
 const G = 64;
@@ -189,6 +191,8 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
         out.walls.push({ a, b, height: 192, gate: true });
         return;
       }
+      // An open lot: the courtyard reaches the street there.
+      if (o.openings && rng.chance(o.openings)) { out.yards.push(box.clone()); return; }
       addLot(box, floorsFor(false));
     }));
     if (o.annexes) {

@@ -11,6 +11,7 @@ import { entranceSteps, streetFacade, wallOf, type FeatureEntity, type Wall } fr
 import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle, type Style } from './styles.ts';
 import { wallClutter, type Anchor, type BlockDressing } from './streets.ts';
 import { interiorHouse } from './interiorHouse.ts';
+import { greenYard, type YardStyle } from './yards.ts';
 import { outlineOf } from './interiorPlan.ts';
 import type { InteriorStyleName } from './styles.ts';
 
@@ -49,8 +50,12 @@ export interface BuildingOptions {
   corners?: CornerOption;
   /** Build large blocks as a ring of buildings around a courtyard (default on). */
   courtyards?: boolean;
-  /** Low sheds in yards and courtyards (default on). */
+  /** Low sheds in yards and courtyards (default on; green yards have none). */
   annexes?: boolean;
+  /** What fills the courtyards and back yards: sheds (default), or green yards with lawns, trees, playgrounds and parking. */
+  yards?: YardStyle;
+  /** Share of a ring block's side lots left open, so its courtyard opens onto the street (0–1, default 0). */
+  openYards?: number;
   /** Facade decoration (default 2: base course, ledges, columns, stepped cornice). */
   detail?: DetailLevel;
   /**
@@ -538,9 +543,20 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   };
   const plan = planBlock(area, rng, {
     minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
-    corners: opts.corners ?? arch.corners, courtyards: opts.courtyards ?? true, annexes: opts.annexes ?? true,
+    corners: opts.corners ?? arch.corners, courtyards: opts.courtyards ?? true, annexes: (opts.annexes ?? true) && opts.yards !== 'green',
+    openings: opts.openYards,
   });
-  out.dressing.yards.push(...plan.yards);
+  if (opts.yards === 'green') {
+    // Dressed here (lawns, trees, playgrounds, parking), so the street pass leaves them alone. Its own sequence,
+    // so the buildings don't change with it.
+    const yardRng = new Rng(opts.seed * 43 + 19);
+    const gates = plan.walls.filter((w) => w.gate).map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(96));
+    for (const y of plan.yards) {
+      const g = greenYard(doc, y, footprint.min.z, yardRng, gates);
+      out.solids.push(...g.solids);
+      out.entities.push(...g.entities);
+    }
+  } else out.dressing.yards.push(...plan.yards);
   out.dressing.obstacles.push(...plan.sheds);
   const styles: readonly FacadeStyle[] = arch.facades;
   const first = rng.int(0, styles.length - 1);

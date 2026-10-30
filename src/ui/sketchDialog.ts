@@ -1,6 +1,6 @@
 import type { Editor } from '../editor.ts';
 import {
-  FEATURE_INFO, MARKER_INFO, AUTO_DETAIL, QUALITY_PAINT, SURFACE_INFO, Feature, Surface, emptySketch, generateFromSketch, placeMarkers, sketchBlocks, symmetricCells,
+  FEATURE_INFO, MARKER_INFO, AUTO_DETAIL, QUALITY_PAINT, SURFACE_INFO, Feature, Surface, emptySketch, generateFromSketch, placeMarkers, sketchBlocks, SOFIA_GRID, streetGrid, symmetricCells,
   type MarkerKind, type Sketch, type SketchTheme,
 } from '../gen/sketch.ts';
 import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type BuildingQuality, type FacadeStyle } from '../gen/buildings.ts';
@@ -275,6 +275,38 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       h('option', { value: '' }, 'From architecture'), h('option', { value: 'none' }, 'None'), h('option', { value: 'some' }, 'Some'), h('option', { value: 'all' }, 'All')) as HTMLSelectElement;
     interiors.value = s.interiors ?? '';
     interiors.addEventListener('change', () => (s.interiors = (interiors.value || undefined) as Sketch['interiors']));
+    const yards = h('select', { title: 'What fills courtyards and back yards' },
+      h('option', { value: '' }, 'Sheds'), h('option', { value: 'green' }, 'Green: lawns, trees, playgrounds, parking')) as HTMLSelectElement;
+    yards.value = s.yards ?? '';
+    yards.addEventListener('change', () => (s.yards = (yards.value || undefined) as Sketch['yards']));
+    const openYards = h('input', { type: 'range', min: 0, max: 0.6, step: 0.1, value: s.openYards ?? 0, title: 'Share of the side lots of ring blocks left open, so courtyards open onto the street' }) as HTMLInputElement;
+    openYards.addEventListener('change', () => (s.openYards = Number(openYards.value) || undefined));
+    const blockSize = h('select', { title: 'Longest side of one block of buildings; blocks of 7 cells and more can be rings around a courtyard' },
+      ...[8, 12, 16].map((n) => h('option', { value: n }, `${n} cells`))) as HTMLSelectElement;
+    blockSize.value = String(s.blockSize ?? 8);
+    blockSize.addEventListener('change', () => { s.blockSize = Number(blockSize.value); draw(); });
+    const streets = h('select', { title: 'Sofia: wider pavements on wide streets, parked cars along the kerbs, bollards' },
+      h('option', { value: '' }, 'Classic'), h('option', { value: 'sofia' }, 'Sofia: parked cars, bollards')) as HTMLSelectElement;
+    streets.value = s.streets === 'sofia' ? 'sofia' : '';
+    streets.addEventListener('change', () => (s.streets = (streets.value || undefined) as Sketch['streets']));
+    // The street grid: blocks between streets over the whole sketch.
+    const g = { ...SOFIA_GRID, seed: s.seed };
+    const gridNum = (key: 'block' | 'street' | 'boulevard' | 'every', min: number, max: number) => num(g[key], (v) => (g[key] = v), min, max);
+    const parks = h('input', { type: 'range', min: 0, max: 0.5, step: 0.05, value: g.parks }) as HTMLInputElement;
+    parks.addEventListener('change', () => (g.parks = Number(parks.value)));
+    const layOut = () => {
+      if (!confirm('Lay the whole sketch out as a street grid? Buildings, roads and surfaces are replaced (heights, markers and POIs stay).')) return;
+      snapshot();
+      streetGrid(s, g);
+      // The layout the grid is made for: big blocks that can be rings, green yards, Sofia streets, filler away from the action.
+      s.blockSize = Math.max(s.blockSize ?? 8, g.block + 2);
+      s.yards = 'green';
+      s.openYards = s.openYards ?? 0.3;
+      s.streets = 'sofia';
+      s.buildingDetail = 'auto';
+      renderSide();
+      draw();
+    };
     const detailSel = h('select', { title: 'How detailed unpainted buildings are (paint the Detail layer to choose per block)' },
       h('option', { value: 'high' }, 'High everywhere'), h('option', { value: 'auto' }, 'Auto: by distance to the action')) as HTMLSelectElement;
     detailSel.value = s.buildingDetail ?? 'high';
@@ -290,7 +322,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       if (n === s.w) return;
       snapshot();
       const old = s;
-      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade, architecture: old.architecture, interiors: old.interiors, buildingDetail: old.buildingDetail };
+      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade, architecture: old.architecture, interiors: old.interiors, buildingDetail: old.buildingDetail, blockSize: old.blockSize, yards: old.yards, openYards: old.openYards, streets: old.streets };
       if (old.quality) s.quality = new Array(n * n).fill(0);
       for (let y = 0; y < Math.min(n, old.h); y++) for (let x = 0; x < Math.min(n, old.w); x++) {
         const a = y * n + x, b = y * old.w + x;
@@ -315,8 +347,19 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
         h('div.row', {}, h('label', {}, 'Architecture'), arch),
         h('div.row', {}, h('label', {}, 'Interiors'), interiors),
         h('div.row', {}, h('label', {}, 'Building detail'), detailSel),
+        h('div.row', {}, h('label', {}, 'Block size'), blockSize),
+        h('div.row', {}, h('label', {}, 'Yards'), yards),
+        h('div.row', {}, h('label', {}, 'Open courtyards'), openYards),
+        h('div.row', {}, h('label', {}, 'Streets'), streets),
         h('div.row', {}, h('label', {}, 'Facade'), facade),
         h('div.row', {}, h('label', {}, 'Seed'), num(s.seed, (v) => (s.seed = v), 1, 1e9))),
+      h('div.section', {}, h('h3', {}, 'Street grid'),
+        h('p.hint', {}, 'Blocks between streets over the whole map, after central Sofia at about half scale. Streets are road cells; every few is a boulevard with a planted median; some blocks are parks.'),
+        h('div.row', {}, h('label', {}, 'Block'), gridNum('block', 5, 24), h('span.unit', {}, 'cells')),
+        h('div.row', {}, h('label', {}, 'Street'), gridNum('street', 2, 8), h('span.unit', {}, 'cells')),
+        h('div.row', {}, h('label', {}, 'Boulevard'), gridNum('boulevard', 0, 12), h('span.muted', {}, 'every'), gridNum('every', 1, 9)),
+        h('div.row', {}, h('label', {}, 'Parks'), parks),
+        h('button', { onclick: layOut }, 'Lay out street grid')),
       h('div.row', {}, h('button', { onclick: () => { if (confirm('Clear the sketch?')) { snapshot(); s = emptySketch(s.w, s.h, s.theme); draw(); } } }, 'Clear')),
       h('button.primary.big', { onclick: generate }, '⚙ Generate 3D map'),
       info,

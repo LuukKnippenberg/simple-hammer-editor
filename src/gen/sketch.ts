@@ -3,12 +3,14 @@ import type { KVNode } from '../vmf/keyvalues.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
 import type { ArchitectureName, BuildingQuality, FacadeStyle } from './buildings.ts';
+import type { YardStyle } from './yards.ts';
 import type { BlockDressing } from './streets.ts';
 import { blockIntoDoc, blockUids, groupStreet, type BlockSpec } from './buildingStore.ts';
 import { buildRoads, defaultRoad, roadEntityNode, roadGround, type RoadSpec } from './roads.ts';
 import { PROP_BOUNDS, standZ } from './props.ts';
 import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
 import { Rng } from './rng.ts';
+import { MODEL_BOUNDS } from './poi/models.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
 import type { Editor } from '../editor.ts';
 import { levelForPois, type PoiPlacement } from './poi/mapgen.ts';
@@ -92,6 +94,20 @@ export interface Sketch {
   buildingDetail?: 'high' | 'auto';
   /** Per cell, painted: 0 (or missing) not painted, 1 high, 2 medium, 3 filler (QUALITY_PAINT). */
   quality?: number[];
+  /**
+   * Longest side of one block of buildings, in cells (default 8). Building cells beyond it start another block;
+   * blocks of 7 cells and more can be rings around a courtyard.
+   */
+  blockSize?: number;
+  /** What fills courtyards and back yards (default sheds; green: lawns, trees, playgrounds, parking). */
+  yards?: YardStyle;
+  /** Share of a ring's side lots left open onto the street (0–1, default 0). */
+  openYards?: number;
+  /**
+   * Street furnishing: classic (default), or sofia: wider pavements on streets of 4 cells and more, cars parked
+   * along both kerbs of wide carriageways and bollards on the pavement edges.
+   */
+  streets?: 'classic' | 'sofia';
 }
 
 /** The painted values of the sketch's Detail layer. */
@@ -265,7 +281,7 @@ export function levelBlocks(s: Sketch): Box3[] {
 
 /** Rectangles covering the cells of one feature type that share a height level (greedy). */
 function featureRects(s: Sketch, f: Feature): { box: Box3; level: number }[] {
-  return cellRects(s, (i) => s.features[i] === f, 8);
+  return cellRects(s, (i) => s.features[i] === f, f === Feature.Building ? Math.max(2, s.blockSize ?? 8) : 8);
 }
 
 /** Greedy rectangles of matching cells on one height level, at most `max` cells along each side. */
@@ -358,7 +374,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
       p.z = flatHeight(p.x - (alongX ? out : 0), p.y - (alongX ? 0 : out));
     });
     if (s.theme === 'city') {
-      const pavement = short >= 384 ? 64 : 48;
+      const pavement = s.streets === 'sofia' && short >= 512 ? 96 : short >= 384 ? 64 : 48;
       // The pavement stops 6 units short of the building line, clear of the buildings' base course (4 out):
       // overlapping detail brushes get chopped against each other, and over a whole district the extra
       // t-junctions overflow vbsp's limit.
@@ -378,6 +394,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
   const onRoad = roadGround(roads);
   const groundAt = (x: number, y: number) => onRoad(x, y)?.z ?? flatHeight(x, y);
   const carriageway = (x: number, y: number) => { const g = onRoad(x, y); return !!g && (g.kind === 'surface' || g.kind === 'rail'); };
+  if (s.streets === 'sofia' && s.theme === 'city') ents.push(...sofiaStreets(doc, roads, onRoad, new Rng(s.seed * 61 + 5)));
 
   // Buildings: one generated block per rectangle of building cells, on that cell's height level. Each is a stored
   // block (with a handle); the blocks on one level are a group, which shares its street dressing.
@@ -393,6 +410,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
       rect: { x0: box.min.x + shift.x, y0: box.min.y + shift.y, x1: box.max.x + shift.x, y1: box.max.y + shift.y },
       options: {
         seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture, interiors: s.interiors,
+        yards: s.yards, openYards: s.openYards,
         quality: blockQuality(s, Math.round(box.min.x / SKETCH_CELL), Math.round(box.min.y / SKETCH_CELL), Math.round(box.max.x / SKETCH_CELL), Math.round(box.max.y / SKETCH_CELL)),
       },
     };
@@ -536,6 +554,120 @@ export function placeMarkers(editor: Pick<Editor, 'doc'>, s: Sketch, r: SketchRe
 }
 
 /** Mirrors a painted cell according to the symmetry mode. */
+const PARKED = ['props_vehicles/car002a', 'props_vehicles/car003a', 'props_vehicles/car004a', 'props_vehicles/car005a', 'props_vehicles/car001a_hatchback'];
+const BOLLARD = 'props_trainstation/trainstation_post001';
+
+/**
+ * Sofia's side streets: cars parked along both kerbs where the carriageway is wide enough for them and a lane
+ * between, bollards along the pavement edges, all kept clear of the junctions at the road pieces' ends.
+ */
+function sofiaStreets(doc: VmfDocument, roads: RoadSpec[], top: (x: number, y: number) => { z: number } | null, rng: Rng): KVNode[] {
+  const out: KVNode[] = [];
+  const put = (model: string, x: number, y: number, yaw: number) => {
+    const g = top(x, y);
+    if (!g) return;
+    const b = MODEL_BOUNDS[model];
+    out.push(entity(doc, 'prop_static', new Vector3(Math.round(x), Math.round(y), Math.round(g.z - (b ? b[2] : 0))), { model: `models/${model}.mdl`, angles: `0 ${Math.round(yaw)} 0`, solid: '6' }));
+  };
+  for (const r of roads) {
+    if (r.style !== 'asphalt' || r.points.length < 2) continue;
+    const a = r.points[0], b = r.points[r.points.length - 1];
+    const dir = new Vector2(b.x - a.x, b.y - a.y);
+    const len = dir.length();
+    dir.normalize();
+    const n = new Vector2(-dir.y, dir.x);
+    const yaw = (Math.atan2(dir.y, dir.x) * 180) / Math.PI;
+    for (const side of [-1, 1]) {
+      // The car models run along their x; two rows of them and a lane between need 288.
+      if (r.width >= 288) {
+        for (let t = 320; t < len - 320; t += 224) {
+          if (!rng.chance(0.6)) continue;
+          const off = side * (r.width / 2 - 44);
+          put(rng.pick(PARKED), a.x + dir.x * t + n.x * off, a.y + dir.y * t + n.y * off, yaw + (rng.chance(0.5) ? 180 : 0) + rng.range(-3, 3));
+        }
+      }
+      if (r.pavement >= 96) {
+        for (let t = 256; t < len - 256; t += 96) {
+          const off = side * (r.width / 2 + 14);
+          put(BOLLARD, a.x + dir.x * t + n.x * off, a.y + dir.y * t + n.y * off, 0);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** A street grid for streetGrid, in cells. */
+export interface GridOptions {
+  /** Block side (each block varies by up to 2 either way). */
+  block: number;
+  /** Street width. */
+  street: number;
+  /** Boulevard width: two carriageways either side of a planted median. 0 for none. */
+  boulevard: number;
+  /** Every how many streets one is a boulevard. */
+  every: number;
+  /** Share of blocks left as small parks (0–1). */
+  parks: number;
+  seed: number;
+}
+
+/** Defaults after the blocks of central Sofia, at about half scale (a real block is ~25 cells). */
+export const SOFIA_GRID: GridOptions = { block: 11, street: 4, boulevard: 8, every: 3, parks: 0.15, seed: 1 };
+
+/**
+ * Lays the whole sketch out as a street grid: blocks of buildings between streets (road cells), every
+ * `every`-th street a boulevard with a median of grass and trees, some blocks small parks. Cells under POIs are
+ * left clear (their POIs build there); heights and markers are kept.
+ */
+export function streetGrid(s: Sketch, o: GridOptions): void {
+  const rng = new Rng(o.seed * 101 + 7);
+  /** Bands along one axis: streets and blocks, starting and ending with a block. */
+  const bands = (n: number): { kind: 'block' | 'street' | 'boulevard'; from: number; to: number }[] => {
+    const out: { kind: 'block' | 'street' | 'boulevard'; from: number; to: number }[] = [];
+    let at = 0, streets = 0;
+    while (at < n) {
+      const size = Math.max(4, o.block + rng.int(-2, 2));
+      out.push({ kind: 'block', from: at, to: Math.min(n, at + size) });
+      at += size;
+      if (at >= n) break;
+      streets++;
+      const wide = o.boulevard > 0 && o.every > 0 && streets % o.every === 0;
+      const w = wide ? o.boulevard : o.street;
+      out.push({ kind: wide ? 'boulevard' : 'street', from: at, to: Math.min(n, at + w) });
+      at += w;
+    }
+    return out;
+  };
+  const xs = bands(s.w), ys = bands(s.h);
+  const underPoi = (x: number, y: number) => (s.pois ?? []).some((p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h);
+  const city = s.theme === 'city' ? Surface.Paved : Surface.Grass;
+  const parks = new Set<string>();
+  for (const bx of xs) for (const by of ys) if (bx.kind === 'block' && by.kind === 'block' && rng.chance(o.parks)) parks.add(`${bx.from},${by.from}`);
+  for (const bx of xs) for (const by of ys) {
+    for (let y = by.from; y < by.to; y++) for (let x = bx.from; x < bx.to; x++) {
+      const i = y * s.w + x;
+      s.features[i] = Feature.None;
+      s.surface[i] = city;
+      if (underPoi(x, y)) continue;
+      if (bx.kind === 'block' && by.kind === 'block') {
+        if (parks.has(`${bx.from},${by.from}`)) {
+          s.surface[i] = Surface.Grass;
+          if ((x - bx.from) % 3 === 1 && (y - by.from) % 3 === 1) s.features[i] = Feature.Trees;
+        } else s.features[i] = Feature.Building;
+        continue;
+      }
+      // A boulevard's median: the middle cell (or two) of the band it runs along, grass with a row of trees.
+      const median = (b: typeof bx, v: number) => b.kind === 'boulevard' && Math.abs(v - (b.from + b.to - 1) / 2) < 1;
+      const onMedian = (bx.kind === 'boulevard' && by.kind === 'block' && median(bx, x)) || (by.kind === 'boulevard' && bx.kind === 'block' && median(by, y));
+      if (onMedian) {
+        s.surface[i] = Surface.Grass;
+        if ((bx.kind === 'boulevard' ? y : x) % 3 === 1) s.features[i] = Feature.Trees;
+      } else s.surface[i] = Surface.Road;
+    }
+  }
+}
+
 export function symmetricCells(s: Sketch, x: number, y: number, mode: 'none' | 'mirror' | 'rotate'): [number, number][] {
   const out: [number, number][] = [[x, y]];
   if (mode === 'mirror') out.push([s.w - 1 - x, y]);
