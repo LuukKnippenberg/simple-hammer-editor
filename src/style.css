@@ -209,3 +209,4 @@ label.check { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; 
 .seg { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; }
 .seg button { flex: 1; padding: 3px 6px; font-size: 12px; }
 .swatch.ramp { background: repeating-linear-gradient(45deg, #ddd 0 2px, #555 2px 4px); }
+.mat-tile img { background: repeating-conic-gradient(#2a2a2a 0 25%, #1c1c1c 0 50%) 0 0 / 12px 12px; }

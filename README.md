@@ -285,6 +285,26 @@ a map can be redrawn and regenerated. The example below compiles sealed with a n
 ![Road up the ramp through the cliff](docs/screenshots/phase10-generated-cliff-ramp.png)
 ![Generated map with the lighting preview](docs/screenshots/phase10-generated-lit.png)
 
+### Phase 11: decals
+
+- **Rendering**: `infodecal` entities are projected onto the nearest surface (short rays from the origin,
+  like the engine), sized by texture size × `$decalscale` and oriented like Source does (upright on walls,
+  world-X on floors). `info_overlay` entities are drawn from their basis and corner UVs and **clipped to
+  the brush faces in their `sides` list**, as vbsp does. Decals are batched per material; City16's 119
+  decals and 21 overlays add 11 draw calls.
+- **Decal tool** (6) with a **Decals** mode in the Materials tab (decals and overlays folders, alpha-aware
+  thumbnails). Two placement types:
+  - *Decal*: an `infodecal` at the clicked point; the size comes from the material.
+  - *Overlay*: an `info_overlay` with a chosen size and rotation; the clicked face and the coplanar faces it
+    covers are written to `sides`.
+- Moving an overlay moves its basis with it; a **Decals** toggle hides them all.
+- The decal map compiles with both overlays in the BSP's overlay lump.
+
+![City16 without decals](docs/screenshots/phase11-city16-decals-off.png)
+![City16 with its decals and overlays](docs/screenshots/phase11-city16-decals-on.png)
+![Posters, crater, blood, trash and graffiti placed in the arena](docs/screenshots/phase11-arena-decals.png)
+![An overlay clipped to the block it covers](docs/screenshots/phase11-overlay-closeup.png)
+
 ## Development
 
 ```bash

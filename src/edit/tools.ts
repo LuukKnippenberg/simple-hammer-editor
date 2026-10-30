@@ -8,8 +8,9 @@ import type { MapEntity, MapSolid, TexAxis } from '../vmf/map.ts';
 import { boxSolid, remapSolid, translateSolid } from './brushes.ts';
 import { placeEntity } from './actions.ts';
 import { KITS, recordKit, type ParamValue } from '../lw/kits.ts';
+import { moveOverlayBasis, placeDecal } from './decals.ts';
 
-export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit';
+export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal';
 
 export interface Tool {
   name: ToolName;
@@ -202,7 +203,11 @@ export class SelectTool implements Tool {
       this.lastKey = key;
       this.restore();
       for (const [s] of this.start.solids) translateSolid(s, d);
-      for (const [e, o] of this.start.ents) e.origin = o.clone().add(d);
+      for (const [e, o] of this.start.ents) {
+        const prev = e.origin ?? o;
+        e.origin = o.clone().add(d);
+        moveOverlayBasis(e, e.origin.clone().sub(prev));
+      }
     } else {
       const from = this.start.bounds;
       if (!this.start.solids.length || from.isEmpty()) return;
@@ -397,6 +402,22 @@ export class KitTool implements Tool {
   }
 }
 
+/** Click a surface to place the decal or overlay chosen in the Materials tab. */
+export class DecalTool implements Tool {
+  name: ToolName = 'decal';
+  private editor: Editor;
+  constructor(editor: Editor) {
+    this.editor = editor;
+  }
+  activate(): void {}
+  deactivate(): void {}
+  down(): void {}
+  move(): void {}
+  up(_e: PointerEvent, ndc: Vector2): void {
+    void placeDecal(this.editor, ndc, this.editor.decal);
+  }
+}
+
 /** Routes left-button pointer events from the viewport to the active tool. */
 export class ToolManager {
   readonly tools: Record<ToolName, Tool>;
@@ -406,7 +427,7 @@ export class ToolManager {
 
   constructor(editor: Editor) {
     this.select = new SelectTool(editor);
-    this.tools = { select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor), kit: new KitTool(editor) };
+    this.tools = { select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor), kit: new KitTool(editor), decal: new DecalTool(editor) };
     this.current = this.select;
     const dom = editor.renderer.domElement;
     dom.addEventListener('pointerdown', (e) => {

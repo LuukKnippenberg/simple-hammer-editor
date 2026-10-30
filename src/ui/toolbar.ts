@@ -10,6 +10,7 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'paint', icon: '🖌', label: 'Paint: click a face (Shift: whole brush, Ctrl: pick material)', key: '3' },
   { name: 'entity', icon: '⚑', label: 'Entity: click to place the class chosen in the Entities tab', key: '4' },
   { name: 'kit', icon: '⚔', label: 'Lambda Wars kit: click to place the kit chosen in the Mission tab', key: '5' },
+  { name: 'decal', icon: '◩', label: 'Decal: click a surface to place the decal chosen in the Materials tab', key: '6' },
 ];
 const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
 

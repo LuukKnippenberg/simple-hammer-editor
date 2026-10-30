@@ -25,7 +25,8 @@ export function materialThumbnail(name: string, size = 64): Promise<string | nul
       const ctx = canvas.getContext('2d')!;
       const data = new Uint8ClampedArray(rgba.length);
       data.set(rgba);
-      for (let i = 3; i < data.length; i += 4) data[i] = 255; // previews ignore alpha
+      // Brush previews ignore alpha; decals keep it so their shape shows.
+      if (!/^(decals|overlays)\//.test(key)) for (let i = 3; i < data.length; i += 4) data[i] = 255;
       ctx.putImageData(new ImageData(data, mip.width, mip.height), 0, 0);
       return canvas.toDataURL();
     })().catch(() => null);

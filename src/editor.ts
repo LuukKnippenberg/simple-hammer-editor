@@ -8,6 +8,7 @@ import { MaterialLibrary } from './render/materials.ts';
 import { CameraControls } from './render/cameraControls.ts';
 import { TopView } from './render/topView.ts';
 import { EntityRenderer } from './render/entityRenderer.ts';
+import { DecalRenderer } from './render/decalRenderer.ts';
 import { textureSupport } from './assets/textures.ts';
 import { pendingRequests } from './assets/fetch.ts';
 import { loadFgd } from './assets/fgd.ts';
@@ -37,6 +38,7 @@ export class Editor {
   readonly materials = new MaterialLibrary();
   readonly world: WorldRenderer;
   readonly entities: EntityRenderer;
+  readonly decals: DecalRenderer;
   readonly hemi = new HemisphereLight(0xdde6f2, 0x6a6258, 1.6);
   readonly sun = new DirectionalLight(0xffffff, 2.2);
   readonly gridHelper: GridHelper;
@@ -55,6 +57,7 @@ export class Editor {
   currentMaterial = 'CONCRETE/CONCRETEFLOOR001A';
   entityClass = 'info_start_wars';
   entityModel = 'models/props_c17/oildrum001.mdl';
+  decal: import('./edit/decals.ts').DecalSettings = { material: 'decals/decal_posters001a', mode: 'decal', size: 128, rotation: 0 };
   lastAutosave: Date | null = null;
   /** The 2D sketch the map was generated from (saved as maps/<name>.sketch.json). */
   sketch: Sketch | null = null;
@@ -98,6 +101,8 @@ export class Editor {
     this.entities = new EntityRenderer(this.materials);
     this.scene.add(this.entities.group);
     this.world.hidden = this.entities.hidden = this.hidden;
+    this.decals = new DecalRenderer(this.world);
+    this.scene.add(this.decals.group);
     this.materials.onKindChange = () => this.world.applyVisibility();
     this.selection = new Selection(this.entities);
     this.scene.add(this.selection.group);
@@ -187,6 +192,7 @@ export class Editor {
     const t0 = performance.now();
     this.world.sync(doc);
     this.entities.sync(doc);
+    this.decals.sync(doc);
     this.applyEnvironment();
     console.log(`[editor] built ${name} in ${Math.round(performance.now() - t0)} ms`, this.world.stats);
     const box = this.world.bounds();
@@ -221,6 +227,7 @@ export class Editor {
   changed(live = false): void {
     this.world.sync(this.doc);
     this.entities.sync(this.doc);
+    this.decals.sync(this.doc);
     this.selection.prune(this.doc);
     this.dirty = true;
     if (!live) this.emit('change');
