@@ -43,7 +43,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (pois.length) {
       panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
         h('div', {}, pois.length > 1 ? `${pois.length} points of interest` : 'Point of interest'),
-        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the POI handles (view bar) to pick single props and brushes.'),
+        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         pois.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicatePoi(editor, pois[0]) }, 'Duplicate')) : null));
       if (pois.length === 1) { const p = poiEditor(editor, pois[0]); if (p) panel.append(p); }
       return;
@@ -53,7 +53,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (blocks.length) {
       panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
         h('div', {}, blocks.length > 1 ? `${blocks.length} blocks of buildings` : 'Block of buildings'),
-        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the generator handles (view bar) to pick single props and brushes.'),
+        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
       if (blocks.length === 1) panel.append(buildingPanel(editor, blocks[0]));
       return;
