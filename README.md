@@ -17,9 +17,14 @@ local Lambda Wars install. Paths are auto-detected; override them in `editor.con
 
 | Setting | Default | Used for |
 |---|---|---|
-| `gameDirs` | `lambdawars-game` dev clone, then the Steam `Lambda Wars` install | Loose files and VPKs for textures and models |
+| `install` | the Steam `Lambda Wars` install (the first one with VPKs) | The install maps are compiled against, copied to and launched from. Its assets and entity definitions come first. |
+| `installs` | `lambdawars-game` and `Lambda Wars` in any Steam library | Extra installs to choose from: paths, or `{ "name", "dir" }` |
+| `gameDirs` | the active install, then the other installs | Where textures and models are looked up (the other installs fill in what the active one lacks) |
 | `sdkBinDir` | `Alien Swarm/bin` in any Steam library | `vbsp.exe`, `vvis.exe`, `vrad.exe` |
-| `runGameDir` | first game dir with `lambdawars.exe` | Where compiled maps go and the game is launched from |
+
+Pick the install with the **Game** dropdown at the right of the top bar, for example the Steam install
+or a dev clone of the game repo. The editor saves the choice to `editor.config.json` and reloads,
+keeping unsaved work as an autosave.
 
 Maps are listed from this repo's `maps/` folder and from the game's `mapsrc/` folder.
 

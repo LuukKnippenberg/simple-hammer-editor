@@ -66,6 +66,10 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
   const checksEl = h('div.checks');
   const log = h('pre.compile-log');
   const status = h('div.compile-status');
+  const installEl = h('span.hint', { title: 'Change it with the Game picker in the top bar' });
+  void fetch('/api/config').then((r) => r.json()).then((cfg: { install: string | null }) => {
+    installEl.textContent = cfg.install ?? 'No Lambda Wars install found';
+  });
   const compileBtn = h('button.primary', {}, 'Compile') as HTMLButtonElement;
   const playBtn = h('button', { disabled: true }, '▶ Launch game') as HTMLButtonElement;
   let lastName = '';
@@ -122,6 +126,7 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
     h('div.modal-head', {}, h('b', {}, 'Compile & test in Lambda Wars'), h('button', { onclick: close }, '✕')),
     h('div.section', {}, h('h3', {}, 'Checks'), checksEl),
     h('div.section', {}, h('h3', {}, 'Options'),
+      h('div.row', {}, h('label', {}, 'Game'), installEl),
       h('div.row', {}, h('label', {}, 'Map name'), name),
       h('div.row', {}, h('label', {}, 'Quality'), quality),
       h('div.row', {}, h('label', {}, 'Navmesh'), navmesh, h('span.hint', {}, 'build so units can move')),

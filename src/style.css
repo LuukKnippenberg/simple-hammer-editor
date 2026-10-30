@@ -30,6 +30,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 #topbar .brand span { color: var(--accent); }
 #topbar .spacer { flex: 1; }
 #topbar button { white-space: nowrap; }
+#topbar select.install { max-width: 220px; }
 
 #toolbar {
   width: 44px; background: var(--panel); border-right: 1px solid var(--border);

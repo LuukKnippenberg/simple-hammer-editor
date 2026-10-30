@@ -20,6 +20,7 @@ import { GameplayOverlay } from './render/gameplayOverlay.ts';
 import { LightingPreview } from './render/lightingPreview.ts';
 import { mountLightingPanel } from './ui/lightingPanel.ts';
 import { mountSketchDialog } from './ui/sketchDialog.ts';
+import { mountInstallPicker } from './ui/installPicker.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -41,6 +42,7 @@ document.getElementById('topbar')!.querySelector('.spacer')!.before(
   h('button', { onclick: () => sketchDialog.open(), title: 'Draw the map in 2D with height levels, then generate it' }, '✎ Sketch'),
   h('button', { onclick: () => generatorDialog.open(), title: 'Generate a complete map from a painted layout' }, '⚙ Generate map'),
   h('button.primary', { onclick: () => compileDialog.open(), title: 'Compile the map and run it in Lambda Wars' }, '▶ Compile & test'),
+  mountInstallPicker(editor),
 );
 const tabs = mountSidebar(document.getElementById('sidebar')!);
 tabs.add('Selection', mountInspector(editor));

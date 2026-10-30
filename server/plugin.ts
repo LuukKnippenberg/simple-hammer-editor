@@ -2,7 +2,7 @@ import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig, type EditorConfig } from './config.ts';
+import { loadConfig, saveInstall, type EditorConfig } from './config.ts';
 import { AssetFS } from './assets.ts';
 import { loadFgd, type FgdClass } from './fgd.ts';
 import { compileMap, launchGame, safeMapName } from './compile.ts';
@@ -16,7 +16,7 @@ export interface MapLocation {
 /** Folders VMFs are listed from: the repo's `maps/` and each game root's `mapsrc/`. */
 export function mapFolders(cfg: EditorConfig): { prefix: string; dir: string }[] {
   const out = [{ prefix: 'repo', dir: join(cfg.rootDir, 'maps') }, { prefix: 'autosave', dir: join(cfg.rootDir, '.autosave') }];
-  cfg.gameDirs.forEach((g, i) => out.push({ prefix: `game${i}`, dir: join(g, cfg.mod, 'mapsrc') }));
+  cfg.installs.forEach((g, i) => out.push({ prefix: `game${i}`, dir: join(g.dir, cfg.mod, 'mapsrc') }));
   return out.filter((f) => existsSync(f.dir));
 }
 
@@ -40,17 +40,39 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
   return {
     name: 'simple-hammer-editor-server',
     configureServer(server) {
-      const cfg = loadConfig(server.config.root);
-      const t0 = Date.now();
-      const assets = new AssetFS(cfg);
-      console.log(`[assets] ${assets.sources.length} sources indexed in ${Date.now() - t0} ms`);
+      let cfg!: EditorConfig;
+      let assets!: AssetFS;
       const listCache = new Map<string, string[]>();
       let fgd: FgdClass[] | null = null;
       let compiling = false;
+      const load = () => {
+        cfg = loadConfig(server.config.root);
+        const t0 = Date.now();
+        assets = new AssetFS(cfg);
+        listCache.clear();
+        fgd = null;
+        console.log(`[assets] install ${cfg.install}: ${assets.sources.length} sources indexed in ${Date.now() - t0} ms`);
+      };
+      load();
 
       const routes: Record<string, Route> = {
         '/api/config': (_req, res) =>
-          send(res, 200, JSON.stringify({ gameDirs: cfg.gameDirs, sdkBinDir: cfg.sdkBinDir, runGameDir: cfg.runGameDir, mod: cfg.mod })),
+          send(res, 200, JSON.stringify({
+            installs: cfg.installs, install: cfg.install,
+            gameDirs: cfg.gameDirs, sdkBinDir: cfg.sdkBinDir, runGameDir: cfg.runGameDir, mod: cfg.mod,
+          })),
+
+        // Switches the active install (assets, entity definitions, compile and launch) and remembers it.
+        '/api/install': async (req, res) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          if (compiling) return send(res, 409, JSON.stringify({ error: 'Wait for the compile to finish' }));
+          const { dir } = JSON.parse((await readBody(req)).toString('utf8')) as { dir?: string };
+          const target = cfg.installs.find((i) => i.dir === dir);
+          if (!target) return send(res, 400, JSON.stringify({ error: 'unknown install' }));
+          saveInstall(cfg.rootDir, target.dir);
+          load();
+          send(res, 200, JSON.stringify({ install: cfg.install }));
+        },
 
         '/api/file': (_req, res, url) => {
           const path = url.searchParams.get('path') ?? '';
@@ -170,7 +192,7 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           send(res, launchGame(cfg, name) ? 200 : 500, JSON.stringify({ name }));
         },
 
-        ...extraRoutes({ cfg, assets }),
+        ...extraRoutes({ get cfg() { return cfg; }, get assets() { return assets; } }),
       };
 
       server.middlewares.use(async (req, res, next) => {
