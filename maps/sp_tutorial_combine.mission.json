@@ -1,0 +1,1244 @@
+{
+ "version": 1,
+ "start": "shift",
+ "stages": [
+  {
+   "id": "shift",
+   "title": "Daily quota",
+   "x": 40,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Unit 09, sector compliance is at 71 percent. Acceptable is 100. Begin your shift.",
+     "hint": "Left-click your officer to select him, then right-click the ration line to walk there. Drag with the middle mouse button or move to the screen edge to pan, scroll to zoom."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o1",
+     "text": "Select Unit 09 and walk to the ration line"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a1",
+     "target": "atmo_day",
+     "input": "Trigger",
+     "param": "",
+     "delay": 0
+    }
+   ],
+   "gates": [
+    {
+     "id": "g2",
+     "op": "lock",
+     "ability": "build_comb_hq",
+     "owner": "2"
+    },
+    {
+     "id": "g3",
+     "op": "hide",
+     "ability": "build_comb_hq",
+     "owner": "2"
+    },
+    {
+     "id": "g4",
+     "op": "lock",
+     "ability": "build_comb_powergenerator",
+     "owner": "2"
+    },
+    {
+     "id": "g5",
+     "op": "hide",
+     "ability": "build_comb_powergenerator",
+     "owner": "2"
+    },
+    {
+     "id": "g6",
+     "op": "lock",
+     "ability": "build_comb_energycell",
+     "owner": "2"
+    },
+    {
+     "id": "g7",
+     "op": "hide",
+     "ability": "build_comb_energycell",
+     "owner": "2"
+    },
+    {
+     "id": "g8",
+     "op": "lock",
+     "ability": "build_comb_garrison",
+     "owner": "2"
+    },
+    {
+     "id": "g9",
+     "op": "hide",
+     "ability": "build_comb_garrison",
+     "owner": "2"
+    },
+    {
+     "id": "g10",
+     "op": "lock",
+     "ability": "build_comb_armory",
+     "owner": "2"
+    },
+    {
+     "id": "g11",
+     "op": "hide",
+     "ability": "build_comb_armory",
+     "owner": "2"
+    },
+    {
+     "id": "g12",
+     "op": "lock",
+     "ability": "build_comb_synthfactory",
+     "owner": "2"
+    },
+    {
+     "id": "g13",
+     "op": "hide",
+     "ability": "build_comb_synthfactory",
+     "owner": "2"
+    },
+    {
+     "id": "g14",
+     "op": "lock",
+     "ability": "build_comb_powergenerator_scrap",
+     "owner": "2"
+    },
+    {
+     "id": "g15",
+     "op": "hide",
+     "ability": "build_comb_powergenerator_scrap",
+     "owner": "2"
+    },
+    {
+     "id": "g16",
+     "op": "lock",
+     "ability": "build_comb_mech_factory",
+     "owner": "2"
+    },
+    {
+     "id": "g17",
+     "op": "hide",
+     "ability": "build_comb_mech_factory",
+     "owner": "2"
+    },
+    {
+     "id": "g18",
+     "op": "lock",
+     "ability": "build_comb_barricade",
+     "owner": "2"
+    },
+    {
+     "id": "g19",
+     "op": "hide",
+     "ability": "build_comb_barricade",
+     "owner": "2"
+    },
+    {
+     "id": "g20",
+     "op": "lock",
+     "ability": "build_comb_mortar",
+     "owner": "2"
+    },
+    {
+     "id": "g21",
+     "op": "hide",
+     "ability": "build_comb_mortar",
+     "owner": "2"
+    },
+    {
+     "id": "g22",
+     "op": "lock",
+     "ability": "build_comb_headcrabcanisterlauncher",
+     "owner": "2"
+    },
+    {
+     "id": "g23",
+     "op": "hide",
+     "ability": "build_comb_headcrabcanisterlauncher",
+     "owner": "2"
+    },
+    {
+     "id": "g24",
+     "op": "lock",
+     "ability": "build_comb_shieldgen",
+     "owner": "2"
+    },
+    {
+     "id": "g25",
+     "op": "hide",
+     "ability": "build_comb_shieldgen",
+     "owner": "2"
+    },
+    {
+     "id": "g26",
+     "op": "lock",
+     "ability": "build_comb_bunker",
+     "owner": "2"
+    },
+    {
+     "id": "g27",
+     "op": "hide",
+     "ability": "build_comb_bunker",
+     "owner": "2"
+    },
+    {
+     "id": "g28",
+     "op": "lock",
+     "ability": "build_comb_regenerationpost",
+     "owner": "2"
+    },
+    {
+     "id": "g29",
+     "op": "hide",
+     "ability": "build_comb_regenerationpost",
+     "owner": "2"
+    },
+    {
+     "id": "g30",
+     "op": "lock",
+     "ability": "unit_combine",
+     "owner": "2"
+    },
+    {
+     "id": "g31",
+     "op": "lock",
+     "ability": "unit_combine_sg",
+     "owner": "2"
+    },
+    {
+     "id": "g32",
+     "op": "lock",
+     "ability": "unit_combine_ar2",
+     "owner": "2"
+    },
+    {
+     "id": "g33",
+     "op": "lock",
+     "ability": "unit_combine_heavy",
+     "owner": "2"
+    },
+    {
+     "id": "g34",
+     "op": "lock",
+     "ability": "unit_stalker",
+     "owner": "2"
+    },
+    {
+     "id": "g35",
+     "op": "lock",
+     "ability": "comb_popupgrade1",
+     "owner": "2"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t36",
+     "condition": {
+      "kind": "reach",
+      "area": [
+       -2176,
+       -1996.8,
+       -1152,
+       -1536
+      ],
+      "z": 0,
+      "owner": "2"
+     },
+     "to": "loiterer",
+     "completes": true
+    }
+   ]
+  },
+  {
+   "id": "loiterer",
+   "title": "The loiterer",
+   "x": 360,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Citizen is loitering. Loitering is a misdemeanor. Correct it.",
+     "hint": "Right-click a target to attack."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o3",
+     "text": "Correct the loitering citizen"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a37",
+     "target": "loiterer",
+     "input": "ChangeOwner",
+     "param": "1",
+     "delay": 0
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t38",
+     "condition": {
+      "kind": "destroy",
+      "target": "loiterer"
+     },
+     "to": "litterer",
+     "completes": true
+    }
+   ]
+  },
+  {
+   "id": "litterer",
+   "title": "Civic litter",
+   "x": 680,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Civic litter detected. Encourage the citizen to resolve it.",
+     "hint": "Attack the citizen. He will learn."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o4",
+     "text": "Correct the citizen who dropped his can"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a39",
+     "target": "litterer",
+     "input": "ChangeOwner",
+     "param": "1",
+     "delay": 0
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t40",
+     "condition": {
+      "kind": "destroy",
+      "target": "litterer"
+     },
+     "to": "runner",
+     "completes": true
+    }
+   ]
+  },
+  {
+   "id": "runner",
+   "title": "The runner",
+   "x": 1000,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Fleeing is an admission of guilt. Pursue.",
+     "hint": "Units keep chasing a target until it is down."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o5",
+     "text": "Catch the runner before he reaches the alley"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a41",
+     "target": "runner",
+     "input": "ChangeOwner",
+     "param": "1",
+     "delay": 0
+    },
+    {
+     "id": "a42",
+     "target": "runner_flee",
+     "input": "PerformOrder",
+     "param": "",
+     "delay": 1
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t43",
+     "condition": {
+      "kind": "destroy",
+      "target": "runner"
+     },
+     "to": "flyer",
+     "completes": true
+    }
+   ]
+  },
+  {
+   "id": "flyer",
+   "title": "The flyer",
+   "x": 1320,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "The runner dropped something on the street. Inspect it.",
+     "hint": "Move Unit 09 onto the paper by the kerb."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o6",
+     "text": "Inspect the dropped flyer"
+    }
+   ],
+   "actions": [],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t44",
+     "condition": {
+      "kind": "reach",
+      "area": [
+       256,
+       -1612.8,
+       576,
+       -1203.2
+      ],
+      "z": 0,
+      "owner": "2"
+     },
+     "to": "report",
+     "completes": true
+    }
+   ]
+  },
+  {
+   "id": "report",
+   "title": "Report to Outpost Kilo",
+   "x": 1640,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Anticitizen literature. Report to Outpost Kilo for reassignment.",
+     "hint": "Hold Shift and right-click to queue waypoints. The checkpoint gate opens for you."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o7",
+     "text": "Report to Outpost Kilo"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a45",
+     "target": "outpost_gate",
+     "input": "Disable",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a46",
+     "target": "outpost_gate_nav",
+     "input": "Disable",
+     "param": "",
+     "delay": 0
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t47",
+     "condition": {
+      "kind": "reach",
+      "area": [
+       768,
+       -332.8000000000002,
+       1664,
+       0
+      ],
+      "z": 0,
+      "owner": "2"
+     },
+     "to": "asset",
+     "completes": true
+    }
+   ]
+  },
+  {
+   "id": "asset",
+   "title": "The asset",
+   "x": 40,
+   "y": 960,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Asset assigned. The asset does not require breaks.",
+     "hint": "Walk Unit 09 to the Stalker to take command of it. Drag a box to select several units."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o8",
+     "text": "Take command of the Stalker"
+    }
+   ],
+   "actions": [],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t48",
+     "condition": {
+      "kind": "reach",
+      "area": [
+       563.1999999999998,
+       179.19999999999982,
+       972.8000000000002,
+       588.8000000000002
+      ],
+      "z": 0,
+      "owner": "2"
+     },
+     "to": "relay",
+     "completes": true
+    }
+   ]
+  },
+  {
+   "id": "relay",
+   "title": "Uprising: secure the relay",
+   "x": 360,
+   "y": 960,
+   "messages": [
+    {
+     "speaker": "Ringleader",
+     "text": "City 17, they told you to keep your head down. Today we look up."
+    },
+    {
+     "speaker": "Dispatch",
+     "text": "Attention: civil disobedience in sectors 4 through 9. Unit 09, you have temporary sector command. Do not get used to it."
+    },
+    {
+     "speaker": "Dispatch",
+     "text": "Secure the relay. Requisition follows control.",
+     "hint": "Stand next to a control point to capture it. It gives Requisition over time."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o9",
+     "text": "Capture the outpost relay"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a49",
+     "target": "asset",
+     "input": "ChangeOwner",
+     "param": "2",
+     "delay": 0
+    },
+    {
+     "id": "a50",
+     "target": "outpost_hq",
+     "input": "ChangeOwner",
+     "param": "2",
+     "delay": 0
+    },
+    {
+     "id": "a51",
+     "target": "shot_uprising",
+     "input": "Enable",
+     "param": "",
+     "delay": 0.5
+    },
+    {
+     "id": "a52",
+     "target": "uprising_siren",
+     "input": "PlaySound",
+     "param": "",
+     "delay": 1
+    },
+    {
+     "id": "a53",
+     "target": "screen_static",
+     "input": "Enable",
+     "param": "",
+     "delay": 2
+    },
+    {
+     "id": "a54",
+     "target": "screen_2_static",
+     "input": "Enable",
+     "param": "",
+     "delay": 2
+    },
+    {
+     "id": "a55",
+     "target": "uprising_fx",
+     "input": "Start",
+     "param": "",
+     "delay": 2.5
+    },
+    {
+     "id": "a56",
+     "target": "atmo_dusk",
+     "input": "Trigger",
+     "param": "",
+     "delay": 3
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t57",
+     "condition": {
+      "kind": "capture",
+      "target": "outpost_relay",
+      "owner": "2"
+     },
+     "to": "power",
+     "completes": true
+    },
+    {
+     "id": "t58",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "power",
+   "title": "Power first",
+   "x": 680,
+   "y": 960,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Everything runs on power. So will you.",
+     "hint": "Select the Stalker, open the build menu and place a Power Generator."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o10",
+     "text": "Build a Power Generator"
+    }
+   ],
+   "actions": [],
+   "gates": [
+    {
+     "id": "g59",
+     "op": "unlock",
+     "ability": "build_comb_powergenerator",
+     "owner": "2"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t60",
+     "condition": {
+      "kind": "building",
+      "building": "build_comb_powergenerator",
+      "owner": "2",
+      "count": 1,
+      "when": "finished"
+     },
+     "to": "scrap",
+     "completes": true
+    },
+    {
+     "id": "t61",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "scrap",
+   "title": "Scrap (optional)",
+   "x": 1000,
+   "y": 960,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Salvage detected in the yard. Collection is optional. Waste is not.",
+     "hint": "Build a Scrap Power Generator on the scrap pile for extra power, or wait to skip this step."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o11",
+     "text": "Build a Scrap Power Generator on the scrap pile (optional)"
+    }
+   ],
+   "actions": [],
+   "gates": [
+    {
+     "id": "g62",
+     "op": "unlock",
+     "ability": "build_comb_powergenerator_scrap",
+     "owner": "2"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t63",
+     "condition": {
+      "kind": "building",
+      "building": "build_comb_powergenerator_scrap",
+      "owner": "2",
+      "count": 1,
+      "when": "finished"
+     },
+     "to": "garrison",
+     "completes": true
+    },
+    {
+     "id": "t64",
+     "condition": {
+      "kind": "survive",
+      "seconds": 90
+     },
+     "to": "garrison",
+     "completes": true
+    },
+    {
+     "id": "t65",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "garrison",
+   "title": "A garrison",
+   "x": 1320,
+   "y": 960,
+   "messages": [
+    {
+     "speaker": "Supervisor",
+     "text": "One officer is not a defence. Build a Garrison and get me more.",
+     "hint": "Some buildings need others first. Hover a greyed-out icon to see why."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o12",
+     "text": "Build a Garrison"
+    }
+   ],
+   "actions": [],
+   "gates": [
+    {
+     "id": "g66",
+     "op": "unlock",
+     "ability": "build_comb_garrison",
+     "owner": "2"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t67",
+     "condition": {
+      "kind": "building",
+      "building": "build_comb_garrison",
+      "owner": "2",
+      "count": 1,
+      "when": "finished"
+     },
+     "to": "officers",
+     "completes": true
+    },
+    {
+     "id": "t68",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "officers",
+   "title": "Train officers",
+   "x": 1640,
+   "y": 960,
+   "messages": [
+    {
+     "speaker": "Supervisor",
+     "text": "Three officers. Today.",
+     "hint": "Select the Garrison and train Metro Police. Right-click the ground with the Garrison selected to set a rally point."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o13",
+     "text": "Train 3 Metro Police"
+    }
+   ],
+   "actions": [],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t69",
+     "condition": {
+      "kind": "ability",
+      "ability": "unit_metropolice",
+      "owner": "2",
+      "count": 3
+     },
+     "to": "armory",
+     "completes": true
+    },
+    {
+     "id": "t70",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "armory",
+   "title": "Proper equipment",
+   "x": 40,
+   "y": 1300,
+   "messages": [
+    {
+     "speaker": "Supervisor",
+     "text": "No proper equipment, no reinforcements. Command's rules, not mine.",
+     "hint": "The Armory costs Power. Build another generator if you run short."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o14",
+     "text": "Build an Armory"
+    }
+   ],
+   "actions": [],
+   "gates": [
+    {
+     "id": "g71",
+     "op": "unlock",
+     "ability": "build_comb_armory",
+     "owner": "2"
+    },
+    {
+     "id": "g72",
+     "op": "unlock",
+     "ability": "build_comb_energycell",
+     "owner": "2"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t73",
+     "condition": {
+      "kind": "building",
+      "building": "build_comb_armory",
+      "owner": "2",
+      "count": 1,
+      "when": "finished"
+     },
+     "to": "barricades",
+     "completes": true
+    },
+    {
+     "id": "t74",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "barricades",
+   "title": "Fortify the bridge",
+   "x": 360,
+   "y": 1300,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Hostile movement in the old city. Fortify the canal bridge.",
+     "hint": "Barricades are in the Stalker's defence menu. Place three at the south end of the bridge."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o15",
+     "text": "Place 3 barricades at the canal bridge"
+    }
+   ],
+   "actions": [],
+   "gates": [
+    {
+     "id": "g75",
+     "op": "unlock",
+     "ability": "build_comb_barricade",
+     "owner": "2"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t76",
+     "condition": {
+      "kind": "building",
+      "building": "build_comb_barricade",
+      "owner": "2",
+      "count": 3,
+      "when": "finished"
+     },
+     "to": "wave1",
+     "completes": true
+    },
+    {
+     "id": "t77",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "wave1",
+   "title": "The first wave",
+   "x": 680,
+   "y": 1300,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Hostiles approaching the canal bridge. Hold.",
+     "hint": "Select all your units with Ctrl+A and attack-move to the bridge."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o16",
+     "text": "Survive the first wave"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a78",
+     "target": "wave1",
+     "input": "Enable",
+     "param": "",
+     "delay": 4
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t79",
+     "condition": {
+      "kind": "destroy",
+      "target": "wave1"
+     },
+     "to": "armup",
+     "completes": true
+    },
+    {
+     "id": "t80",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "armup",
+   "title": "Arm the squad",
+   "x": 1000,
+   "y": 1300,
+   "messages": [
+    {
+     "speaker": "Supervisor",
+     "text": "Crowbars today. Guns tomorrow. Arm your squad.",
+     "hint": "Research Unlock AR2 at the Armory and train two Combine soldiers at the Garrison, in any order."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o17a",
+     "text": "Research Unlock AR2 at the Armory"
+    },
+    {
+     "id": "o17b",
+     "text": "Train 2 Combine soldiers"
+    }
+   ],
+   "actions": [],
+   "gates": [
+    {
+     "id": "g81",
+     "op": "unlock",
+     "ability": "unit_combine",
+     "owner": "2"
+    },
+    {
+     "id": "g82",
+     "op": "unlock",
+     "ability": "unit_combine_sg",
+     "owner": "2"
+    },
+    {
+     "id": "g83",
+     "op": "unlock",
+     "ability": "unit_combine_ar2",
+     "owner": "2"
+    },
+    {
+     "id": "g84",
+     "op": "unlock",
+     "ability": "unit_combine_heavy",
+     "owner": "2"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t85",
+     "condition": {
+      "kind": "all",
+      "conditions": [
+       {
+        "kind": "ability",
+        "ability": "weaponar2_comb_unlock",
+        "owner": "2",
+        "count": 1
+       },
+       {
+        "kind": "ability",
+        "ability": "unit_combine",
+        "owner": "2",
+        "count": 2
+       }
+      ]
+     },
+     "to": "hold",
+     "completes": true
+    },
+    {
+     "id": "t86",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "hold",
+   "title": "Lockdown",
+   "x": 1320,
+   "y": 1300,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Overwatch reinforcements inbound. Time to arrival: 4 minutes.",
+     "hint": "Keep your units alive until the timer ends. Rebuild what they destroy."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o18",
+     "text": "Hold until reinforcements arrive"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a87",
+     "target": "wave2",
+     "input": "Enable",
+     "param": "",
+     "delay": 5
+    },
+    {
+     "id": "a88",
+     "target": "wave3",
+     "input": "Enable",
+     "param": "",
+     "delay": 100
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t89",
+     "condition": {
+      "kind": "survive",
+      "seconds": 240
+     },
+     "to": "overwatch",
+     "completes": true
+    },
+    {
+     "id": "t90",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "overwatch",
+   "title": "Overwatch arrives",
+   "x": 1640,
+   "y": 1300,
+   "messages": [
+    {
+     "speaker": "Supervisor",
+     "text": "About time. Unit 09, try to stay out from under the feet."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o19",
+     "text": "Watch the counter-attack"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a91",
+     "target": "atmo_citadel",
+     "input": "Trigger",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a92",
+     "target": "wave2",
+     "input": "Disable",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a93",
+     "target": "wave3",
+     "input": "Disable",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a94",
+     "target": "striders",
+     "input": "ChangeOwner",
+     "param": "2",
+     "delay": 0
+    },
+    {
+     "id": "a95",
+     "target": "strider_route_go",
+     "input": "Trigger",
+     "param": "",
+     "delay": 0.5
+    },
+    {
+     "id": "a96",
+     "target": "dropship_route_flyby",
+     "input": "StartForward",
+     "param": "",
+     "delay": 0.5
+    },
+    {
+     "id": "a97",
+     "target": "shot_overwatch",
+     "input": "Enable",
+     "param": "",
+     "delay": 1
+    },
+    {
+     "id": "a98",
+     "target": "gunship_route_flyby",
+     "input": "StartForward",
+     "param": "",
+     "delay": 4
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t99",
+     "condition": {
+      "kind": "survive",
+      "seconds": 30
+     },
+     "to": "end",
+     "completes": true
+    }
+   ]
+  },
+  {
+   "id": "end",
+   "title": "Sector contained",
+   "x": 1960,
+   "y": 1300,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Sector contained. Unit 09, your shift ends in 4 hours. Resume patrol."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o20",
+     "text": "Resume patrol"
+    }
+   ],
+   "actions": [],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t100",
+     "condition": {
+      "kind": "survive",
+      "seconds": 8
+     },
+     "to": "victory",
+     "completes": true
+    }
+   ]
+  }
+ ]
+}

@@ -1754,6 +1754,119 @@ loads it with the mission gamerules without script errors. Because it starts wit
 ![Compile checks](docs/screenshots/sofia-16-compile-checks.png)
 ![Compiled with the navmesh](docs/screenshots/sofia-17-compiled.png)
 
+## Example: "Civil Protection" (Combine tutorial)
+
+The Combine tutorial from the design doc, built with the editor's tools by `scripts/build-civil-protection.mjs`
+(layout, set pieces and the flowchart in `src/examples/civilProtection.ts`). It is saved as
+`maps/sp_tutorial_combine.vmf` with `maps/sp_tutorial_combine.sketch.json` and
+`maps/sp_tutorial_combine.mission.json`; `--shots` retakes only the screenshots.
+
+**Layout** (60×48 cells, one route from the south-west to the north-east), drawn with the map sketch:
+
+- **Station plaza**: a square with a Breencast screen and Combine occupation, the ration distribution lanes, a
+  rail yard along the south edge, and a billboard screen. Unit 09 (one `unit_metropolice_riot`) starts here.
+- **Housing block**: tenements (some with enterable interiors) along a narrow street, and a dead-end alley
+  the runner flees into. Posters and lambda graffiti on the walls, the flyer and ration papers on the kerb.
+- **Canal street**: north from the housing street, fences along the pavements, the Combine checkpoint POI
+  across it. Its gap holds a forcefield (`outpost_gate`, a never-solid `func_brush`) and a
+  `func_nav_blocker` (`outpost_gate_nav`); both are disabled when Dispatch sends Unit 09 to the outpost.
+- **Outpost Kilo**: a walled yard with MultiBlend ground (concrete, cracked concrete, dirt, mud), floodlights,
+  crates, the Stalker (`asset`), a capture point (`outpost_relay`), a scrap pile, a screen on the west wall,
+  Combine barriers along the canal and the outpost's Citadel (`outpost_hq`).
+- **Canal and bridge**: the canal POI with one bridge, the only way across; walls close the canal's ends.
+- **Old city**: rubble, wrecked and burning cars, a rebel barricade, three rebel wave spawns, smoke.
+- **Citadel boulevard**: a carriageway between MultiBlend grass verges with trees, where the Striders wait.
+
+**Mission**: 19 stages, one per objective of the doc (objectives 1 and 2 share one), with Dispatch,
+Supervisor and Ringleader lines and hints. The build menu, the garrison's soldiers and the Citadel's own menu
+are locked at the start (ability gates) and unlocked one objective at a time.
+
+| Stage | Completes when | Notes |
+|---|---|---|
+| Daily quota | Unit 09 reaches the ration line | |
+| The loiterer, Civic litter, The runner | the named citizen is killed | each citizen is neutral until its stage makes it an enemy (`ChangeOwner 1`); the runner's `wars_give_order` sends him to the alley |
+| The flyer, Report to Outpost Kilo | Unit 09 reaches the flyer, then the outpost gate | the gate opens as the report stage starts |
+| The asset | Unit 09 reaches the Stalker | |
+| Uprising: secure the relay | the relay is captured | the Stalker and the outpost's Citadel change to the player; camera shot over the canal, sirens, screens to static, smoke and fire start, dusk atmosphere |
+| Power first, Scrap (optional), A garrison | buildings finished | the scrap stage also ends after 90 s |
+| Train officers | 3 Metro Police trained | |
+| Proper equipment, Fortify the bridge | an armory, then 3 barricades | |
+| The first wave | wave 1 (molotov partisans) is dead | |
+| Arm the squad | all of: Unlock AR2 researched, 2 Combine soldiers trained | |
+| Lockdown | survive 4 minutes | wave 2 (rebels) and wave 3 (RPG rebels) attack over the bridge |
+| Overwatch arrives | 30 s | Citadel glow, the Striders become the player's, immortal and AI-driven, and walk the boulevard to the bridge; a dropship flyby, a gunship along the canal, a camera shot |
+| Sector contained | 8 s | victory |
+
+From the uprising on, losing every unit loses.
+
+**Changes from the doc**, because the game has no event for them:
+
+- Selecting a unit (objectives 1 and 8) can't be detected: objective 1 is "select Unit 09 and walk to the
+  ration line", objective 8 is "walk Unit 09 to the Stalker".
+- Citizens that flee after one hit and the citizen who picks up his can need game Python: they are plain
+  citizens (15 health) Unit 09 has to kill. The flyer is a reach area.
+- The Armory or Garrison being destroyed can't be a defeat condition (buildings the player builds have no
+  name); losing every unit is.
+- The tutorial needs a Combine Citadel (HQ) in the outpost: it is the only Combine building that provides
+  population, so without it the garrison can't train anyone. It also produces Requisition. This answers the
+  doc's open question about a starting HQ.
+- New lines where the doc had none: the flyer, the scrap pile, "Three officers. Today.", fortifying the
+  bridge and arming the squad.
+- No stunstick-only tutorial officer, no reduced Stalker unit type: the Stalker's menu is reduced with
+  ability gates instead.
+
+**Fixes found while building it:**
+
+- The sketch's sky shell now goes below canals and pits that POIs cut into the terrain (`lowest` in
+  `addEnvironment`); before, the canal POI's floor was outside the shell and the map leaked.
+- A `wars_give_order` whose order target is an `info_target` gives a move order that ends at once (checked in
+  game: the unit's order list is empty right after). Without a target the unit moves to the order entity
+  itself, so the runner's and the waves' orders stand at their destinations instead. The Attack wave kit and
+  the Sofia map still use an `info_target` goal.
+
+**Checked in game** (Steam install, `scripts/civil-protection-test.mjs` builds `sp_tutorial_combine_test`
+with shorter timers and a driver for each stage; the console log shows every stage starting). Every
+transition fired, through to `EndGame: Winners`, in five launches (the CEF error ends the game after about a
+minute):
+
+1. Act 1 from the start: the ration line, the three citizens (Unit 09 killed them; the fallback kill only came
+   after each stage had moved on), the runner fleeing toward the alley, the flyer, the gate opening and Unit 09
+   walking through it, the Stalker. The uprising shot played with the dusk atmosphere and fire.
+2. From the uprising: the relay captured by a test officer walking onto it, then a power generator, the scrap
+   generator and a garrison placed with `unit_create` (the log doesn't show whether the scrap stage ended on
+   the building or on its 12 s test timer).
+3. From training: 3 Metro Police trained in a garrison (queued through Python, with a power generator next to
+   it and the Citadel giving population), an armory and 3 barricades placed with `unit_create`.
+4. From wave 1: the wave killed (forced with `Suicide()`), Unlock AR2 researched (`wars_abi`) and 2 soldiers
+   trained, the lockdown.
+5. From the lockdown: the Overwatch shot with the Striders walking and the dropship, then victory.
+
+Not seen: the message boxes and objectives in the HUD (CEF doesn't start on the test machine), and a real
+fight with the waves. In the test the RTS camera drifts to the map edge on its own, where the empty space
+beyond the 512-unit apron shows.
+
+![Sketch: surfaces and POIs](docs/screenshots/civil-01-sketch-surface.png)
+![Sketch: layout](docs/screenshots/civil-02-sketch-layout.png)
+![Top view](docs/screenshots/civil-03-top-view.png)
+![Overview](docs/screenshots/civil-04-overview.png)
+![Station plaza](docs/screenshots/civil-05-plaza.png)
+![Housing street](docs/screenshots/civil-06-housing-street.png)
+![The checkpoint and its gate](docs/screenshots/civil-07-checkpoint.png)
+![Outpost Kilo](docs/screenshots/civil-08-outpost.png)
+![The canal bridge](docs/screenshots/civil-09-canal-bridge.png)
+![The old city](docs/screenshots/civil-10-old-city.png)
+![Citadel boulevard](docs/screenshots/civil-11-boulevard.png)
+![Lighting preview](docs/screenshots/civil-12-lit-overview.png)
+![The mission flowchart](docs/screenshots/civil-14-mission-flow.png)
+![Arm the squad: an "all of" transition](docs/screenshots/civil-15-mission-allof.png)
+![The locks at the start](docs/screenshots/civil-16-mission-gates.png)
+![Flight and strider paths](docs/screenshots/civil-17-cine-paths.png)
+![Preview of the uprising shot](docs/screenshots/civil-18-cine-uprising.png)
+![Preview of the Overwatch shot](docs/screenshots/civil-19-cine-overwatch.png)
+![In game: Unit 09 on the plaza](docs/screenshots/civil-game-final-start.png)
+![In game: the uprising shot over the canal (the Citadel now gives population 3 / 9)](docs/screenshots/civil-game-g1-36.png)
+![In game: the Overwatch shot, Striders and the dropship](docs/screenshots/civil-game-g5-24.png)
+
 ## Development
 
 ```bash
