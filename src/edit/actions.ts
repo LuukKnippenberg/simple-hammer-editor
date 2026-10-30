@@ -172,3 +172,55 @@ export function pasteClipboard(editor: Editor, at: Vector3 | null): number {
   editor.changed();
   return solids.length + ents.length;
 }
+
+/** Brush entity classes offered by "Tie to entity", with the material their brushes get (if any). */
+export const BRUSH_CLASSES: { cls: string; label: string; material?: string }[] = [
+  { cls: 'trigger_once', label: 'Trigger (once)', material: 'TOOLS/TOOLSTRIGGER' },
+  { cls: 'trigger_multiple', label: 'Trigger (repeat)', material: 'TOOLS/TOOLSTRIGGER' },
+  { cls: 'func_detail', label: 'Detail (no vis)' },
+  { cls: 'func_brush', label: 'Toggleable brush' },
+  { cls: 'fow_blocker', label: 'Fog of war blocker' },
+  { cls: 'func_nav_blocker', label: 'Navmesh blocker', material: 'TOOLS/TOOLSNODRAW' },
+];
+
+/** Moves the selected world brushes into a new brush entity (Hammer's "Tie to entity"). */
+export function tieToEntity(editor: Editor, classname: string): MapEntity | null {
+  const solids = [...editor.selection.solids].filter((s) => !s.entity);
+  if (!solids.length) return null;
+  const doc = editor.doc;
+  const spec = BRUSH_CLASSES.find((b) => b.cls === classname);
+  let created: MapEntity | null = null;
+  editor.history.group(`Tie to ${classname}`, () => {
+    const copies = solids.map((s) => s.node.clone());
+    editor.history.remove('Remove world brushes', solids);
+    const keys: Record<string, string> = {};
+    if (classname.startsWith('trigger_')) Object.assign(keys, { spawnflags: '2', StartDisabled: '0', wait: '1' });
+    const node = entityNode(editor, classname, null, keys);
+    created = doc.addEntity(node);
+    for (const c of copies) {
+      if (spec?.material) for (const side of c.childrenNamed('side')) side.set('material', spec.material);
+      doc.addSolid(c, created);
+    }
+    node.items.push(editorBlock());
+    created.reload();
+    editor.history.added('Add brush entity', [], [created]);
+  });
+  editor.selection.set([], created ? [created] : []);
+  editor.changed();
+  return created;
+}
+
+/** Moves a brush entity's brushes back into the world and deletes the entity. */
+export function moveToWorld(editor: Editor, e: MapEntity): void {
+  if (!e.solids.length) return;
+  const doc = editor.doc;
+  const added: MapSolid[] = [];
+  editor.history.group('Move to world', () => {
+    const copies = e.solids.map((s) => s.node.clone());
+    editor.history.remove('Remove entity', [], [e]);
+    for (const c of copies) added.push(doc.addSolid(c));
+    editor.history.added('Add world brushes', added);
+  });
+  editor.selection.set(added);
+  editor.changed();
+}

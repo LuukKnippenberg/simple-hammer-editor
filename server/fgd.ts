@@ -18,6 +18,15 @@ export interface FgdClass {
   studio?: string;
   iconsprite?: string;
   keys: FgdKey[];
+  inputs: FgdIO[];
+  outputs: FgdIO[];
+}
+
+/** An entity input or output: name, parameter type (void, string, float, ...) and description. */
+export interface FgdIO {
+  name: string;
+  type: string;
+  description: string;
 }
 
 type Tok = { t: 'str' | 'word' | 'p'; v: string };
@@ -87,7 +96,7 @@ function parse(text: string, classes: Map<string, RawClass>, includes: string[])
       while (i < toks.length && !isP('@')) i++;
       continue;
     }
-    const cls: RawClass = { name: '', type: kind, description: '', keys: [], bases: [] };
+    const cls: RawClass = { name: '', type: kind, description: '', keys: [], inputs: [], outputs: [], bases: [] };
     // helpers until '='
     while (i < toks.length && !isP('=')) {
       const w = peek();
@@ -116,10 +125,13 @@ function parse(text: string, classes: Map<string, RawClass>, includes: string[])
       const w = peek();
       if (w.t !== 'word') { i++; continue; }
       if (/^(input|output)$/i.test(w.v)) {
+        const list = w.v.toLowerCase() === 'input' ? cls.inputs : cls.outputs;
         i++;
-        if (peek()?.t === 'word') i++;
-        if (isP('(')) skipParens();
-        if (isP(':')) { i++; if (peek()?.t === 'str') i++; }
+        const io: FgdIO = { name: '', type: 'void', description: '' };
+        if (peek()?.t === 'word') { io.name = peek().v; i++; }
+        if (isP('(')) { io.type = (peek(1)?.v ?? 'void').toLowerCase(); skipParens(); }
+        if (isP(':')) { i++; if (peek()?.t === 'str') { io.description = peek().v; i++; } }
+        if (io.name) list.push(io);
         continue;
       }
       if (!isP('(', 1)) { i++; continue; }
@@ -187,6 +199,14 @@ export function loadFgd(file: string, searchDirs: string[]): Map<string, FgdClas
     for (const k of c.keys) keys.set(k.name.toLowerCase(), k);
     return [...keys.values()];
   };
+  const resolveIO = (name: string, which: 'inputs' | 'outputs', stack: string[] = []): FgdIO[] => {
+    const c = raw.get(name.toLowerCase());
+    if (!c || stack.includes(name)) return [];
+    const out = new Map<string, FgdIO>();
+    for (const b of c.bases) for (const x of resolveIO(b, which, [...stack, name])) out.set(x.name.toLowerCase(), x);
+    for (const x of c[which]) out.set(x.name.toLowerCase(), x);
+    return [...out.values()];
+  };
   for (const [k, c] of raw) {
     if (/^BaseClass$/i.test(c.type)) continue;
     let studio = c.studio, iconsprite = c.iconsprite;
@@ -195,7 +215,10 @@ export function loadFgd(file: string, searchDirs: string[]): Map<string, FgdClas
       studio ??= bc?.studio;
       iconsprite ??= bc?.iconsprite;
     }
-    resolved.set(k, { name: c.name, type: c.type, description: c.description, studio, iconsprite, keys: resolve(c.name) });
+    resolved.set(k, {
+      name: c.name, type: c.type, description: c.description, studio, iconsprite, keys: resolve(c.name),
+      inputs: resolveIO(c.name, 'inputs'), outputs: resolveIO(c.name, 'outputs'),
+    });
   }
   return resolved;
 }

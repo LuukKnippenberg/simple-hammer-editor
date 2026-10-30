@@ -9,6 +9,7 @@ const SHORTCUTS: [string, string][] = [
   ['M · R', 'Gizmo: move · resize'],
   ['Ctrl+C · Ctrl+V', 'Copy · paste at the cursor'],
   ['Ctrl+D · Delete', 'Duplicate · delete'],
+  ['Ctrl+T', 'Tie selected brushes to a trigger_once'],
   ['Ctrl+Z · Ctrl+Y', 'Undo · redo'],
   ['H · U', 'Hide selection · unhide all (editor only)'],
   ['[ ]', 'Grid size'],

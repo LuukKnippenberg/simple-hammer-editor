@@ -1,6 +1,6 @@
 import type { Editor } from '../editor.ts';
 import type { ToolName } from '../edit/tools.ts';
-import { copySelection, deleteSelection, duplicateSelection, pasteClipboard, rotateEntities } from '../edit/actions.ts';
+import { copySelection, deleteSelection, duplicateSelection, pasteClipboard, rotateEntities, tieToEntity } from '../edit/actions.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { h, toast } from './dom.ts';
 
@@ -76,6 +76,7 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     if (ctrl && k === 'z' && !e.shiftKey) editor.undo();
     else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) editor.redo();
     else if (ctrl && k === 'd') duplicateSelection(editor);
+    else if (ctrl && k === 't') tieToEntity(editor, 'trigger_once');
     else if (ctrl && k === 'c') { const n = copySelection(editor); if (n) toast(editor.container, `Copied ${n} object${n > 1 ? 's' : ''}`, 1200); }
     else if (ctrl && k === 'v') pasteClipboard(editor, hooks.hoverPoint());
     else if (ctrl) return;

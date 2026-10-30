@@ -16,6 +16,15 @@ export interface FgdClass {
   studio?: string;
   iconsprite?: string;
   keys: FgdKey[];
+  inputs: FgdIO[];
+  outputs: FgdIO[];
+}
+
+/** An entity input or output: name, parameter type (void, string, float, ...) and description. */
+export interface FgdIO {
+  name: string;
+  type: string;
+  description: string;
 }
 
 const classes = new Map<string, FgdClass>();

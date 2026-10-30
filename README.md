@@ -190,6 +190,28 @@ loads in Lambda Wars (last screenshot; the HUD is stuck on the CEF issue describ
 ![Outliner](docs/screenshots/phase6-outliner.png)
 ![Shortcut overlay](docs/screenshots/phase6-shortcuts.png)
 
+### Phase 7: scripting (entity I/O)
+
+Map scripting in Source is done with entity inputs and outputs. The editor now edits them directly:
+
+- **Outputs editor** in the Selection tab: output, target, input, parameter, delay and "once" per row.
+  Outputs and inputs are drop-downs filled from the game's FGD (including inherited ones such as `Kill`),
+  and target names autocomplete from the map. A **Fired by** list shows what triggers the selected entity.
+- **Validation**: missing targets, unknown outputs and inputs are flagged on the row and listed in the new
+  **Logic** tab.
+- **Logic graph**: every connection in the map as a left-to-right graph; click a node to select and frame it.
+- **Connection lines** in the viewport for the selected entity (orange: outputs, blue: incoming).
+- **Tie to entity** (Ctrl+T for `trigger_once`): turns selected brushes into a trigger, `func_detail`,
+  `func_brush`, fog-of-war or navmesh blocker; **Move brushes to world** reverses it.
+- Connections are read and written in Hammer's ESC-separated format (commas in old maps are read too);
+  rewriting every connection in `sp_radio_tower` reproduces the file byte for byte.
+
+![Logic graph of sp_radio_tower](docs/screenshots/phase7-logic-graph.png)
+![An objective's outputs and incoming connections](docs/screenshots/phase7-objective-io.png)
+![A mistyped target flagged](docs/screenshots/phase7-broken-target.png)
+![A trigger wired to a message box and an objective](docs/screenshots/phase7-trigger-outputs.png)
+![Logic graph of the scripted arena](docs/screenshots/phase7-arena-graph.png)
+
 ## Development
 
 ```bash

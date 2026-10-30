@@ -20,3 +20,16 @@ describe.skipIf(!fgdPath)('FGD parser', () => {
     expect(classes.size).toBeGreaterThan(300);
   });
 });
+
+describe.skipIf(!fgdPath)('FGD inputs and outputs', () => {
+  it('inherits I/O from base classes', () => {
+    const classes = loadFgd(fgdPath!, cfg.sdkBinDir ? [cfg.sdkBinDir] : []);
+    const obj = classes.get('wars_mission_objective')!;
+    expect(obj.inputs.map((i) => i.name)).toContain('SetCompleted');
+    expect(obj.inputs.find((i) => i.name === 'SetVisible')?.type).toBe('bool');
+    expect(obj.outputs.map((o) => o.name)).toContain('OnCompleted');
+    // Kill comes from the Targetname base class.
+    expect(obj.inputs.some((i) => i.name === 'Kill')).toBe(true);
+    expect(classes.get('trigger_once')!.outputs.some((o) => o.name === 'OnStartTouch')).toBe(true);
+  });
+});

@@ -1,12 +1,13 @@
 import { Box3, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
 import { fgdClass } from '../assets/fgd.ts';
-import { applyMaterial, deleteSelection, duplicateSelection } from '../edit/actions.ts';
+import { applyMaterial, BRUSH_CLASSES, deleteSelection, duplicateSelection, moveToWorld, tieToEntity } from '../edit/actions.ts';
 import { remapSolid } from '../edit/brushes.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
 import { buildingsFromSelection } from '../gen/buildingAction.ts';
 import { FACADE_STYLES, type FacadeStyle } from '../gen/buildings.ts';
+import { ioSection } from './ioEditor.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -36,7 +37,15 @@ export function mountInspector(editor: Editor): HTMLElement {
       panel.append(h('div.section', {}, h('div.hint', {}, `Part of ${owner.classname} (${owner.solids.length} brushes)`),
         h('button', { onclick: () => sel.set([], [owner]) }, `Select whole ${owner.classname}`)));
     }
-    if (ents.length === 1) panel.append(entityEditor(editor, ents[0]));
+    if ([...sel.solids].some((s) => !s.entity)) {
+      const cls = h('select', {}, ...BRUSH_CLASSES.map((b) => h('option', { value: b.cls }, b.label))) as HTMLSelectElement;
+      panel.append(h('div.section', {}, h('h3', {}, 'Tie to entity'),
+        h('div.row', {}, cls, h('button', { onclick: () => tieToEntity(editor, cls.value) }, 'Tie (Ctrl+T)'))));
+    }
+    if (ents.length === 1 && ents[0].solids.length) {
+      panel.append(h('div.section', {}, h('button', { onclick: () => moveToWorld(editor, ents[0]) }, 'Move brushes to world')));
+    }
+    if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
     if (solids.length) panel.append(brushEditor(editor));
     if ([...sel.solids].some((s) => !s.entity)) panel.append(buildingPanel(editor));
   };

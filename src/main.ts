@@ -13,6 +13,8 @@ import { mountGeneratorDialog } from './ui/generatorDialog.ts';
 import { mountOutliner } from './ui/outliner.ts';
 import { mountHelp } from './ui/help.ts';
 import { Hover } from './edit/hover.ts';
+import { mountLogicPanel } from './ui/logicPanel.ts';
+import { IoLines } from './render/ioLines.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -41,6 +43,9 @@ const mapPanel = h('div');
 mountDocumentPanel(editor, mapPanel);
 mapPanel.append(mountOutliner(editor));
 tabs.add('Map', mapPanel);
+const logic = mountLogicPanel(editor);
+tabs.add('Logic', logic.panel);
+new IoLines(editor);
 editor.on('selection', () => {
   if (!editor.selection.isEmpty && editor.tools.current.name === 'select') tabs.show('Selection');
 });
@@ -53,6 +58,7 @@ declare global {
       ready: boolean;
       busy(): boolean;
       tabs: typeof tabs;
+      logic: typeof logic;
       setView(pos: [number, number, number], target: [number, number, number]): void;
       /** Page coordinates of a world point (for scripted mouse input). */
       project(p: [number, number, number]): [number, number];
@@ -66,6 +72,7 @@ window.__editor = {
   ready: false,
   busy: () => editor.busy(),
   tabs,
+  logic,
   setView(pos, target) {
     editor.camera.position.set(...pos);
     editor.controls.lookAt(new Vector3(...target));

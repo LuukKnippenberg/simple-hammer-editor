@@ -166,3 +166,27 @@ table.keys { width: 100%; border-collapse: collapse; }
 table.keys td { padding: 5px 6px; border-bottom: 1px solid #2b3036; }
 kbd { font: 12px Consolas, monospace; background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
 .hover-label { color: #bfe3ff !important; }
+
+.io-row { border: 1px solid var(--border); border-radius: 4px; padding: 5px; margin-bottom: 6px; background: #1a1d21; }
+.io-row.bad { border-color: var(--danger); }
+.io-line { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+.io-line select, .io-line input:not([type='checkbox']) { flex: 1; min-width: 0; }
+.io-line input[type='number'] { flex: 0 0 60px; }
+.io-line label { color: var(--muted); font-size: 11px; }
+.io-line button { margin-left: auto; padding: 2px 7px; }
+.io-error { color: var(--danger); font-size: 11px; }
+.io-in { padding: 3px 4px; cursor: pointer; border-radius: 3px; color: var(--muted); }
+.io-in:hover { background: var(--panel-2); }
+.io-in b { color: #9fd0ff; font-weight: 500; }
+.problem { padding: 4px 5px; border-left: 3px solid var(--accent); margin-bottom: 4px; cursor: pointer; background: #1a1d21; }
+.problem.err { border-left-color: var(--danger); }
+.modal.graph { width: 94vw; max-width: none; height: 88vh; display: flex; flex-direction: column; }
+.modal.graph .modal-head .hint { margin-left: 12px; flex: 1; }
+.graph-body { flex: 1; overflow: auto; background: #111316; border-radius: 4px; }
+.logic-svg .edge { fill: none; stroke: #e8a33d; stroke-width: 1.6; opacity: 0.75; }
+.logic-svg .edge:hover { opacity: 1; stroke-width: 3; }
+.logic-svg .node { cursor: pointer; }
+.logic-svg .node rect:first-child { fill: #262a2f; stroke: #3d434b; }
+.logic-svg .node:hover rect:first-child { stroke: var(--accent); }
+.logic-svg text { font: 12px 'Segoe UI', sans-serif; fill: #d9dde2; }
+.logic-svg text.cls { fill: #8b939c; font-size: 11px; }
