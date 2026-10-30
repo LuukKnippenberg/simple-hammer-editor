@@ -1459,7 +1459,7 @@ is triggered by one input, which a mission stage action or any output can fire:
 | 🎬 Camera shot | `point_viewcontrol` looking at an `info_target`, moving to a `path_corner` | `<shot> → Enable` |
 | 🛤 Unit route | `path_track` nodes, a `<path>_go` relay with `Order` / `QueueOrder` | `<path>_go → Trigger` |
 | ✈ Flyby | `func_tracktrain` on the path carrying a dropship or gunship model | `<path>_flyby → StartForward` |
-| 🎥 Follow the flyby | `wars_player_follow_entity` + relay (start, follow, release on arrival) | `<path>_flyby_go → Trigger` |
+| 🎥 Follow the flyby (untested) | `wars_player_follow_entity` + relay (start, follow, release on arrival) | `<path>_flyby_go → Trigger` |
 | ✦ Particles | `info_particle_system` | `Start`, `Stop`, `DestroyImmediately`, `Kill` |
 | 📺 Screen to static | two `func_brush` panels | `<screen>_static → Enable` / `Disable` |
 | 🌫 Atmosphere | a relay driving `env_fog_controller` and a `color_correction` | `<preset> → Trigger` |
@@ -1471,6 +1471,11 @@ is triggered by one input, which a mission stage action or any output can fire:
   `point_viewcontrol` (speed ramp and smoothing from `CTriggerCamera::Move`, so the preview ends where the
   game does). The shot freezes the player (needed for the camera to move) and hands the view back after
   its length. The orange frustum and line show each shot in the viewport.
+- **One player slot**: `point_viewcontrol` takes the player from the input's activator, or else asks
+  `UTIL_GetLocalPlayer()`, which returns nothing on a server with more than one slot. Stage actions,
+  `logic_auto`, timers and relays fire without a player, so their shots only work with `maxplayers 1`.
+  The shipped missions fire their cameras from `logic_auto` too, so missions run that way. **Compile &
+  test** now launches `sp_` maps with `+maxplayers 1`; with the default 32 slots nothing happens.
 - **Paths**: with the Cinema tool in *Path* mode, click to add nodes at a height above the clicked surface;
   a selected end node keeps extending its path, Esc starts a new one. Paths are drawn as lines with
   arrows and drop lines to the ground. Selecting a node offers: height above ground for the node or the
@@ -1483,7 +1488,9 @@ is triggered by one input, which a mission stage action or any output can fire:
 - **Flybys**: a `func_tracktrain` (a small nodraw brush) follows the nodes at their exact heights and turns
   with the path, carrying `models/combine_dropship.mdl`, the dropship with its container, the gunship or
   the helicopter. It's a model, not a unit: no AI, can't be hurt, no troops. Real reinforcements are
-  spawned where it lands (a `unit_maker`), and **Camera follows it** makes the RTS camera ride along.
+  spawned where it lands (a `unit_maker`). **Camera follows it (untested)** builds a relay that starts the
+  flyby and calls `CamFollowEntity` on a `wars_player_follow_entity`; in the test the inputs fired but
+  the RTS camera snapped once and did not track the model. Use a camera shot looking at the route instead.
 - **Particles**: the picker lists every effect in the PCF files `particles_manifest.txt` loads (1,906 in 100
   files; `src/assets/pcf.ts` reads the effect names from the binary DMX), with favourites for the
   tutorial: smoke column, skyline smoke, burning car, fires, embers, sparks. The viewport draws each
@@ -1511,12 +1518,27 @@ Test map: `maps/sp_cine_test.vmf` (the arena with a camera move, a dropship flyb
 a screen and two atmosphere presets, all fired from `logic_auto`). `scripts/cinematics-demo.mjs` takes the
 editor screenshots.
 
+Checked in game (`+maxplayers 1 +developer 2`, the I/O log and window captures): every input fired on time;
+the camera move played (the view moved from 260 to 760 units high, looking at its target); the dropship
+flew the path, seen through a second shot aimed at the route; the smoke column rose; the screen showed the
+picture and then static after `Enable`; the fog lerp and colour correction ran (the view turned a warm
+pink-orange, though the change is subtle in captures). Not working or not checked: the follow camera
+(above); the dropship model renders flat white in this map, still and flying (likely the missing
+cubemaps, not checked); the burning car wasn't in any captured view; the Breen poster on a brush shows
+only its opaque middle (so the TV picture is the default); fog colour is hard to judge because the sky is
+a skybox and stays grey.
+
 ![The pieces in the arena: the flight path with the dropship, the camera shot's frustum and route](docs/screenshots/cine-overview.png)
 ![A path node: heights, a unit route and the flyby](docs/screenshots/cine-path-node.png)
 ![Previewing the camera shot](docs/screenshots/cine-shot-preview.png)
 ![The particle picker](docs/screenshots/cine-particles.png)
 ![A screen on a wall](docs/screenshots/cine-screen.png)
 ![Previewing the dusk preset](docs/screenshots/cine-atmosphere-dusk.png)
+![In game: the camera move](docs/screenshots/cine-game-shot.png)
+![In game: the dropship flyby, through a shot aimed at the route](docs/screenshots/cine-game-flyby.png)
+![In game: the screen before](docs/screenshots/cine-game-screen-before.png)
+![In game: the screen after Enable on screen_static](docs/screenshots/cine-game-screen-static.png)
+![In game: the smoke column](docs/screenshots/cine-game-smoke.png)
 
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 

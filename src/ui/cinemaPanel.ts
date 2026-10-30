@@ -104,7 +104,7 @@ function shotSection(editor: Editor, cam: MapEntity): HTMLElement {
       moving ? h('button', { onclick: () => editShot(editor, cam, { to: null }) }, 'Still') : null),
     h('div.row', {}, h('button', { title: 'Look at the point in the middle of the screen', onclick: () => editShot(editor, cam, { lookAt: viewTarget(editor) }) }, 'Look at screen centre')),
     h('p.hint', {}, moving ? `Moves ${Math.round(pathLength(shot.route))} u at ${shot.speed} u/s. ` : 'Still shot. ',
-      `Fire `, h('b', {}, `${name} → Enable`), ' from a stage action or an output; the view returns to the player after the shot. The player is frozen meanwhile.'));
+      `Fire `, h('b', {}, `${name} → Enable`), ' from a stage action or an output; the view returns to the player after the shot. The player is frozen meanwhile. The game only finds the player for a camera fired without one (logic_auto, timers, relays) when it runs with one player slot, as missions do; Compile & test launches that way.'));
 }
 
 function pathSection(editor: Editor, node: MapEntity): HTMLElement {
@@ -152,9 +152,9 @@ function pathSection(editor: Editor, node: MapEntity): HTMLElement {
       onclick: () => { buildFlyby(editor, node, model.value, Number(speed.value) || 600); toast(editor.container, `Built ${path}_flyby: fire StartForward on it`); },
     }, flyby ? 'Rebuild flyby' : 'Build flyby'),
     flyby ? h('button', {
-      title: 'A relay that starts the flyby and holds the RTS camera on it until it arrives (wars_player_follow_entity)',
+      title: 'A relay that starts the flyby and asks wars_player_follow_entity to hold the RTS camera on it. In the sp_cine_test run the camera did not track the flyby; check it in game.',
       onclick: () => { if (buildFlybyFollow(editor, node)) toast(editor.container, `Built ${path}_flyby_go: fire Trigger on it`); },
-    }, 'Camera follows it') : null),
+    }, 'Camera follows it (untested)') : null),
     h('p.hint', {}, `A model on a func_tracktrain: follows the nodes' exact heights, can't be hurt, has no AI. ${Math.round(len / (Number(speed.value) || 600))} s at this speed. Fire `, h('b', {}, `${path}_flyby → StartForward`), '.'));
 }
 
