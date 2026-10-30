@@ -9,6 +9,7 @@ import { mountMaterialBrowser } from './ui/materialBrowser.ts';
 import { mountEntityPalette } from './ui/entityPalette.ts';
 import { mountToolOptions } from './ui/toolOptions.ts';
 import { mountCompileDialog } from './ui/compileDialog.ts';
+import { mountGeneratorDialog } from './ui/generatorDialog.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -22,7 +23,9 @@ mountStats(editor, viewport, document.getElementById('statusbar')!);
 mountToolbar(editor, document.getElementById('toolbar')!);
 mountToolOptions(editor, viewport);
 const compileDialog = mountCompileDialog(editor);
+const generatorDialog = mountGeneratorDialog(editor);
 document.getElementById('topbar')!.querySelector('.spacer')!.before(
+  h('button', { onclick: () => generatorDialog.open(), title: 'Generate a complete map from a painted layout' }, '⚙ Generate map'),
   h('button.primary', { onclick: () => compileDialog.open(), title: 'Compile the map and run it in Lambda Wars' }, '▶ Compile & test'),
 );
 const tabs = mountSidebar(document.getElementById('sidebar')!);

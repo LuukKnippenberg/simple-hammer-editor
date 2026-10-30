@@ -132,6 +132,15 @@ input[type='number'] { width: 70px; }
 .compile-log .l-warn { color: var(--accent); }
 .compile-log .l-error { color: var(--danger); }
 .compile-log .l-done { color: var(--ok); font-weight: 600; }
+
+.modal.wide { width: min(1040px, 96vw); }
+.gen-body { display: flex; gap: 16px; align-items: flex-start; }
+.gen-side { flex: 1; min-width: 260px; }
+.layout-canvas { display: block; border: 1px solid var(--border); border-radius: 4px; cursor: crosshair; image-rendering: pixelated; }
+.palette { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px; }
+.palette .pal { display: flex; align-items: center; gap: 6px; text-align: left; }
+.swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.4); flex: none; }
+button.big { width: 100%; padding: 9px; margin-top: 10px; font-size: 14px; }
 .overlay.tr { top: 10px; right: 10px; }
 .overlay .k { color: var(--muted); display: inline-block; min-width: 76px; }
 

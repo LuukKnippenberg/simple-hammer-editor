@@ -40,7 +40,32 @@ export class History {
     return this.undoStack[this.undoStack.length - 1]?.label ?? null;
   }
 
+  private collecting: Op[] | null = null;
+
+  /** Runs `fn` and records everything it does as a single undo step. */
+  group(label: string, fn: () => void): void {
+    const outer = this.collecting;
+    const ops: Op[] = [];
+    this.collecting = ops;
+    try {
+      fn();
+    } finally {
+      this.collecting = outer;
+    }
+    if (!ops.length) return;
+    this.push({
+      label,
+      undo: () => { for (let i = ops.length - 1; i >= 0; i--) ops[i].undo(); },
+      redo: () => { for (const op of ops) op.redo(); },
+    });
+    this.onChange();
+  }
+
   private push(op: Op): void {
+    if (this.collecting) {
+      this.collecting.push(op);
+      return;
+    }
     this.undoStack.push(op);
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack = [];

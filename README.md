@@ -135,6 +135,41 @@ Known issue on the development machine: the game's in-game web UI (CEF) failed t
 process (`lambdawars_browser.exe`) on every launch, also when launched by hand, so the HUD stays on
 "Loading CefViewPort". The map itself loads and renders.
 
+### Phase 5: generators
+
+**Map generator** (top bar → *Generate map*): paint a coarse layout on a grid of 256-unit cells (ground,
+road, high ground, buildings, trees, player base, control point, scrap) with rotational or mirror symmetry,
+or roll a random two-player layout, then generate a complete map:
+
+- Displacement terrain over the whole map: high-ground cells become smoothed plateaus, roads and bases are
+  blended into the ground texture through vertex alpha (grass/dirt for rural, concrete for city).
+- Buildings on building cells (see below), trees in forest cells, bushes and rocks or cars, lamps and
+  barriers along the roads.
+- Player starts with their RTS camera spawns, control points with capture areas, scrap markers, sun, fog.
+- A scenery apron outside the playable area (forest or city blocks), the sealing sky shell and the
+  `func_map_boundary`, so a generated map passes every compile check without fixes.
+
+**Building generator** (select one or more block brushes → *Generate buildings* in the Selection tab):
+splits the footprint into lots on the 128-unit facade grid and builds each one with a facade style from the
+game's `building_template` materials (one texture tile is exactly one floor), a ground floor with doors,
+a cornice, a parapet and optional rooftop props. With alleys enabled, neighbouring buildings get 64-unit
+alleys and sky bridges. One undo step reverts the whole operation.
+
+The generated city map (`maps/phase5_city.vmf`) compiles in about 20 seconds including the navmesh and
+loads in Lambda Wars (last screenshot; the HUD is stuck on the CEF issue described in phase 4).
+
+![Layout painter](docs/screenshots/phase5-layout-painter.png)
+![Generated rural map](docs/screenshots/phase5-rural-overview.png)
+![Rural map near a player base](docs/screenshots/phase5-rural-base-closeup.png)
+![City layout](docs/screenshots/phase5-city-layout.png)
+![Generated city map](docs/screenshots/phase5-city-overview.png)
+![Generated city buildings](docs/screenshots/phase5-city-buildings.png)
+![A hand-drawn block, selected](docs/screenshots/phase5-block-selected.png)
+![Buildings generated from the block](docs/screenshots/phase5-buildings-generated.png)
+![Building close-up](docs/screenshots/phase5-buildings-closeup.png)
+![Generated city compiled, all checks green](docs/screenshots/phase5-city-compiled.png)
+![Generated city running in Lambda Wars](docs/screenshots/phase5-city-ingame.png)
+
 ## Development
 
 ```bash
@@ -142,4 +177,7 @@ npm test           # unit tests (vitest)
 npm run typecheck
 npm run screenshot -- scripts/shots/phase0.json   # needs the dev server running
 node scripts/phase3-demo.mjs                      # scripted editing session with screenshots
+node scripts/phase4-demo.mjs [map] [prefix]        # compile checks + compile through the dialog
+node scripts/phase5-demo.mjs                      # map and building generators
+powershell -File scripts/capture-window.ps1 -Out shot.png   # in-game screenshot of the game window
 ```

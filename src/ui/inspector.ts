@@ -4,7 +4,9 @@ import { fgdClass } from '../assets/fgd.ts';
 import { applyMaterial, deleteSelection, duplicateSelection } from '../edit/actions.ts';
 import { remapSolid } from '../edit/brushes.ts';
 import type { MapEntity } from '../vmf/map.ts';
-import { h } from './dom.ts';
+import { h, toast } from './dom.ts';
+import { buildingsFromSelection } from '../gen/buildingAction.ts';
+import { FACADE_STYLES, type FacadeStyle } from '../gen/buildings.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -36,6 +38,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     }
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0]));
     if (solids.length) panel.append(brushEditor(editor));
+    if ([...sel.solids].some((s) => !s.entity)) panel.append(buildingPanel(editor));
   };
   editor.on('selection', render);
   editor.on('change', render);
@@ -115,4 +118,29 @@ function entityEditor(editor: Editor, e: MapEntity): HTMLElement {
   const newVal = h('input', { placeholder: 'value' }) as HTMLInputElement;
   section.append(h('div.row', {}, newKey, newVal, h('button', { onclick: () => newKey.value && commit(newKey.value, newVal.value) }, '+')));
   return section;
+}
+
+/** Turns the selected block brushes into buildings. */
+function buildingPanel(editor: Editor): HTMLElement {
+  const minF = h('input', { type: 'number', value: '2', min: '1', max: '12' }) as HTMLInputElement;
+  const maxF = h('input', { type: 'number', value: '5', min: '1', max: '12' }) as HTMLInputElement;
+  const style = h('select', {}, h('option', { value: '' }, 'Mixed'), ...Object.keys(FACADE_STYLES).map((k) => h('option', { value: k }, k))) as HTMLSelectElement;
+  const alleys = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
+  const props = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
+  const go = () => {
+    const lo = Math.max(1, parseInt(minF.value, 10) || 2);
+    const n = buildingsFromSelection(editor, {
+      minFloors: lo, maxFloors: Math.max(lo, parseInt(maxF.value, 10) || lo),
+      alleys: alleys.checked, roofProps: props.checked, style: (style.value || undefined) as FacadeStyle | undefined,
+    });
+    toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''}` : 'Selection is too small for a building (min 128×128)');
+  };
+  return h('div.section', {},
+    h('h3', {}, 'Generate buildings'),
+    h('p.hint', {}, 'Replaces the selected block(s) with a block of connected buildings on a 128-unit grid.'),
+    h('div.row', {}, h('label', {}, 'Floors'), minF, h('span.muted', {}, 'to'), maxF),
+    h('div.row', {}, h('label', {}, 'Facade'), style),
+    h('div.row', {}, h('label', {}, 'Alleys'), alleys, h('span.hint', {}, 'with sky bridges')),
+    h('div.row', {}, h('label', {}, 'Roof props'), props),
+    h('button.primary', { onclick: go }, '🏢 Generate buildings'));
 }

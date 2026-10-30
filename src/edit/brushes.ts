@@ -7,6 +7,9 @@ export interface FaceSpec {
   /** Three points, clockwise seen from outside (Hammer's convention). */
   points: [Vector3, Vector3, Vector3];
   material: string;
+  /** Texture axes; world-aligned when omitted. */
+  u?: TexAxis;
+  v?: TexAxis;
 }
 
 /** Hammer's world-aligned texture axes for a face normal. */
@@ -26,7 +29,8 @@ export function solidNode(doc: VmfDocument, faces: FaceSpec[], color = '0 180 22
   for (const f of faces) {
     const [a, b, c] = f.points;
     const n = new Vector3().subVectors(c, a).cross(new Vector3().subVectors(b, a)).normalize();
-    const { u, v } = worldAlignedAxes(n, textureScale);
+    const aligned = worldAlignedAxes(n, textureScale);
+    const u = f.u ?? aligned.u, v = f.v ?? aligned.v;
     const side = new KVNode('side');
     side.items.push(
       new KVPair('id', String(doc.nextId())),

@@ -29,6 +29,33 @@ function rows(node: KVNode | undefined, size: number, stride: number): Float32Ar
 }
 
 /**
+ * The four corners of a displacement face in VBSP's order: starting at the vertex nearest
+ * `start`, walking the face clockwise (seen from outside). Rows run from corner 0 towards corner 1.
+ */
+export function dispCorners(face: BrushFace, start: Vector3): Vector3[] {
+  const v = face.verts;
+  const src = [v[0], v[3], v[2], v[1]];
+  let si = 0, best = Infinity;
+  for (let k = 0; k < 4; k++) {
+    const d = src[k].distanceToSquared(start);
+    if (d < best) { best = d; si = k; }
+  }
+  return [0, 1, 2, 3].map((k) => src[(si + k) % 4]);
+}
+
+/** Undisplaced grid positions, row-major, matching the `rowN` order of dispinfo. */
+export function dispBaseGrid(corners: Vector3[], size: number): Vector3[] {
+  const out: Vector3[] = [];
+  const e0 = new Vector3(), e1 = new Vector3();
+  for (let r = 0; r < size; r++) {
+    e0.lerpVectors(corners[0], corners[1], r / (size - 1));
+    e1.lerpVectors(corners[3], corners[2], r / (size - 1));
+    for (let j = 0; j < size; j++) out.push(new Vector3().lerpVectors(e0, e1, j / (size - 1)));
+  }
+  return out;
+}
+
+/**
  * Builds a displacement grid the way VBSP does: corners start at the vertex nearest
  * `startposition` (walking the face in Source's clockwise order), rows run along corner 0 → 1.
  */
@@ -39,15 +66,7 @@ export function buildDisplacement(face: BrushFace, disp: KVNode): DispGrid | nul
   const elevation = parseFloat(disp.get('elevation') ?? '0') || 0;
 
   // Our polygons are CCW from outside; Source walks them clockwise.
-  const v = face.verts;
-  const src = [v[0], v[3], v[2], v[1]];
-  const start = parseVec(disp.get('startposition'));
-  let si = 0, best = Infinity;
-  for (let k = 0; k < 4; k++) {
-    const d = src[k].distanceToSquared(start);
-    if (d < best) { best = d; si = k; }
-  }
-  const c = [0, 1, 2, 3].map((k) => src[(si + k) % 4]);
+  const c = dispCorners(face, parseVec(disp.get('startposition')));
 
   const normals = rows(disp.child('normals'), size, 3);
   const dists = rows(disp.child('distances'), size, 1);
