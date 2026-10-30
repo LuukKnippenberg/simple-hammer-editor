@@ -445,9 +445,12 @@ export function generateFromSketch(s: Sketch): SketchResult {
   }
 
   const maxLevel = Math.max(0, ...s.levels);
+  // POIs cut canals and pits below the ground; their walls and floors reach 16 further down.
+  let lowest = 0;
+  for (let vy = 0; vy < H; vy++) for (let vx = 0; vx < W; vx++) lowest = Math.min(lowest, pois.height(vx * SAMPLE, vy * SAMPLE) - 16);
   addEnvironment(doc, solids, ents, {
     width: mapW, height: mapH, apron, maxHeight: maxLevel * s.levelHeight + s.floors[1] * 128 + 768,
-    sunYaw: rng.int(20, 70), fogColor: theme.fog, cameraGround: levelBlocks(s),
+    sunYaw: rng.int(20, 70), fogColor: theme.fog, cameraGround: levelBlocks(s), lowest,
   });
   doc.world.set('skyname', theme.sky);
   const out = finishDoc(doc, solids, ents, shift);

@@ -469,6 +469,8 @@ export interface EnvironmentOptions {
    * surfaces (SnapCameraTo traces CONTENTS_PLAYERCLIP), so these keep it at the right height.
    */
   cameraGround?: Box3[];
+  /** Lowest ground in the map (canals, pits); the sky shell's floor goes below it. Default 0. */
+  lowest?: number;
 }
 
 /** Sun, fog, camera spawn, the sealing sky shell and the RTS map boundary. */
@@ -483,7 +485,7 @@ export function addEnvironment(doc: VmfDocument, solids: KVNode[], ents: KVNode[
     fogmaxdensity: '0.6', fogdir: '1 0 0', fogblend: '0', farz: '-1', spawnflags: '1', angles: '0 0 0',
   }));
   ents.push(entity(doc, 'info_player_start', new Vector3(mid.x, mid.y, o.maxHeight - 300), { angles: '0 0 0' }));
-  const inner = new Box3(new Vector3(-o.apron - 64, -o.apron - 64, -64), new Vector3(o.width + o.apron + 64, o.height + o.apron + 64, o.maxHeight + 1024));
+  const inner = new Box3(new Vector3(-o.apron - 64, -o.apron - 64, Math.min(-64, (o.lowest ?? 0) - 64)), new Vector3(o.width + o.apron + 64, o.height + o.apron + 64, o.maxHeight + 1024));
   solids.push(...shellSolids(doc, inner, 'TOOLS/TOOLSSKYBOX', 32));
   const boundary = entity(doc, 'func_map_boundary', new Vector3(mid.x, mid.y, o.maxHeight / 2), { bloat: '-32.0' });
   // The shell's floor sits at ground level (its top at z = 0), like the shipped maps.
