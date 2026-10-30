@@ -1031,6 +1031,20 @@ These mostly stand on the terrain itself (levelled under the POI) rather than on
 ![Its stair and deck](docs/screenshots/poi-p5-lookout-close.png)
 ![Concrete lookout tower](docs/screenshots/poi-p5-lookout-concrete.png)
 
+- **Logging camp** (1152×1024 to 3072): a dirt clearing with pines round the edge, piles of brush logs
+  stacked in pyramids along rows (lines of cover; slots in rows filled until there are enough), an open
+  sawmill shed over a saw bench with a log on it and sawdust round it, a truck or trailer, stumps, fallen
+  trees, crates and drums.
+- **Combine power node** (896 to 2048): a concrete compound inside Combine fence panels with one gate, the
+  Lambda Wars power generator on a metal plinth with two Combine generators beside it, smaller generators in
+  the back corners joined by cables, Combine lights (lit on request), a Breencast screen by the gate, crates
+  and short barricades. Combine soldiers or elites on request.
+
+![Logging camp](docs/screenshots/poi-p5-logging.png)
+![The sawmill shed](docs/screenshots/poi-p5-logging-close.png)
+![Combine power node](docs/screenshots/poi-p5-powernode.png)
+![Inside the compound](docs/screenshots/poi-p5-powernode-close.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
