@@ -1091,6 +1091,35 @@ the water *surface*. The ground under water stays walkable. So:
 ![Coastal bunker](docs/screenshots/poi-p6-bunker.png)
 ![The park's pond now holds water](docs/screenshots/poi-p6-pond.png)
 
+**Rocky set and the canal:**
+
+- **Quarry** (1536 to 3072): a gravel floor open to the front with one to three terraces of rock round the
+  other three sides, each step 64 high (too high to climb), one 1:3 ramp per terrace alternating sides (the
+  chokepoints), a conveyor from the top down to the floor, a crane frame, mining carts on rails, a bulldozer.
+- **Mine entrance** (1024×896 to 2560×2048): a cliff face of rock brushes across the back with a tunnel mouth
+  cut into it (dark at the back), timber frames along the tunnel, rails running out with carts, industrial
+  lamps either side, boulders along the cliff foot, crates, drums and a generator. An `info_target`
+  `poi_<id>_tunnel` inside to spawn waves from.
+- **Overlook** (1024 to 2048): a rock ledge 64 to 192 high with a single dirt ramp up, sandbags along its
+  front edge, ammo, boulders round its foot.
+- **Rocky pass** (1024 to 3072): a dirt road through a gap between two stepped rock masses (with boulders on
+  top and along the faces, `fow_blocker`s over them on request), a rockslide half across the road leaving at
+  least 128 (the route).
+- **Radio relay** (1024 to 2048): a rocky knoll with one ramp, the rebel radio tower, a shack, a generator and
+  sandbags on top.
+- **Canal crossing** (1024 to 4096×2560, *Route Kanal*): a canal across the POI, the terrain lowered 192
+  under it, concrete walls down to a muddy floor, water and a nav blocker in it, one to three concrete bridges
+  with railings (the routes), ladders on the wall.
+
+![Quarry](docs/screenshots/poi-p6-quarry.png)
+![Mine entrance](docs/screenshots/poi-p6-mine.png)
+![The tunnel mouth, with zombies](docs/screenshots/poi-p6-mine-close.png)
+![Overlook](docs/screenshots/poi-p6-overlook.png)
+![Rocky pass](docs/screenshots/poi-p6-pass.png)
+![Radio relay](docs/screenshots/poi-p6-relay.png)
+![Canal crossing](docs/screenshots/poi-p6-canal.png)
+![The canal and its bridges](docs/screenshots/poi-p6-canal-close.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
