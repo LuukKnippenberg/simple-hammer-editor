@@ -1,10 +1,11 @@
-import { Box3, Vector3 } from 'three';
+import { Box2, Box3, Vector2, Vector3 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
 import { detailEntityNode, generateBuildings, type ArchitectureName, type FacadeStyle } from './buildings.ts';
 import { streetDressing, type BlockDressing } from './streets.ts';
-import { buildRoads, defaultRoad, roadEntityNode, type RoadSpec } from './roads.ts';
+import { buildRoads, defaultRoad, roadEntityNode, roadGround, type RoadSpec } from './roads.ts';
+import { PROP_BOUNDS, standZ } from './props.ts';
 import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
 import { Rng } from './rng.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
@@ -101,6 +102,10 @@ const TREES = ['models/props_foliage/tree_deciduous_03a.mdl', 'models/props_foli
 const CITY_TREES = ['models/props_foliage/tree_dead03.mdl', 'models/props_foliage/tree_dead04.mdl', 'models/props_foliage/tree_dry02.mdl', 'models/props_foliage/tree_deciduous_03a.mdl'];
 const DEBRIS = ['models/props_debris/concrete_debris128pile001a.mdl', 'models/props_debris/concrete_debris128pile001b.mdl', 'models/props_debris/plaster_floorpile001a.mdl', 'models/props_debris/concrete_chunk02a.mdl'];
 const CARS = ['models/props_vehicles/car002a.mdl', 'models/props_vehicles/car003a.mdl', 'models/props_vehicles/car004a.mdl', 'models/props_vehicles/car005a.mdl', 'models/props_vehicles/van001a.mdl', 'models/props_vehicles/truck003a.mdl'];
+
+/** Gap between a parked car and the kerb; the rest of the carriageway must leave room for units. */
+const KERB_GAP = 6;
+const LANE_LEFT = 32;
 
 const SAMPLE = 32; // terrain vertex spacing (power-4 displacements on 512 patches)
 
@@ -294,6 +299,10 @@ export function generateFromSketch(s: Sketch): SketchResult {
     const stored = { ...roads[i], points: roads[i].points.map((p) => p.clone().add(shift)) };
     ents.push(roadEntityNode(doc, stored, nodes));
   });
+  // The walkable top under a point: the road's surface, kerb or pavement where there is one, else the terrain.
+  const onRoad = roadGround(roads);
+  const groundAt = (x: number, y: number) => onRoad(x, y)?.z ?? flatHeight(x, y);
+  const carriageway = (x: number, y: number) => { const g = onRoad(x, y); return !!g && (g.kind === 'surface' || g.kind === 'rail'); };
 
   // Buildings: one generated block per rectangle of building cells, on that cell's height level.
   const dressings: BlockDressing[] = [];
@@ -308,9 +317,14 @@ export function generateFromSketch(s: Sketch): SketchResult {
     for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
     dressings.push(b.dressing);
   }
-  // Cables across streets, lamps and trees: only between blocks on the same level.
+  // Cables across streets, lamps and trees: only between blocks on the same level. Lamps and trees stand on
+  // the pavement, never on a carriageway.
+  const standing: Vector2[] = [];
   for (const z of new Set(dressings.map((d) => d.z0))) {
-    for (const e of streetDressing(dressings.filter((d) => d.z0 === z), rng)) ents.push(entity(doc, e.classname, e.origin, e.keys));
+    for (const e of streetDressing(dressings.filter((d) => d.z0 === z), rng, { groundAt: (x, y) => (carriageway(x, y) ? null : groundAt(x, y)) })) {
+      ents.push(entity(doc, e.classname, e.origin, e.keys));
+      if (e.classname === 'prop_static') standing.push(new Vector2(e.origin.x, e.origin.y));
+    }
   }
   // Walls: 48-thick concrete runs through wall cells, joined across neighbours.
   for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
@@ -325,16 +339,71 @@ export function generateFromSketch(s: Sketch): SketchResult {
     if (horiz || !vert) add(new Vector3(wall(-1, 0) ? x * SKETCH_CELL : cx - t, cy - t, z - 16), new Vector3(wall(1, 0) ? (x + 1) * SKETCH_CELL : cx + t, cy + t, z + hgt));
     if (vert) add(new Vector3(cx - t, wall(0, -1) ? y * SKETCH_CELL : cy - t, z - 16), new Vector3(cx + t, wall(0, 1) ? (y + 1) * SKETCH_CELL : cy + t, z + hgt));
   }
+  // Parked cars in road cells: along the nearer kerb, facing the traffic on that side, on the carriageway and
+  // clear of kerbs, other cars, lamps and trees.
+  const parked: Box2[] = [];
+  const parkCar = (x: number, y: number): KVNode | null => {
+    const c = new Vector2((x + 0.5) * SKETCH_CELL, (y + 0.5) * SKETCH_CELL);
+    let best: { r: RoadSpec; dir: Vector2; n: Vector2; along: number; across: number } | null = null;
+    for (const r of roads) {
+      const a = new Vector2(r.points[0].x, r.points[0].y), b = new Vector2(r.points[1].x, r.points[1].y);
+      const dir = b.clone().sub(a).normalize(), n = new Vector2(-dir.y, dir.x);
+      const along = c.clone().sub(a).dot(dir), across = c.clone().sub(a).dot(n);
+      if (along < 0 || along > a.distanceTo(b) || (best && Math.abs(across) >= Math.abs(best.across))) continue;
+      best = { r, dir, n, along, across };
+    }
+    if (!best || Math.abs(best.across) > best.r.width / 2 + best.r.pavement + 64) return null;
+    const { r, dir, n, along, across } = best;
+    // Vans and trucks only where they leave a lane free; on a narrow road whatever fits at all.
+    const carWidth = (m: string) => PROP_BOUNDS[m][4] - PROP_BOUNDS[m][1];
+    let fits = CARS.filter((m) => r.width - KERB_GAP - carWidth(m) >= LANE_LEFT);
+    if (!fits.length) fits = CARS.filter((m) => r.width - 2 * KERB_GAP >= carWidth(m));
+    if (!fits.length) return null;
+    const model = rng.pick(fits);
+    const [x0, y0, , x1, y1] = PROP_BOUNDS[model];
+    // Right-hand traffic: on the left of the road's direction a car faces back along it.
+    const side = across >= 0 ? 1 : -1, face = -side;
+    const [lo, hi] = face > 0 ? [y0, y1] : [-y1, -y0];
+    const off = side > 0 ? r.width / 2 - KERB_GAP - hi : -r.width / 2 + KERB_GAP - lo;
+    const mid = face > 0 ? (x0 + x1) / 2 : -(x0 + x1) / 2;
+    const yaw = Math.atan2(dir.y, dir.x) + (face > 0 ? 0 : Math.PI) + rng.range(-0.03, 0.03);
+    const fx = new Vector2(Math.cos(yaw), Math.sin(yaw)), fy = new Vector2(-fx.y, fx.x);
+    const shift = rng.range(-24, 24);
+    for (const d of [shift, 0, -64, 64]) {
+      const o = new Vector2(r.points[0].x, r.points[0].y).addScaledVector(dir, along - mid + d).addScaledVector(n, off);
+      // The footprint (and its edges' midpoints) must lie on the carriageway, a little inside it.
+      const pts: Vector2[] = [];
+      for (const [u, v] of [[x0 - 2, y0 - 2], [x1 + 2, y0 - 2], [x1 + 2, y1 + 2], [x0 - 2, y1 + 2], [(x0 + x1) / 2, y0 - 2], [(x0 + x1) / 2, y1 + 2]]) {
+        pts.push(o.clone().addScaledVector(fx, u).addScaledVector(fy, v));
+      }
+      if (!pts.every((p) => carriageway(p.x, p.y))) continue;
+      const box = new Box2().setFromPoints(pts);
+      if (parked.some((q) => q.intersectsBox(box)) || standing.some((p) => box.distanceToPoint(p) < 24)) continue;
+      parked.push(box);
+      const z = Math.min(...pts.map((p) => groundAt(p.x, p.y)));
+      return entity(doc, 'prop_static', new Vector3(Math.round(o.x), Math.round(o.y), standZ(model, z)), { model, angles: `0 ${Math.round((yaw * 180) / Math.PI)} 0`, solid: '6' });
+    }
+    return null;
+  };
   // Props on feature cells.
   for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
     const f = s.features[y * s.w + x];
     const at = () => {
       const px = (x + rng.range(0.2, 0.8)) * SKETCH_CELL, py = (y + rng.range(0.2, 0.8)) * SKETCH_CELL;
-      return new Vector3(Math.round(px), Math.round(py), Math.round(flatHeight(px, py)) - 2);
+      return new Vector3(Math.round(px), Math.round(py), Math.round(groundAt(px, py)) - 2);
     };
     if (f === Feature.Trees) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(s.theme === 'city' ? CITY_TREES : TREES), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
     else if (f === Feature.Rubble && rng.chance(0.7)) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(DEBRIS), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
-    else if (f === Feature.Cars && rng.chance(0.6)) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(CARS), angles: `0 ${rng.int(0, 3) * 90 + rng.int(-12, 12)} 0`, solid: '6' }));
+    else if (f === Feature.Cars && rng.chance(0.6)) {
+      if (s.surface[y * s.w + x] === Surface.Road) {
+        const car = parkCar(x, y);
+        if (car) ents.push(car);
+      } else {
+        const p = at(), model = rng.pick(CARS);
+        p.z = standZ(model, p.z + 2);
+        ents.push(entity(doc, 'prop_static', p, { model, angles: `0 ${rng.int(0, 3) * 90 + rng.int(-12, 12)} 0`, solid: '6' }));
+      }
+    }
   }
 
   const maxLevel = Math.max(0, ...s.levels);
@@ -344,7 +413,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
   });
   doc.world.set('skyname', theme.sky);
   const out = finishDoc(doc, solids, ents, shift);
-  return { doc: out, shift, heightAt: (x, y) => flatHeight(x - shift.x, y - shift.y) };
+  return { doc: out, shift, heightAt: (x, y) => groundAt(x - shift.x, y - shift.y) };
 }
 
 /** Kit settings used for sketch markers. */

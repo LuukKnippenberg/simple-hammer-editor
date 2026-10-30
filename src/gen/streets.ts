@@ -79,10 +79,13 @@ function gapInFront(blocks: BlockDressing[], i: number, side: { a: Vector2; b: V
 
 /**
  * The street pass over several blocks: cables strung between facing buildings across streets, lamp posts
- * along the pavements (not in alleys), bare trees in courtyards, yards and wide streets.
+ * along the pavements (not in alleys), bare trees in courtyards, yards and wide streets. `groundAt` gives the
+ * height lamps and trees stand on (a pavement's top, say), or null where none may stand (a carriageway);
+ * without it they stand at their block's base.
  */
-export function streetDressing(blocks: BlockDressing[], rng: Rng, opts: { cables?: boolean; lamps?: boolean; trees?: boolean } = {}): FeatureEntity[] {
+export function streetDressing(blocks: BlockDressing[], rng: Rng, opts: { cables?: boolean; lamps?: boolean; trees?: boolean; groundAt?: (x: number, y: number) => number | null } = {}): FeatureEntity[] {
   const out: FeatureEntity[] = [];
+  const groundAt = (p: Vector2, B: BlockDressing) => (opts.groundAt ? opts.groundAt(p.x, p.y) : B.z0);
   const prefix = `wire${rng.int(1000, 9999)}`;
   if (opts.cables ?? true) {
     // Pair anchors that face each other across a street, each anchor used once.
@@ -129,14 +132,17 @@ export function streetDressing(blocks: BlockDressing[], rng: Rng, opts: { cables
       for (let k = 0; k <= count; k++) {
         const along = 96 + ((len - 192) * (k + 0.5)) / (count + 1);
         const p = s.a.clone().addScaledVector(dir, along);
-        // Wide streets alternate lamps and trees; narrower ones get lamps only.
-        if ((opts.trees ?? true) && gap >= 448 && k % 2 === 1) {
-          const t = p.clone().addScaledVector(s.out, 120);
-          out.push(prop(rng.pick(BARE_TREES), new Vector3(t.x, t.y, B.z0 - 4), rng.int(0, 359)));
+        // Wide streets alternate lamps and trees (where the tree's spot isn't a carriageway); narrower ones
+        // get lamps only.
+        const t = p.clone().addScaledVector(s.out, 120);
+        const tz = (opts.trees ?? true) && gap >= 448 && k % 2 === 1 ? groundAt(t, B) : null;
+        if (tz !== null) {
+          out.push(prop(rng.pick(BARE_TREES), new Vector3(t.x, t.y, tz - 4), rng.int(0, 359)));
         } else if ((opts.lamps ?? true) && rng.chance(0.8)) {
           const l = p.clone().addScaledVector(s.out, 40);
+          const lz = groundAt(l, B);
           // The lamp's arm points along +y: turn it out over the street.
-          out.push(prop(LAMP, new Vector3(l.x, l.y, B.z0), deg(Math.atan2(-s.out.x, s.out.y))));
+          if (lz !== null) out.push(prop(LAMP, new Vector3(l.x, l.y, lz), deg(Math.atan2(-s.out.x, s.out.y))));
         }
       }
     }
@@ -147,8 +153,9 @@ export function streetDressing(blocks: BlockDressing[], rng: Rng, opts: { cables
         const n = Math.min(3, Math.max(1, Math.floor((size.x * size.y) / (448 * 448))));
         for (let k = 0; k < n; k++) {
           const p = new Vector2(rng.range(y.min.x + 80, y.max.x - 80), rng.range(y.min.y + 80, y.max.y - 80));
-          if (B.obstacles.some((o) => o.clone().expandByScalar(48).containsPoint(p))) continue;
-          out.push(prop(rng.pick(BARE_TREES), new Vector3(p.x, p.y, B.z0 - 4), rng.int(0, 359)));
+          const z = groundAt(p, B);
+          if (z === null || B.obstacles.some((o) => o.clone().expandByScalar(48).containsPoint(p))) continue;
+          out.push(prop(rng.pick(BARE_TREES), new Vector3(p.x, p.y, z - 4), rng.int(0, 359)));
         }
       }
     }
