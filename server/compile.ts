@@ -132,7 +132,9 @@ async function buildNavmesh(cfg: EditorConfig, name: string, log: Log): Promise<
   const cfgFile = join(mod, 'cfg', 'she_navbuild.cfg');
   const consoleLog = join(mod, 'console.log');
   mkdirSync(join(mod, 'cfg'), { recursive: true });
-  writeFileSync(cfgFile, 'sv_cheats 1\nrecast_build\n');
+  // Pruning the polygons unreachable from the player starts (info_start_wars) leaves this build's meshes
+  // empty, so multiplayer maps would get no navmesh at all; keep every polygon instead.
+  writeFileSync(cfgFile, 'sv_cheats 1\nrecast_build_remove_unreachable_polys 0\nrecast_build\n');
   rmSync(consoleLog, { force: true });
 
   const args = ['-console', '-condebug', '-game', cfg.mod, '-insecure', '-nomaster', '-nohltv', '+sv_lan', '1', '+maxplayers', '2', '+servercfgfile', 'she_navbuild.cfg', '+map', name]
