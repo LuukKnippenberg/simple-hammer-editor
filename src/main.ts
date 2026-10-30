@@ -18,6 +18,7 @@ import { IoLines } from './render/ioLines.ts';
 import { RopeRenderer } from './render/ropeRenderer.ts';
 import { SoundRenderer } from './render/soundRenderer.ts';
 import { SoundscapeController } from './audio/listener.ts';
+import { LocalSoundPlayer } from './audio/localSounds.ts';
 import { setSoundscapeController } from './ui/soundUi.ts';
 import { audio } from './audio/engine.ts';
 import { mountMissionPanel } from './ui/missionPanel.ts';
@@ -82,6 +83,9 @@ new RopeRenderer(editor);
 const soundscapes = new SoundscapeController(editor);
 setSoundscapeController(soundscapes);
 const sounds = new SoundRenderer(editor);
+const localSounds = new LocalSoundPlayer(editor, soundscapes);
+sounds.localRanges = () => localSounds.sounds.map((s) => ({ entity: s.entity, radius: s.radius }));
+sounds.update();
 editor.on('soundscape', () => sounds.update(soundscapes.active?.entity ?? null));
 new GameplayOverlay(editor);
 editor.on('selection', () => {

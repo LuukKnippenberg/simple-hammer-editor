@@ -671,6 +671,40 @@ rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), d
 ![On the square: wars.ruins](docs/screenshots/sound-zone-square.png)
 ![A zone selected](docs/screenshots/sound-zone-panel.png)
 
+### Local sounds
+
+- **Sound browser**: the game's 3,900 sounds, searchable by words ("fire loop", "drip"), each with ▶;
+  the picked sound shows whether it **loops** (has loop points: the game repeats it) or plays **once**.
+- The **Sound tool**'s *Local sound* mode places an `ambient_generic` with the picked file, radius and
+  volume, or a **preset**: a sound with the effects that belong to it.
+
+| Preset | Adds | Sound |
+|---|---|---|
+| 💡 Broken lamp | a light with the fluorescent-flicker style (baked by vrad), sparks (`env_spark`) | electric buzz |
+| 🔥 Fire | `env_fire` (infinite, full size), a flickering orange light | small fire loop |
+| 💨 Steam leak | an `env_steam` jet | steam loop |
+| 📻 Radio | a radio prop | music (plays once) |
+| 💧 Dripping water | – | water leak loop |
+| ⚙ Generator | a generator prop | generator hum |
+
+- Presets that bring a prop place it when clicked on the ground; clicked on a fitting prop they add only
+  their effects to it. **Suggestions**: selecting a lamp post, oil drum, fireplace, radio or generator
+  offers the fitting presets in the inspector; the effects go to the right spot on the model (the lamp
+  post's head hangs from its arm).
+- **3D preview** (with 🔊 Audio on): local sounds play positioned around the listener (the same ground
+  point as the soundscape, facing the camera's direction), fading out over their radius; looping sounds
+  run while in range, one-shots play on coming into range, sparks crackle at random intervals. Their
+  ranges are drawn as circles (a sphere for the selected one); the readout counts local sounds.
+- Selecting an `ambient_generic` shows its radius, volume and the sound browser in the inspector.
+- Checked with the test district: two fire barrels and a generator on the square (3 local sounds playing
+  above them), a broken lamp on a street lamp post (1), dripping water in a street. The map compiles
+  through vbsp, vvis and vrad (styled lights included), with the sparks, fires and sounds in the BSP.
+
+![Selecting a lamp post: the inspector suggests a broken lamp](docs/screenshots/local-lamp-suggestion.png)
+![The broken lamp's buzz range at the lamp head](docs/screenshots/local-broken-lamp.png)
+![The sound browser searching "fire loop"](docs/screenshots/local-sound-browser.png)
+![Fire barrels and a generator: 3 local sounds playing](docs/screenshots/local-fires.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

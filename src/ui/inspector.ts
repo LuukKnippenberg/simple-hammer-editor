@@ -15,6 +15,10 @@ import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
 import { POLE_TYPES, powerlineOf, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
 import { editPowerline } from '../edit/powerlineTool.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
+import { soundBrowser } from './soundBrowser.ts';
+import { audio } from '../audio/engine.ts';
+import { presetsFor } from '../lw/soundPresets.ts';
+import { addPreset } from '../edit/presetAction.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -57,6 +61,13 @@ export function mountInspector(editor: Editor): HTMLElement {
     const road = roadEnt ? roadOf(roadEnt) : null;
     if (roadEnt && road) panel.append(roadPanel(editor, roadEnt, road));
     if (ents.length === 1 && ents[0].classname === 'env_soundscape') panel.append(soundscapePanel(editor, ents[0]));
+    if (ents.length === 1 && ents[0].classname === 'ambient_generic') panel.append(ambientPanel(editor, ents[0]));
+    const fits = ents.length === 1 ? presetsFor(ents[0].get('model')) : [];
+    if (fits.length) {
+      panel.append(h('div.section', {}, h('h3', {}, 'Sound and effects'),
+        h('p.hint', {}, 'Bring this prop to life:'),
+        h('div.row', {}, ...fits.map((p) => h('button', { onclick: () => addPreset(editor, p, ents[0].origin!, ents[0].angles.y, ents[0]) }, `${p.icon} ${p.label}`)))));
+    }
     const line = ents.length === 1 ? powerlineOf(editor.doc.entities, ents[0]) : null;
     if (line) panel.append(powerlinePanel(editor, ents[0], line.spec, line.members.length));
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
@@ -170,6 +181,25 @@ function roadPanel(editor: Editor, e: MapEntity, road: RoadSpec): HTMLElement {
           toast(editor.container, n ? `Blended into ${n} terrain patch${n > 1 ? 'es' : ''}` : 'No terrain under this road (Ground tool: turn the floor into terrain)');
         },
       }, 'Blend into ground')));
+}
+
+/** A local sound: the file, how far it carries and how loud. */
+function ambientPanel(editor: Editor, e: MapEntity): HTMLElement {
+  const set = (key: string, value: string) => {
+    const end = editor.history.begin('Edit sound', [], [e]);
+    e.set(key, value);
+    end();
+    editor.changed();
+  };
+  const radius = h('input', { type: 'number', value: e.get('radius') ?? '1250', step: '64', min: '32' }) as HTMLInputElement;
+  radius.addEventListener('change', () => set('radius', String(Math.round(Number(radius.value) || 1250))));
+  const vol = h('input', { type: 'range', min: 0, max: 10, step: 1, value: e.get('health') ?? '10' }) as HTMLInputElement;
+  vol.addEventListener('change', () => set('health', vol.value));
+  const path = (e.get('message') ?? '').replace(/^sound\//i, '');
+  return h('div.section', {}, h('h3', {}, 'Local sound'),
+    h('div.row', {}, h('label', {}, 'Radius'), radius, h('button', { title: 'Play once', onclick: () => void audio.preview(`sound/${(e.get('message') ?? '').replace(/^sound\//i, '')}`) }, '▶')),
+    h('div.row', {}, h('label', {}, 'Volume'), vol),
+    soundBrowser(path, (p) => set('message', p)));
 }
 
 /** A soundscape zone: which soundscape and how far it reaches. */

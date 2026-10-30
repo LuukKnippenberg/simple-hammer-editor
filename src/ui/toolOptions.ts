@@ -6,6 +6,8 @@ import { makeTerrain, type GroundTool } from '../edit/groundTool.ts';
 import type { PowerlineTool } from '../edit/powerlineTool.ts';
 import type { SoundTool, SoundToolMode } from '../edit/soundTool.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
+import { soundBrowser } from './soundBrowser.ts';
+import { SOUND_PRESETS } from '../lw/soundPresets.ts';
 import { POLE_TYPES, type PoleType } from '../gen/powerlines.ts';
 import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
@@ -146,6 +148,24 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
           h('div.row', {}, h('label', {}, 'Soundscape'), sel, h('button', { title: 'Listen for 15 seconds', onclick: () => void auditionSoundscape(sel.value) }, '▶')),
           h('div.row', {}, h('label', {}, 'Radius'), radius),
         );
+      } else {
+        const kind = h('select', {},
+          h('option', { value: 'file' }, 'Sound file'),
+          ...SOUND_PRESETS.map((p) => h('option', { value: p.id }, `${p.icon} ${p.label}`))) as HTMLSelectElement;
+        kind.value = tool.local;
+        kind.addEventListener('change', () => { tool.local = kind.value; kind.blur(); render(); });
+        rows.push(h('div.row', {}, h('label', {}, 'Place'), kind));
+        if (tool.local === 'file') {
+          const radius = h('input', { type: 'number', value: String(tool.soundRadius), step: '64', min: '64' }) as HTMLInputElement;
+          radius.addEventListener('change', () => { tool.soundRadius = Math.max(64, Number(radius.value) || 512); radius.blur(); });
+          const vol = h('input', { type: 'range', min: 1, max: 10, step: 1, value: tool.volume }) as HTMLInputElement;
+          vol.addEventListener('input', () => (tool.volume = Number(vol.value)));
+          rows.push(h('div.row', {}, h('label', {}, 'Radius'), radius), h('div.row', {}, h('label', {}, 'Volume'), vol),
+            soundBrowser(tool.sound, (p) => (tool.sound = p)));
+        } else {
+          const p = SOUND_PRESETS.find((x) => x.id === tool.local)!;
+          rows.push(h('div.hint', {}, p.prop ? `Click the ground to place it with its own prop, or click a fitting prop to add it there.` : 'Click where the sound should be.'));
+        }
       }
     }
     if (name === 'kit') {

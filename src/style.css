@@ -226,6 +226,18 @@ input.switch::before {
 }
 input.switch:checked { background: var(--accent); }
 input.switch:checked::before { transform: translateX(14px); background: #fff; }
+
+/* Sound browser */
+.sound-browser { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.sound-browser input[type='search'] { width: 100%; box-sizing: border-box; }
+.sound-current { font-size: 12px; display: flex; gap: 6px; align-items: center; overflow: hidden; }
+.sound-current b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.sound-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; background: #15181b; }
+.sound-row { display: flex; align-items: center; gap: 6px; padding: 1px 4px; font-size: 11px; }
+.sound-row:hover { background: #22272d; }
+.sound-row button { padding: 0 5px; font-size: 10px; flex: none; }
+.sound-row span { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-options .sound-list { max-height: 180px; width: 260px; }
 .row input[type='color'] { flex: 0 0 44px; padding: 0 2px; height: 26px; }
 
 .modal.sketch { width: 96vw; max-width: none; height: 92vh; display: flex; flex-direction: column; }
