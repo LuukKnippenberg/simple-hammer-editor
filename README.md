@@ -984,6 +984,31 @@ the middle is the route. Their ground is left as it is by default, so they sit o
 ![Gas station](docs/screenshots/poi-p4-gasstation.png)
 ![The canopy and pumps](docs/screenshots/poi-p4-gasstation-close.png)
 
+### POI phase 5: forest and rural set
+
+These mostly stand on the terrain itself (levelled under the POI) rather than on a pad.
+
+- **Rebel camp** (1024×896 to 2560): tents in a ring with their doors to a campfire (stones, charred logs,
+  a flickering light, logs to sit on), a resistance shack, the rebel radio tower, a wooden watch post (legs,
+  a deck at 128, rails, a tin roof, a ladder), a rebel flag, supply, ammo and item crates, a table, sandbags
+  either side of the way in, a few pines. Rebel squads on request.
+- **Thumper site** (896 to 2560): a Combine thumper on a disc of sand, short barricades and a light round it,
+  boulders and rocks, and antlion burrows (sand mounds with a dark hole) further out, each with an
+  `info_target` named `poi_<id>_burrow_N` to spawn waves from. Capture point by default; antlions, an antlion
+  guard, Combine or zombies on request (the toolkit now knows `unit_antlion` and `unit_antlionguard`).
+- **Crash site** (1024×896 to 2560): a scorched crater with a raised rim, a dropship container half buried in
+  it at an angle, gunship wreckage thrown along the crash path, headcrab canisters stuck in the ground, dead
+  and fallen trees, crates and drums, fires. Two scrap piles by default.
+- Toolkit: `extrude()` for convex sections lying down and `log()` for logs and pipes; more fence kinds
+  (farm planks, wooden rails).
+
+![Rebel camp](docs/screenshots/poi-p5-rebelcamp.png)
+![Round the campfire](docs/screenshots/poi-p5-rebelcamp-close.png)
+![Thumper site with antlions](docs/screenshots/poi-p5-thumper.png)
+![The thumper and its barricades](docs/screenshots/poi-p5-thumper-close.png)
+![Crash site](docs/screenshots/poi-p5-crashsite.png)
+![The crater and the dropship container](docs/screenshots/poi-p5-crashsite-close.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

@@ -1,7 +1,7 @@
 import type { KitParam, ParamValue } from '../../lw/kits.ts';
 import { UNITS } from '../../lw/kits.ts';
 import type { MapEntity, VmfDocument } from '../../vmf/map.ts';
-import { PoiKit } from './kit.ts';
+import { EXTRA_UNITS, PoiKit } from './kit.ts';
 import { decodePoi, newPoiUid, poiKeyOf } from './spec.ts';
 import type { Landscape, PoiOutput, PoiSpec, PoiType, Rect, Rotation } from './types.ts';
 
@@ -28,7 +28,7 @@ export function sharedParams(t: PoiType): KitParam[] {
   if (g.scrap) out.push({ key: 'scrap', label: 'Scrap piles', type: 'number', default: 0, hint: 'scrap_marker resource nodes' });
   if (g.units?.length) {
     out.push(
-      { key: 'units', label: 'Unit group', type: 'select', default: 'none', options: [{ value: 'none', label: 'None' }, ...g.units.map((id) => ({ value: id, label: UNITS.find((u) => u.id === id)?.label ?? id }))] },
+      { key: 'units', label: 'Unit group', type: 'select', default: 'none', options: [{ value: 'none', label: 'None' }, ...g.units.map((id) => ({ value: id, label: (UNITS.find((u) => u.id === id) ?? EXTRA_UNITS.find((u) => u.id === id))?.label ?? id }))] },
       { key: 'unitCount', label: 'Units', type: 'number', default: 5 },
     );
   }

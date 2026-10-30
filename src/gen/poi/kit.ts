@@ -17,6 +17,11 @@ import type { PoiEntity, PoiOutput, PoiSpec, PoiType, Rect } from './types.ts';
  */
 
 export const NODRAW = 'TOOLS/TOOLSNODRAW';
+/** Units the POIs place beyond the mission kits' list. */
+export const EXTRA_UNITS = [
+  { id: 'antlion', label: 'Antlion', cls: 'unit_antlion', unittype: '' },
+  { id: 'antlionguard', label: 'Antlion guard', cls: 'unit_antlionguard', unittype: '' },
+];
 /** Large units have a radius of 58: routes and gaps are at least this wide. */
 export const ROUTE_WIDTH = 128;
 /** Pads and paths stand this far above the ground (keeps them clear of the ground's own faces). */
@@ -51,7 +56,7 @@ export interface PropOptions {
 }
 
 /** Edge kinds: models along a line, or brushes. */
-export type EdgeKind = 'fence' | 'chainlink' | 'wood' | 'border' | 'barbed' | 'wall' | 'hedge' | 'kerb' | 'railing' | 'combine';
+export type EdgeKind = 'fence' | 'chainlink' | 'wood' | 'border' | 'barbed' | 'farm' | 'rail' | 'wall' | 'hedge' | 'kerb' | 'railing' | 'combine';
 
 export class PoiKit {
   readonly doc: VmfDocument;
@@ -228,6 +233,47 @@ export class PoiKit {
     }
     this.occupied.push(rect(x - rOut, y - rOut, x + rOut, y + rOut));
     return out;
+  }
+
+  /**
+   * A convex cross-section (`profile`: [across, up] pairs, any winding) extruded along local x (`along` 'x',
+   * across = local y) or local y, from `a` to `b`. Logs, pipes, roof ridges, prisms lying down.
+   */
+  extrude(profile: [number, number][], along: 'x' | 'y', a: number, b: number, material: string | ShapeMaterials): KVNode {
+    const m = typeof material === 'string' ? { top: material, bottom: material, sides: material } : material;
+    const p = (s: number, c: number, h: number) => {
+      const w = along === 'x' ? this.world(s, c) : this.world(c, s);
+      return new Vector3(w.x, w.y, this.z + h);
+    };
+    const A = profile.map(([c, h]) => p(a, c, h)), B = profile.map(([c, h]) => p(b, c, h));
+    const centre = [...A, ...B].reduce((s, q) => s.add(q), new Vector3()).divideScalar(A.length * 2);
+    const faces: { points: [Vector3, Vector3, Vector3]; material: string }[] = [
+      { points: [A[0], A[1], A[2]], material: m.sides },
+      { points: [B[0], B[2], B[1]], material: m.sides },
+    ];
+    for (let i = 0; i < profile.length; i++) {
+      const j = (i + 1) % profile.length;
+      const up = (profile[i][1] + profile[j][1]) / 2 > (Math.max(...profile.map((q) => q[1])) + Math.min(...profile.map((q) => q[1]))) / 2;
+      faces.push({ points: [A[i], A[j], B[j]], material: up ? m.top : m.bottom });
+    }
+    for (const f of faces) {
+      const [x, y, z] = f.points;
+      const n = new Vector3().subVectors(z, x).cross(new Vector3().subVectors(y, x));
+      if (n.dot(new Vector3().subVectors(x, centre)) < 0) f.points = [x, z, y];
+    }
+    const node = solidNode(this.doc, faces);
+    this.out.detail.push(node);
+    return node;
+  }
+
+  /** A log (or pipe) lying along local x or y: an octagonal prism of radius r, resting on the ground. */
+  log(along: 'x' | 'y', a: number, b: number, at: number, r: number, material: string, dz = 0): KVNode {
+    const prof: [number, number][] = [];
+    for (let i = 0; i < 8; i++) {
+      const t = ((i + 0.5) / 8) * Math.PI * 2;
+      prof.push([Math.round(at + Math.cos(t) * r), Math.round(dz + r + Math.sin(t) * r)]);
+    }
+    return this.extrude(prof, along, a, b, { top: material, bottom: material, sides: 'WOOD/WOODBEAM001A' });
   }
 
   /** A sloped slab (ramp, awning): a quad whose top rises from `za` along one local edge to `zb` at the other. */
@@ -583,7 +629,7 @@ export class PoiKit {
 
   /** A group of units (owner 1, the enemy) around a local point, in free spots. */
   unitGroup(unitId: string, x: number, y: number, count: number, owner = '1'): number {
-    const u = UNITS.find((q) => q.id === unitId);
+    const u = UNITS.find((q) => q.id === unitId) ?? EXTRA_UNITS.find((q) => q.id === unitId);
     if (!u) return 0;
     let placed = 0;
     for (let t = 0; t < count * 10 && placed < count; t++) {
@@ -634,6 +680,8 @@ const EDGE_MODELS: Partial<Record<EdgeKind, EdgePiece[]>> = {
   barbed: [edgePiece('props_wasteland/exterior_fence002e', 90), edgePiece('props_wasteland/exterior_fence002d', 90), edgePiece('props_wasteland/exterior_fence002b', 90)],
   combine: [edgePiece('props_combine/combine_fence01b', 90)],
   hedge: [edgePiece('props_foliage/hedge_256', 0), edgePiece('props_foliage/hedge_128', 0)],
+  farm: [edgePiece('brush/fence_wood_512', 90), edgePiece('brush/fence_wood_256', 90), edgePiece('brush/fence_wood_128', 90)],
+  rail: [edgePiece('props_wasteland/wood_fence01a', 90), edgePiece('props_wasteland/wood_fence01c', 90)],
 };
 
 /**
