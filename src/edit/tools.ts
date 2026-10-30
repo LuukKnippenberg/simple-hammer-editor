@@ -17,8 +17,11 @@ import { SoundTool } from './soundTool.ts';
 import { PoiTool } from './poiTool.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { handleDragged } from '../gen/poi/action.ts';
-import { handleOf, isHandle } from '../gen/poi/handle.ts';
+import { handleOf } from '../gen/poi/handle.ts';
 import { POI_ID_KEY } from '../gen/poi/spec.ts';
+import { blockHandleDragged } from '../gen/buildingAction.ts';
+import { blockOfSolid, blockOwner } from '../gen/buildingStore.ts';
+import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE } from '../gen/handle.ts';
 
 export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi';
 
@@ -37,7 +40,7 @@ export interface Tool {
 
 export const snap = (v: number, g: number) => Math.round(v / g) * g;
 
-/** Nearest brush or entity under the cursor (POI handles count with `handles`). */
+/** Nearest brush or entity under the cursor (generator handles count with `handles`). */
 export function pickObject(editor: Editor, ndc: Vector2, opts: { handles?: boolean } = {}): { solid?: MapSolid; entity?: MapEntity; point: Vector3; normal?: Vector3; side?: MapSolid['sides'][number] } | null {
   const ray = editor.raycaster(ndc);
   const b = editor.world.raycast(ray, opts);
@@ -176,21 +179,24 @@ export class SelectTool implements Tool {
       if (!e.shiftKey) sel.clear();
       return;
     }
-    const item: { solid?: MapSolid; entity?: MapEntity } = this.poiHandle(hit.entity ?? hit.solid?.entity ?? undefined) ?? (hit.entity ? { entity: hit.entity } : { solid: hit.solid });
+    const item: { solid?: MapSolid; entity?: MapEntity } = this.ownerHandle(hit.entity ?? hit.solid?.entity ?? undefined, hit.solid) ?? (hit.entity ? { entity: hit.entity } : { solid: hit.solid });
     if (e.shiftKey) sel.toggle(item);
     else sel.set(item.solid ? [item.solid] : [], item.entity ? [item.entity] : []);
   }
 
   /**
-   * A click on a POI's handle selects the whole POI by its handle; so does a click on anything the POI made,
-   * while handles are shown (hide them to pick single props and brushes).
+   * A click on a generator's handle (a POI's, a block of buildings') selects the whole thing by its handle; so
+   * does a click on anything it made, while handles are shown (hide them to pick single props and brushes).
    */
-  private poiHandle(owner: MapEntity | undefined): { entity: MapEntity } | null {
-    if (!owner) return null;
-    if (isHandle(owner)) return { entity: owner };
-    const uid = owner.get(POI_ID_KEY);
-    const handle = uid && this.editor.world.visibleKinds.handle ? handleOf(this.editor.doc, uid) : null;
-    return handle ? { entity: handle } : null;
+  private ownerHandle(owner: MapEntity | undefined, solid: MapSolid | undefined): { entity: MapEntity } | null {
+    if (owner && isGeneratorHandle(owner)) return { entity: owner };
+    if (!this.editor.world.visibleKinds.handle) return null;
+    const doc = this.editor.doc;
+    const poi = owner?.get(POI_ID_KEY);
+    if (poi) { const h = handleOf(doc, poi); return h ? { entity: h } : null; }
+    const block = owner ? blockOwner(doc, owner) : solid ? blockOfSolid(doc, solid) : null;
+    const h = block && findHandle(doc, BUILDING_HANDLE, block.get(BUILDING_HANDLE.idKey) ?? '');
+    return h ? { entity: h } : null;
   }
 
   private dragStart(): void {
@@ -258,12 +264,15 @@ export class SelectTool implements Tool {
     this.start = null;
     const sel = this.editor.selection;
     const handle = sel.entities.size === 1 && !sel.solids.size ? [...sel.entities][0] : null;
-    if (handle && isHandle(handle)) {
-      // A dragged POI handle: the POI is rebuilt to fit, in the same undo step as the drag.
+    const kind = kindOf(handle);
+    if (handle && kind) {
+      // A dragged generator handle: what it stands for is rebuilt to fit, in the same undo step as the drag.
       const mode = this.mode;
-      this.editor.history.group(mode === 'translate' ? 'Move POI' : 'Resize POI', () => {
+      const what = kind === POI_HANDLE ? 'POI' : 'buildings';
+      this.editor.history.group(mode === 'translate' ? `Move ${what}` : `Resize ${what}`, () => {
         this.endHistory?.();
-        handleDragged(this.editor, handle, mode);
+        if (kind === POI_HANDLE) handleDragged(this.editor, handle, mode);
+        else blockHandleDragged(this.editor, handle, mode);
       });
     } else {
       this.endHistory?.();

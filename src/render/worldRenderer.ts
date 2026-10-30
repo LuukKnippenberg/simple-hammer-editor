@@ -259,7 +259,7 @@ export class WorldRenderer {
     return this.geoms.get(s)?.bounds ?? null;
   }
 
-  /** Nearest brush hit. POI handles only count with `handles` (the Select tool); other tools reach what's inside. */
+  /** Nearest brush hit. Generator handles only count with `handles` (the Select tool); other tools reach what's inside. */
   raycast(ray: Raycaster, opts: { handles?: boolean } = {}): BrushHit | null {
     const meshes = [...this.batches.values()].filter((b) => b.mesh.visible && (opts.handles || b.kind !== 'handle')).map((b) => b.mesh);
     for (const m of meshes) if (!m.geometry.boundsTree) m.geometry.computeBoundsTree();

@@ -1431,12 +1431,13 @@ None of the catalogue's types were skipped. Differences from the plan:
 
 ### POI handles
 
-Every POI gets a **handle**: a faint orange box over its rectangle (`she_poi_handle`, `src/gen/poi/handle.ts`).
+Every POI gets a **handle**: a faint orange box over its rectangle (`she_poi_handle`, `src/gen/poi/handle.ts`,
+built on the shared `src/gen/handle.ts`).
 It is the easy way to work with a POI as one object:
 
 - **Select**: with the Select tool, a click on the handle, or on anything the POI made, selects the whole POI;
   the Selection tab then shows only its settings. Other tools ignore handles, so they still reach the ground
-  and props inside. Hide the handles (**POI handles** in the view bar) to pick single props and brushes.
+  and props inside. Hide the handles (**Handles** in the view bar) to pick single props and brushes.
 - **Move** (M) and **resize** (R): drag the gizmo; when the drag ends the POI is rebuilt to fit, in the same
   undo step. A moved POI stands on the ground at its new spot (unless it was also lifted or lowered); a resize
   is clamped to the type's sizes.
@@ -1446,6 +1447,47 @@ It is the easy way to work with a POI as one object:
   get one when they are regenerated.
 
 `scripts/poi-handles-demo.mjs` generates a playground and drives all of this with the mouse and keyboard.
+
+### Building handles
+
+Blocks of buildings work the same way. Every generated block (from the Building panel, Sketch or Generate map) is
+a **stored block**, and has a faint blue handle: a 64-unit plinth 16 units wider than its footprint on each side,
+so it shows beside the walls (`she_building_handle`).
+
+- **What is stored**: the block's func_detail keeps its footprint (rectangle and level) and all its building
+  options (architecture, floors, facade, corners, roofs, detail, weathering, interiors, seed, ...) in
+  `she_buildings`, written like `she_road` and `she_poi` (`src/gen/buildingStore.ts`). Options are stored by
+  name, so options added later are kept too. Its point entities carry `she_building_id`; its world brushes get
+  one run of consecutive ids, listed in `she_building_world` (`"1200-1260"`). A rebuild replaces exactly these.
+- **Select**: a click on the handle, or on any wall, roof or prop of the block, selects the block. The Selection
+  tab then shows the Building panel's controls filled in from the stored options, with **Regenerate** (with the
+  changed settings), **Re-roll** (new seed) and **Delete**. With the handles hidden, a click picks one brush, and
+  the panel offers **Select whole block**.
+- **Move** (M) and **resize** (R) with the gizmo: the block is rebuilt to fit when the drag ends, in the same undo
+  step as the drag. A move keeps the block's level unless the handle was lifted or lowered. A resize keeps the
+  level and at least 128 × 128; its height is ignored. Comma and period turn the footprint a quarter turn around
+  its centre (the buildings are generated anew for it). **Ctrl+D** builds a copy 256 units along +x (same
+  settings and seed, same group), and **Delete** removes the block with all its parts.
+- **Groups and street dressing**: blocks generated together form a group (`group` in `she_buildings`). The
+  cables, lamps and trees between them carry `she_building_group` and belong to the group, not to one block.
+  Rebuilding, moving, resizing, duplicating or deleting any block of the group rebuilds the group's dressing from
+  all its blocks, so no cable is left hanging from a wall that moved. Cable names carry the group id, so two
+  groups never link each other's keyframes. The dressing of each block is cached by footprint and options; a
+  block not in the cache is generated again into a scratch document to get it.
+- **Sketch and Generate map**: each Sketch level is one group, and each generated map is one group. Their
+  lamps and trees stand on the ground and pavements under them, never on a carriageway; in the editor that
+  is the roads stored in the map plus a ray down, looking past building blocks. The first street pass still
+  draws from the map's own random sequence, so generated maps stay as they were; the first rebuild of one of
+  their blocks deals the group's dressing anew from the group's seed. The backdrop ring of blocks outside a
+  generated city map is not stored (it keeps no props or street dressing, and it is scenery outside the play
+  area).
+- **Compiles**: `stripHandles` (compile dialog and `scripts/compile-map.mjs`) removes POI and building handles,
+  and the func_detail of a block too small to build on, which holds nothing but its settings.
+- Blocks generated before this have no stored settings and no handle; they stay plain brushes.
+
+`scripts/building-handles-demo.mjs` generates two blocks from block brushes with the Building panel, then
+selects one by a wall, moves and resizes it, regenerates it as another architecture, undoes, duplicates,
+deletes and picks a single brush with the handles hidden, all with the mouse and keyboard.
 
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 

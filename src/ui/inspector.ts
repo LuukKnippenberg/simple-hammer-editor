@@ -5,7 +5,8 @@ import { applyMaterial, BRUSH_CLASSES, deleteSelection, duplicateSelection, move
 import { remapSolid } from '../edit/brushes.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
-import { buildingsFromSelection } from '../gen/buildingAction.ts';
+import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, selectBlock, selectedBlocks } from '../gen/buildingAction.ts';
+import { blockFinder, blockOf } from '../gen/buildingStore.ts';
 import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type BuildingOptions, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
 import { INTERIOR_STYLES, type InteriorStyleName } from '../gen/styles.ts';
 import type { CornerOption } from '../gen/buildingPlan.ts';
@@ -42,9 +43,19 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (pois.length) {
       panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
         h('div', {}, pois.length > 1 ? `${pois.length} points of interest` : 'Point of interest'),
-        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the POI handles (view bar) to pick single props and brushes.'),
+        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         pois.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicatePoi(editor, pois[0]) }, 'Duplicate')) : null));
       if (pois.length === 1) { const p = poiEditor(editor, pois[0]); if (p) panel.append(p); }
+      return;
+    }
+    // Building handles stand for their blocks: only the block's building settings.
+    const blocks = selectedBlocks(editor);
+    if (blocks.length) {
+      panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
+        h('div', {}, blocks.length > 1 ? `${blocks.length} blocks of buildings` : 'Block of buildings'),
+        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
+        blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
+      if (blocks.length === 1) panel.append(buildingPanel(editor, blocks[0]));
       return;
     }
     const solids = sel.allSolids();
@@ -60,6 +71,14 @@ export function mountInspector(editor: Editor): HTMLElement {
     for (const owner of owners) {
       panel.append(h('div.section', {}, h('div.hint', {}, `Part of ${owner.classname} (${owner.solids.length} brushes)`),
         h('button', { onclick: () => sel.set([], [owner]) }, `Select whole ${owner.classname}`)));
+    }
+    // Brushes picked out of a generated block (handles hidden): offer the whole block.
+    const looseWorld = [...sel.solids].filter((s) => !s.entity);
+    const findBlock = blockFinder(editor.doc);
+    const partOf = new Set(looseWorld.map(findBlock).filter((b): b is MapEntity => !!b));
+    for (const b of partOf) {
+      panel.append(h('div.section', {}, h('div.hint', {}, 'Part of a block of generated buildings'),
+        h('button', { onclick: () => selectBlock(editor, b) }, 'Select whole block')));
     }
     if ([...sel.solids].some((s) => !s.entity)) {
       const cls = h('select', {}, ...BRUSH_CLASSES.map((b) => h('option', { value: b.cls }, b.label))) as HTMLSelectElement;
@@ -88,7 +107,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (line) panel.append(powerlinePanel(editor, ents[0], line.spec, line.members.length));
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
     if (solids.length) panel.append(brushEditor(editor));
-    if ([...sel.solids].some((s) => !s.entity)) panel.append(buildingPanel(editor));
+    if (looseWorld.length && !partOf.size) panel.append(buildingPanel(editor));
   };
   editor.on('selection', render);
   editor.on('change', render);
@@ -255,8 +274,8 @@ function powerlinePanel(editor: Editor, e: MapEntity, spec: PowerlineSpec, count
     h('button', { onclick: () => { const l = powerlineOf(editor.doc.entities, e); if (l) { editor.history.remove('Delete powerline', [], l.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline'));
 }
 
-/** Turns the selected block brushes into buildings. */
-function buildingPanel(editor: Editor): HTMLElement {
+/** Turns the selected block brushes into buildings; for a generated block (`block`), its stored settings. */
+function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElement {
   const minF = h('input', { type: 'number', value: '3', min: '1', max: '12' }) as HTMLInputElement;
   const maxF = h('input', { type: 'number', value: '6', min: '1', max: '12' }) as HTMLInputElement;
   const arch = h('select', { title: 'Kind of buildings: facades, roofs, corners, towers and street features' },
@@ -295,9 +314,33 @@ function buildingPanel(editor: Editor): HTMLElement {
   const wideDoors = h('input', { type: 'checkbox', checked: false, title: '128-wide doorways so the antlion guard fits through' }) as HTMLInputElement;
   const courtyards = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const annexes = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
-  const go = () => {
+  const stored = blockOf(block);
+  if (stored) {
+    const o = stored.options;
+    arch.value = o.architecture ?? 'mixed';
+    minF.value = String(o.minFloors);
+    maxF.value = String(o.maxFloors);
+    style.value = o.style ?? '';
+    corners.value = o.corners ?? '';
+    roofs.value = o.roofs ?? 'mixed';
+    detail.value = String(o.detail ?? 2);
+    towers.checked = o.towers ?? true;
+    courtyards.checked = o.courtyards ?? true;
+    annexes.checked = o.annexes ?? true;
+    alleys.checked = o.alleys;
+    props.checked = o.roofProps;
+    weathering.value = String(o.weathering ?? 0.5);
+    interiors.value = o.interiors ?? '';
+    interiorStyle.value = o.interiorStyle ?? '';
+    cut.value = String(o.cutHeight ?? 112);
+    furnish.value = o.furnish ?? 'full';
+    lights.checked = o.interiorLights ?? true;
+    wideDoors.checked = o.wideDoors ?? false;
+    seed.value = String(o.seed);
+  }
+  const read = (): BuildingOptions => {
     const lo = Math.max(1, parseInt(minF.value, 10) || 2);
-    const n = buildingsFromSelection(editor, {
+    return {
       seed: parseInt(seed.value, 10) || 1,
       minFloors: lo, maxFloors: Math.max(lo, parseInt(maxF.value, 10) || lo),
       alleys: alleys.checked, roofProps: props.checked, style: (style.value || undefined) as FacadeStyle | undefined,
@@ -307,12 +350,13 @@ function buildingPanel(editor: Editor): HTMLElement {
       interiors: (interiors.value || undefined) as BuildingOptions['interiors'], interiorStyle: (interiorStyle.value || undefined) as InteriorStyleName | undefined,
       cutHeight: Math.max(96, Math.min(128, parseInt(cut.value, 10) || 112)), furnish: furnish.value as BuildingOptions['furnish'],
       interiorLights: lights.checked, wideDoors: wideDoors.checked,
-    });
+    };
+  };
+  const go = () => {
+    const n = buildingsFromSelection(editor, read());
     toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''} (seed ${seed.value})` : 'Selection is too small for a building (min 128×128)');
   };
-  return h('div.section', {},
-    h('h3', {}, 'Generate buildings'),
-    h('p.hint', {}, 'Replaces the selected block(s) with a city block: a ring around a courtyard when large enough, otherwise a row of buildings.'),
+  const rows = [
     h('div.row', {}, h('label', {}, 'Architecture'), arch),
     h('div.row', {}, h('label', {}, 'Floors'), minF, h('span.muted', {}, 'to'), maxF),
     h('div.row', {}, h('label', {}, 'Facade'), style),
@@ -332,5 +376,21 @@ function buildingPanel(editor: Editor): HTMLElement {
     h('div.row', {}, h('label', {}, 'Lights'), lights),
     h('div.row', {}, h('label', {}, 'Wide doors'), wideDoors, h('span.hint', {}, 'for large units')),
     h('div.row', {}, h('label', {}, 'Seed'), seed, reroll),
+  ];
+  if (block && stored) {
+    const r = stored.rect;
+    const rebuild = (label: string) => regenerateBlock(editor, block, { options: read() }, label);
+    return h('div.section', {}, h('h3', {}, '🏢 Buildings'),
+      h('p.hint', {}, `${r.x1 - r.x0} × ${r.y1 - r.y0} units. Change the settings and press Regenerate.`),
+      ...rows,
+      h('div.row', {},
+        h('button.primary', { title: 'Rebuild with these settings', onclick: () => rebuild('Regenerate buildings') }, 'Regenerate'),
+        h('button', { title: 'Same settings, new seed', onclick: () => { seed.value = String(Math.floor(Math.random() * 100000)); rebuild('Re-roll buildings'); } }, 'Re-roll'),
+        h('button', { onclick: () => deleteBlock(editor, block) }, 'Delete')));
+  }
+  return h('div.section', {},
+    h('h3', {}, 'Generate buildings'),
+    h('p.hint', {}, 'Replaces the selected block(s) with a city block: a ring around a courtyard when large enough, otherwise a row of buildings.'),
+    ...rows,
     h('button.primary', { onclick: go }, '🏢 Generate buildings'));
 }

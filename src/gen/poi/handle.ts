@@ -1,54 +1,33 @@
-import { Box3, Vector3 } from 'three';
-import { KVNode, KVPair } from '../../vmf/keyvalues.ts';
+import type { Box3 } from 'three';
+import type { KVNode } from '../../vmf/keyvalues.ts';
 import type { MapEntity, VmfDocument } from '../../vmf/map.ts';
-import { boxSolid } from '../../edit/brushes.ts';
-import { editorBlock } from '../../edit/actions.ts';
+import { findHandle, fitHandleTo, newHandle, POI_HANDLE } from '../handle.ts';
 import { fitRect } from './registry.ts';
-import { POI_ID_KEY } from './spec.ts';
 import type { PoiSpec, PoiType, Rect, Rotation } from './types.ts';
 
 /**
- * A POI's handle: one translucent box over its rectangle. Clicking it selects the whole POI; the move and resize
- * gizmos drag it, and the POI is rebuilt to fit when the drag ends. It only exists in the editor: compiles strip
- * it (`stripHandles`), saved VMFs keep it.
+ * A POI's handle: one translucent box over its rectangle (see `src/gen/handle.ts`, shared with building blocks).
+ * Clicking it selects the whole POI; the move and resize gizmos drag it, and the POI is rebuilt to fit when the
+ * drag ends.
  */
-export const HANDLE_CLASS = 'she_poi_handle';
-/** Not a game material: the editor draws it as a faint box (see materials.ts). */
-export const HANDLE_MATERIAL = 'EDITOR/POI_HANDLE';
-export const HANDLE_HEIGHT = 64;
+export const HANDLE_CLASS = POI_HANDLE.classname;
+export const HANDLE_MATERIAL = POI_HANDLE.material;
+export { HANDLE_HEIGHT, stripHandles } from '../handle.ts';
 
 export const isHandle = (e: MapEntity | null | undefined): boolean => e?.classname === HANDLE_CLASS;
 
 /** The handle of the POI with this uid, if it has one. */
 export function handleOf(doc: VmfDocument, uid: string): MapEntity | null {
-  return doc.entities.find((e) => isHandle(e) && e.get(POI_ID_KEY) === uid) ?? null;
-}
-
-function handleSolid(doc: VmfDocument, spec: PoiSpec): KVNode {
-  const r = spec.rect;
-  return boxSolid(doc, new Vector3(r.x0, r.y0, spec.z), new Vector3(r.x1, r.y1, spec.z + HANDLE_HEIGHT), HANDLE_MATERIAL);
+  return findHandle(doc, POI_HANDLE, uid);
 }
 
 export function handleNode(doc: VmfDocument, spec: PoiSpec): KVNode {
-  const e = new KVNode('entity');
-  e.items.push(new KVPair('id', String(doc.nextId())), new KVPair('classname', HANDLE_CLASS), new KVPair(POI_ID_KEY, spec.uid),
-    handleSolid(doc, spec), editorBlock('255 166 48'));
-  return e;
+  return newHandle(doc, POI_HANDLE, spec.uid, spec.rect, spec.z);
 }
 
 /** Fits an existing handle's box to the spec (call inside a history step for undo). */
 export function fitHandle(doc: VmfDocument, handle: MapEntity, spec: PoiSpec): void {
-  handle.node.items = handle.node.items.filter((it) => !(it instanceof KVNode && it.name.toLowerCase() === 'solid'));
-  const ed = handle.node.items.findIndex((it) => it instanceof KVNode && it.name.toLowerCase() === 'editor');
-  handle.node.items.splice(ed >= 0 ? ed : handle.node.items.length, 0, handleSolid(doc, spec));
-  handle.reload();
-}
-
-/** Removes every handle (for the copy of a map that gets compiled). Returns how many. */
-export function stripHandles(doc: VmfDocument): number {
-  const handles = doc.entities.filter((e) => isHandle(e));
-  for (const h of handles) doc.removeEntity(h);
-  return handles.length;
+  fitHandleTo(doc, handle, spec.rect, spec.z);
 }
 
 /**

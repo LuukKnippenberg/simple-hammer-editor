@@ -99,7 +99,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     toggle('Top view', 'Orthographic top-down view (T)', () => editor.view === 'top', (v) => editor.setView3dOrTop(v ? 'top' : '3d')),
     toggle('Lighting', 'Preview in-game lighting: sun with shadows, ambient and light entities (L)', () => !!window.__editor?.lighting?.enabled, (v) => { window.__editor.lighting.setEnabled(v); editor.emit('lighting'); }),
     toggle('Tool brushes', 'Show clip, trigger, nodraw and other tool brushes', () => wr.visibleKinds.tool, (v) => { wr.visibleKinds.tool = v; wr.applyVisibility(); }),
-    toggle('POI handles', 'Show the boxes that select, move and resize points of interest (hide them to pick single props)', () => wr.visibleKinds.handle, (v) => { wr.visibleKinds.handle = v; wr.applyVisibility(); }),
+    toggle('Handles', 'Generator handles: show the boxes that select, move and resize points of interest and blocks of buildings (hide them to pick single props and brushes)', () => wr.visibleKinds.handle, (v) => { wr.visibleKinds.handle = v; wr.applyVisibility(); }),
     toggle('Sky brushes', 'Show skybox brushes', () => wr.visibleKinds.sky, (v) => { wr.visibleKinds.sky = v; wr.applyVisibility(); }),
     toggle('Props', 'Show prop models', () => editor.entities.showProps, (v) => editor.entities.setVisibility(v, editor.entities.showMarkers)),
     toggle('Entities', 'Show point entity markers', () => editor.entities.showMarkers, (v) => editor.entities.setVisibility(editor.entities.showProps, v)),

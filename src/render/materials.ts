@@ -2,7 +2,7 @@ import { Color, DoubleSide, MeshLambertMaterial, Vector2, type Texture } from 't
 import { loadVmt, normalizeMaterialPath, type Vmt } from '../assets/vmt.ts';
 import { loadTexture } from '../assets/textures.ts';
 
-/** `handle`: editor-only boxes (POI handles), drawn faint and never compiled. */
+/** `handle`: editor-only boxes (POI and building handles), drawn faint and never compiled. */
 export type MaterialKind = 'opaque' | 'tool' | 'sky' | 'translucent' | 'blend' | 'handle';
 
 export interface MaterialInfo {
@@ -92,7 +92,9 @@ export class MaterialLibrary {
       const kind = classify(key);
       if (kind === 'handle') {
         // Not a game material: nothing to load.
-        const material = new MeshLambertMaterial({ color: 0xffa630, emissive: 0x3a2000, transparent: true, opacity: 0.16, depthWrite: false });
+        // Orange for POIs, blue for blocks of buildings.
+        const blue = key.includes('building');
+        const material = new MeshLambertMaterial({ color: blue ? 0x40a8ff : 0xffa630, emissive: blue ? 0x00203a : 0x3a2000, transparent: true, opacity: 0.16, depthWrite: false });
         info = { name: key, kind, width: 512, height: 512, material, loaded: true, preview: null };
         this.world.set(key, info);
         return info;
