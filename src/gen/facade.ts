@@ -61,16 +61,16 @@ export function facadePrism(
 }
 
 /**
- * Moves every edge of a convex counter-clockwise polygon outwards by `d` (inwards when negative)
- * and returns the new corners.
+ * Moves every edge of a convex counter-clockwise polygon outwards by `d` (inwards when negative; one
+ * distance per edge when an array) and returns the new corners.
  */
-export function offsetPolygon(poly: Vector2[], d: number): Vector2[] {
+export function offsetPolygon(poly: Vector2[], d: number | number[]): Vector2[] {
   const n = poly.length;
   const lines = poly.map((a, i) => {
     const b = poly[(i + 1) % n];
     const dir = new Vector2().subVectors(b, a).normalize();
     const normal = new Vector2(dir.y, -dir.x);
-    return { p: a.clone().addScaledVector(normal, d), dir };
+    return { p: a.clone().addScaledVector(normal, Array.isArray(d) ? d[i] : d), dir };
   });
   return lines.map((l, i) => {
     const prev = lines[(i + n - 1) % n];

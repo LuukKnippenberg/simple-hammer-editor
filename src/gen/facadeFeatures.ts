@@ -140,7 +140,8 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
   const take = (from: number, to: number) => { for (let k = from; k < to; k++) used.add(k); };
 
   if ((o.oriels ?? true) && o.level >= 2 && o.floors >= 4 && w.len >= 384) {
-    // One or two oriels, two bays wide, from the first floor up to under the cornice.
+    // One or two oriels, two bays wide, from the first floor up to under the cornice: the cap (10 high)
+    // ends at the foot of the cornice fascia (24 under the top) instead of sharing its underside.
     const shape = rng.pick(['rect', 'angled', 'round'] as const);
     const count = w.len >= 768 ? rng.int(1, 2) : 1;
     for (let n = 0; n < count; n++) {
@@ -149,7 +150,7 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
       take(k - 1 < 0 ? 0 : k - 1, k + 3);
       solids.push(...oriel(doc, w, (k + 1) * bay, {
         width: 2 * bay - 8, depth: shape === 'round' ? bay - 4 : 32, shape, z0: o.z0,
-        zBottom: o.z0 + FLOOR + 16, zTop: top - 24 - (rng.chance(0.4) ? FLOOR : 0), windows: o.windows, trim: o.trim, plain: o.plain,
+        zBottom: o.z0 + FLOOR + 16, zTop: top - 34 - (rng.chance(0.4) ? FLOOR : 0), windows: o.windows, trim: o.trim, plain: o.plain,
       }));
     }
   }
