@@ -1,4 +1,4 @@
-import { Vector2, Vector3 } from 'three';
+import { Raycaster, Vector2, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
 import type { MapEntity, MapSide } from '../vmf/map.ts';
 import { fmt, vecStr } from '../vmf/map.ts';
@@ -33,8 +33,13 @@ export function overlaySides(editor: Editor, side: MapSide, center: Vector3, rad
 }
 
 /** Places an infodecal or info_overlay where the cursor hits a brush face. */
-export async function placeDecal(editor: Editor, ndc: Vector2, s: DecalSettings): Promise<MapEntity | null> {
-  const hit = editor.world.raycast(editor.raycaster(ndc));
+export function placeDecal(editor: Editor, ndc: Vector2, s: DecalSettings): Promise<MapEntity | null> {
+  return placeDecalRay(editor, editor.raycaster(ndc), s);
+}
+
+/** Places a decal where a world-space ray hits a brush face (used by scripts and the decal tool). */
+export async function placeDecalRay(editor: Editor, ray: Raycaster, s: DecalSettings): Promise<MapEntity | null> {
+  const hit = editor.world.raycast(ray);
   if (!hit) return null;
   const n = hit.normal.clone().normalize();
   const info = editor.decals.info(s.material);

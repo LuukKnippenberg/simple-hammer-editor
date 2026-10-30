@@ -305,6 +305,17 @@ a map can be redrawn and regenerated. The example below compiles sealed with a n
 ![Posters, crater, blood, trash and graffiti placed in the arena](docs/screenshots/phase11-arena-decals.png)
 ![An overlay clipped to the block it covers](docs/screenshots/phase11-overlay-closeup.png)
 
+### Additions found while building the Sofia map
+
+- **Block shapes**: the Block tool draws boxes, cylinders, cones/spires and domes (stacked convex
+  frustums) with a configurable number of sides.
+- **Static prop check**: the MDL loader reads `$staticprop` and physics `prop_data`; the compile dialog
+  flags `prop_static` entities that vbsp would delete and converts them to `prop_dynamic` in one click.
+- **RTS camera ground**: the map boundary floor now sits at ground level and sketch maps add playerclip
+  blocks over raised levels. The game's spawn camera traces down to playerclip, so this keeps the camera
+  at the right height (shipped maps do the same).
+- Decals can be placed along a world-space ray (`placeDecalRay`) for scripted map building.
+
 ## Development
 
 ```bash

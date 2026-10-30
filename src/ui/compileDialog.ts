@@ -1,5 +1,5 @@
 import type { Editor } from '../editor.ts';
-import { runChecks } from '../edit/preflight.ts';
+import { convertToDynamic, nonStaticProps, runChecks, type Check } from '../edit/preflight.ts';
 import { h, toast } from './dom.ts';
 import { missionRes } from './missionPanel.ts';
 
@@ -70,17 +70,24 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
   const playBtn = h('button', { disabled: true }, '▶ Launch game') as HTMLButtonElement;
   let lastName = '';
 
-  const renderChecks = () => {
-    const checks = runChecks(editor);
+  const renderChecks = async () => {
+    const checks: Check[] = runChecks(editor);
+    const bad = await nonStaticProps(editor);
+    checks.push({
+      id: 'static', label: 'Static props use static models', severity: 'warning', ok: !bad.length,
+      detail: bad.length ? `${bad.length} prop_static use a physics-only model; vbsp would delete them. Converting them to prop_dynamic keeps them.` : 'All prop_static models were compiled with $staticprop.',
+      fixLabel: 'Convert to prop_dynamic',
+      fix: bad.length ? () => convertToDynamic(editor, bad) : undefined,
+    });
     const fixable = checks.filter((c) => !c.ok && c.fix);
     checksEl.replaceChildren();
     checksEl.append(
       ...checks.map((c) => h('div.check' + (c.ok ? '.ok' : c.severity === 'error' ? '.err' : '.warn') as 'div', {},
         h('span.icon', {}, c.ok ? '✓' : c.severity === 'error' ? '✗' : '!'),
         h('div', { style: { flex: '1' } }, h('b', {}, c.label), h('div.hint', {}, c.detail)),
-        !c.ok && c.fix ? h('button', { onclick: () => { c.fix!(); renderChecks(); } }, c.fixLabel ?? 'Fix') : null)),
+        !c.ok && c.fix ? h('button', { onclick: () => { c.fix!(); void renderChecks(); } }, c.fixLabel ?? 'Fix') : null)),
     );
-    if (fixable.length > 1) checksEl.append(h('button', { onclick: () => { for (const c of fixable) c.fix!(); renderChecks(); } }, 'Fix all'));
+    if (fixable.length > 1) checksEl.append(h('button', { onclick: () => { for (const c of fixable) c.fix!(); void renderChecks(); } }, 'Fix all'));
   };
 
   const append = (kind: string, text: string) => {
@@ -126,7 +133,7 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
   return {
     open() {
       name.value = editor.mapName.replace(/\.vmf$/i, '').toLowerCase().replace(/[^a-z0-9_]+/g, '_');
-      renderChecks();
+      void renderChecks();
       backdrop.hidden = false;
     },
   };

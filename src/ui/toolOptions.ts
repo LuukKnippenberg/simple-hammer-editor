@@ -29,6 +29,15 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
         height.blur();
       });
       rows.push(h('div.row', {}, h('label', {}, 'Height'), height));
+      const shape = h('select', {}, ...[['box', 'Box'], ['cylinder', 'Cylinder'], ['cone', 'Cone / spire'], ['dome', 'Dome']].map(([v, l]) => h('option', { value: v }, l))) as HTMLSelectElement;
+      shape.value = tool.shape;
+      shape.addEventListener('change', () => { tool.shape = shape.value as BlockTool['shape']; shape.blur(); render(); });
+      rows.push(h('div.row', {}, h('label', {}, 'Shape'), shape));
+      if (tool.shape !== 'box') {
+        const sides = h('input', { type: 'number', value: String(tool.sides), min: '4', max: '32', step: '2' }) as HTMLInputElement;
+        sides.addEventListener('change', () => { tool.sides = Math.max(4, Math.min(32, parseInt(sides.value, 10) || 12)); sides.blur(); });
+        rows.push(h('div.row', {}, h('label', {}, 'Sides'), sides));
+      }
     }
     if (name === 'block' || name === 'paint') {
       const img = h('img') as HTMLImageElement;

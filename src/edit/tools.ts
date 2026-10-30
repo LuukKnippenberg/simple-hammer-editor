@@ -9,6 +9,7 @@ import { boxSolid, remapSolid, translateSolid } from './brushes.ts';
 import { placeEntity } from './actions.ts';
 import { KITS, recordKit, type ParamValue } from '../lw/kits.ts';
 import { moveOverlayBasis, placeDecal } from './decals.ts';
+import { shapeSolids, type ShapeKind } from './shapes.ts';
 
 export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal';
 
@@ -248,6 +249,8 @@ export class BlockTool implements Tool {
   private current = new Vector3();
   private baseZ = 0;
   height = 128;
+  shape: ShapeKind = 'box';
+  sides = 12;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -313,9 +316,12 @@ export class BlockTool implements Tool {
     this.preview.visible = false;
     this.editor.status = '';
     const doc = this.editor.doc;
-    const solid = doc.addSolid(boxSolid(doc, b.min, b.max, this.editor.currentMaterial));
-    this.editor.history.added('Create block', [solid]);
-    this.editor.selection.set([solid]);
+    const mat = this.editor.currentMaterial;
+    const nodes = this.shape === 'box' ? [boxSolid(doc, b.min, b.max, mat)]
+      : shapeSolids(doc, this.shape, b.min, b.max, { top: mat, bottom: 'TOOLS/TOOLSNODRAW', sides: mat }, this.sides);
+    const solids = nodes.map((n) => doc.addSolid(n));
+    this.editor.history.added(`Create ${this.shape}`, solids);
+    this.editor.selection.set(solids);
     this.editor.changed();
   }
 }

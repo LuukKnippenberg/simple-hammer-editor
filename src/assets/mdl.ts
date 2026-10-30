@@ -14,6 +14,11 @@ export interface SourceModel {
   /** Material paths per skin family: skins[family][skinRef] → "models/props/foo/bar". */
   skins: string[][];
   bounds: Box3;
+  /**
+   * Usable as prop_static: compiled with $staticprop and without a physics `prop_data` block
+   * (unless it sets allowstatic). vbsp deletes static props that break either rule.
+   */
+  isStatic: boolean;
 }
 
 const cache = new Map<string, Promise<SourceModel | null>>();
@@ -35,6 +40,7 @@ function parseMdl(buf: ArrayBuffer) {
   const dv = new DataView(buf);
   if (dv.getUint32(0, true) !== 0x54534449) throw new Error('not an MDL'); // IDST
   const version = dv.getInt32(4, true);
+  const flags = dv.getInt32(152, true);
   const numTextures = dv.getInt32(204, true), textureIndex = dv.getInt32(208, true);
   const numCd = dv.getInt32(212, true), cdIndex = dv.getInt32(216, true);
   const numSkinRef = dv.getInt32(220, true), numSkinFamilies = dv.getInt32(224, true), skinIndex = dv.getInt32(228, true);
@@ -71,7 +77,11 @@ function parseMdl(buf: ArrayBuffer) {
     }
     models.push({ vertexIndex: vertexIndex / 48, meshes });
   }
-  return { version, textures, cdmaterials, skinTable, models };
+  // STUDIOHDR_FLAGS_STATIC_PROP, and no breakable/physics prop_data in the model's keyvalues.
+  const text = new TextDecoder('latin1').decode(new Uint8Array(buf));
+  const pd = text.indexOf('prop_data');
+  const physicsOnly = pd >= 0 && !/"allowstatic"\s*"1"/i.test(text.slice(pd, pd + 400));
+  return { version, textures, cdmaterials, skinTable, models, isStatic: (flags & 0x10) !== 0 && !physicsOnly };
 }
 
 /** LOD 0 vertices of a VVD (positions, normals, uvs), with fixups applied. */
@@ -212,7 +222,7 @@ async function load(path: string): Promise<SourceModel | null> {
     geo.computeBoundingSphere();
     parts.push({ geometry: geo, skinRef });
   }
-  const model: SourceModel = { name: path, parts, skins, bounds };
+  const model: SourceModel = { name: path, parts, skins, bounds, isStatic: mdl.isStatic };
   if (alt) await pickCdMaterials(model, mdl.textures, alt);
   return model;
 }

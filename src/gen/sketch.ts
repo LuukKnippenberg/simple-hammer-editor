@@ -160,6 +160,28 @@ export function sketchHeights(s: Sketch): { W: number; H: number; heights: Float
   return { W, H, heights, steep };
 }
 
+/** Boxes from z = 0 up to each raised level (greedy rectangles of cells at or above the level). */
+export function levelBlocks(s: Sketch): Box3[] {
+  const out: Box3[] = [];
+  const maxLevel = Math.max(0, ...s.levels);
+  for (let lvl = 1; lvl <= maxLevel; lvl++) {
+    const used = new Uint8Array(s.w * s.h);
+    const is = (x: number, y: number) => x >= 0 && y >= 0 && x < s.w && y < s.h && s.levels[y * s.w + x] >= lvl && !used[y * s.w + x];
+    for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+      if (!is(x, y)) continue;
+      let x1 = x;
+      while (is(x1 + 1, y)) x1++;
+      let y1 = y;
+      const rowOk = (yy: number) => { for (let xx = x; xx <= x1; xx++) if (!is(xx, yy)) return false; return true; };
+      while (rowOk(y1 + 1)) y1++;
+      for (let yy = y; yy <= y1; yy++) for (let xx = x; xx <= x1; xx++) used[yy * s.w + xx] = 1;
+      // Each level's block sits on the one below it, so they never overlap.
+      out.push(new Box3(new Vector3(x * SKETCH_CELL, y * SKETCH_CELL, (lvl - 1) * s.levelHeight), new Vector3((x1 + 1) * SKETCH_CELL, (y1 + 1) * SKETCH_CELL, lvl * s.levelHeight)));
+    }
+  }
+  return out;
+}
+
 /** Rectangles covering the cells of one feature type that share a height level (greedy). */
 function featureRects(s: Sketch, f: Feature): { box: Box3; level: number }[] {
   const used = new Uint8Array(s.w * s.h);
@@ -262,7 +284,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
   const maxLevel = Math.max(0, ...s.levels);
   addEnvironment(doc, solids, ents, {
     width: mapW, height: mapH, apron, maxHeight: maxLevel * s.levelHeight + s.floors[1] * 128 + 768,
-    sunYaw: rng.int(20, 70), fogColor: theme.fog,
+    sunYaw: rng.int(20, 70), fogColor: theme.fog, cameraGround: levelBlocks(s),
   });
   doc.world.set('skyname', theme.sky);
   const shift = new Vector3(-mapW / 2, -mapH / 2, 0);

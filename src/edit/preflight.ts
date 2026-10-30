@@ -4,6 +4,7 @@ import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import type { MapEntity, MapSolid } from '../vmf/map.ts';
 import { boxSolid, solidBounds } from './brushes.ts';
 import { editorBlock, entityNode } from './actions.ts';
+import { loadModel } from '../assets/mdl.ts';
 
 export interface Check {
   id: string;
@@ -66,6 +67,31 @@ function snapOut(box: Box3, g = 64): Box3 {
   );
 }
 
+/** prop_static entities whose model was not compiled as a static prop (vbsp deletes these). */
+export async function nonStaticProps(editor: Editor): Promise<MapEntity[]> {
+  const props = editor.doc.entities.filter((e) => e.classname === 'prop_static' && e.get('model'));
+  const models = new Map<string, boolean>();
+  await Promise.all([...new Set(props.map((e) => e.get('model')!.toLowerCase()))].map(async (m) => {
+    const mdl = await loadModel(m);
+    models.set(m, !mdl || mdl.isStatic);
+  }));
+  return props.filter((e) => models.get(e.get('model')!.toLowerCase()) === false);
+}
+
+/** Turns props into prop_dynamic with the same model, placement and skin (one undo step). */
+export function convertToDynamic(editor: Editor, props: MapEntity[]): void {
+  if (!props.length) return;
+  const end = editor.history.begin('Convert to prop_dynamic', [], props);
+  for (const e of props) {
+    e.set('classname', 'prop_dynamic');
+    e.set('solid', '6');
+    e.set('DisableBoneFollowers', '1');
+    for (const k of ['disableselfshadowing', 'disablevertexlighting', 'ignorenormals', 'screenspacefade', 'uniformscale']) e.node.delete(k);
+  }
+  end();
+  editor.changed();
+}
+
 export function runChecks(editor: Editor): Check[] {
   const doc = editor.doc;
   const ents = doc.entities;
@@ -124,9 +150,12 @@ export function runChecks(editor: Editor): Check[] {
   });
 
   const starts = count('info_start_wars');
+  const mission = count('wars_player_setup') + count('wars_mission_objective') > 0;
   checks.push({
-    id: 'starts', label: 'Player starts (info_start_wars)', severity: 'warning', ok: starts >= 2,
-    detail: `${starts} found. Place one per player with the Entity tool ("Player start").`,
+    id: 'starts', label: mission ? 'Mission setup' : 'Player starts (info_start_wars)', severity: 'warning', ok: mission || starts >= 2,
+    detail: mission
+      ? 'Singleplayer mission: the player spawns at its info_player_wars; no multiplayer starts needed.'
+      : `${starts} found. Place one per player with the Entity tool ("Player start").`,
   });
 
   const boundary = count('func_map_boundary');
