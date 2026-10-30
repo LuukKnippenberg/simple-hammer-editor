@@ -79,6 +79,8 @@ export interface Sketch {
   facade?: FacadeStyle;
   /** Kind of buildings (default mixed). */
   architecture?: ArchitectureName;
+  /** Enterable open-top houses among the buildings (default from the architecture). */
+  interiors?: 'none' | 'some' | 'all';
 }
 
 export function emptySketch(w: number, h: number, theme: SketchTheme = 'city'): Sketch {
@@ -310,7 +312,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
     const z = level * s.levelHeight;
     const fp = box.clone();
     fp.min.z = fp.max.z = z;
-    const b = generateBuildings(doc, fp, { seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture });
+    const b = generateBuildings(doc, fp, { seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture, interiors: s.interiors });
     solids.push(...b.solids);
     const d = detailEntityNode(doc, b.detail);
     if (d) ents.push(d);

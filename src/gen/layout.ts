@@ -24,6 +24,8 @@ export enum Cell {
   Point = 5,
   Scrap = 6,
   Forest = 7,
+  /** Enterable open-top houses: village houses in the countryside, shacks in the city. */
+  Houses = 8,
 }
 
 export const CELL_INFO: Record<Cell, { label: string; color: string }> = {
@@ -35,6 +37,7 @@ export const CELL_INFO: Record<Cell, { label: string; color: string }> = {
   [Cell.Point]: { label: 'Control point', color: '#ffa630' },
   [Cell.Scrap]: { label: 'Scrap', color: '#d8c040' },
   [Cell.Forest]: { label: 'Trees', color: '#2f5a2a' },
+  [Cell.Houses]: { label: 'Houses (enterable)', color: '#c99566' },
 };
 
 export type Theme = 'rural' | 'city';
@@ -51,6 +54,8 @@ export interface GenerateOptions {
   highGround: number;
   /** Kind of buildings on city blocks (default mixed). */
   architecture?: ArchitectureName;
+  /** Enterable houses among the buildings on blocks (default: some in the countryside, the architecture's in the city). */
+  interiors?: 'none' | 'some' | 'all';
 }
 
 const THEMES = {
@@ -123,6 +128,18 @@ export function randomLayout(w: number, h: number, theme: Theme, seed: number): 
     }
   }
 
+  // A few hamlets of enterable houses in the countryside, from their own sequence.
+  if (theme === 'rural') {
+    const hr = new Rng(seed * 19 + 7);
+    const want = Math.max(1, Math.round((w * h) / 200));
+    for (let n = 0, placed = 0; n < 60 && placed < want; n++) {
+      const x = hr.int(5, w - 4), y = hr.int(1, h - 4), sw = hr.int(2, 3), sh = 2;
+      let clear = true;
+      for (let yy = y - 1; yy <= y + sh && clear; yy++) for (let xx = x - 1; xx <= x + sw && clear; xx++) if (get(xx, yy) !== Cell.Ground && get(xx, yy) !== Cell.Forest) clear = false;
+      if (clear) { rect(x, y, x + sw - 1, y + sh - 1, Cell.Houses); placed++; }
+    }
+  }
+
   // Bases in opposite corners, kept clear around them.
   rect(0, 0, 3, 3, Cell.Ground);
   rect(1, 1, 2, 2, Cell.Base);
@@ -163,8 +180,8 @@ function fields(L: Layout, opts: GenerateOptions, rng: Rng) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const c = cellAt(x, y);
     height[y * W + x] = c === Cell.High ? opts.highGround : 0;
-    alpha[y * W + x] = c === Cell.Road || c === Cell.Base || c === Cell.Point ? 255 : c === Cell.Block ? 200 : 0;
-    flat[y * W + x] = c === Cell.Base || c === Cell.Block || c === Cell.Point ? 1 : 0;
+    alpha[y * W + x] = c === Cell.Road || c === Cell.Base || c === Cell.Point ? 255 : c === Cell.Block ? 200 : c === Cell.Houses ? 140 : 0;
+    flat[y * W + x] = c === Cell.Base || c === Cell.Block || c === Cell.Point || c === Cell.Houses ? 1 : 0;
   }
   blur(height, W, H, 2);
   blur(height, W, H, 1);
@@ -329,6 +346,26 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
       const arch = ARCHITECTURES[opts.architecture ?? 'mixed'];
       const b = generateBuildings(doc, inset, {
         seed: rng.int(1, 1e9), minFloors: Math.min(arch.floors[0], 5), maxFloors: Math.min(arch.floors[1], 7), alleys: rng.chance(0.5), roofProps: true, architecture: opts.architecture,
+        interiors: opts.interiors ?? (opts.theme === 'rural' ? 'some' : undefined),
+      });
+      solids.push(...b.solids);
+      const d = detailEntityNode(doc, b.detail);
+      if (d) ents.push(d);
+      for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
+      dressings.push(b.dressing);
+    }
+  }
+  // Enterable houses: village houses in the countryside, shacks in the city, with gaps between them.
+  const houseRng = new Rng(opts.seed * 29 + 3);
+  for (const region of regions(L, Cell.Houses)) {
+    for (const r of rectangles(L, region)) {
+      const inset = r.clone();
+      inset.min.x += 32; inset.min.y += 32; inset.max.x -= 32; inset.max.y -= 32;
+      inset.min.z = inset.max.z = 0;
+      const village = opts.theme === 'rural';
+      const b = generateBuildings(doc, inset, {
+        seed: houseRng.int(1, 1e9), minFloors: 1, maxFloors: village ? 2 : 1, alleys: true, roofProps: false, courtyards: false,
+        architecture: village ? 'village' : 'slum', interiors: 'all',
       });
       solids.push(...b.solids);
       const d = detailEntityNode(doc, b.detail);

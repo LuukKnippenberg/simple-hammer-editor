@@ -551,6 +551,251 @@ vrad, navmesh) without the browser, optionally into another install:
 ![A crossing: lamps, cables, awnings, rounded corners](docs/screenshots/district-06-crossing.png)
 ![Rooftops: mansards, dormers, chimneys, a tower](docs/screenshots/district-07-rooftops.png)
 
+## Interior buildings
+
+Enterable, roofless "cutaway" houses next to the solid City 17 buildings: hollow walls cut off flat at one
+height, rooms with doorways, furniture and lights, sometimes stairs to a partial upper floor. Units walk into
+them and stay visible from the RTS camera. The plan is in
+[docs/interior-buildings-plan.md](docs/interior-buildings-plan.md).
+
+### Interior phase 1: floor-plan planner
+
+`src/gen/interiorPlan.ts` turns a footprint into an `InteriorPlan` (data only, no brushes):
+
+- **Rooms**: the footprint is rasterised on a 64 grid (grid lines through every corner, the last cell of a
+  run takes the remainder), cut into rectangles through its inner corners (an L becomes two), and each
+  rectangle is split along its longer side into rooms of at least 128 × 128 (192 with wide doors).
+- **Walls** come from the cell edges where the room changes: exterior walls 16 thick inside the
+  footprint, partitions 8 thick on the room line. Overlaps are resolved so the boxes never intersect: a
+  wall ending inside another is cut back to its face, the stronger wall keeps a corner, a crossing splits
+  the weaker one. Pieces are then split wherever the room on either side changes, so each face looks
+  into exactly one room.
+- **Openings**: entrances first (requested footprint edges, otherwise a long wall; a second one on
+  another side for houses over 384 long), then a spanning tree of inner doors so every room is reachable,
+  plus a few extra doors for loops, and sometimes a wide gap between living rooms. Doors are 64 or 96
+  wide (128 with wide doors); everything keeps 16 from wall ends and from walls that join the wall.
+  Windows (64 or 96, sill 40, lintel 96) go on outside walls about every 128–192 units, 32 clear of
+  doors and corners.
+- **Room types**: a hall or living room at the front door, a kitchen next to it, the bath next to the
+  kitchen, then bedrooms and storage; workshops get a workshop and storage rooms.
+- **Two storeys**: an upper floor over one end (a third to half of the house), and a straight flight of
+  8 steps (16 rise, 24 tread, 96 wide) along an outside wall of the open part, rising to the slab edge.
+  Room splits never cut through the stairs and the space in front of them.
+- **Lanes** (48 wide, from each door and the stairs to the middle of the room), **door zones** (64 deep
+  on both sides of every doorway) and a **porch** strip in front of the main door, for later phases.
+- Tests (`tests/interiorPlan.test.ts`, 6 footprints × 40 seeds × 3 option sets): every room reachable from
+  an entrance, door widths, openings clear of wall ends, joins and each other, rooms tiling the footprint,
+  disjoint wall boxes, the same seed giving the same plan, L-shapes, stairs landing on the upper floor.
+
+![Floor plans: one storey (top row, the last with wide doors), two storeys and a workshop](docs/screenshots/interiors-p1-plans.png)
+![One-storey plans: hall, living room, chequered kitchen, tiled bath, porch decks](docs/screenshots/interiors-p1-one-storey.png)
+![Two storeys: the upper floor's walls in white, a flight beside it](docs/screenshots/interiors-p1-two-storey.png)
+![An L with an upper wing, a tall narrow house and a workshop](docs/screenshots/interiors-p1-two-storey-2.png)
+
+### Interior phase 2: hollow shell, caps and floors
+
+`src/gen/interiorShell.ts` turns a plan into brushes, and `interiorHouse()` (`src/gen/interiorHouse.ts`, the
+function the point-of-interest generator calls) now builds real houses instead of a solid box.
+
+- **Walls**: each wall piece is split around its openings into convex boxes: full-height piers, a sill
+  block under each window and a lintel over doors and windows. Walls stop flat at the **cut height**
+  (default 112, 96–128 work), and the top of every wall brush (and every window sill) carries the
+  **cap** material, world aligned so caps line up across brushes: from above the house reads as a bright
+  outline of its floor plan.
+- **Faces**: each face looks up the room in front of it: the outer face gets the house's outside finish,
+  inner faces their room's finish (tiles in kitchens and baths, wallpaper or plaster elsewhere), the
+  reveals of openings the room's finish too, bottoms nodraw. Textures are 0.25 scale with one 128-unit
+  tile per storey, starting at the floor.
+- **Floors**: one slab per room, top at z0 + 8 (an 8-unit step for units), sunk 32 into the ground so
+  houses sit on uneven terrain; its outer sides show the outside finish like a plinth. A **porch** is a
+  plank deck at the same height, sometimes with railings on its ends.
+- **Windows**: open, backed with a black panel in the middle of the hole, or boarded with two or three
+  planks across the outside, per house from its style.
+- **Entities**: floor slabs are world brushes, walls, fills and the porch func_detail (open-top walls
+  don't seal or block vis usefully at RTS heights); func_detail still blocks units and the navmesh.
+- **Interior styles** (`INTERIOR_STYLES` in `src/gen/styles.ts`):
+
+| Style | Outside | Inside | Floors | Cap | Windows |
+|---|---|---|---|---|---|
+| Plaster farmhouse | cream, yellow and grey plaster | wallpapers, white tiles | wood planks, tiled kitchens | white trim | black or open |
+| Wooden shack | weathered white, red and grey siding | plank walls | worn planks | white planks | boarded or open |
+| Brick cottage | red and brown brick | plaster and wallpaper, tiles | wood, tiles | white trim | black or boarded |
+| Concrete outbuilding | concrete | concrete block | concrete | grey | open |
+| Corrugated slum shack | rusty, red, yellow and grey corrugated metal | planks | planks, concrete | grey planks | open or boarded |
+
+- Materials and window fills draw from their own random sequence, so they never change the floor plan.
+- Tests (`tests/interiorShell.test.ts`): every brush is a valid box, wall and floor brushes never overlap,
+  every opening is a clear hole, every wall stops at z0 + cut with the cap on top, inner faces use their
+  room's finish.
+- Five rows of seven houses (one row per style, the last house in each row cut at 96) are about 1,600
+  brushes, 45 per house.
+
+![Five rows of houses, one per style](docs/screenshots/interiors-p2-overview.png)
+![Plaster farmhouses from the RTS angle: white caps, wallpapered rooms, tiled kitchens, black windows](docs/screenshots/interiors-p2-farmhouse.png)
+![Wooden shacks](docs/screenshots/interiors-p2-shack.png)
+![Brick cottages](docs/screenshots/interiors-p2-brick.png)
+![Concrete outbuildings](docs/screenshots/interiors-p2-outbuilding.png)
+![Concrete outbuildings and corrugated slum shacks](docs/screenshots/interiors-p2-slum.png)
+![From above](docs/screenshots/interiors-p2-top.png)
+![A shack at eye level: boarded window, plank walls inside](docs/screenshots/interiors-p2-street.png)
+
+### Interior phase 3: furniture, lights and grime
+
+`src/gen/interiorDressing.ts` furnishes the planned rooms; `interiorHouse()` gets **Furnish** (none,
+sparse, full), **Lights** and **Weathering** options.
+
+- **Models**: a table of the game's furniture with its bounds measured from the MDL hulls and the
+  static-prop check of each model (`FURNITURE`): couches, beds, mattresses, bed frames, bathtubs, stoves,
+  sinks, toilets, a fridge, a boiler, a pot-belly heater, a control-room desk, a cafeteria bench, crates,
+  boxes and oil drums as `prop_static`; the tables and chairs have no static version and become
+  `prop_dynamic` (solid 6). All models face +x, which was checked in the editor.
+- **Room sets**: kitchens get a stove, fridge, sink and a table; living rooms a couch, heater, table and
+  chair; bedrooms a bed, frame or mattress and boxes; baths a tub, toilet and sink; storage rooms and
+  workshops crates, drums, a desk or bench; halls a boiler or a box. Sparse puts one or two items in a
+  room, full up to four by floor area.
+- **Placement**: wall items stand with their back (or long side, for tubs) against a wall, facing into
+  the room, turned in 90° steps; free items (tables, chairs) stand in the room, chairs next to the
+  table. Nothing goes on a **lane** (48 wide, door to door through the middle), in a **door zone**
+  (64 deep on both sides of every doorway), over the stairs, on another prop, or (when taller than 36)
+  in front of a window; nothing taller than the cut walls. The navmesh sees static props, so the lanes
+  keep every room walkable.
+- **Lights**: three rooms in four get a caged wall lamp (`light_cagelight01_on`) away from doors and
+  windows, with a warm `light` (255 214 170, brightness 80–150, `_lightHDR` copying the LDR value, a
+  pool of 96 to half brightness and 320 to dark) in front of it. The rest stay dark on purpose.
+- **Grime**: blood, burns, rubble and stain decals on floors, stains, posters and graffiti on inner
+  walls, by floor area and the Weathering setting; plaster debris piles in some rooms when weathering
+  is high.
+- Dressing draws from its own random sequence (`seed × 23 + 13`), so furnishing never changes the plan
+  or the shell.
+- Tests (`tests/interiorDressing.test.ts`): props inside their room and clear of lanes, door zones,
+  stairs and each other; only checked static models as `prop_static`; one lamp and one light per lit
+  room; no furniture with Furnish none; the same plan with and without furniture.
+
+![Furnished farmhouses from the RTS angle](docs/screenshots/interiors-p3-farmhouse.png)
+![Close: couch and heater in the living room, tub in the tiled bath, a chair, wall lamps (the yellow boxes are the light entities)](docs/screenshots/interiors-p3-rooms.png)
+![Shacks with sparse furniture](docs/screenshots/interiors-p3-shack-sparse.png)
+![Brick cottages at full weathering: blood, rubble, plaster debris](docs/screenshots/interiors-p3-brick-grime.png)
+![Concrete outbuildings as workshops and storage, the last one unfurnished](docs/screenshots/interiors-p3-workshops.png)
+
+### Interior phase 4: second storey and stairs
+
+`interiorHouse()` now builds the plan's second storey (`storeys: 2`):
+
+- **Upper floor**: over one end of the house (a third to half of it), so the rooms below the open part
+  stay visible from above. The ground-floor walls under it run up to the slab (z0 + 128), the slab is 8
+  thick (120 clear below, enough for every hull), its top at z0 + 136 in the room's floor material with
+  a plaster ceiling underneath, and it reaches 4 past its edge over the partition below. The upper
+  storey's outside walls stand on the ground walls, from z0 + 128 to z0 + 128 + cut, with their own
+  windows.
+- **Railing**: a see-through `metal/metalrail001a` rail 32 high along the slab's open edge, with a
+  gap where the stairs arrive.
+- **Stairs**: a straight flight along an outside wall of the open part, rising towards the upper floor:
+  8 solid block steps of 16 rise and 24 tread (the last one level with the slab), 96 wide (128 with wide
+  doors), in the style's stair material.
+- **NPC clip ramp**: a `TOOLS/TOOLSNPCCLIP` wedge (world brush) laid on the step nosings, from the floor
+  one tread before the flight up to the slab: 128 rise over 192 run (34°, under Recast's 45°). Units and
+  the navmesh see one smooth slope (`MASK_NPCWORLDSTATIC` includes NPC clip); players and the camera
+  don't.
+- The upper room is furnished as a bedroom; its lane runs from the head of the stairs.
+- Tests: steps rise by 16 up to the slab top, the ramp is at most 45°, no railing at the stair head,
+  walls, floors, slab and steps never overlap, every brush is valid; the planner tests keep the upper
+  floor at most half the footprint and the stair foot and head on a lane.
+- Whether the navmesh actually connects both floors is checked in game in phase 6.
+
+![Two-storey farmhouses from the RTS angle](docs/screenshots/interiors-p4-farmhouse.png)
+![Brick houses with an upper wing](docs/screenshots/interiors-p4-brick.png)
+![Shacks](docs/screenshots/interiors-p4-shack.png)
+![The flight up to the mezzanine, the railing open at its head](docs/screenshots/interiors-p4-stairs.png)
+![The mezzanine from above](docs/screenshots/interiors-p4-mezzanine.png)
+
+### Interior phase 5: integration and the panel
+
+Enterable houses now come out of the building generator, next to solid ones.
+
+- **`BuildingOptions.interiors`** (none, some, all; default from the architecture, which is none for the
+  city architectures, so existing maps and seeds are unchanged), plus **interiorStyle**, **cutHeight**,
+  **furnish**, **interiorLights** and **wideDoors**. The choice draws from its own random sequence.
+- **Which buildings**: lots of 1–2 floors whose wings are axis-aligned rectangles, and the sheds in yards
+  and courtyards. Ring buildings around courtyards and anything taller stay solid. The two wings of an
+  L-shaped lot become one L-shaped house (`outlineOf` traces the outline) when it fits in 640 × 640,
+  otherwise a house per wing. A single lot longer than 640 gets a 384–576 house at the street and the
+  rest becomes its yard (with trees). With "some", the architecture's share of the eligible lots.
+- An enterable house skips the roof, tower, cornice, oriels, balconies, awnings, wall clutter and roof
+  props. It keeps the weathering (stains down its outer walls) and gets **eave stubs**, a band in the cap
+  material just under the cap, at Medium detail and up (not with wide doors, and only where 88 stays
+  clear in the doorways). The stone base course is left out: it rises 20 above the ground, over the
+  18-unit climb, and would close the doorways.
+- **Doors face away from neighbours**: walls against another building or a courtyard wall get no
+  entrance (`noEntrance`, also an `interiorHouse()` option). The street pass keeps lamp posts and trees
+  off the ground in front of every door (`BlockDressing.doors`).
+- **New architectures**: **Village houses** (cream, sand, rose and brick plaster, gables and hips, 1–2
+  floors, 70% enterable as farmhouses, brick cottages and shacks) and **Slum shacks** (1 floor, all
+  enterable, corrugated metal and wood).
+- **Building panel**: Interiors (from architecture, none, some, all), Interior style, Cut height, Furnish,
+  Lights, Wide doors. **Generate map**: an Interiors setting and a new **Houses (enterable)** cell kind in
+  the layout painter: village houses in the countryside, slum shacks in the city, always enterable.
+  Random rural layouts get a few hamlets of houses (from their own random sequence), and buildings on
+  rural blocks default to some interiors. **Sketch**: an Interiors setting.
+- One undo step still reverts a whole generation.
+- Tests (`tests/interiorBuildings.test.ts`): without interiors the output is byte-identical to before
+  (hashes recorded before this phase, for three architectures); all interiors on a small block gives
+  only enterable houses with nothing above the cut; slum and village defaults; no lamp or tree in front
+  of a door; the L outline.
+
+![Four blocks: village houses, slum shacks, sheds and brick houses with some interiors](docs/screenshots/interiors-p5-overview.png)
+![Village houses: solid gabled houses next to enterable ones, a shed with its own roof in the yard](docs/screenshots/interiors-p5-village.png)
+![Slum shacks: every lot enterable, each wing of an L its own shack](docs/screenshots/interiors-p5-slum.png)
+![Sheds and workshops with some interiors](docs/screenshots/interiors-p5-sheds.png)
+![Brick houses with some interiors](docs/screenshots/interiors-p5-brick.png)
+![The Building panel's interior settings](docs/screenshots/interiors-p5-panel.png)
+![A generated rural map with hamlets of village houses](docs/screenshots/interiors-p5-rural-map.png)
+![A hamlet in the woods](docs/screenshots/interiors-p5-rural-hamlet.png)
+
+### Interior phase 6: test map, compile and in-game check
+
+`scripts/interiors-demo.mjs` builds **`maps/interiors_test.vmf`**: a row per interior style, each with a
+furnished one-storey house, a bare unlit one, a two-storey house, an L at full weathering and a fifth
+house (wide doors in the first row, two storeys with cut heights from 104 to 128 in the others), plus a
+village block with some interiors next to solid houses. There are two player starts, rebel squads in
+front of the first row's two-storey house and its L, antlions (the medium hull) by its farmhouse, and a
+Combine squad by the second start.
+
+| | |
+|---|---|
+| Brushes | 1,970 (175 world: floors, the ground, NPC clip ramps; the rest func_detail) |
+| Props | 324 `prop_static` (none converted by the static-prop check), 30 `prop_dynamic` (tables, chairs) |
+| Lights / decals | 107 / 253 |
+| Houses | 29 enterable |
+| Compile (fast, with navmesh) | 24 s; no leak, no vbsp errors or warnings, no deleted props; navmesh 220 KB, all five meshes |
+
+**Navmesh fix**: the first compile gave a navmesh of 887 bytes. The engine's build prunes the polygons
+it can't reach from the `info_start_wars` entities, and in this build that pruning removes them all
+(the editor's earlier maps were singleplayer, without starts, so they never hit it). The editor's
+navmesh step now sets `recast_build_remove_unreachable_polys 0` (`server/compile.ts`).
+
+**In-game check** (`lambdawars.exe -game lambdawars -dev -windowed -condebug +map interiors_test`,
+`sv_cheats 1`, `recast_draw_navmesh 1`). The map tests itself: 10 seconds after spawn `wars_give_order`
+sends each squad to a goal (the head of the stairs, the room of the L farthest from its front door,
+the farthest room of the farmhouse), and a `trigger_multiple` in each target, filtered to that squad's
+name, echoes a marker into the console log when a unit arrives.
+
+- **Through doors, human hull**: 2 of the 3 rebels reached the L's farthest room. The third logged
+  "blocked and gives up" next to the L's west wall.
+- **Through doors, medium hull**: all 3 antlions reached the farmhouse's farthest room.
+- **Upstairs**: 1 of the 4 rebels walked up the flight onto the upper floor; the navmesh overlay shows
+  the path running up the NPC clip ramp onto the slab. The other two that reported gave up "blocked" in
+  front of the house; all four were sent to the same goal point, so they queued in a 64-wide doorway and
+  on a 96-wide flight. Recast does connect both floors, so the off-mesh link fallback isn't needed.
+- **Not checked in game**: the large hull with wide doors, and ordering units by hand. The game stopped
+  after about 40 seconds each run with "Could not launch browser helper process" (CEF's
+  `lambdawars_browser.exe` never started; the HUD stayed on "Loading CefViewPort..." from the start,
+  independent of this map), so there was no time for longer tests or more views.
+
+![The test map](docs/screenshots/interiors-p6-test-map.png)
+![The first rows from the RTS angle, the squads in front](docs/screenshots/interiors-p6-test-map-rts.png)
+![The village block: solid gabled houses next to enterable ones](docs/screenshots/interiors-p6-test-map-village.png)
+![In game: the navmesh overlay over the rooms, a path up the stairs and a rebel on the upper floor](docs/screenshots/interiors-p6-in-game-stairs.png)
+
 ## Roads, powerlines, audio and mission flow
 
 ### Roads
