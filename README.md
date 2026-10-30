@@ -751,6 +751,51 @@ Enterable houses now come out of the building generator, next to solid ones.
 ![A generated rural map with hamlets of village houses](docs/screenshots/interiors-p5-rural-map.png)
 ![A hamlet in the woods](docs/screenshots/interiors-p5-rural-hamlet.png)
 
+### Interior phase 6: test map, compile and in-game check
+
+`scripts/interiors-demo.mjs` builds **`maps/interiors_test.vmf`**: a row per interior style, each with a
+furnished one-storey house, a bare unlit one, a two-storey house, an L at full weathering and a fifth
+house (wide doors in the first row, two storeys with cut heights from 104 to 128 in the others), plus a
+village block with some interiors next to solid houses. There are two player starts, rebel squads in
+front of the first row's two-storey house and its L, antlions (the medium hull) by its farmhouse, and a
+Combine squad by the second start.
+
+| | |
+|---|---|
+| Brushes | 1,970 (175 world: floors, the ground, NPC clip ramps; the rest func_detail) |
+| Props | 324 `prop_static` (none converted by the static-prop check), 30 `prop_dynamic` (tables, chairs) |
+| Lights / decals | 107 / 253 |
+| Houses | 29 enterable |
+| Compile (fast, with navmesh) | 24 s; no leak, no vbsp errors or warnings, no deleted props; navmesh 220 KB, all five meshes |
+
+**Navmesh fix**: the first compile gave a navmesh of 887 bytes. The engine's build prunes the polygons
+it can't reach from the `info_start_wars` entities, and in this build that pruning removes them all
+(the editor's earlier maps were singleplayer, without starts, so they never hit it). The editor's
+navmesh step now sets `recast_build_remove_unreachable_polys 0` (`server/compile.ts`).
+
+**In-game check** (`lambdawars.exe -game lambdawars -dev -windowed -condebug +map interiors_test`,
+`sv_cheats 1`, `recast_draw_navmesh 1`). The map tests itself: 10 seconds after spawn `wars_give_order`
+sends each squad to a goal (the head of the stairs, the room of the L farthest from its front door,
+the farthest room of the farmhouse), and a `trigger_multiple` in each target, filtered to that squad's
+name, echoes a marker into the console log when a unit arrives.
+
+- **Through doors, human hull**: 2 of the 3 rebels reached the L's farthest room. The third logged
+  "blocked and gives up" next to the L's west wall.
+- **Through doors, medium hull**: all 3 antlions reached the farmhouse's farthest room.
+- **Upstairs**: 1 of the 4 rebels walked up the flight onto the upper floor; the navmesh overlay shows
+  the path running up the NPC clip ramp onto the slab. The other two that reported gave up "blocked" in
+  front of the house; all four were sent to the same goal point, so they queued in a 64-wide doorway and
+  on a 96-wide flight. Recast does connect both floors, so the off-mesh link fallback isn't needed.
+- **Not checked in game**: the large hull with wide doors, and ordering units by hand. The game stopped
+  after about 40 seconds each run with "Could not launch browser helper process" (CEF's
+  `lambdawars_browser.exe` never started; the HUD stayed on "Loading CefViewPort..." from the start,
+  independent of this map), so there was no time for longer tests or more views.
+
+![The test map](docs/screenshots/interiors-p6-test-map.png)
+![The first rows from the RTS angle, the squads in front](docs/screenshots/interiors-p6-test-map-rts.png)
+![The village block: solid gabled houses next to enterable ones](docs/screenshots/interiors-p6-test-map-village.png)
+![In game: the navmesh overlay over the rooms, a path up the stairs and a rebel on the upper floor](docs/screenshots/interiors-p6-in-game-stairs.png)
+
 ## Roads, powerlines, audio and mission flow
 
 ### Roads
