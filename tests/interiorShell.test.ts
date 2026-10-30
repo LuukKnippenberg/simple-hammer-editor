@@ -92,4 +92,44 @@ describe('interior house shells', () => {
     expect(h.detail.length).toBeGreaterThan(20);
     for (const n of [...h.world, ...h.detail]) expect(valid(n)).toBe(true);
   });
+
+  it('two storeys: steps of 16 to the slab, a ramp under 45°, a railing open at the stairs', () => {
+    let built = 0;
+    for (const fp of [rect(512, 384), rect(640, 448), rect(384, 576)]) {
+      for (let seed = 1; seed <= 10; seed++) {
+        const doc = VmfDocument.empty();
+        const h = interiorHouse(doc, fp, Z0, { seed, storeys: 2 });
+        if (h.plan.storeys !== 2) continue;
+        built++;
+        const s = h.plan.stairs!;
+        for (const n of [...h.world, ...h.detail]) {
+          const sd = solid(n);
+          expect(buildBrushFaces(sd).length).toBe(sd.sides.length);
+        }
+        const upper = h.detail.map((n) => solid(n)).filter((sd) => sd.sides.some((x) => x.material.startsWith('WOOD/WOODSTAIR')));
+        const tops = upper.map((sd) => solidBounds(sd).max.z).sort((a, b) => a - b);
+        expect(tops).toEqual(Array.from({ length: 8 }, (_, k) => Z0 + 8 + 16 * (k + 1)));
+        // The slab: the brush with the ceiling underneath, its top level with the last step.
+        const slab = h.detail.map((n) => solid(n)).find((sd) => sd.sides.some((x) => x.material === 'PLASTER/PLASTERCEILING008A'))!;
+        expect(solidBounds(slab).max.z).toBe(Z0 + 136);
+        // The ramp: rise over run at most 1.
+        const ramp = h.world.map((n) => solid(n)).find((sd) => sd.sides.every((x) => x.material === 'TOOLS/TOOLSNPCCLIP'))!;
+        const rb = solidBounds(ramp);
+        const run = s.dir.x !== 0 ? rb.max.x - rb.min.x : rb.max.y - rb.min.y;
+        expect((rb.max.z - rb.min.z) / run).toBeLessThanOrEqual(1);
+        // Nothing of the railing stands where the flight arrives.
+        const head = new Box3(new Vector3(s.box.min.x + 1, s.box.min.y + 1, Z0 + 137), new Vector3(s.box.max.x - 1, s.box.max.y - 1, Z0 + 200));
+        const ax = s.dir.x !== 0 ? 'x' : 'y';
+        head.min[ax] -= 64; head.max[ax] += 64;
+        for (const n of h.detail) {
+          const sd = solid(n);
+          if (sd.sides.some((x) => x.material === 'METAL/METALRAIL001A')) expect(volume(solidBounds(sd), head)).toBe(0);
+        }
+        // Walls, floors, slab and steps never overlap.
+        const boxes = [...h.world.filter((n) => !solid(n).sides.every((x) => x.material === 'TOOLS/TOOLSNPCCLIP')), ...h.detail].map((n) => solidBounds(solid(n)));
+        for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) expect(volume(boxes[i], boxes[j])).toBeLessThan(0.01);
+      }
+    }
+    expect(built).toBeGreaterThan(20);
+  });
 });

@@ -41,13 +41,13 @@ export interface InteriorHouseOptions {
 export function interiorHouse(doc: VmfDocument, footprint: Vector2[], z0: number, opts: InteriorHouseOptions): { world: KVNode[]; detail: KVNode[]; entities: FeatureEntity[]; plan: InteriorPlan } {
   const style = INTERIOR_STYLES[(opts.style ?? 'farmhouse') as InteriorStyleName] ?? INTERIOR_STYLES.farmhouse;
   const plan = planInterior(footprint, new Rng(opts.seed), {
-    storeys: 1, cut: opts.cutHeight ?? 112, wideDoors: opts.wideDoors, entranceEdges: opts.entranceEdges, porch: opts.porch,
+    storeys: opts.storeys ?? 1, cut: opts.cutHeight ?? 112, wideDoors: opts.wideDoors, entranceEdges: opts.entranceEdges, porch: opts.porch,
     use: opts.style === 'outbuilding' ? 'workshop' : 'house',
   });
   // Materials and window fills draw from their own sequence, so they never change the floor plan.
   const rng = new Rng(opts.seed * 29 + 1);
-  const shell = interiorShell(doc, plan, z0, shellMaterials(plan, style, rng), rng);
+  const shell = interiorShell(doc, plan, z0, shellMaterials(plan, style, rng), rng, style.stair);
   // Furniture, lamps and grime draw from a third sequence.
   const dressing = dressInterior(plan, z0, new Rng(opts.seed * 23 + 13), { furnish: opts.furnish, lights: opts.lights, weathering: opts.weathering });
-  return { world: shell.floors, detail: [...shell.walls, ...shell.fills, ...shell.porch], entities: dressing.entities, plan };
+  return { world: [...shell.floors, ...shell.clip], detail: [...shell.walls, ...shell.fills, ...shell.porch, ...shell.upper], entities: dressing.entities, plan };
 }

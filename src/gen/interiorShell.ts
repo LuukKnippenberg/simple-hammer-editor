@@ -1,14 +1,18 @@
 import { Box2, Vector2, Vector3 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
 import type { VmfDocument } from '../vmf/map.ts';
-import { boxFaces, solidNode, worldAlignedAxes } from '../edit/brushes.ts';
+import { boxFaces, solidNode, worldAlignedAxes, type FaceSpec } from '../edit/brushes.ts';
 import { Rng } from './rng.ts';
-import { wallBox, wallLength, type InteriorPlan, type PlanWall } from './interiorPlan.ts';
+import { FLOOR_TOP, STOREY, wallBox, wallLength, type InteriorPlan, type PlanWall } from './interiorPlan.ts';
 import type { InteriorStyle } from './styles.ts';
 
 const NODRAW = 'TOOLS/TOOLSNODRAW';
 const BLACK = 'TOOLS/TOOLSBLACK';
 const RAILING = 'METAL/METALRAIL001A';
+const NPCCLIP = 'TOOLS/TOOLSNPCCLIP';
+const CEILING = 'PLASTER/PLASTERCEILING008A';
+/** Upper floor slab thickness: 120 clear below it. */
+const SLAB = 8;
 /** How far the floor slabs and porch reach down into the ground, for uneven terrain. */
 const SINK = 32;
 
@@ -35,6 +39,10 @@ export interface ShellBrushes {
   fills: KVNode[];
   /** Porch deck and its railings. */
   porch: KVNode[];
+  /** Two storeys: the upper floor slab, its railing and the steps. */
+  upper: KVNode[];
+  /** An NPC clip ramp over the steps, so the navmesh gets a smooth slope (world brush). */
+  clip: KVNode[];
 }
 
 /** Picks the materials for a house: one outside finish, one inside finish and floor per room. */
@@ -80,8 +88,8 @@ export function pickedBox(doc: VmfDocument, min: Vector3, max: Vector3, pick: (n
  * Brushes for a planned house standing at `z0`: walls split around their openings into piers, sills and
  * lintels (all cut at the plan's heights, capped on top), floor slabs per room, window fills and the porch.
  */
-export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, m: ShellMaterials, rng: Rng): ShellBrushes {
-  const out: ShellBrushes = { floors: [], walls: [], fills: [], porch: [] };
+export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, m: ShellMaterials, rng: Rng, stairMaterial = 'WOOD/WOODSTAIR002A'): ShellBrushes {
+  const out: ShellBrushes = { floors: [], walls: [], fills: [], porch: [], upper: [], clip: [] };
   const roomAt = (p: Vector2 | Vector3, storey: number) => plan.rooms.findIndex((r) => r.storey === storey
     && p.x >= r.box.min.x - 0.01 && p.x <= r.box.max.x + 0.01 && p.y >= r.box.min.y - 0.01 && p.y <= r.box.max.y + 0.01);
   const innerAt = (p: Vector3, storey: number) => { const r = roomAt(p, storey); return r < 0 ? m.outer : m.inner[r]; };
@@ -123,6 +131,8 @@ export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, 
       (n) => (n.z > 0 ? m.floor[i] : n.z < 0 ? NODRAW : m.outer), z0));
   });
 
+  if (plan.upperFloor && plan.stairs) upperFloor(doc, plan, z0, m, stairMaterial, out);
+
   // Porch: a plank deck at floor height, with railings on its ends half of the time.
   if (plan.porch) {
     const p = plan.porch;
@@ -139,6 +149,73 @@ export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, 
     }
   }
   return out;
+}
+
+/**
+ * The upper floor: a slab over the upper part (reaching over the partition under its edge), a see-through
+ * railing along the open edge with a gap at the stairs, a straight flight of block steps and an NPC clip
+ * ramp laid on the step nosings, which the navmesh sees as one smooth slope.
+ */
+function upperFloor(doc: VmfDocument, plan: InteriorPlan, z0: number, m: ShellMaterials, stairMaterial: string, out: ShellBrushes): void {
+  const ub = plan.upperFloor!, s = plan.stairs!;
+  const ax = s.dir.x !== 0 ? 'x' : 'y', oa = ax === 'x' ? 'y' : 'x';
+  const sign = ax === 'x' ? s.dir.x : s.dir.y;
+  const upper = plan.rooms.findIndex((r) => r.storey === 2);
+  // The open edge faces down the flight; the slab reaches 4 past it, over the partition below.
+  const edge = (sign > 0 ? ub.min[ax] : ub.max[ax]) - sign * 4;
+  const slab = ub.clone();
+  slab.min[oa] += 16; slab.max[oa] -= 16;
+  if (sign > 0) { slab.min[ax] = edge; slab.max[ax] -= 16; } else { slab.max[ax] = edge; slab.min[ax] += 16; }
+  const zSlab = z0 + STOREY;
+  out.upper.push(pickedBox(doc, new Vector3(slab.min.x, slab.min.y, zSlab), new Vector3(slab.max.x, slab.max.y, zSlab + SLAB),
+    (n) => (n.z > 0 ? m.floor[upper] : n.z < 0 ? CEILING : m.cap), zSlab));
+  // Railing on the slab edge, open where the stairs arrive.
+  const rail = slab.clone();
+  if (sign > 0) rail.max[ax] = edge + 2; else rail.min[ax] = edge - 2;
+  for (const [a, b] of [[slab.min[oa], s.box.min[oa]], [s.box.max[oa], slab.max[oa]]]) {
+    if (b - a < 2) continue;
+    const r = rail.clone();
+    r.min[oa] = a; r.max[oa] = b;
+    out.upper.push(pickedBox(doc, new Vector3(r.min.x, r.min.y, zSlab + SLAB), new Vector3(r.max.x, r.max.y, zSlab + SLAB + 32), (n) => (n.z < 0 ? NODRAW : RAILING), zSlab + SLAB));
+  }
+  // Steps: solid blocks from the floor, 16 up and 24 deep each; the last one is level with the slab.
+  const foot = sign > 0 ? s.box.min[ax] : s.box.max[ax];
+  const floor = z0 + FLOOR_TOP;
+  for (let k = 1; k <= s.steps; k++) {
+    const b = s.box.clone();
+    const a1 = foot + sign * (k - 1) * s.tread, a2 = foot + sign * k * s.tread;
+    b.min[ax] = Math.min(a1, a2); b.max[ax] = Math.max(a1, a2);
+    out.upper.push(pickedBox(doc, new Vector3(b.min.x, b.min.y, floor), new Vector3(b.max.x, b.max.y, floor + k * s.rise), (n) => (n.z < 0 ? NODRAW : stairMaterial), floor));
+  }
+  // The ramp touches every step's front edge: from the floor one tread before the flight to the slab
+  // at the last step.
+  const low = foot - sign * s.tread, high = foot + sign * (s.steps - 1) * s.tread;
+  const zTop = floor + s.steps * s.rise;
+  const P = (along: number, across: number, z: number) => { const v = new Vector3(0, 0, z); v[ax] = along; v[oa] = across; return v; };
+  const [o0, o1] = [s.box.min[oa], s.box.max[oa]];
+  out.clip.push(convexBrush(doc, [
+    [P(low, o0, floor), P(low, o1, floor), P(high, o1, floor), P(high, o0, floor)],
+    [P(low, o0, floor), P(low, o1, floor), P(high, o1, zTop), P(high, o0, zTop)],
+    [P(high, o0, floor), P(high, o1, floor), P(high, o1, zTop), P(high, o0, zTop)],
+    [P(low, o0, floor), P(high, o0, floor), P(high, o0, zTop)],
+    [P(low, o1, floor), P(high, o1, floor), P(high, o1, zTop)],
+  ], NPCCLIP));
+}
+
+/** A convex brush from its faces (each given by three or more of its corners), all in one material. */
+function convexBrush(doc: VmfDocument, faces: Vector3[][], material: string): KVNode {
+  const centre = new Vector3();
+  let n = 0;
+  for (const f of faces) for (const p of f) { centre.add(p); n++; }
+  centre.divideScalar(n);
+  const specs: FaceSpec[] = faces.map((f) => {
+    let [a, b, c] = f;
+    // solidNode's normal is (c - a) × (b - a); it has to point away from the brush.
+    const normal = new Vector3().subVectors(c, a).cross(new Vector3().subVectors(b, a));
+    if (normal.dot(new Vector3().subVectors(a, centre)) < 0) [b, c] = [c, b];
+    return { points: [a, b, c], material };
+  });
+  return solidNode(doc, specs);
 }
 
 /** One wall: piers between openings, sills under windows, lintels over doors and windows. */

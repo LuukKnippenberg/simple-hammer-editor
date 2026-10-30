@@ -677,6 +677,37 @@ sparse, full), **Lights** and **Weathering** options.
 ![Brick cottages at full weathering: blood, rubble, plaster debris](docs/screenshots/interiors-p3-brick-grime.png)
 ![Concrete outbuildings as workshops and storage, the last one unfurnished](docs/screenshots/interiors-p3-workshops.png)
 
+### Interior phase 4: second storey and stairs
+
+`interiorHouse()` now builds the plan's second storey (`storeys: 2`):
+
+- **Upper floor**: over one end of the house (a third to half of it), so the rooms below the open part
+  stay visible from above. The ground-floor walls under it run up to the slab (z0 + 128), the slab is 8
+  thick (120 clear below, enough for every hull), its top at z0 + 136 in the room's floor material with
+  a plaster ceiling underneath, and it reaches 4 past its edge over the partition below. The upper
+  storey's outside walls stand on the ground walls, from z0 + 128 to z0 + 128 + cut, with their own
+  windows.
+- **Railing**: a see-through `metal/metalrail001a` rail 32 high along the slab's open edge, with a
+  gap where the stairs arrive.
+- **Stairs**: a straight flight along an outside wall of the open part, rising towards the upper floor:
+  8 solid block steps of 16 rise and 24 tread (the last one level with the slab), 96 wide (128 with wide
+  doors), in the style's stair material.
+- **NPC clip ramp**: a `TOOLS/TOOLSNPCCLIP` wedge (world brush) laid on the step nosings, from the floor
+  one tread before the flight up to the slab: 128 rise over 192 run (34°, under Recast's 45°). Units and
+  the navmesh see one smooth slope (`MASK_NPCWORLDSTATIC` includes NPC clip); players and the camera
+  don't.
+- The upper room is furnished as a bedroom; its lane runs from the head of the stairs.
+- Tests: steps rise by 16 up to the slab top, the ramp is at most 45°, no railing at the stair head,
+  walls, floors, slab and steps never overlap, every brush is valid; the planner tests keep the upper
+  floor at most half the footprint and the stair foot and head on a lane.
+- Whether the navmesh actually connects both floors is checked in game in phase 6.
+
+![Two-storey farmhouses from the RTS angle](docs/screenshots/interiors-p4-farmhouse.png)
+![Brick houses with an upper wing](docs/screenshots/interiors-p4-brick.png)
+![Shacks](docs/screenshots/interiors-p4-shack.png)
+![The flight up to the mezzanine, the railing open at its head](docs/screenshots/interiors-p4-stairs.png)
+![The mezzanine from above](docs/screenshots/interiors-p4-mezzanine.png)
+
 ## Roads, powerlines, audio and mission flow
 
 ### Roads
