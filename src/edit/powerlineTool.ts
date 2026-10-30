@@ -4,11 +4,12 @@ import type { MapEntity } from '../vmf/map.ts';
 import type { Tool, ToolName } from './tools.ts';
 import { pickSurface, snap } from './tools.ts';
 import { entityNode } from './actions.ts';
-import { POLE_TYPES, nextPowerlineName, polePlacements, powerlineEntities, powerlineOf, wirePoint, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
+import { POLE_TYPES, WALL_MOUNT, nextPowerlineName, polePlacements, powerlineEntities, powerlineOf, wallMount, wirePoint, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
 
 /**
  * House feeds: from each pole, a sagging wire across to the nearest wall within `reach` on either side of
- * the line (found by casting rays from the first wire point), ending on a wall insulator.
+ * the line (found by casting rays from the first wire point), ending on the outer insulator of a wall
+ * bracket that sticks out from the wall it hit.
  */
 function feedEntities(editor: Editor, spec: PowerlineSpec, name: string, reach = 480): { classname: string; origin: Vector3; keys: Record<string, string> }[] {
   const out: { classname: string; origin: Vector3; keys: Record<string, string> }[] = [];
@@ -21,13 +22,13 @@ function feedEntities(editor: Editor, spec: PowerlineSpec, name: string, reach =
       const hit = editor.world.raycast(ray);
       // Only walls (steep faces), not roofs or the ground.
       if (!hit || Math.abs(hit.normal.z) > 0.3) continue;
-      const at = hit.point.clone().addScaledVector(hit.normal, 4).round();
+      const mount = wallMount(hit.point, hit.normal);
+      const at = mount.wire.round();
       const tn = `${name}_f${i}${side > 0 ? 'a' : 'b'}`;
       const common = { RopeMaterial: 'cable/cable.vmt', Width: '1', TextureScale: '1', Subdiv: '2', Type: '0', Collide: '0', Breakable: '0', Barbed: '0', Dangling: '0' };
-      out.push({ classname: 'move_rope', origin: from.clone().round(), keys: { ...common, targetname: `${tn}_0`, NextKey: `${tn}_1`, Slack: String(Math.round(hit.distance * 0.08)), PositionInterpolator: '2', MoveSpeed: '64' } });
+      out.push({ classname: 'move_rope', origin: from.clone().round(), keys: { ...common, targetname: `${tn}_0`, NextKey: `${tn}_1`, Slack: String(Math.round(from.distanceTo(at) * 0.08)), PositionInterpolator: '2', MoveSpeed: '64' } });
       out.push({ classname: 'keyframe_rope', origin: at, keys: { ...common, targetname: `${tn}_1`, Slack: '0' } });
-      const yaw = Math.round((Math.atan2(hit.normal.y, hit.normal.x) * 180) / Math.PI);
-      out.push({ classname: 'prop_static', origin: at.clone().addScaledVector(hit.normal, -2).round(), keys: { model: 'models/props_c17/utilitypolemount01a.mdl', angles: `0 ${yaw} 0`, solid: '0', targetname: `${tn}_mount` } });
+      out.push({ classname: 'prop_static', origin: mount.origin, keys: { model: WALL_MOUNT.model, angles: `0 ${mount.yaw} 0`, solid: '0', targetname: `${tn}_mount` } });
       break;
     }
   });

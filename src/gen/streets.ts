@@ -2,6 +2,7 @@ import { Box2, Vector2, Vector3 } from 'three';
 import { Rng } from './rng.ts';
 import { FLOOR } from './facade.ts';
 import type { FeatureEntity, Wall } from './facadeFeatures.ts';
+import { WALL_MOUNT, wallMount } from './powerlines.ts';
 
 /** A point on a street wall where a cable can be fixed, with the wall's outward normal. */
 export interface Anchor { p: Vector3; out: Vector2 }
@@ -22,7 +23,6 @@ const LAMP = 'models/props_c17/lamppost03a_off.mdl';
 const PIPE = 'models/props_rooftop/gutter_pipe_256.mdl';
 const DISH = 'models/props_rooftop/satellitedish02.mdl';
 const METERS = ['models/props_c17/gasmeter001a.mdl', 'models/props_c17/gasmeter002a.mdl'];
-const MOUNT = 'models/props_c17/utilitypolemount01a.mdl';
 
 const deg = (r: number) => Math.round((r * 180) / Math.PI);
 const prop = (model: string, p: Vector3, yaw: number): FeatureEntity => ({
@@ -54,9 +54,10 @@ export function wallClutter(w: Wall, z0: number, floors: number, rng: Rng, ancho
   if (floors >= 3 && w.len >= 256) {
     for (const f of [1 / 3, 2 / 3]) {
       const z = z0 + Math.min(floors - 1, rng.int(2, 4)) * FLOOR + 72;
-      const p = at(w.len * f, 6, z);
-      anchors.push({ p, out: w.out.clone() });
-      out.push(prop(MOUNT, at(w.len * f, 6, z), faceYaw));
+      // The bracket sticks out from the wall; the cable meets its outer insulator.
+      const m = wallMount(at(w.len * f, 0, z), w.out);
+      anchors.push({ p: m.wire, out: w.out.clone() });
+      out.push(prop(WALL_MOUNT.model, m.origin, m.yaw));
     }
   }
   return out;

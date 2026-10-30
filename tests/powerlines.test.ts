@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Vector3 } from 'three';
-import { POLE_TYPES, decodePowerline, encodePowerline, polePlacements, powerlineEntities, powerlineOf, wirePoint, type PowerlineSpec } from '../src/gen/powerlines.ts';
+import { Vector2, Vector3 } from 'three';
+import { POLE_TYPES, WALL_MOUNT, decodePowerline, encodePowerline, polePlacements, powerlineEntities, powerlineOf, wallMount, wirePoint, type PowerlineSpec } from '../src/gen/powerlines.ts';
 import { RopeRenderer } from '../src/render/ropeRenderer.ts';
 import { MapEntity, VmfDocument } from '../src/vmf/map.ts';
 import { entity } from '../src/gen/layout.ts';
@@ -48,5 +48,31 @@ describe('powerlines', () => {
     expect(line.name).toBe('power1');
     expect(line.members).toHaveLength(ents.length);
     expect(line.spec.spacing).toBe(640);
+  });
+});
+
+describe('wall brackets', () => {
+  it('turn the arm (model +y) out from the wall, with the plate on the wall and the wire on the outer insulator', () => {
+    const wall = new Vector3(100, 200, 300);
+    for (const [out, yaw] of [[new Vector2(1, 0), -90], [new Vector2(0, 1), 0], [new Vector2(-1, 0), 90], [new Vector2(0, -1), 180]] as const) {
+      const m = wallMount(wall, out);
+      expect(((m.yaw % 360) + 360) % 360).toBe(((yaw % 360) + 360) % 360);
+      // Model +y points along `out`.
+      const r = (m.yaw * Math.PI) / 180;
+      expect(-Math.sin(r)).toBeCloseTo(out.x);
+      expect(Math.cos(r)).toBeCloseTo(out.y);
+      // The plate (model y −42) is on the wall; the wire sits 49 out and 22 up.
+      expect(m.origin.x - out.x * WALL_MOUNT.back).toBeCloseTo(wall.x);
+      expect(m.origin.y - out.y * WALL_MOUNT.back).toBeCloseTo(wall.y);
+      expect(m.wire.x).toBeCloseTo(wall.x + out.x * 49);
+      expect(m.wire.y).toBeCloseTo(wall.y + out.y * 49);
+      expect(m.wire.z).toBe(322);
+    }
+  });
+
+  it('take the horizontal part of a sloped wall normal', () => {
+    const m = wallMount(new Vector3(), new Vector3(0, -2, 0.2));
+    expect(m.wire.x).toBeCloseTo(0);
+    expect(m.wire.y).toBeCloseTo(-49);
   });
 });

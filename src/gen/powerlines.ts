@@ -73,10 +73,30 @@ export function polePlacements(s: PowerlineSpec): { at: Vector3; yaw: number }[]
 
 /** World position of a pole's wire point. */
 export function wirePoint(pole: PoleType, at: Vector3, yaw: number, wire: number): Vector3 {
-  const [x, y, z] = POLE_TYPES[pole].wires[wire];
+  return wirePointOf(POLE_TYPES[pole].wires[wire], at, yaw);
+}
+
+/**
+ * The wall insulator bracket (measured like the poles): its plate is at model y −42 against the wall, the
+ * arm points out along +y with three insulators on top, the outer one at y 7 with its top at z 22.
+ */
+export const WALL_MOUNT = { model: 'models/props_c17/utilitypolemount01a.mdl', back: 42, wire: [0, 7, 22] } as const;
+
+/**
+ * A wall bracket on the wall point `wall` facing out along the horizontal normal `out`: the prop's origin
+ * and yaw, and the world position where a wire meets its outer insulator.
+ */
+export function wallMount(wall: Vector3, out: Vector2 | Vector3): { origin: Vector3; yaw: number; wire: Vector3 } {
+  const n = new Vector2(out.x, out.y).normalize();
+  const yaw = Math.round((Math.atan2(-n.x, n.y) * 180) / Math.PI);
+  const origin = new Vector3(wall.x + n.x * WALL_MOUNT.back, wall.y + n.y * WALL_MOUNT.back, wall.z).round();
+  return { origin, yaw, wire: wirePointOf(WALL_MOUNT.wire, origin, yaw) };
+}
+
+const wirePointOf = ([x, y, z]: readonly number[], at: Vector3, yaw: number) => {
   const r = (yaw * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
   return new Vector3(at.x + x * c - y * s, at.y + x * s + y * c, at.z + z);
-}
+};
 
 /**
  * Entities for a powerline: the poles and, per wire, a chain of rope keyframes from pole to pole. The first

@@ -520,7 +520,10 @@ selected, Generate map, Sketch):
 
 - **Overhead cables**: each building's street walls offer anchors; anchors facing each other across a
   street (128–900 apart) are joined by a `move_rope` → `keyframe_rope` pair with sag. The editor now
-  draws ropes (`src/render/ropeRenderer.ts`), with the sag from their Slack.
+  draws ropes (`src/render/ropeRenderer.ts`), with the sag from their Slack. Each anchor is a wall
+  bracket (`utilitypolemount01a`) turned so its arm sticks out from the wall, and the cable ends on the
+  bracket's outer insulator (`wallMount` in `src/gen/powerlines.ts`, measured from the model: the plate
+  is at model y −42, the outer insulator top at y 7, z 22).
 - **Lamp posts** along the pavements, arms out over the street; none in alleys (gaps under 192).
 - **Bare trees** in courtyards and yards (clear of the sheds) and alternating with lamps on wide streets.
   City-theme sketches now use bare trees for their Trees feature too.
@@ -626,7 +629,8 @@ rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), d
 
 - The pole models have no attachment points; the wire positions were measured from their geometry.
 - **House feeds** (on by default): from each pole, a wire across to the nearest wall within 480 units
-  (found by raycasting the map), ending on a wall insulator.
+  (found by raycasting the map), ending on the outer insulator of a wall bracket turned out from the
+  wall it hit.
 - **Spacing** and **sag** in the tool options; selecting any pole or rope shows a Powerline panel (pole
   type, spacing, sag, feeds, delete), and changes rebuild the whole line. The first pole stores the route.
 - **Moved models**: `utilitypole01a/01d/03a` were moved from `props_c17` without being recompiled; their
@@ -640,6 +644,8 @@ rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), d
 ![Down the street: wires on the crossarms, feeds to the houses](docs/screenshots/powerlines-street.png)
 ![House feeds to wall insulators](docs/screenshots/powerlines-feeds.png)
 ![Wide-crossarm poles over the hill](docs/screenshots/powerlines-hill.png)
+![A wall bracket sticking out from its wall, the street cable on its outer insulator](docs/screenshots/wall-mount-street-cable.png)
+![House feeds ending on wall brackets along a district street](docs/screenshots/wall-mount-feed.png)
 ![The Powerline panel](docs/screenshots/powerlines-panel.png)
 
 ### Ambient sound
