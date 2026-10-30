@@ -9,9 +9,7 @@ const { browser, d } = await poiSession(`${name}.vmf`, { ground: 'NATURE/BLENDGR
 const r = await d.eval(async ([name, only]) => {
   const ed = window.__editor.editor;
   const { POI_TYPES, generatePoi } = await import('/src/gen/poi/action.ts');
-  const { boxSolid } = await import('/src/edit/brushes.ts');
-  const Vector3 = ed.camera.position.constructor;
-  const doc = ed.doc;
+    const doc = ed.doc;
   for (const s of [...doc.worldEntity.solids]) doc.removeSolid(s);
   const types = POI_TYPES.filter((t) => !only || only.includes(t.id));
   // Rows of POIs at their default size with 512 between them.
@@ -19,9 +17,10 @@ const r = await d.eval(async ([name, only]) => {
   const cellW = Math.max(...types.map((t) => t.defaultSize[0])) + 512, cellD = Math.max(...types.map((t) => t.defaultSize[1])) + 512;
   const W = cols * cellW, D = Math.ceil(types.length / cols) * cellD;
   const x0 = -Math.round(W / 2 / 64) * 64, y0 = -Math.round(D / 2 / 64) * 64;
-  // Ground in 1024 tiles (vbsp splits big faces anyway; smaller brushes keep the BSP sane).
-  for (let x = x0 - 512; x < x0 + W + 512; x += 1024) for (let y = y0 - 512; y < y0 + D + 512; y += 1024) {
-    doc.addSolid(boxSolid(doc, new Vector3(x, y, -64), new Vector3(x + 1024, y + 1024, 0), 'NATURE/BLENDGRASSDIRT01'));
+  // Displacement terrain (coast POIs lower it under their sea), in 1024 patches, flat at 0.
+  const { terrainPatch } = await import('/src/gen/layout.ts');
+  for (let x = x0 - 1024; x < x0 + W + 1024; x += 1024) for (let y = y0 - 1024; y < y0 + D + 1024; y += 1024) {
+    doc.addSolid(terrainPatch(doc, x, y, 1024, 'NATURE/BLENDGRASSDIRT01', () => 0, () => 0, 4));
   }
   ed.changed();
   const placed = [];

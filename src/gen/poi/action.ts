@@ -1,7 +1,7 @@
 import { Raycaster, Vector3 } from 'three';
 import type { Editor } from '../../editor.ts';
 import { KVNode, KVPair } from '../../vmf/keyvalues.ts';
-import type { MapEntity, MapSolid } from '../../vmf/map.ts';
+import { VmfDocument, type MapEntity, type MapSolid } from '../../vmf/map.ts';
 import { editorBlock, entityNode } from '../../edit/actions.ts';
 import { solidBounds } from '../../edit/brushes.ts';
 import { readDisp, vertexPos, type Disp } from '../../edit/terrain.ts';
@@ -43,13 +43,18 @@ export function poiOwner(editor: Editor, e: MapEntity | null | undefined): MapEn
 const ANCHOR_KEY = 'she_poi_anchor';
 const SKIP = /^(trigger_|fow_blocker|func_nav_blocker|func_clip|func_areaportal)/;
 
-/** Terrain height under a world point, ignoring the POI's own brushes (and triggers and blockers). */
-export function groundSampler(editor: Editor, uid: string | null, fallback: number, levelled: Rect | null, levelZ: number): (x: number, y: number) => number {
+/**
+ * Terrain height under a world point, ignoring the POI's own brushes (and triggers and blockers). Inside the
+ * levelled rectangle it is the level height, inside a cut the cut's height.
+ */
+export function groundSampler(editor: Editor, uid: string | null, fallback: number, levelled: Rect | null, levelZ: number, cuts: { rect: Rect; z: number }[] = []): (x: number, y: number) => number {
   const own = uid ? poiMembers(editor, uid) : null;
   const ownWorld = new Set(own?.world ?? []);
   const ray = new Raycaster();
+  const inRect = (r: Rect, x: number, y: number) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
   return (x, y) => {
-    if (levelled && x >= levelled.x0 && x <= levelled.x1 && y >= levelled.y0 && y <= levelled.y1) return levelZ;
+    for (const c of cuts) if (inRect(c.rect, x, y)) return c.z;
+    if (levelled && inRect(levelled, x, y)) return levelZ;
     let top = fallback + 4096;
     for (let i = 0; i < 8; i++) {
       ray.set(new Vector3(x, y, top), new Vector3(0, 0, -1));
@@ -82,11 +87,11 @@ function writeRows(disp: KVNode, name: string, size: number, stride: number, dat
  * Levels displacement terrain under a rectangle to `z`, blending back to the old height over `margin`, and
  * paints the terrain's second texture there. Returns the patches it changed (already recorded for undo).
  */
-export function levelTerrain(editor: Editor, r: Rect, z: number, paint: boolean, margin = 192): Disp[] {
+export function levelTerrain(editor: Editor, r: Rect, z: number, paint: boolean, margin = 192, mode: 'level' | 'lower' = 'level'): Disp[] {
   const disps = editor.doc.allSolids().filter((s) => s.isDisplacement).map(readDisp).filter((d): d is Disp => !!d)
     .filter((d) => d.bounds.max.x >= r.x0 - margin && d.bounds.min.x <= r.x1 + margin && d.bounds.max.y >= r.y0 - margin && d.bounds.min.y <= r.y1 + margin);
   if (!disps.length) return [];
-  const end = editor.history.begin('Level terrain', disps.map((d) => d.solid));
+  const end = editor.history.begin(mode === 'level' ? 'Level terrain' : 'Lower terrain', disps.map((d) => d.solid));
   for (const d of disps) {
     for (let i = 0; i < d.size * d.size; i++) {
       const p = vertexPos(d, i);
@@ -95,7 +100,10 @@ export function levelTerrain(editor: Editor, r: Rect, z: number, paint: boolean,
       if (t <= 0) continue;
       const w = t * t * (3 - 2 * t);
       const nz = d.normals[i * 3 + 2] || 1;
-      d.dists[i] += ((z - p.z) * w) / nz;
+      const target = p.z + (z - p.z) * w;
+      // Lowering never raises the ground (cuts next to each other, or into a slope).
+      if (mode === 'lower' && target >= p.z) continue;
+      d.dists[i] += (target - p.z) / nz;
       if (paint) d.alphas[i] = Math.max(d.alphas[i], 255 * Math.min(1, w * 1.2));
     }
     writeRows(d.node, 'distances', d.size, 1, d.dists);
@@ -133,9 +141,12 @@ export function applyPoi(editor: Editor, spec: PoiSpec, label: string, existing:
   let detail: MapEntity | null = existing;
   editor.history.group(label, () => {
     const old = existing ? poiMembers(editor, existing.get(POI_ID_KEY) ?? spec.uid) : { detail: null, entities: [], world: [] };
-    const level = spec.params.level !== false && spec.params.level !== '0';
+    // A first build tells which terrain the POI wants levelled and cut (it doesn't depend on the ground).
+    const plan = buildPoi(VmfDocument.empty(), spec).terrain;
+    const level = !!plan?.paint;
     const levelled = level ? levelTerrain(editor, spec.rect, spec.z, true).length > 0 : false;
-    const ground = groundSampler(editor, existing ? spec.uid : null, spec.z, levelled ? spec.rect : null, spec.z);
+    const cuts = (plan?.cuts ?? []).filter((c) => levelTerrain(editor, c.rect, c.z, false, 96, 'lower').length > 0);
+    const ground = groundSampler(editor, existing ? spec.uid : null, spec.z, levelled ? spec.rect : null, spec.z, cuts);
     const out = buildPoi(doc, spec, ground);
     if (old.entities.length || old.world.length) editor.history.remove('Remove old POI parts', old.world, old.entities);
     const world = out.world.map((n) => doc.addSolid(n));
@@ -156,6 +167,11 @@ export function applyPoi(editor: Editor, spec: PoiSpec, label: string, existing:
     if (world.length) detail.set(POI_WORLD_KEY, world.map((s) => s.node.get('id')).join(' '));
     else detail.node.delete(POI_WORLD_KEY);
     const ents = out.entities.map((e) => doc.addEntity(entityFor(editor, spec.uid, e)));
+    // Water wants one water_lod_control in the map (cheap water far away).
+    if (out.waterLevel !== undefined && !doc.entities.some((e) => e.classname === 'water_lod_control')) {
+      const c = new Vector3((spec.rect.x0 + spec.rect.x1) / 2, (spec.rect.y0 + spec.rect.y1) / 2, out.waterLevel + 64).round();
+      ents.push(doc.addEntity(entityNode(editor, 'water_lod_control', c, { cheapwaterstartdistance: '2000', cheapwaterenddistance: '3500' })));
+    }
     editor.history.added('Add POI', world, existing ? ents : [detail, ...ents]);
   });
   editor.changed();

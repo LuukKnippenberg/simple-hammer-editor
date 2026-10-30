@@ -1045,6 +1045,52 @@ These mostly stand on the terrain itself (levelled under the POI) rather than on
 ![Combine power node](docs/screenshots/poi-p5-powernode.png)
 ![Inside the compound](docs/screenshots/poi-p5-powernode-close.png)
 
+### POI phase 6: water, the coast and the rocky set
+
+**Water.** `water()` makes a world brush (water can't be func_detail) whose top face is a `%compilewater`
+material; the first POI with water adds a `water_lod_control`. How units treat it was checked in the engine
+source: the Recast map mesh (`engine-src/src/game/server/recast/recast_mapmesh.cpp`) takes the world's
+collision (func_detail included) and props, and only filters out triangles with water below and air above,
+the water *surface*. The ground under water stays walkable. So:
+
+- **Ponds and fountains** keep their water inside a rim too high to climb (28 over the floor, the limit is
+  18): the floor is an island the navmesh can't reach. The park's pond and the square's and park's fountains
+  now hold water (*Water* option, on by default).
+- **Sea** (`sea()`): displacement terrain under the sea part is lowered 128 (a short, steep shore), water sits
+  16 below the ground, and a `func_nav_blocker` fills the water volume. In Lambda Wars that entity adds a
+  Recast box obstacle (`python/core/ents/navblocker.py`), so units don't path into the sea, while piers and
+  decks above the water stay walkable. On brush ground the ground under the sea has to be cut away by hand
+  (the POI can only lower displacements).
+- The coast POIs keep the sea at their back (local +y, the *Sea* percentage of their depth): rotate them so
+  their back faces the water.
+- A test map with the dock, the beach front and the park pond compiled without errors or leaks (two water
+  bodies, two nav blockers).
+
+**Coast:**
+
+- **Dock** (1024 to 3072): a concrete quay with a wall down to the seabed, one to four piers on poles out over
+  the water (each a 160-wide walkway route: chokepoints) with bollards, boats moored beside them (the HL2 row
+  boats), buoys, containers, crates and drums on the quay, an optional dock crane.
+- **Beach front** (1280×1024 to 4096×3072): sand down to the sea, a row of beach huts (from
+  `interiorHouse()`, doors to the sea), umbrellas with chairs and blankets, a lifeguard tower (deck at 128,
+  rails, a roof, a ladder), driftwood, and a breakwater of big coast rocks out into the water.
+- **Shipwreck** (1408×1280 to 3072): the big fishing boat beached on its side along the shore, half in the
+  water (a large wall of cover), spilled containers, crates, drums and pallets, rocks and driftwood; two
+  scrap piles.
+- **Lighthouse point** (1280 to 2560): a stone platform at the shore, a 512-high tapering lighthouse built
+  like the buildings' corner towers (body, cornice, drum, dome and lantern) with a gallery round the top and a
+  strong light, rocks round the point and into the water, the keeper's house (`interiorHouse()`) and a path.
+- **Coastal bunker** (1280×1024 to 3072×2560): sand dunes, the Combine bunker overlooking the beach, trenches
+  dug either side (the terrain lowered 40) lined with sandbags, barricades, a mortar, crates.
+
+![Dock](docs/screenshots/poi-p6-dock.png)
+![The piers and boats](docs/screenshots/poi-p6-dock-close.png)
+![Beach front](docs/screenshots/poi-p6-beach.png)
+![Shipwreck](docs/screenshots/poi-p6-shipwreck.png)
+![Lighthouse point](docs/screenshots/poi-p6-lighthouse.png)
+![Coastal bunker](docs/screenshots/poi-p6-bunker.png)
+![The park's pond now holds water](docs/screenshots/poi-p6-pond.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

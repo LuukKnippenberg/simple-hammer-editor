@@ -70,6 +70,8 @@ export class PoiKit {
   /** Ground height. */
   readonly z: number;
   readonly out: PoiOutput = { world: [], detail: [], entities: [], routes: [] };
+  /** Areas where the terrain is lowered (world rectangles and heights), filled in by `sea()` and `pit()`. */
+  readonly cuts: { rect: Rect; z: number }[] = [];
   /** Reserved routes and other no-go areas (local). */
   readonly reserved: Rect[] = [];
   /** Footprints of what has been placed (local). */
@@ -138,6 +140,12 @@ export class PoiKit {
     let top = -Infinity;
     for (const p of this.pads) if (x >= p.r.x0 && x <= p.r.x1 && y >= p.r.y0 && y <= p.r.y1) top = Math.max(top, p.top);
     if (top > -Infinity) return top;
+    const w = this.world(x, y);
+    return this.terrain(w.x, w.y);
+  }
+
+  /** Ground height ignoring pads: the terrain, or the bottom of a cut. */
+  terrainAt(x: number, y: number): number {
     const w = this.world(x, y);
     return this.terrain(w.x, w.y);
   }
@@ -323,6 +331,51 @@ export class PoiKit {
     this.out.detail.push(...h.detail);
     for (const e of h.entities) this.out.entities.push({ classname: e.classname, origin: e.origin.clone(), keys: { ...e.keys } });
     this.occupied.push(r);
+  }
+
+  /**
+   * Water: a world brush over a convex local polygon whose top face is a water material at `level` (above
+   * the ground height), reaching down to `bottom`. Water has to be a world brush, not func_detail. The
+   * navmesh drops the water surface but keeps the ground under it, so deep water must sit in a basin whose
+   * walls are higher than units can climb (18): its floor is then an island units can't reach.
+   */
+  water(poly: [number, number][], level: number, bottom: number, material = 'NATURE/WATER_CANALS_WATER2'): void {
+    const node = this.prism(poly, bottom, level, { top: material, bottom: NODRAW, sides: NODRAW }, { world: true });
+    void node;
+    this.out.waterLevel = Math.max(this.out.waterLevel ?? -Infinity, this.z + level);
+  }
+
+  /**
+   * Sea or a lake over a local rectangle: displacement terrain under it is lowered `depth` below the ground
+   * (with a short, steep shore), a water surface sits `level` below the ground, and a func_nav_blocker under
+   * the surface keeps units out of the water (decks and piers above it stay walkable). On brush ground
+   * the ground has to be cut away there by hand.
+   */
+  sea(r: Rect, o: { level?: number; depth?: number; material?: string } = {}): void {
+    const level = o.level ?? -16, depth = o.depth ?? 128;
+    this.cuts.push({ rect: this.worldRect(r), z: this.z - depth });
+    this.water([[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]], level, -depth - 8, o.material ?? 'NATURE/WATER_COAST01');
+    const w = this.worldRect(r);
+    this.out.entities.push({
+      classname: 'func_nav_blocker', keys: { StartDisabled: '0' },
+      solids: [boxSolid(this.doc, new Vector3(w.x0, w.y0, this.z - depth - 8), new Vector3(w.x1, w.y1, this.z + level - 2), NODRAW)],
+    });
+    this.reserved.push(r);
+  }
+
+  /** Lowers the terrain under a local rectangle `depth` below the ground (a quarry pit, a canal). */
+  pit(r: Rect, depth: number): void {
+    this.cuts.push({ rect: this.worldRect(r), z: this.z - depth });
+  }
+
+  /** A round water surface (pond, fountain basin): `sides`-gon of radius r. */
+  waterDisc(x: number, y: number, r: number, level: number, bottom: number, material?: string, sides = 16): void {
+    const pts: [number, number][] = [];
+    for (let i = 0; i < sides; i++) {
+      const a = ((i + 0.5) / sides) * Math.PI * 2;
+      pts.push([Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r)]);
+    }
+    this.water(pts, level, bottom, material);
   }
 
   // --- Routes ----------------------------------------------------------------------------------------------

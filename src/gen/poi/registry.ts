@@ -77,7 +77,7 @@ export function buildPoi(doc: VmfDocument, spec: PoiSpec, ground: (x: number, y:
   if (!t) throw new Error(`Unknown POI type ${spec.type}`);
   const k = new PoiKit(doc, { ...spec, params: { ...defaultParams(t), ...spec.params } }, t, ground);
   t.build(k);
-  if (k.flag('level')) k.out.terrain = { rect: k.worldRect(k.bounds), z: spec.z, paint: true };
+  if (k.flag('level') || k.cuts.length) k.out.terrain = { rect: k.worldRect(k.bounds), z: spec.z, paint: k.flag('level'), cuts: k.cuts };
   return k.out;
 }
 

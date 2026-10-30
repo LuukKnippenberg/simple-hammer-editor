@@ -22,12 +22,13 @@ function feature(k: PoiKit, kind: string, cx: number, cy: number): void {
     k.box(rect(cx - 60, cy - 60, cx + 60, cy + 60), 104, 112, STONE);
     k.prop('props_c17/gravestone_statue001a', cx, cy, 270, { z: 112, force: true });
   } else if (kind === 'fountain') {
-    // A dry basin until water exists (POI phase 6 fills it): rim, floor, a column with a bowl.
+    // A basin (rim, floor), a column with a bowl, and water in the basin.
     k.ring(cx, cy, 160, 140, -8, 28, STONE, 16);
     k.cylinder(cx, cy, 142, -8, -2, { top: BASIN, bottom: NODRAW, sides: NODRAW }, 16);
     k.cylinder(cx, cy, 24, -2, 72, STONE, 10);
     k.cylinder(cx, cy, 64, 72, 88, STONE, 12, 72);
     k.cylinder(cx, cy, 14, 88, 132, STONE, 8);
+    if (k.flag('water')) k.waterDisc(cx, cy, 141, 20, -2);
   } else if (kind === 'breencast') {
     k.box(rect(cx - 56, cy - 56, cx + 56, cy + 56), -8, 16, METAL, { occupy: true });
     k.cylinder(cx, cy, 12, 16, 288, METAL, 8);
@@ -47,6 +48,7 @@ export const SQUARE: PoiType = {
   params: [
     { key: 'feature', label: 'Centre', type: 'select', default: 'statue', options: [
       { value: 'statue', label: 'Statue on a plinth' }, { value: 'fountain', label: 'Fountain' }, { value: 'breencast', label: 'Breencast screen' }, { value: 'none', label: 'Open' }] },
+    { key: 'water', label: 'Water in the fountain', type: 'check', default: true },
     { key: 'trees', label: 'Trees', type: 'check', default: true },
     { key: 'combine', label: 'Combine occupation', type: 'check', default: false, hint: 'Barricades at the corners and Combine flags' },
     { key: 'lights', label: 'Lights on', type: 'check', default: false },

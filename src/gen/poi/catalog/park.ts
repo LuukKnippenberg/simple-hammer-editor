@@ -17,9 +17,10 @@ const FEATURE_R: Record<string, number> = { pond: 256, fountain: 160, bandstand:
 
 function centre(k: PoiKit, kind: string, cx: number, cy: number): void {
   if (kind === 'pond') {
-    // A raised ornamental pond: a stone rim round a muddy floor (dry until POI phase 6 brings water).
+    // A raised ornamental pond: a stone rim (too high to climb out of) round a muddy floor and water.
     k.ring(cx, cy, 256, 236, -8, 28, STONE, 20);
     k.cylinder(cx, cy, 238, -8, 4, { top: 'NATURE/MUDFLOOR001A', bottom: NODRAW, sides: NODRAW }, 20);
+    if (k.flag('water')) k.waterDisc(cx, cy, 237, 22, 4, undefined, 20);
     for (let i = 0; i < 5; i++) {
       const a = k.rng.range(0, Math.PI * 2);
       k.prop('props_foliage/rock_forest01', cx + Math.cos(a) * 190, cy + Math.sin(a) * 190, k.rng.int(0, 359), { force: true, z: 4, noOccupy: true });
@@ -29,6 +30,7 @@ function centre(k: PoiKit, kind: string, cx: number, cy: number): void {
     k.cylinder(cx, cy, 142, -8, -2, { top: 'CONCRETE/CONCRETEFLOOR039A', bottom: NODRAW, sides: NODRAW }, 16);
     k.cylinder(cx, cy, 24, -2, 72, STONE, 10);
     k.cylinder(cx, cy, 64, 72, 88, STONE, 12, 72);
+    if (k.flag('water')) k.waterDisc(cx, cy, 141, 20, -2);
   } else if (kind === 'bandstand') {
     // A low octagonal stage units can step onto (16 high), posts and a pointed roof.
     k.cylinder(cx, cy, 176, -8, 16, WOOD, 8);
@@ -53,6 +55,7 @@ export const PARK: PoiType = {
   params: [
     { key: 'feature', label: 'Centre', type: 'select', default: 'pond', options: [
       { value: 'pond', label: 'Pond' }, { value: 'fountain', label: 'Fountain' }, { value: 'bandstand', label: 'Bandstand' }, { value: 'none', label: 'Lawn' }] },
+    { key: 'water', label: 'Water', type: 'check', default: true, hint: 'In the pond or fountain' },
     { key: 'trees', label: 'Tree density', type: 'number', default: 50, hint: '0 to 100' },
     { key: 'hedges', label: 'Hedges', type: 'check', default: true },
     { key: 'fow', label: 'Hedges block sight', type: 'check', default: true, hint: 'fow_blocker along the hedges' },

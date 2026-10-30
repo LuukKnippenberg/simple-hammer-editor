@@ -53,8 +53,13 @@ export interface PoiOutput {
   entities: PoiEntity[];
   /** Reserved through-routes in world coordinates (at least 128 wide), kept clear of props. */
   routes: Rect[];
-  /** Displacement terrain under the POI is flattened to this rectangle and height. */
-  terrain?: { rect: Rect; z: number; paint: boolean };
+  /** Highest water surface the POI made (world z), for water_lod_control and the editor preview. */
+  waterLevel?: number;
+  /**
+   * Displacement terrain under the POI is flattened to this rectangle and height; `cuts` (sea, quarry pits)
+   * are lowered further, to their own heights.
+   */
+  terrain?: { rect: Rect; z: number; paint: boolean; cuts?: { rect: Rect; z: number }[] };
 }
 
 /** What a POI offers for the game; the framework adds the matching parameters. */
