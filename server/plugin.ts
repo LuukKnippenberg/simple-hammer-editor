@@ -3,9 +3,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig, saveInstall, type EditorConfig } from './config.ts';
-import { AssetFS } from './assets.ts';
+import { AssetFS, contentDir } from './assets.ts';
 import { loadFgd, type FgdClass } from './fgd.ts';
 import { compileMap, launchGame, safeMapName } from './compile.ts';
+import { BLEND_FOLDER, blendVmt, safeBlendName, type BlendDef } from '../src/edit/multiblend.ts';
 
 export interface MapLocation {
   id: string;
@@ -177,6 +178,23 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           } finally {
             compiling = false;
           }
+        },
+
+        // Saves a MultiBlend material made in the editor to content/materials/she/blend/<name>.vmt.
+        '/api/blend': async (req, res) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          const def = JSON.parse((await readBody(req)).toString('utf8')) as BlendDef;
+          if (!def?.layers?.length || def.layers.length > 4 || def.layers.some((l) => !l.texture || /["{}]/.test(l.texture))) {
+            return send(res, 400, JSON.stringify({ error: 'A blend needs 1 to 4 layers with textures' }));
+          }
+          const name = safeBlendName(def.name);
+          const rel = `materials/${BLEND_FOLDER}/${name}.vmt`;
+          const file = join(contentDir(cfg), rel);
+          mkdirSync(join(file, '..'), { recursive: true });
+          writeFileSync(file, blendVmt({ ...def, name }));
+          assets.forget(rel);
+          listCache.clear();
+          send(res, 200, JSON.stringify({ material: `${BLEND_FOLDER}/${name}`.toUpperCase() }));
         },
 
         // Mission list entry (maps/<name>.res) next to the compiled map.

@@ -3,6 +3,7 @@ import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import type { MapSolid } from '../vmf/map.ts';
 import { buildBrushFaces } from '../geom/brush.ts';
 import { buildDisplacement } from '../geom/displacement.ts';
+import { clearBlendRows, noiseWeight, paintLayer, readBlendRows, writeBlendRows, type NoiseLayer } from './multiblend.ts';
 
 /**
  * Painting and sculpting displacement terrain. A brush stroke changes the alphas (which of a blend
@@ -33,6 +34,8 @@ export interface Disp {
   normals: Float32Array;
   dists: Float32Array;
   alphas: Float32Array;
+  /** MultiBlend weights, four per vertex. */
+  blend: Float32Array;
   /** Undisplaced positions plus offsets and elevation, so position = base + normal · distance. */
   base: Vector3[];
   /** Spacing between neighbouring vertices. */
@@ -83,7 +86,7 @@ export function readDisp(solid: MapSolid): Disp | null {
     }
     const base = grid.positions.map((p, i) => p.clone().addScaledVector(new Vector3(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2]), -dists[i]));
     const bounds = new Box3().setFromPoints(grid.positions);
-    return { solid, node, size, normals, dists, alphas, base, step: grid.base[0].distanceTo(grid.base[1]), bounds };
+    return { solid, node, size, normals, dists, alphas, blend: readBlendRows(node, size), base, step: grid.base[0].distanceTo(grid.base[1]), bounds };
   }
   return null;
 }
@@ -98,6 +101,8 @@ export interface BrushOptions {
   strength: number;
   /** Flatten: the height to level to. */
   level?: number;
+  /** Paint a MultiBlend layer (0 = base, 1..3) instead of the two-texture alphas; Erase goes back to the base. */
+  layer?: number;
 }
 
 /**
@@ -126,7 +131,9 @@ export function dab(disps: Disp[], centre: Vector3, o: BrushOptions): Disp[] {
       if (f <= 0) continue;
       touched = true;
       const nz = d.normals[i * 3 + 2] || 1;
-      if (o.mode === 'paint' || o.mode === 'erase') {
+      if ((o.mode === 'paint' || o.mode === 'erase') && o.layer !== undefined) {
+        paintLayer(d.blend, i, o.mode === 'erase' ? 0 : o.layer, f);
+      } else if (o.mode === 'paint' || o.mode === 'erase') {
         const target = o.mode === 'paint' ? 255 : 0;
         d.alphas[i] += (target - d.alphas[i]) * f;
       } else if (o.mode === 'raise' || o.mode === 'lower') {
@@ -140,7 +147,8 @@ export function dab(disps: Disp[], centre: Vector3, o: BrushOptions): Disp[] {
       }
     }
     if (!touched) continue;
-    if (o.mode === 'paint' || o.mode === 'erase') writeRows(d.node, 'alphas', d.size, 1, d.alphas);
+    if ((o.mode === 'paint' || o.mode === 'erase') && o.layer !== undefined) writeBlendRows(d.node, d.size, d.blend);
+    else if (o.mode === 'paint' || o.mode === 'erase') writeRows(d.node, 'alphas', d.size, 1, d.alphas);
     else {
       writeRows(d.node, 'distances', d.size, 1, d.dists);
       writeRows(d.node, 'normals', d.size, 3, d.normals);
@@ -151,13 +159,44 @@ export function dab(disps: Disp[], centre: Vector3, o: BrushOptions): Disp[] {
   return changed;
 }
 
-/** Sets a displacement brush's top material (the blend set), keeping its alphas. */
-export function setGroundMaterial(d: Disp, material: string): boolean {
+/**
+ * Sets a displacement brush's top material (the blend set), keeping its alphas. MultiBlend materials get
+ * weight rows (all zero: the base layer); other materials lose them, since VBSP writes multiblend data for
+ * any displacement that has the rows.
+ */
+export function setGroundMaterial(d: Disp, material: string, multiblend = false): boolean {
   const side = d.solid.sides.find((s) => s.dispinfo);
-  if (!side || side.material.toUpperCase() === material.toUpperCase()) return false;
+  if (!side) return false;
+  if (multiblend && !d.node.child('multiblend')) writeBlendRows(d.node, d.size, d.blend);
+  if (!multiblend && d.node.child('multiblend')) {
+    clearBlendRows(d.node);
+    d.blend.fill(0);
+  }
+  if (side.material.toUpperCase() === material.toUpperCase()) return false;
   side.material = material.toUpperCase();
   side.node.set('material', side.material);
   return true;
+}
+
+/**
+ * Fills MultiBlend weights from world-space fractal noise, one noise field per layer, so large ground areas
+ * break up into patches instead of showing the same tile everywhere. Neighbouring patches get matching
+ * weights on their shared edges. `keep` (0..1) keeps that much of the weights painted before.
+ */
+export function noiseFill(disps: Disp[], layers: NoiseLayer[], keep = 0): Disp[] {
+  for (const d of disps) {
+    for (let i = 0; i < d.size * d.size; i++) {
+      const p = vertexPos(d, i);
+      for (let k = 0; k < 3; k++) {
+        const n = layers.find((l) => l.layer === k + 1);
+        const w = n ? noiseWeight(p.x, p.y, n) : 0;
+        d.blend[i * 4 + k] = d.blend[i * 4 + k] * keep + w * (1 - keep);
+      }
+      d.blend[i * 4 + 3] = 1;
+    }
+    writeBlendRows(d.node, d.size, d.blend);
+  }
+  return disps;
 }
 
 /** Turns a key/value list into a node, for building dispinfo blocks. */

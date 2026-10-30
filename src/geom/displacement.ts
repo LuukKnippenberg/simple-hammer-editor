@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
 import type { BrushFace } from './brush.ts';
 import { parseVec } from '../vmf/map.ts';
+import { readBlendRows } from '../edit/multiblend.ts';
 
 export interface DispGrid {
   /** Vertices per side (2^power + 1). */
@@ -12,6 +13,8 @@ export interface DispGrid {
   base: Vector3[];
   /** Blend alpha 0..1 per vertex (for two-texture blend materials). */
   alpha: Float32Array;
+  /** MultiBlend weights, four per vertex (slots 1..3, then an unused fourth). */
+  blend: Float32Array;
   /** Triangle indices into the grid, wound counter-clockwise seen from the face normal side. */
   indices: Uint32Array;
 }
@@ -112,5 +115,5 @@ export function buildDisplacement(face: BrushFace, disp: KVNode): DispGrid | nul
       const t = idx[k + 1]; idx[k + 1] = idx[k + 2]; idx[k + 2] = t;
     }
   }
-  return { size, positions, base, alpha, indices: new Uint32Array(idx) };
+  return { size, positions, base, alpha, blend: readBlendRows(disp, size), indices: new Uint32Array(idx) };
 }

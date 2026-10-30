@@ -1,5 +1,5 @@
 import { parseKeyValues, type KVNode } from '../vmf/keyvalues.ts';
-import { fetchGameText } from './fetch.ts';
+import { fetchGameText, forgetGameFile } from './fetch.ts';
 
 export interface Vmt {
   /** Shader name, lowercase (lightmappedgeneric, worldvertextransition, vertexlitgeneric, ...). */
@@ -46,6 +46,13 @@ async function load(name: string, depth: number): Promise<Vmt | null> {
   const params = new Map<string, string>();
   readParams(root, params);
   return { shader, params };
+}
+
+/** Forgets a VMT the editor rewrote (MultiBlend materials made in the editor). */
+export function forgetVmt(name: string): void {
+  const key = normalizeMaterialPath(name);
+  cache.delete(key);
+  forgetGameFile(`materials/${key}.vmt`);
 }
 
 export function loadVmt(name: string): Promise<Vmt | null> {

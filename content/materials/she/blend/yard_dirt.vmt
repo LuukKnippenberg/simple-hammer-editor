@@ -1,0 +1,27 @@
+"MultiBlend"
+{
+	"%keywords" "wars"
+
+	"$basetexture" "nature/dirtfloor_mine001a"
+	"$spectexture" "nature/forest_grass_10a_spec"
+	"$scale" "1.25"
+	"$rotation" "40.0"
+
+	"$basetexture2" "nature/mudfloor005a"
+	"$spectexture2" "nature/forest_grass_10a_spec"
+	"$scale2" "1.00"
+	"$rotation2" "80.0"
+
+	"$basetexture3" "nature/forest_grass_01"
+	"$spectexture3" "nature/forest_grass_10a_spec"
+	"$scale3" "1.00"
+	"$rotation3" "20.0"
+
+	"$basetexture4" "nature/dirtfloor003a"
+	"$spectexture4" "nature/forest_grass_10a_spec"
+	"$scale4" "1.00"
+	"$rotation4" "0.0"
+
+	"%tooltexture" "nature/dirtfloor003a"
+	"$fow" "_rt_fog_of_war"
+}

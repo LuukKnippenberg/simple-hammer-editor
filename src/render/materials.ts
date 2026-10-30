@@ -1,6 +1,7 @@
-import { Color, DoubleSide, MeshLambertMaterial, Vector2, type Texture } from 'three';
-import { loadVmt, normalizeMaterialPath, type Vmt } from '../assets/vmt.ts';
+import { Color, DataTexture, DoubleSide, MeshLambertMaterial, Vector2, Vector4, type Texture } from 'three';
+import { forgetVmt, loadVmt, normalizeMaterialPath, type Vmt } from '../assets/vmt.ts';
 import { loadTexture } from '../assets/textures.ts';
+import { blendFromParams, type BlendDef } from '../edit/multiblend.ts';
 
 /** `handle`: editor-only boxes (POI and building handles), drawn faint and never compiled. */
 export type MaterialKind = 'opaque' | 'tool' | 'sky' | 'translucent' | 'blend' | 'handle';
@@ -16,6 +17,8 @@ export interface MaterialInfo {
   loaded: boolean;
   /** Base texture (unscaled, shared) for previews in the material browser. */
   preview: Texture | null;
+  /** For MultiBlend materials: the layers, base first (set once the VMT loaded). */
+  multiblend?: BlendDef;
 }
 
 /** Tool textures that render in game (everything else under tools/ is invisible). */
@@ -30,7 +33,7 @@ export function classify(name: string, vmt?: Vmt | null): MaterialKind {
     if (p.get('%compilesky') === '1' || p.get('%compile2dsky') === '1') return 'sky';
     if (TOOL_FLAGS.some((f) => p.get(f) === '1') && !VISIBLE_TOOLS.has(n)) return 'tool';
     if (vmt.shader === 'water' || p.get('%compilewater') === '1') return 'translucent';
-    if (vmt.shader === 'worldvertextransition' || vmt.shader.includes('4wayblend')) return 'blend';
+    if (vmt.shader === 'worldvertextransition' || vmt.shader.includes('4wayblend') || vmt.shader === 'multiblend') return 'blend';
     if (p.get('$translucent') === '1') return 'translucent';
   }
   if (n === 'tools/toolsskybox' || n === 'tools/toolsskybox2d') return 'sky';
@@ -71,6 +74,62 @@ function makeBlend(mat: MeshLambertMaterial, map2: Texture, scale: Vector2): voi
       );
   };
   mat.customProgramCacheKey = () => 'wvt-blend';
+}
+
+/** What the engine binds when a $spectexture is missing: alpha 0, so that layer's edges are hard. */
+const BLACK = new DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
+BLACK.needsUpdate = true;
+
+/**
+ * Makes a Lambert material show a MultiBlend: four textures mixed by the per-vertex `mblend` weights with the
+ * engine's rules (common_deferred_fxc.h ComputeMultiBlendFactor): slots take their share in order, base texture
+ * alpha is the blend height, spec texture alpha the softness, and slot 4 gets the rest.
+ */
+function makeMultiBlend(mat: MeshLambertMaterial, maps: Texture[], specs: (Texture | null)[], rotations: number[], scales: number[]): void {
+  mat.onBeforeCompile = (shader) => {
+    maps.forEach((m, i) => (shader.uniforms[`mbMap${i}`] = { value: m }));
+    specs.forEach((s, i) => (shader.uniforms[`mbSpec${i}`] = { value: s ?? BLACK }));
+    shader.uniforms.mbRot = { value: new Vector4(...rotations.map((d) => (d * Math.PI) / 180)) };
+    shader.uniforms.mbScale = { value: new Vector4(...scales.map((s) => (s > 0 ? s : 1))) };
+    shader.vertexShader =
+      'attribute vec4 mblend;\nvarying vec4 vMBlend;\n' +
+      shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n\tvMBlend = mblend;');
+    shader.fragmentShader =
+      `uniform sampler2D mbMap0, mbMap1, mbMap2, mbMap3, mbSpec0, mbSpec1, mbSpec2, mbSpec3;
+uniform vec4 mbRot, mbScale;
+varying vec4 vMBlend;
+vec2 mbCoord( vec2 uv, float r, float s ) {
+	vec2 a = uv - 0.5;
+	float c = cos( r ), sn = sin( r );
+	return vec2( a.x * c - a.y * sn, a.x * sn + a.y * c ) / s + 0.5;
+}
+float mbFactor( float bstart, float bend, float amount, inout float remaining ) {
+	float res = 0.0;
+	if ( remaining > 0.0 && amount > 0.0 ) {
+		float minb = max( 0.0, bend - bstart ), maxb = min( 1.0, bend + bstart );
+		if ( minb != maxb ) res = smoothstep( minb, maxb, amount );
+		else if ( amount >= minb ) res = 1.0;
+	}
+	res = clamp( res, 0.0, remaining );
+	remaining -= res;
+	return res;
+}
+` +
+      shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        `#ifdef USE_MAP
+	vec2 uv0 = mbCoord( vMapUv, mbRot.x, mbScale.x ), uv1 = mbCoord( vMapUv, mbRot.y, mbScale.y );
+	vec2 uv2 = mbCoord( vMapUv, mbRot.z, mbScale.z ), uv3 = mbCoord( vMapUv, mbRot.w, mbScale.w );
+	vec4 c0 = texture2D( mbMap0, uv0 ), c1 = texture2D( mbMap1, uv1 ), c2 = texture2D( mbMap2, uv2 ), c3 = texture2D( mbMap3, uv3 );
+	float remaining = 1.0;
+	float f0 = mbFactor( texture2D( mbSpec0, uv0 ).a, c0.a, vMBlend.x, remaining );
+	float f1 = mbFactor( texture2D( mbSpec1, uv1 ).a, c1.a, vMBlend.y, remaining );
+	float f2 = mbFactor( texture2D( mbSpec2, uv2 ).a, c2.a, vMBlend.z, remaining );
+	diffuseColor.rgb *= c0.rgb * f0 + c1.rgb * f1 + c2.rgb * f2 + c3.rgb * remaining;
+#endif`,
+      );
+  };
+  mat.customProgramCacheKey = () => 'multiblend';
 }
 
 /**
@@ -128,6 +187,18 @@ export class MaterialLibrary {
     return info;
   }
 
+  /** Re-reads a world material whose VMT changed on disk; meshes keep their material object. */
+  async reload(name: string): Promise<MaterialInfo> {
+    const info = this.get(name);
+    while (!info.loaded) await new Promise((r) => setTimeout(r, 30));
+    forgetVmt(info.name);
+    info.loaded = false;
+    info.multiblend = undefined;
+    await this.load(info, false);
+    info.material.needsUpdate = true;
+    return info;
+  }
+
   all(): MaterialInfo[] {
     return [...this.world.values(), ...this.models.values()];
   }
@@ -167,7 +238,18 @@ export class MaterialLibrary {
       const map = isModel ? base.texture : base.texture.clone();
       if (!isModel) map.repeat.set(1 / base.width, 1 / base.height);
 
-      if (kind === 'blend' && p.get('$basetexture2')) {
+      if (vmt.shader === 'multiblend') {
+        info.multiblend = blendFromParams(info.name, p);
+        const slot = (i: number, k: string) => p.get(`${k}${i ? i + 1 : ''}`);
+        const maps: Texture[] = [], specs: (Texture | null)[] = [];
+        for (let i = 0; i < 4; i++) {
+          const t = slot(i, '$basetexture');
+          maps.push((t && (await loadTexture(t))?.texture) || base.texture);
+          const s = slot(i, '$spectexture');
+          specs.push(s ? (await loadTexture(s))?.texture ?? null : null);
+        }
+        makeMultiBlend(mat, maps, specs, [0, 1, 2, 3].map((i) => parseFloat(slot(i, '$rotation') ?? '0') || 0), [0, 1, 2, 3].map((i) => parseFloat(slot(i, '$scale') ?? '1') || 1));
+      } else if (kind === 'blend' && p.get('$basetexture2')) {
         const b2 = await loadTexture(p.get('$basetexture2')!);
         if (b2) makeBlend(mat, b2.texture, new Vector2(base.width / b2.width, base.height / b2.height));
       }
