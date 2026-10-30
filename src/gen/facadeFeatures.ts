@@ -1,4 +1,4 @@
-import { Vector2, Vector3 } from 'three';
+import { Box2, Vector2, Vector3 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
 import type { VmfDocument } from '../vmf/map.ts';
 import { solidNode } from '../edit/brushes.ts';
@@ -128,10 +128,12 @@ export interface StreetFacadeOptions {
 
 /**
  * Bays, balconies, shopfront awnings and basement vents along one street wall. Oriels and balconies sit
- * on whole window bays and never overlap each other.
+ * on whole window bays and never overlap each other. `taken` holds the parts of the wall they cover (x along
+ * the wall from `w.a`, y height), which wall props keep clear of.
  */
-export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, rng: Rng): { solids: KVNode[]; entities: FeatureEntity[] } {
-  const solids: KVNode[] = [], entities: FeatureEntity[] = [];
+export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, rng: Rng): { solids: KVNode[]; entities: FeatureEntity[]; taken: Box2[] } {
+  const solids: KVNode[] = [], entities: FeatureEntity[] = [], taken: Box2[] = [];
+  const cover = (u0: number, u1: number, z0: number, z1: number) => { taken.push(new Box2(new Vector2(u0, z0), new Vector2(u1, z1))); };
   const bays = bayCount(w.len, o.windows) || Math.max(1, Math.round(w.len / 64));
   const bay = w.len / bays;
   const top = o.z0 + o.floors * FLOOR;
@@ -147,10 +149,13 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
       const k = rng.int(1, bays - 3);
       if (!free(k, k + 2)) continue;
       take(k - 1 < 0 ? 0 : k - 1, k + 3);
+      const zBottom = o.z0 + FLOOR + 16, zTop = top - 24 - (rng.chance(0.4) ? FLOOR : 0);
       solids.push(...oriel(doc, w, (k + 1) * bay, {
         width: 2 * bay - 8, depth: shape === 'round' ? bay - 4 : 32, shape, z0: o.z0,
-        zBottom: o.z0 + FLOOR + 16, zTop: top - 24 - (rng.chance(0.4) ? FLOOR : 0), windows: o.windows, trim: o.trim, plain: o.plain,
+        zBottom, zTop, windows: o.windows, trim: o.trim, plain: o.plain,
       }));
+      // With its corbel and cap band.
+      cover(k * bay + 4, (k + 2) * bay - 4, zBottom - 24, zTop + 10);
     }
   }
   if ((o.balconies ?? true) && o.level >= 2 && o.floors >= 3 && w.len >= 256) {
@@ -158,7 +163,11 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
     if (rng.chance(0.5)) {
       const k = rng.int(1, Math.max(1, bays - 4));
       const n = Math.min(4, bays - 1 - k);
-      if (n >= 2 && free(k, k + n)) { take(k, k + n); solids.push(...balcony(doc, w, (k + n / 2) * bay, n * bay - 8, o.z0 + FLOOR + 8, o.trim)); }
+      if (n >= 2 && free(k, k + n)) {
+        take(k, k + n);
+        solids.push(...balcony(doc, w, (k + n / 2) * bay, n * bay - 8, o.z0 + FLOOR + 8, o.trim));
+        cover(k * bay + 4, (k + n) * bay - 4, o.z0 + FLOOR - 16, o.z0 + FLOOR + 40);
+      }
     } else {
       for (let tries = 0; tries < 2; tries++) {
         const k = rng.int(1, bays - 2);
@@ -166,6 +175,7 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
         take(k, k + 1);
         // The slab sits just above the floor line, under the window sill.
         for (let f = 1; f < o.floors; f++) solids.push(...balcony(doc, w, (k + 0.5) * bay, bay - 8, o.z0 + f * FLOOR + 8, o.trim));
+        cover(k * bay + 4, (k + 1) * bay - 4, o.z0 + FLOOR - 16, o.z0 + (o.floors - 1) * FLOOR + 40);
       }
     }
   }
@@ -178,6 +188,7 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
       const yaw = Math.round((Math.atan2(w.out.y, w.out.x) * 180) / Math.PI);
       for (let k = 1; k + step <= bays - 1; k += step + 1) {
         const p = w.a.clone().addScaledVector(w.dir, (k + step / 2) * bay).addScaledVector(w.out, 15);
+        cover((k + step / 2) * bay - a.width / 2, (k + step / 2) * bay + a.width / 2, o.z0 + 78, o.z0 + 122);
         entities.push({ classname: 'prop_static', origin: new Vector3(Math.round(p.x), Math.round(p.y), o.z0 + 100), keys: { model: a.model, angles: `0 ${yaw} 0`, solid: '0' } });
       }
     }
@@ -186,5 +197,5 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
       entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), o.z0 + 10), keys: { texture: VENT } });
     }
   }
-  return { solids, entities };
+  return { solids, entities, taken };
 }

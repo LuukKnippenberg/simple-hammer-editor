@@ -125,6 +125,8 @@ function partSolids(
   world.push(solidNode(doc, facadePrism(poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : roofTop, z0)));
   if (part.floors > 1) world.push(solidNode(doc, facadePrism(poly, z0 + FLOOR, top, windows, roofTop, z0)));
   const main = part.kind === 'main';
+  // Pilasters per wall, in the wall's plane (x along it, y height), for the street clutter to keep clear of.
+  const pilasters = poly.map((): Box2[] => []);
 
   // Base course of stone along the street.
   if (level >= 1) add(band(doc, poly, 4, z0 - 32, z0 + 20, BASE));
@@ -155,7 +157,10 @@ function partSolids(
       const bays = bayCount(len, windows);
       if (len < 256 || bays < 4) return;
       const dir = new Vector2().subVectors(b, a).normalize();
-      for (let k = step; k <= bays - step; k += step) add(wallBlock(doc, a.clone().addScaledVector(dir, (k * len) / bays), dir, 16, 4, z0 + FLOOR + 6, colTop, s.plain));
+      for (let k = step; k <= bays - step; k += step) {
+        add(wallBlock(doc, a.clone().addScaledVector(dir, (k * len) / bays), dir, 16, 4, z0 + FLOOR + 6, colTop, s.plain));
+        pilasters[i].push(new Box2(new Vector2((k * len) / bays - 8, z0 + FLOOR + 6), new Vector2((k * len) / bays + 8, colTop)));
+      }
     });
   }
   // Brackets under the cornice at every bay.
@@ -222,7 +227,7 @@ function partSolids(
       }, street.rng);
       detail.push(...f.solids);
       street.entities.push(...f.entities);
-      if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors));
+      if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors, { windows, ground: groundTiles[i], taken: [...f.taken, ...pilasters[i]] }));
       // Weathering: stains running down from under the cornice and from window sills.
       const stains = Math.round((w.len / 256) * street.weathering * 2 * street.rng.next());
       for (let k = 0; k < stains; k++) {

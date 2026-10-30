@@ -13,6 +13,8 @@ export interface FacadeTile {
   bays: number;
   /** Texture width in pixels when it is not 512. */
   widthPx?: number;
+  /** Share of a bay its window or door takes, frame and sill included, centred in the bay (default 0.8). */
+  opening?: number;
 }
 
 const TEX_SCALE = 0.25;
@@ -120,6 +122,20 @@ export function convexHull(points: Vector2[]): Vector2[] {
 export function bayCount(len: number, tile: FacadeTile): number {
   const tileUnits = (tile.widthPx ?? TILE_PX) * TEX_SCALE;
   return tile.bays > 0 ? Math.max(1, Math.round(len / (tileUnits / tile.bays))) : 0;
+}
+
+/**
+ * The solid piers between the windows of a wall `len` long with this tile, as [from, to] along the wall: the
+ * plain stretch around each inner bay boundary (the half piers at the wall ends are left out). A tile without
+ * windows is one plain stretch.
+ */
+export function piers(len: number, tile: FacadeTile): [number, number][] {
+  const bays = bayCount(len, tile);
+  if (!bays) return [[0, len]];
+  const bay = len / bays, half = (bay * (1 - (tile.opening ?? 0.8))) / 2;
+  const out: [number, number][] = [];
+  for (let k = 1; k < bays; k++) out.push([k * bay - half, k * bay + half]);
+  return out;
 }
 
 /** True when the polygon is convex and counter-clockwise. */
