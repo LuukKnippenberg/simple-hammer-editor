@@ -351,3 +351,27 @@ export function snapToRoads(roads: RoadSpec[], p: Vector3, max: number): Vector3
   }
   return best ? new Vector3(Math.round(best.x), Math.round(best.y), Math.round(best.z)) : null;
 }
+
+/** What a road network has under a point: the kind of brush and the height of its top. */
+export interface RoadGround { kind: Kind; z: number }
+
+/**
+ * Looks up the top of the road brushes under a point, as `buildRoads` makes them, or null off the roads. A
+ * road's surface wins over other roads' kerbs and pavements (they give way there); rails stand on it.
+ */
+export function roadGround(roads: RoadSpec[]): (x: number, y: number) => RoadGround | null {
+  const pieces = roads.flatMap((r, i) => (r.points.length >= 2 ? roadPieces(r, i) : []));
+  const lifts = roads.map((r) => r.lift ?? (ROAD_STYLES[r.style].kerb ? LIFT : 1));
+  return (x, y) => {
+    const p = new Vector2(x, y);
+    const hits = pieces.filter((c) => c.poly.every((a, i) => cross(a, c.poly[(i + 1) % c.poly.length], p) >= -1e-6));
+    const surfaced = new Set(hits.filter((c) => c.kind === 'surface').map((c) => c.road));
+    let best: RoadGround | null = null;
+    for (const c of hits) {
+      if (surfaced.size && !(surfaced.has(c.road) && (c.kind === 'surface' || c.kind === 'rail'))) continue;
+      const z = groundZ(c.seg, p) + lifts[c.road] + c.top;
+      if (!best || z > best.z) best = { kind: c.kind, z };
+    }
+    return best;
+  };
+}

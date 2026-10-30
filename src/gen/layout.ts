@@ -6,6 +6,7 @@ import { buildBrushFaces } from '../geom/brush.ts';
 import { dispBaseGrid, dispCorners } from '../geom/displacement.ts';
 import { ARCHITECTURES, detailEntityNode, generateBuildings, type ArchitectureName } from './buildings.ts';
 import { streetDressing, type BlockDressing } from './streets.ts';
+import { standZ } from './props.ts';
 import { Rng } from './rng.ts';
 import { cameraSpawnFor } from '../lw/kits.ts';
 
@@ -336,7 +337,7 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
       dressings.push(b.dressing);
     }
   }
-  for (const e of streetDressing(dressings, rng)) ents.push(entity(doc, e.classname, e.origin, e.keys));
+  for (const e of streetDressing(dressings, rng, { groundAt: ground })) ents.push(entity(doc, e.classname, e.origin, e.keys));
   const cells = (type: Cell) => L.cells.flatMap((c, i) => (c === type ? [{ x: i % L.w, y: Math.floor(i / L.w) }] : []));
   for (const c of cells(Cell.Forest)) {
     for (let k = 0; k < 3; k++) {
@@ -352,7 +353,7 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
     const side = rng.chance(0.5) ? 24 : CELL - 24;
     const x = c.x * CELL + (rng.chance(0.5) ? side : rng.range(40, CELL - 40)), y = c.y * CELL + (rng.chance(0.5) ? rng.range(40, CELL - 40) : side);
     const model = opts.theme === 'city' ? rng.pick(rng.chance(0.5) ? CARS : [...CITY_BITS, 'models/props_c17/lamppost03a_off.mdl']) : rng.pick(BUSHES);
-    ents.push(entity(doc, 'prop_static', new Vector3(Math.round(x), Math.round(y), Math.round(ground(x, y))), { model, angles: `0 ${rng.int(0, 3) * 90 + rng.int(-10, 10)} 0`, solid: '6' }));
+    ents.push(entity(doc, 'prop_static', new Vector3(Math.round(x), Math.round(y), standZ(model, Math.round(ground(x, y)))), { model, angles: `0 ${rng.int(0, 3) * 90 + rng.int(-10, 10)} 0`, solid: '6' }));
   }
 
   // Player bases: one start per connected base region, with the RTS camera spawn above it.
