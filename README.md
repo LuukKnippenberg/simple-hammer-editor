@@ -835,6 +835,38 @@ offers cover, chokepoints, high ground or a place to capture, and always leaves 
 ![The paved lot on levelled terrain](docs/screenshots/poi-p0-lot.png)
 ![Selected: its settings, rebuilt with asphalt, a capture point and two scrap piles](docs/screenshots/poi-p0-panel.png)
 
+### POI phase 1: square, parking lot, playground
+
+- **Square** (1024 to 3072, default 1408): a cobbled border band round a tiled field, a centre feature in an
+  open ring (a statue on a stepped plinth, a fountain basin with a column and bowl, or a Combine Breencast
+  screen on a pole), benches at the ring's corners facing it, trees in concrete planters on a grid that keeps
+  off the routes, and lamp posts round the edge with their arms over the square. Four routes lead from the
+  middle of each side to the ring. *Combine occupation* adds barricades in the corners and Combine flags. The
+  capture point (on by default) takes the centre in place of the feature.
+- **Parking lot** (768×704 to 3072×2048): asphalt, rows of 128 × 256 bays facing 192-wide aisles (back-to-back
+  rows share one), bay lines painted as overlays, an end lane joining the aisles to both long sides; aisles and
+  lane are the routes. Cars park in a share of the bays nose to the aisle with a few degrees of turn; wrecks
+  (the rusted variants, some on their roof) take any bay at an angle. A ticket booth by the entrance, lamp posts
+  at the row ends, kerbs with gaps where the routes leave. Fewer rows are built when the lot is not deep enough.
+- **Playground** (768×640 to 2048×2048): sand, rubber or gravel, a low timber fence with gates on all four
+  sides, three to six pieces of equipment shuffled onto a loose grid with room around each (swings, slide,
+  carousel, climbing frames, see-saw with its board, noughts-and-crosses post), a sandpit with a timber frame,
+  benches facing in, two trees. *Abandoned* drops some equipment and adds rubbish, tyres, an old couch and
+  mattress, stains and leaves. It can hold a zombie or headcrab group.
+- Toolkit additions: fences fill each run with whole pieces (long ones first, the rest spread as small gaps),
+  so no piece reaches into a gate; trees only claim their trunk for the route check; ring rims for basins;
+  lines as one bar of the street-marking texture; props tipped on their side or roof stand on the right point.
+
+![Square with a statue](docs/screenshots/poi-p1-square-statue.png)
+![Square with a dry fountain (water comes in phase 6)](docs/screenshots/poi-p1-square-fountain.png)
+![Combine-occupied square with a Breencast screen](docs/screenshots/poi-p1-square-combine.png)
+![Parking lot with a capture point](docs/screenshots/poi-p1-parking.png)
+![Parking lot with two rows, more cars and wrecks](docs/screenshots/poi-p1-parking-wrecks.png)
+![Playground](docs/screenshots/poi-p1-playground.png)
+![Playground close up: swings, climbing frames, see-saw, sandpit, benches, gates](docs/screenshots/poi-p1-playground-close.png)
+![Abandoned playground on rubber](docs/screenshots/poi-p1-playground-abandoned.png)
+![All of phase 1](docs/screenshots/poi-p1-overview.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

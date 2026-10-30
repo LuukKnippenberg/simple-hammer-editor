@@ -1,4 +1,4 @@
-import { Vector2, Vector3 } from 'three';
+import { Euler, Vector2, Vector3 } from 'three';
 import type { KVNode } from '../../vmf/keyvalues.ts';
 import { vecStr, type VmfDocument } from '../../vmf/map.ts';
 import { boxSolid, prismFaces, solidNode, type PrismMaterials } from '../../edit/brushes.ts';
@@ -50,7 +50,7 @@ export interface PropOptions {
 }
 
 /** Edge kinds: models along a line, or brushes. */
-export type EdgeKind = 'fence' | 'chainlink' | 'wood' | 'wall' | 'hedge' | 'kerb' | 'railing' | 'combine';
+export type EdgeKind = 'fence' | 'chainlink' | 'wood' | 'border' | 'barbed' | 'wall' | 'hedge' | 'kerb' | 'railing' | 'combine';
 
 export class PoiKit {
   readonly doc: VmfDocument;
@@ -210,6 +210,25 @@ export class PoiKit {
     return node;
   }
 
+  /**
+   * A round rim (fountain basin, pond edge, tower wall) as one convex brush per side: the ring between
+   * `rOut` and `rIn` around a local point.
+   */
+  ring(x: number, y: number, rOut: number, rIn: number, z0: number, z1: number, material: string | ShapeMaterials, sides = 16): KVNode[] {
+    const m = typeof material === 'string' ? { top: material, bottom: material, sides: material } : material;
+    const out: KVNode[] = [];
+    for (let i = 0; i < sides; i++) {
+      const a0 = (i / sides) * Math.PI * 2, a1 = ((i + 1) / sides) * Math.PI * 2;
+      const pts: [number, number][] = [
+        [x + Math.cos(a0) * rIn, y + Math.sin(a0) * rIn], [x + Math.cos(a0) * rOut, y + Math.sin(a0) * rOut],
+        [x + Math.cos(a1) * rOut, y + Math.sin(a1) * rOut], [x + Math.cos(a1) * rIn, y + Math.sin(a1) * rIn],
+      ];
+      out.push(this.prism(pts, z0, z1, { top: m.top, bottom: m.bottom, sides: m.sides }));
+    }
+    this.occupied.push(rect(x - rOut, y - rOut, x + rOut, y + rOut));
+    return out;
+  }
+
   /** A sloped slab (ramp, awning): a quad whose top rises from `za` along one local edge to `zb` at the other. */
   slope(r: Rect, along: 'x' | 'y', za: number, zb: number, thick: number, material: string | ShapeMaterials): KVNode {
     const m = typeof material === 'string' ? { top: material, bottom: material, sides: material } : material;
@@ -273,13 +292,9 @@ export class PoiKit {
 
   // --- Props -----------------------------------------------------------------------------------------------
 
-  /** Local footprint of a model at a local point and yaw (the rotated bounds' box). */
+  /** Local footprint of a model at a local point and yaw (see `modelFootprint`). */
   footprint(model: string, x: number, y: number, yaw: number): Rect {
-    const m = modelInfo(model);
-    const [x0, y0, x1, y1] = m ? [m.min[0], m.min[1], m.max[0], m.max[1]] : [-16, -16, 16, 16];
-    const a = (yaw * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
-    const pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([px, py]) => [x + px * c - py * s, y + px * s + py * c]);
-    return rect(Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1])));
+    return modelFootprint(model, x, y, yaw);
   }
 
   /**
@@ -293,7 +308,7 @@ export class PoiKit {
     if (!o.noOccupy) this.occupied.push(fp);
     const path = m?.path ?? `models/${model.replace(/^models\//, '').replace(/\.mdl$/, '')}.mdl`;
     const ground = o.z !== undefined ? this.z + o.z : this.groundAt(x, y);
-    const z = ground + (o.dz ?? 0) - (m?.min[2] ?? 0);
+    const z = ground + (o.dz ?? 0) - lowest(m?.min ?? [0, 0, 0], m?.max ?? [0, 0, 0], o.pitch ?? 0, o.roll ?? 0);
     const w = this.world(x, y);
     const cls = o.cls ?? (m && !m.isStatic ? 'prop_dynamic' : 'prop_static');
     const keys: Record<string, string> = { model: path, angles: `${Math.round(o.pitch ?? 0)} ${this.yaw(yaw)} ${Math.round(o.roll ?? 0)}` };
@@ -347,25 +362,17 @@ export class PoiKit {
     let s = 0;
     for (const [g0, g1] of sorted) { if (g0 > s) runs.push([s, g0]); s = Math.max(s, g1); }
     if (s < len) runs.push([s, len]);
-    const MODEL: Partial<Record<EdgeKind, { model: string; len: number; yaw: number }>> = {
-      fence: { model: 'props_c17/fence01a', len: 134, yaw: 90 },
-      chainlink: { model: 'props_wasteland/interior_fence002d', len: 256, yaw: 90 },
-      wood: { model: 'props_forest/fence_trail_256', len: 256, yaw: 90 },
-      combine: { model: 'props_combine/combine_fence01a', len: 114, yaw: 90 },
-      hedge: { model: (o.height ?? 96) > 100 ? 'props_foliage/hedge_256_128high' : 'props_foliage/hedge_256', len: 300, yaw: 0 },
-    };
-    const model = MODEL[kind];
+    const pieces = EDGE_MODELS[kind];
     for (const [r0, r1] of runs) {
       if (r1 - r0 < 4) continue;
-      if (model) {
-        const n = Math.max(1, Math.round((r1 - r0) / model.len));
-        const step = (r1 - r0) / n;
-        // The combine fence piece is built from one end, not its centre.
-        const offset = kind === 'combine' ? 0 : step / 2;
-        for (let i = 0; i < n; i++) {
-          const [x, y] = at(r0 + i * step + offset);
-          this.prop(model.model, x, y, yaw + model.yaw, { force: true });
-          this.occupied.push(this.footprint(model.model, x, y, yaw + model.yaw));
+      if (pieces) {
+        for (const p of fillRun(pieces, r1 - r0)) {
+          // The piece covers [s0, s0 + len] along the line. Turned by 90° the model's +y points back
+          // along the line, so its far end (max y) lies at s0.
+          const s0 = r0 + p.at;
+          const off = p.piece.yawOff === 90 ? s0 + p.piece.max : s0 - p.piece.min;
+          const [x, y] = at(off);
+          this.prop(p.piece.model, x, y, yaw + p.piece.yawOff, { force: true });
         }
         if (o.fow) this.fowStrip(at(r0), at(r1), 48, kind === 'hedge' ? 160 : 128);
         continue;
@@ -481,7 +488,8 @@ export class PoiKit {
     const yaw = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
-      this.overlay('decals/decalstreet008b', a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, len / n, width, yaw, [0.03, 0.1, 0.97, 0.13]);
+      // One of the texture's four bars, lengthwise: its u runs across the line, v along it.
+      this.overlay('decals/decalstreet008b', a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, width, len / n, yaw + 90, [0.08, 0, 0.17, 1]);
     }
   }
 
@@ -496,7 +504,7 @@ export class PoiKit {
       classname: 'trigger_capture_area', keys: { control_point: name, spawnflags: '3', StartDisabled: '0' },
       solids: [boxSolid(this.doc, new Vector3(Math.round(c.x - radius), Math.round(c.y - radius), Math.round(z - 16)), new Vector3(Math.round(c.x + radius), Math.round(c.y + radius), Math.round(z + 128)), 'TOOLS/TOOLSTRIGGER')],
     });
-    this.occupied.push(rect(x - 40, y - 40, x + 40, y + 40));
+    this.occupied.push(rect(x - 96, y - 96, x + 96, y + 96));
   }
 
   /** A scrap pile rebels harvest (needs room around it for workers). */
@@ -542,6 +550,65 @@ export class PoiKit {
       if (unit && unit !== 'none') this.unitGroup(unit, focus[0] + this.rng.range(-128, 128), focus[1] + this.rng.range(-128, 128), Math.max(1, this.num('unitCount', 5)));
     }
   }
+}
+
+/** Models along a fence line: each piece's length runs along its model y (yawOff 90) or x (yawOff 0). */
+interface EdgePiece { model: string; yawOff: 0 | 90; min: number; max: number; len: number }
+
+function edgePiece(model: string, yawOff: 0 | 90): EdgePiece {
+  const m = modelInfo(model)!;
+  const axis = yawOff === 90 ? 1 : 0;
+  return { model, yawOff, min: m.min[axis], max: m.max[axis], len: m.max[axis] - m.min[axis] };
+}
+
+const EDGE_MODELS: Partial<Record<EdgeKind, EdgePiece[]>> = {
+  fence: [edgePiece('props_c17/fence03a', 90), edgePiece('props_c17/fence01a', 90), edgePiece('props_c17/fence01b', 90)],
+  chainlink: [edgePiece('props_wasteland/interior_fence002d', 90), edgePiece('props_wasteland/interior_fence002e', 90), edgePiece('props_wasteland/interior_fence002a', 90)],
+  wood: [edgePiece('props_forest/fence_trail_512', 90), edgePiece('props_forest/fence_trail_256', 90), edgePiece('props_forest/fence_trail_128', 90)],
+  border: [edgePiece('props_forest/fence_border_512', 90), edgePiece('props_forest/fence_border_256', 90), edgePiece('props_forest/fence_border_128', 90)],
+  barbed: [edgePiece('props_wasteland/exterior_fence002e', 90), edgePiece('props_wasteland/exterior_fence002d', 90), edgePiece('props_wasteland/exterior_fence002b', 90)],
+  combine: [edgePiece('props_combine/combine_fence01b', 90)],
+  hedge: [edgePiece('props_foliage/hedge_256', 0), edgePiece('props_foliage/hedge_128', 0)],
+};
+
+/**
+ * Whole pieces filling a run of length `len`, longest first; what is left over is spread as small gaps
+ * between the pieces, so no piece reaches past the run's ends (into a gap left for a route).
+ */
+function fillRun(pieces: EdgePiece[], len: number): { piece: EdgePiece; at: number }[] {
+  const chosen: EdgePiece[] = [];
+  let left = len;
+  for (const p of pieces) while (left >= p.len - 1) { chosen.push(p); left -= p.len; }
+  if (!chosen.length) return [];
+  const gap = chosen.length > 1 ? Math.max(0, left) / (chosen.length - 1) : 0;
+  const out: { piece: EdgePiece; at: number }[] = [];
+  let at = chosen.length > 1 ? 0 : Math.max(0, left) / 2;
+  for (const p of chosen) { out.push({ piece: p, at }); at += p.len + gap; }
+  return out;
+}
+
+/** Models whose collision is their trunk only: their canopy may hang over routes. */
+const TRUNKS = /props_foliage\/(tree_|oak_|mall_tree)|pg_forest\/pg_palm/;
+
+/**
+ * Footprint of a model at a point and yaw: its bounds rotated, as a box (trees: just the trunk).
+ */
+export function modelFootprint(model: string, x: number, y: number, yaw: number): Rect {
+  if (TRUNKS.test(model) && !/stump|fallen/.test(model)) return rect(x - 24, y - 24, x + 24, y + 24);
+  const m = modelInfo(model);
+  const [x0, y0, x1, y1] = m ? [m.min[0], m.min[1], m.max[0], m.max[1]] : [-16, -16, 16, 16];
+  const a = (yaw * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  const pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([px, py]) => [x + px * c - py * s, y + px * s + py * c]);
+  return rect(Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1])));
+}
+
+/** Lowest point of a model's bounds tipped by pitch and roll (wrecks on their side or roof). */
+function lowest(min: number[], max: number[], pitch: number, roll: number): number {
+  if (!pitch && !roll) return min[2];
+  const e = new Euler((roll * Math.PI) / 180, (pitch * Math.PI) / 180, 0, 'ZYX');
+  let low = Infinity;
+  for (const x of [min[0], max[0]]) for (const y of [min[1], max[1]]) for (const z of [min[2], max[2]]) low = Math.min(low, new Vector3(x, y, z).applyEuler(e).z);
+  return low;
 }
 
 function ccwPts(p: Vector2[]): Vector2[] {

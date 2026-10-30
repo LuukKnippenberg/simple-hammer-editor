@@ -8,8 +8,8 @@ import { POI_TYPES, buildPoi, defaultParams, newSpec, poiOf, registerPoi, shared
 import { applyPoi, deletePoi, poiMembers, regeneratePoi } from '../src/gen/poi/action.ts';
 import { decodePoi, encodePoi } from '../src/gen/poi/spec.ts';
 import { modelInfo } from '../src/gen/poi/models.ts';
-import { overlaps, rect } from '../src/gen/poi/kit.ts';
-import type { PoiOutput, PoiSpec, PoiType, Rect, Rotation } from '../src/gen/poi/types.ts';
+import { modelFootprint, overlaps, rect } from '../src/gen/poi/kit.ts';
+import type { PoiOutput, PoiSpec, PoiType, Rotation } from '../src/gen/poi/types.ts';
 import '../src/gen/poi/catalogue.ts';
 
 /** Just enough of an Editor for POI actions: a document, history, no world to ray-cast against. */
@@ -42,15 +42,6 @@ const valid = (n: KVNode) => {
   const s = new MapSolid(n, null);
   return s.sides.length >= 4 && buildBrushFaces(s).length === s.sides.length;
 };
-
-/** World footprint of a placed prop from its measured bounds and yaw. */
-function propFootprint(origin: { x: number; y: number }, model: string, yaw: number): Rect | null {
-  const m = modelInfo(model);
-  if (!m) return null;
-  const a = (yaw * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
-  const pts = [[m.min[0], m.min[1]], [m.max[0], m.min[1]], [m.max[0], m.max[1]], [m.min[0], m.max[1]]].map(([x, y]) => [origin.x + x * c - y * s, origin.y + x * s + y * c]);
-  return rect(Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1])));
-}
 
 const sig = (o: PoiOutput) => JSON.stringify({
   d: o.detail.map((n) => writeKeyValues([n], '\n')), w: o.world.map((n) => writeKeyValues([n], '\n')),
@@ -120,9 +111,9 @@ describe('POI framework', () => {
         for (const e of out.entities) {
           if (!e.classname.startsWith('prop_') || !e.origin) continue;
           const model = e.keys.model.replace(/^models\//, '').replace(/\.mdl$/, '');
-          const fp = propFootprint(e.origin, model, Number(e.keys.angles.split(' ')[1]));
-          expect(fp, `${model} is in the model table`).not.toBeNull();
-          for (const r of routes) expect(overlaps(fp!, r), `${model} at ${e.origin.toArray()} on route`).toBe(false);
+          expect(modelInfo(model), `${model} is in the model table`).not.toBeNull();
+          const fp = modelFootprint(model, e.origin.x, e.origin.y, Number(e.keys.angles.split(' ')[1]));
+          for (const r of routes) expect(overlaps(fp, r), `${model} at ${e.origin.toArray()} on route`).toBe(false);
         }
         expect(sig(buildPoi(VmfDocument.empty(), spec))).toBe(sig(out));
       }
