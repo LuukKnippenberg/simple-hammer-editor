@@ -23,15 +23,16 @@ add('point_broadcastclientcommand', new Vector3(-800, -620, 48), { targetname: '
 const auto = add('logic_auto', new Vector3(-800, -680, 48), { targetname: 'she_test', spawnflags: '1' });
 // [delay, client command]: the player has to be in game, so the first one waits.
 const steps = [
-  [8, 'unit_create build_comb_garrison 3'], // another player's garrison: must not count
-  [8.5, 'unit_create build_comb_barricade 2'], // a barricade before its stage: the counter is still off
+  // (Two garrisons don't fit next to each other at the cursor: unit_create then fails to place the second.)
+  [8, 'unit_create build_comb_barricade 2'], // the wrong type for stage A; stage B's counter is still off
   [9, 'unit_create build_comb_garrison 2'], // stage A -> B
-  [11, 'unit_create build_comb_barricade 2'],
+  [11, 'unit_create build_comb_barricade 3'], // another player's barricade: must not count
   [11.5, 'unit_create build_comb_barricade 2'],
+  [12, 'unit_create build_comb_barricade 2'],
   [12.5, 'unit_create build_comb_barricade 2'], // the third: stage B -> C
-  [14, 'wars_abi weaponar2_comb_unlock'],
-  [14.5, 'wars_abi weaponsg_comb_unlock'],
-  [15.5, 'wars_abi weaponar2_comb_unlock'], // the second AR2: all of C met -> D
+  [14.5, 'wars_abi weaponar2_comb_unlock'],
+  [15, 'wars_abi weaponsg_comb_unlock'],
+  [16, 'wars_abi weaponar2_comb_unlock'], // the second AR2: all of C met -> D
 ];
 setConnections(auto, [
   { output: 'OnMapSpawn', target: 'she_cmd', input: 'Command', param: 'echo SHE_TEST_START', delay: 0, times: -1 },
