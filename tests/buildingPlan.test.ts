@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Box2, Box3, Vector2, Vector3 } from 'three';
 import { planBlock, rectPoly, shapeCorner } from '../src/gen/buildingPlan.ts';
 import { facadeAxes, isConvexCcw } from '../src/gen/facade.ts';
-import { generateBuildings } from '../src/gen/buildings.ts';
+import { detailEntityNode, generateBuildings } from '../src/gen/buildings.ts';
 import { Rng } from '../src/gen/rng.ts';
 import { VmfDocument } from '../src/vmf/map.ts';
 import { buildBrushFaces } from '../src/geom/brush.ts';
@@ -61,9 +61,12 @@ describe('building plans', () => {
     for (let seed = 1; seed <= 30; seed++) {
       const doc = VmfDocument.empty();
       const w = 512 + (seed % 7) * 160, h = 384 + (seed % 4) * 256;
-      const r = generateBuildings(doc, new Box3(new Vector3(-w / 2, -h / 2, 64), new Vector3(w / 2, h / 2, 64)), { seed, minFloors: 2, maxFloors: 6, alleys: seed % 3 === 0, roofProps: true });
+      const r = generateBuildings(doc, new Box3(new Vector3(-w / 2, -h / 2, 64), new Vector3(w / 2, h / 2, 64)), { seed, minFloors: 2, maxFloors: 6, alleys: seed % 3 === 0, roofProps: true, detail: (seed % 4) as 0 | 1 | 2 | 3 });
       expect(r.buildings).toBeGreaterThan(0);
       for (const node of r.solids) doc.addSolid(node);
+      const detail = detailEntityNode(doc, r.detail);
+      if (detail) doc.addEntity(detail);
+      if (seed % 4 >= 2) expect(r.detail.length).toBeGreaterThan(r.solids.length);
       for (const s of doc.allSolids()) {
         const faces = buildBrushFaces(s);
         expect(faces.length).toBe(s.sides.length);

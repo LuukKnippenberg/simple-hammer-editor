@@ -4,7 +4,7 @@ import { MapSolid, VmfDocument, vecStr } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
 import { buildBrushFaces } from '../geom/brush.ts';
 import { dispBaseGrid, dispCorners } from '../geom/displacement.ts';
-import { generateBuildings } from './buildings.ts';
+import { detailEntityNode, generateBuildings } from './buildings.ts';
 import { Rng } from './rng.ts';
 import { cameraSpawnFor } from '../lw/kits.ts';
 
@@ -299,8 +299,11 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
   ];
   for (const r of ringRects) {
     if (opts.theme === 'city') {
-      const b = generateBuildings(doc, r, { seed: rng.int(1, 1e9), minFloors: 3, maxFloors: 7, alleys: false, roofProps: false });
+      // Backdrop outside the playable area: lighter decoration.
+      const b = generateBuildings(doc, r, { seed: rng.int(1, 1e9), minFloors: 3, maxFloors: 7, alleys: false, roofProps: false, detail: 1 });
       solids.push(...b.solids);
+      const d = detailEntityNode(doc, b.detail);
+      if (d) ents.push(d);
     } else {
       const area = (r.max.x - r.min.x) * (r.max.y - r.min.y);
       for (let k = 0; k < area / (180 * 180); k++) {
@@ -320,6 +323,8 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
       inset.min.z = inset.max.z = 0;
       const b = generateBuildings(doc, inset, { seed: rng.int(1, 1e9), minFloors: 2, maxFloors: 5, alleys: rng.chance(0.5), roofProps: true });
       solids.push(...b.solids);
+      const d = detailEntityNode(doc, b.detail);
+      if (d) ents.push(d);
       for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
     }
   }

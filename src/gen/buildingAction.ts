@@ -2,7 +2,7 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity, MapSolid } from '../vmf/map.ts';
 import { solidBounds } from '../edit/brushes.ts';
 import { entityNode } from '../edit/actions.ts';
-import { generateBuildings, type BuildingOptions } from './buildings.ts';
+import { detailEntityNode, generateBuildings, type BuildingOptions } from './buildings.ts';
 
 /** Replaces each selected block brush with a generated block of buildings (one undo step). */
 export function buildingsFromSelection(editor: Editor, opts: Omit<BuildingOptions, 'seed'> & { seed?: number }): number {
@@ -20,6 +20,8 @@ export function buildingsFromSelection(editor: Editor, opts: Omit<BuildingOption
       const r = generateBuildings(doc, footprint, { ...opts, seed: (opts.seed ?? Date.now()) + i * 7919 });
       count += r.buildings;
       for (const node of r.solids) createdSolids.push(doc.addSolid(node));
+      const detail = detailEntityNode(doc, r.detail);
+      if (detail) createdEnts.push(doc.addEntity(detail));
       for (const e of r.entities) createdEnts.push(doc.addEntity(entityNode(editor, e.classname, e.origin, e.keys)));
     });
     editor.history.remove('Remove block', solids);

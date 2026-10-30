@@ -379,6 +379,30 @@ Before: [the phase 5 boxes](docs/screenshots/phase5-buildings-generated.png).
 ![A rounded corner: one window per segment, an arcade of doors](docs/screenshots/buildings-p1-round-corner.png)
 ![A cut corner with its entrance](docs/screenshots/buildings-p1-cut-corner.png)
 
+### Building phase 2: facade relief
+
+Decoration is built as `func_detail` (it doesn't cut visibility), on a **Detail** setting in the Building
+panel; the building shells stay world brushes. Decoration draws from its own random sequence, so changing
+the level never changes the layout or textures.
+
+| Level | Adds | Detail brushes per building |
+|---|---|---|
+| None | cornice band and parapet | ~7 |
+| Low | stone base course along the street, stepped cornice (fascia + overhanging band) | ~10 |
+| Medium (default) | a heavy ledge over the ground floor, thin ledges between floors (every floor or every other), quoins on the corners, flat columns every 2–3 window bays | ~22 |
+| High | brackets under the cornice at every bay | ~50 |
+
+- Columns stand on the bay boundaries of the fitted facade texture, so they fall between windows.
+- Generate map uses Low for the backdrop buildings outside the playable area.
+- Six blocks at High (32 buildings, about 1,500 brushes) compile through vbsp, vvis and vrad in 8 seconds.
+
+![The same corner at None](docs/screenshots/buildings-p2-corner-level0.png)
+![… at Medium: base course, ledges, quoins, stepped cornice](docs/screenshots/buildings-p2-corner-level2.png)
+![… at High: brackets under the cornice](docs/screenshots/buildings-p2-corner-level3.png)
+![Street level at Medium](docs/screenshots/buildings-p2-facade-level2.png)
+![Street level at High](docs/screenshots/buildings-p2-facade-level3.png)
+![The demo blocks at Medium with the lighting preview](docs/screenshots/buildings-p2-overview.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

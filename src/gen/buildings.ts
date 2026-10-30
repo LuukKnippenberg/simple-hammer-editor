@@ -1,9 +1,9 @@
 import { Box2, Box3, Vector2, Vector3 } from 'three';
-import type { KVNode } from '../vmf/keyvalues.ts';
+import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import type { VmfDocument } from '../vmf/map.ts';
 import { solidNode } from '../edit/brushes.ts';
 import { Rng } from './rng.ts';
-import { FLOOR, cleanPolygon, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
+import { FLOOR, bayCount, cleanPolygon, convexHull, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
 import { planBlock, type CornerOption, type Part, type WallPlan } from './buildingPlan.ts';
 
 const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
@@ -15,7 +15,7 @@ const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ mater
 export const FACADE_STYLES = {
   stucco: { windows: [t('building_template002b', 2), t('building_template002c', 2)], ground: [t('building_template002e', 1), t('building_template002f', 1)], door: t('building_template002e', 1), plain: t('building_template002h', 0), trim: t('building_template002k', 0) },
   stone: { windows: [t('building_template003e', 2), t('building_template003d', 2)], ground: [t('building_template003c', 2)], door: t('building_template002e', 1), plain: t('building_template003a', 0), trim: t('building_template003a', 0) },
-  brown: { windows: [t('building_template001b', 2)], ground: [t('building_template001d', 2)], door: t('building_template002e', 1), plain: t('building_template001d', 0), trim: t('building_template001f', 0, 256) },
+  brown: { windows: [t('building_template001b', 2)], ground: [t('building_template001d', 2)], door: t('building_template002e', 1), plain: t('building_template019a', 0), trim: t('building_template001f', 0, 256) },
   brick: { windows: [t('building_template011c', 1)], ground: [t('building_template011g', 1)], door: t('building_template011g', 1), plain: t('building_template011b', 0), trim: t('building_template011b', 0) },
   pale: { windows: [t('building_template002o', 2), t('building_template002p', 2)], ground: [t('building_template002f', 1)], door: t('building_template002e', 1), plain: t('building_template004h', 0), trim: t('building_template002k', 0) },
 } as const;
@@ -44,10 +44,15 @@ export interface BuildingOptions {
   courtyards?: boolean;
   /** Low sheds in yards and courtyards (default on). */
   annexes?: boolean;
+  /** Facade decoration (default 2: base course, ledges, columns, stepped cornice). */
+  detail?: DetailLevel;
 }
 
 export interface GeneratedBuildings {
+  /** World brushes: the building shells. */
   solids: KVNode[];
+  /** Decoration brushes, to be wrapped in a func_detail (see `detailEntityNode`). */
+  detail: KVNode[];
   /** Point entities (rooftop props). */
   entities: { classname: string; origin: Vector3; keys: Record<string, string> }[];
   buildings: number;
@@ -58,31 +63,125 @@ const inside = (poly: Vector2[], p: Vector2) => poly.every((a, i) => {
   return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) >= 0;
 });
 
-/** Brushes of one wing: ground floor, upper floors, cornice and (for main buildings) a parapet. */
-function partSolids(doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng): KVNode[] {
-  const out: KVNode[] = [];
+/** How much facade decoration to build: 0 a plain cornice, 1 + base course, 2 + ledges and columns, 3 + brackets. */
+export type DetailLevel = 0 | 1 | 2 | 3;
+
+const BASE = t('building_template003a', 0);
+
+/** A band around the footprint, `out` units proud of the wall. */
+function band(doc: VmfDocument, poly: Vector2[], out: number, zMin: number, zMax: number, tile: FacadeTile): KVNode | null {
+  const p = cleanPolygon(offsetPolygon(poly, out));
+  return isConvexCcw(p) ? solidNode(doc, facadePrism(p, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
+}
+
+/** A small block standing on the wall at `at`, `width` along the wall and `depth` proud of it. */
+function wallBlock(doc: VmfDocument, at: Vector2, dir: Vector2, width: number, depth: number, zMin: number, zMax: number, tile: FacadeTile): KVNode | null {
+  const n = new Vector2(dir.y, -dir.x);
+  const pts = [-1, 1].flatMap((sgn) => [-2, depth].map((d) => at.clone().addScaledVector(dir, (sgn * width) / 2).addScaledVector(n, d)));
+  const p = cleanPolygon(convexHull(pts));
+  return isConvexCcw(p) ? solidNode(doc, facadePrism(p, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
+}
+
+/** A quoin column wrapping the corner at poly[i]: `width` along both walls, `depth` proud. */
+function cornerBlock(doc: VmfDocument, poly: Vector2[], i: number, width: number, depth: number, zMin: number, zMax: number, tile: FacadeTile): KVNode | null {
+  const n = poly.length;
+  const v = poly[i], prev = poly[(i + n - 1) % n], next = poly[(i + 1) % n];
+  const dIn = new Vector2().subVectors(v, prev).normalize(), dOut = new Vector2().subVectors(next, v).normalize();
+  const nIn = new Vector2(dIn.y, -dIn.x), nOut = new Vector2(dOut.y, -dOut.x);
+  const a = v.clone().addScaledVector(dIn, -width), e = v.clone().addScaledVector(dOut, width);
+  const corner = offsetPolygon([a, v, e], depth)[1];
+  const inner = v.clone().addScaledVector(nIn.clone().add(nOut).normalize(), -width);
+  const p = cleanPolygon(convexHull([a, a.clone().addScaledVector(nIn, depth), corner, e.clone().addScaledVector(nOut, depth), e, inner]));
+  return isConvexCcw(p) ? solidNode(doc, facadePrism(p, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
+}
+
+/**
+ * Brushes of one wing. The shell (ground floor, upper floors) is world geometry for visibility; the
+ * decoration (base course, ledges, columns, cornice, brackets, parapet) goes to `detail` for func_detail.
+ */
+function partSolids(doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel): { world: KVNode[]; detail: KVNode[] } {
+  const world: KVNode[] = [], detail: KVNode[] = [];
+  const add = (n: KVNode | null) => { if (n) detail.push(n); };
   const poly = part.poly;
   const top = z0 + part.floors * FLOOR;
   const ground = rng.pick(s.ground);
+  const windows = rng.pick(s.windows);
   const groundTiles = poly.map((_, i) => (part.cornerEdges.includes(i) ? s.door : ground));
   // Ground floor, sunk a little so the building sits on uneven ground.
-  out.push(solidNode(doc, facadePrism(poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : ROOF, z0)));
-  if (part.floors > 1) out.push(solidNode(doc, facadePrism(poly, z0 + FLOOR, top, rng.pick(s.windows), ROOF, z0)));
-  // Cornice band sticking out 8 units.
-  const cornice = cleanPolygon(offsetPolygon(poly, 8));
-  if (isConvexCcw(cornice)) out.push(solidNode(doc, facadePrism(cornice, top - 16, top, s.trim, ROOF, top - 16, s.trim.material)));
-  if (part.kind === 'main') {
+  world.push(solidNode(doc, facadePrism(poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : ROOF, z0)));
+  if (part.floors > 1) world.push(solidNode(doc, facadePrism(poly, z0 + FLOOR, top, windows, ROOF, z0)));
+  const main = part.kind === 'main';
+
+  // Base course of stone along the street.
+  if (level >= 1) add(band(doc, poly, 4, z0 - 32, z0 + 20, BASE));
+  // Ledges: a heavier one over the ground floor, thin ones between upper floors (all, or every other).
+  if (level >= 2 && main && part.floors > 1) {
+    add(band(doc, poly, 6, z0 + FLOOR - 6, z0 + FLOOR + 6, s.trim));
+    const every = deco.pick([1, 2]);
+    for (let k = 2; k < part.floors; k++) if ((k - 1) % every === 0) add(band(doc, poly, 4, z0 + k * FLOOR - 4, z0 + k * FLOOR + 4, s.trim));
+  }
+  // Stepped cornice: a fascia, then the overhanging top band.
+  const overhang = main && level >= 1 ? 14 : 8;
+  if (main && level >= 1) add(band(doc, poly, 6, top - 24, top - 16, s.trim));
+  add(band(doc, poly, overhang, top - 16, top, s.trim));
+
+  if (level >= 2 && main && part.floors > 1) {
+    const colTop = level >= 3 ? top - 36 : top - 24;
+    // Quoins on the outer corners (not between the segments of a rounded corner).
+    poly.forEach((v, i) => {
+      const n = poly.length;
+      const dIn = new Vector2().subVectors(v, poly[(i + n - 1) % n]).normalize(), dOut = new Vector2().subVectors(poly[(i + 1) % n], v).normalize();
+      if (dIn.dot(dOut) < Math.cos((40 * Math.PI) / 180)) add(cornerBlock(doc, poly, i, 16, 4, z0 + FLOOR + 6, colTop, s.plain));
+    });
+    // Columns between window bays on long walls: every second or third bay.
+    const step = deco.pick([2, 3]);
+    poly.forEach((a, i) => {
+      const b = poly[(i + 1) % poly.length];
+      const len = a.distanceTo(b);
+      const bays = bayCount(len, windows);
+      if (len < 256 || bays < 4) return;
+      const dir = new Vector2().subVectors(b, a).normalize();
+      for (let k = step; k <= bays - step; k += step) add(wallBlock(doc, a.clone().addScaledVector(dir, (k * len) / bays), dir, 16, 4, z0 + FLOOR + 6, colTop, s.plain));
+    });
+  }
+  // Brackets under the cornice at every bay.
+  if (level >= 3 && main && part.floors > 1) {
+    poly.forEach((a, i) => {
+      const b = poly[(i + 1) % poly.length];
+      const len = a.distanceTo(b);
+      const bays = Math.max(1, bayCount(len, windows) || Math.round(len / 64));
+      const dir = new Vector2().subVectors(b, a).normalize();
+      for (let k = 0; k <= bays; k++) {
+        if ((k === 0 || k === bays) && len < 96) continue;
+        const along = Math.min(len - 6, Math.max(6, (k * len) / bays));
+        add(wallBlock(doc, a.clone().addScaledVector(dir, along), dir, 8, 12, top - 36, top - 24, s.trim));
+      }
+    });
+  }
+  if (main) {
     // Parapet: one brush per edge between the cornice line and 4 units inside the wall.
+    const outer = cleanPolygon(offsetPolygon(poly, overhang));
     const inner = cleanPolygon(offsetPolygon(poly, -4));
-    if (inner.length === cornice.length && isConvexCcw(inner)) {
-      cornice.forEach((a, i) => {
-        const b = cornice[(i + 1) % cornice.length];
+    if (inner.length === outer.length && isConvexCcw(inner)) {
+      outer.forEach((a, i) => {
+        const b = outer[(i + 1) % outer.length];
         const quad = [a, b, inner[(i + 1) % inner.length], inner[i]];
-        if (isConvexCcw(quad)) out.push(solidNode(doc, facadePrism(quad, top, top + 32, s.plain, s.plain.material, top, NODRAW)));
+        if (isConvexCcw(quad)) detail.push(solidNode(doc, facadePrism(quad, top, top + 32, s.plain, s.plain.material, top, NODRAW)));
       });
     }
   }
-  return out;
+  return { world, detail };
+}
+
+/** A func_detail entity holding `solids` (decoration that should not cut visibility), or null when empty. */
+export function detailEntityNode(doc: VmfDocument, solids: KVNode[]): KVNode | null {
+  if (!solids.length) return null;
+  const e = new KVNode('entity');
+  e.items.push(new KVPair('id', String(doc.nextId())), new KVPair('classname', 'func_detail'), ...solids);
+  const ed = new KVNode('editor');
+  ed.items.push(new KVPair('color', '0 180 0'), new KVPair('visgroupshown', '1'), new KVPair('visgroupautoshown', '1'), new KVPair('logicalpos', '[0 0]'));
+  e.items.push(ed);
+  return e;
 }
 
 /** A 16-unit wall along a→b; a gateway leaves a 128-unit opening under a lintel. */
@@ -115,8 +214,11 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
     new Vector2(Math.ceil(footprint.min.x / 64) * 64, Math.ceil(footprint.min.y / 64) * 64),
     new Vector2(Math.floor(footprint.max.x / 64) * 64, Math.floor(footprint.max.y / 64) * 64),
   );
-  const out: GeneratedBuildings = { solids: [], entities: [], buildings: 0 };
+  const out: GeneratedBuildings = { solids: [], detail: [], entities: [], buildings: 0 };
   const z0 = footprint.min.z;
+  const level = opts.detail ?? 2;
+  // Decoration draws from its own sequence, so the layout and textures don't change with the detail level.
+  const deco = new Rng(opts.seed * 31 + 7);
   const plan = planBlock(area, rng, {
     minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
     corners: opts.corners ?? 'mixed', courtyards: opts.courtyards ?? true, annexes: opts.annexes ?? true,
@@ -127,7 +229,11 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
 
   for (const b of plan.buildings) {
     const s = styleOf(b.styleSlot);
-    for (const part of b.parts) out.solids.push(...partSolids(doc, part, s, z0, rng));
+    for (const part of b.parts) {
+      const r = partSolids(doc, part, s, z0, rng, deco, level);
+      out.solids.push(...r.world);
+      out.detail.push(...r.detail);
+    }
     const main = b.parts[0];
     if (main.kind === 'main') out.buildings++;
     if (opts.roofProps && main.kind === 'main') {
@@ -146,7 +252,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
       }
     }
   }
-  for (const w of plan.walls) out.solids.push(...wallSolids(doc, w, styleOf(rng.int(0, 4)), z0));
+  for (const w of plan.walls) out.detail.push(...wallSolids(doc, w, styleOf(rng.int(0, 4)), z0));
 
   if (opts.alleys) {
     // Sky bridges between neighbours that are both at least three floors high.

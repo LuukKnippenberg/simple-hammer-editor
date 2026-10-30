@@ -2,7 +2,7 @@ import { Box3, Vector3 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
-import { generateBuildings, type FacadeStyle } from './buildings.ts';
+import { detailEntityNode, generateBuildings, type FacadeStyle } from './buildings.ts';
 import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
 import { Rng } from './rng.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
@@ -254,6 +254,8 @@ export function generateFromSketch(s: Sketch): SketchResult {
     fp.min.z = fp.max.z = z;
     const b = generateBuildings(doc, fp, { seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade });
     solids.push(...b.solids);
+    const d = detailEntityNode(doc, b.detail);
+    if (d) ents.push(d);
     for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
   }
   // Walls: 48-thick concrete runs through wall cells, joined across neighbours.

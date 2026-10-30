@@ -93,6 +93,28 @@ export function cleanPolygon(poly: Vector2[]): Vector2[] {
   });
 }
 
+/** Counter-clockwise convex hull (monotone chain), for small decoration footprints. */
+export function convexHull(points: Vector2[]): Vector2[] {
+  const pts = points.map((p) => p.clone()).sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (o: Vector2, a: Vector2, b: Vector2) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower: Vector2[] = [], upper: Vector2[] = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  for (const p of [...pts].reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)];
+}
+
+/** Number of whole bays a wall of `len` units shows with this tile (see `facadeAxes`). */
+export function bayCount(len: number, tile: FacadeTile): number {
+  const tileUnits = (tile.widthPx ?? TILE_PX) * TEX_SCALE;
+  return tile.bays > 0 ? Math.max(1, Math.round(len / (tileUnits / tile.bays))) : 0;
+}
+
 /** True when the polygon is convex and counter-clockwise. */
 export function isConvexCcw(poly: Vector2[]): boolean {
   const n = poly.length;

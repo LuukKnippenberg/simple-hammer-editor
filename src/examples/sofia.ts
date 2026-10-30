@@ -12,7 +12,7 @@ import { Box3, Raycaster, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { Feature, Surface, emptySketch, type Sketch, type SketchMarker } from '../gen/sketch.ts';
-import { generateBuildings, type FacadeStyle } from '../gen/buildings.ts';
+import { detailEntityNode, generateBuildings, type FacadeStyle } from '../gen/buildings.ts';
 import { shapeSolids, type ShapeKind } from '../edit/shapes.ts';
 import { boxSolid } from '../edit/brushes.ts';
 import { editorBlock, entityNode } from '../edit/actions.ts';
@@ -190,6 +190,8 @@ export async function decorateSofia(editor: Editor): Promise<SofiaReport> {
     const fp = new Box3(new Vector3(edge(r[0]), edge(r[1]), z), new Vector3(edge(r[2] + 1), edge(r[3] + 1), z));
     const b = generateBuildings(doc, fp, { seed, minFloors: floors[0], maxFloors: floors[1], alleys: false, roofProps: true, style });
     solid(b.solids);
+    const detail = detailEntityNode(doc, b.detail);
+    if (detail) { doc.addEntity(detail); brushes += b.detail.length; }
     for (const e of b.entities) doc.addEntity(entityNode(editor, e.classname, e.origin, e.keys));
   };
 
