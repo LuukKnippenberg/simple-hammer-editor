@@ -95,6 +95,12 @@ export class MapSolid {
     for (const s of this.sides) s.commit();
     this.version++;
   }
+
+  /** Re-reads the sides after the node's items were replaced (undo/redo). */
+  reload(): void {
+    this.sides = this.node.childrenNamed('side').map((s) => new MapSide(s));
+    this.version++;
+  }
 }
 
 export class MapEntity {
@@ -104,14 +110,26 @@ export class MapEntity {
 
   constructor(node: KVNode) {
     this.node = node;
+    this.collectSolids();
+  }
+
+  private collectSolids(): void {
+    const out: MapSolid[] = [];
     const collect = (n: KVNode) => {
       for (const c of n.children) {
         const name = c.name.toLowerCase();
-        if (name === 'solid') this.solids.push(new MapSolid(c, this));
+        if (name === 'solid') out.push(new MapSolid(c, this));
         else if (name === 'hidden') collect(c);
       }
     };
-    collect(node);
+    collect(this.node);
+    this.solids = out;
+  }
+
+  /** Re-reads keys and brushes after the node's items were replaced (undo/redo). */
+  reload(): void {
+    this.collectSolids();
+    this.version++;
   }
 
   get id(): number {
@@ -200,6 +218,77 @@ export class VmfDocument {
 
   nextId(): number {
     return ++this.maxId;
+  }
+
+  /** Gives a node and everything below it fresh ids (for new or duplicated objects). */
+  assignIds(node: KVNode): void {
+    const name = node.name.toLowerCase();
+    if (name === 'solid' || name === 'side' || name === 'entity') node.set('id', String(this.nextId()));
+    for (const c of node.children) this.assignIds(c);
+  }
+
+  /** Adds a solid node to the world (or a brush entity). Returns its wrapper. */
+  addSolid(node: KVNode, owner: MapEntity | null = null, index = -1): MapSolid {
+    const parent = owner ? owner.node : this.world;
+    const list = owner ? owner.solids : this.worldEntity.solids;
+    if (index >= 0) parent.items.splice(index, 0, node);
+    else {
+      // Keep the trailing `editor` block of brush entities last.
+      const ed = parent.items.findIndex((it) => it instanceof KVNode && it.name.toLowerCase() === 'editor');
+      if (owner && ed >= 0) parent.items.splice(ed, 0, node);
+      else parent.items.push(node);
+    }
+    const solid = new MapSolid(node, owner);
+    list.push(solid);
+    return solid;
+  }
+
+  /** Removes a solid; returns where it was so undo can put it back. */
+  removeSolid(solid: MapSolid): { owner: MapEntity | null; index: number } {
+    const owner = solid.entity;
+    const parent = owner ? owner.node : this.world;
+    const index = parent.items.indexOf(solid.node);
+    if (index >= 0) parent.items.splice(index, 1);
+    const list = owner ? owner.solids : this.worldEntity.solids;
+    const i = list.indexOf(solid);
+    if (i >= 0) list.splice(i, 1);
+    return { owner, index };
+  }
+
+  /** Re-inserts a previously removed solid object (keeps its identity for undo). */
+  restoreSolid(solid: MapSolid, owner: MapEntity | null, index: number): void {
+    const parent = owner ? owner.node : this.world;
+    parent.items.splice(Math.min(index, parent.items.length), 0, solid.node);
+    (owner ? owner.solids : this.worldEntity.solids).push(solid);
+    solid.entity = owner;
+    solid.version++;
+  }
+
+  addEntity(node: KVNode, index = -1): MapEntity {
+    if (index < 0) {
+      // After the last entity (or the world), before cameras/cordon blocks.
+      let at = this.roots.indexOf(this.world) + 1;
+      this.roots.forEach((r, i) => { if (r.name.toLowerCase() === 'entity') at = i + 1; });
+      index = at;
+    }
+    this.roots.splice(index, 0, node);
+    const e = new MapEntity(node);
+    this.entities.push(e);
+    return e;
+  }
+
+  removeEntity(e: MapEntity): number {
+    const index = this.roots.indexOf(e.node);
+    if (index >= 0) this.roots.splice(index, 1);
+    this.entities = this.entities.filter((x) => x !== e);
+    return index;
+  }
+
+  restoreEntity(e: MapEntity, index: number): void {
+    this.roots.splice(Math.min(index, this.roots.length), 0, e.node);
+    this.entities.push(e);
+    e.version++;
+    for (const s of e.solids) s.version++;
   }
 
   /** Every brush in the map, world and entity brushes alike. */

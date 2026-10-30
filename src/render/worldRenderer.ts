@@ -202,7 +202,7 @@ export class WorldRenderer {
     geo.setAttribute('alpha', new BufferAttribute(alpha, 1));
     geo.computeBoundingBox();
     geo.computeBoundingSphere();
-    geo.computeBoundsTree();
+    // The BVH is built lazily on the first raycast, so drags that rebuild batches every frame stay cheap.
     const info = this.materials.get(key);
     const mesh = new Mesh(geo, info.material);
     mesh.name = key;
@@ -234,16 +234,20 @@ export class WorldRenderer {
 
   raycast(ray: Raycaster): BrushHit | null {
     const meshes = [...this.batches.values()].filter((b) => b.mesh.visible).map((b) => b.mesh);
+    for (const m of meshes) if (!m.geometry.boundsTree) m.geometry.computeBoundsTree();
     ray.firstHitOnly = true;
     const hits: Intersection[] = ray.intersectObjects(meshes, false);
     let best: Intersection | null = null;
     for (const h of hits) if (!best || h.distance < best.distance) best = h;
-    if (!best || best.faceIndex == null) return null;
+    if (!best || !best.face) return null;
     const batch = this.batches.get(best.object.name)!;
-    const solid = batch.triSolid[best.faceIndex];
+    // The BVH reorders its index buffer, so faceIndex is not our triangle number. The batches are
+    // non-indexed (three vertices per triangle), so the vertex index still identifies the triangle.
+    const tri = Math.floor(best.face.a / 3);
+    const solid = batch.triSolid[tri];
     return {
       solid,
-      side: solid.sides[batch.triSide[best.faceIndex]],
+      side: solid.sides[batch.triSide[tri]],
       point: best.point,
       normal: best.face ? best.face.normal.clone() : new Vector3(0, 0, 1),
       distance: best.distance,

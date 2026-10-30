@@ -24,6 +24,8 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
       `<span><b>${editor.mapName}</b></span>` +
       `<span>camera <b>${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}</b></span>` +
       `<span>entities <b>${editor.doc.entities.length}</b></span>` +
+      `<span>grid <b>${editor.grid}</b></span>` +
+      (editor.status ? `<span><b style="color:var(--accent)">${editor.status}</b></span>` : '') +
       `<span>geometry build <b>${w.buildMs} ms</b></span>` +
       `<span style="margin-left:auto">RMB look · WASD fly · MMB pan · Alt+LMB orbit · wheel zoom</span>`;
   });

@@ -31,7 +31,7 @@ export class CameraControls {
     window.addEventListener('pointerup', this.onUp);
     dom.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('keydown', (e) => {
-      if (isTyping(e)) return;
+      if (isTyping(e) || e.ctrlKey || e.metaKey) return;
       this.keys.add(e.code);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));

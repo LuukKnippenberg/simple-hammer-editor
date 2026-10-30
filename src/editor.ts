@@ -9,6 +9,10 @@ import { CameraControls } from './render/cameraControls.ts';
 import { EntityRenderer } from './render/entityRenderer.ts';
 import { textureSupport } from './assets/textures.ts';
 import { pendingRequests } from './assets/fetch.ts';
+import { loadFgd } from './assets/fgd.ts';
+import { Selection } from './edit/selection.ts';
+import { History } from './edit/history.ts';
+import { ToolManager } from './edit/tools.ts';
 
 export interface FrameStats {
   fps: number;
@@ -28,7 +32,7 @@ export class Editor {
   readonly entities: EntityRenderer;
   readonly hemi = new HemisphereLight(0xdde6f2, 0x6a6258, 1.6);
   readonly sun = new DirectionalLight(0xffffff, 2.2);
-  readonly grid: GridHelper;
+  readonly gridHelper: GridHelper;
   doc: VmfDocument = VmfDocument.empty();
   mapName = 'untitled.vmf';
   /** Unsaved changes since load or last save. */
@@ -36,6 +40,16 @@ export class Editor {
   /** The text the document was loaded from, for the round-trip check. */
   sourceText = '';
   frame: FrameStats = { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0 };
+  readonly selection: Selection;
+  readonly history = new History(() => this.doc);
+  readonly tools: ToolManager;
+  /** Snap size in units. */
+  grid = 16;
+  currentMaterial = 'CONCRETE/CONCRETEFLOOR001A';
+  entityClass = 'info_start_wars';
+  entityModel = 'models/props_c17/oildrum001.mdl';
+  /** Transient status text (e.g. block dimensions while dragging). */
+  status = '';
   private listeners = new Map<string, Set<() => void>>();
   private frameTimes: number[] = [];
   private lastTime = performance.now();
@@ -64,15 +78,22 @@ export class Editor {
     this.sun.position.set(0.4, 0.3, 1).normalize().multiplyScalar(10000);
     this.scene.add(this.sun, this.sun.target);
 
-    this.grid = new GridHelper(16384, 128, 0x4a5260, 0x30353d);
-    this.grid.rotation.x = Math.PI / 2;
-    this.scene.add(this.grid);
+    this.gridHelper = new GridHelper(16384, 128, 0x4a5260, 0x30353d);
+    this.gridHelper.rotation.x = Math.PI / 2;
+    this.scene.add(this.gridHelper);
 
     this.world = new WorldRenderer(this.materials);
     this.scene.add(this.world.group);
     this.entities = new EntityRenderer(this.materials);
     this.scene.add(this.entities.group);
     this.materials.onKindChange = () => this.world.applyVisibility();
+    this.selection = new Selection(this.entities);
+    this.scene.add(this.selection.group);
+    this.tools = new ToolManager(this);
+    void loadFgd().then(() => {
+      this.entities.sync(this.doc);
+      this.emit('fgd');
+    });
 
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
@@ -119,16 +140,19 @@ export class Editor {
     this.mapName = name;
     this.sourceText = sourceText;
     this.dirty = false;
+    this.history.clear();
+    this.selection.clear();
     const t0 = performance.now();
     this.world.sync(doc);
     this.entities.sync(doc);
     this.applyEnvironment();
     console.log(`[editor] built ${name} in ${Math.round(performance.now() - t0)} ms`, this.world.stats);
     const box = this.world.bounds();
+    this.gridHelper.position.set(0, 0, 0);
     if (!box.isEmpty()) {
       this.frameBox(box);
       const c = box.getCenter(new Vector3());
-      this.grid.position.set(c.x, c.y, box.min.z - 1);
+      this.gridHelper.position.set(c.x, c.y, box.min.z - 1);
     }
     this.emit('document');
   }
@@ -143,12 +167,31 @@ export class Editor {
     this.loadDocument(doc, id.split(':')[1] ?? id, text);
   }
 
-  /** Call after mutating the document: rebuilds what changed and marks the map unsaved. */
-  changed(): void {
+  /**
+   * Call after mutating the document: rebuilds what changed and marks the map unsaved.
+   * `live` is for per-frame updates during a drag (skips UI refreshes).
+   */
+  changed(live = false): void {
     this.world.sync(this.doc);
     this.entities.sync(this.doc);
+    this.selection.prune(this.doc);
     this.dirty = true;
-    this.emit('change');
+    if (!live) this.emit('change');
+  }
+
+  undo(): void {
+    const label = this.history.undo();
+    if (label) this.changed();
+  }
+
+  redo(): void {
+    const label = this.history.redo();
+    if (label) this.changed();
+  }
+
+  setMaterial(name: string): void {
+    this.currentMaterial = name.toUpperCase();
+    this.emit('material');
   }
 
   /** Writes the VMF to the repo's maps/ folder. Bumps mapversion like Hammer does. */
@@ -210,6 +253,11 @@ export class Editor {
     bg.getHSL(hsl);
     bg.setHSL(hsl.h, Math.min(hsl.s, 0.4), Math.min(0.55, Math.max(0.16, hsl.l)));
     (this.scene.background as Color).copy(bg);
+  }
+
+  setView(pos: Vector3, target: Vector3): void {
+    this.camera.position.copy(pos);
+    this.controls.lookAt(target);
   }
 
   frameBox(box: Box3): void {

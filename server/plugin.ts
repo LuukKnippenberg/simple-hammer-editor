@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path';
 import { loadConfig, type EditorConfig } from './config.ts';
 import { AssetFS } from './assets.ts';
+import { loadFgd, type FgdClass } from './fgd.ts';
 
 export interface MapLocation {
   id: string;
@@ -43,6 +44,7 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
       const assets = new AssetFS(cfg);
       console.log(`[assets] ${assets.sources.length} sources indexed in ${Date.now() - t0} ms`);
       const listCache = new Map<string, string[]>();
+      let fgd: FgdClass[] | null = null;
 
       const routes: Record<string, Route> = {
         '/api/config': (_req, res) =>
@@ -61,6 +63,14 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           const key = folder + '|' + ext;
           if (!listCache.has(key)) listCache.set(key, assets.list(folder, ext));
           send(res, 200, JSON.stringify(listCache.get(key)));
+        },
+
+        '/api/fgd': (_req, res) => {
+          if (!fgd) {
+            const file = cfg.gameDirs.map((g) => join(g, cfg.mod, `${cfg.mod}.fgd`)).find((p) => existsSync(p));
+            fgd = file ? [...loadFgd(file, cfg.sdkBinDir ? [cfg.sdkBinDir] : []).values()] : [];
+          }
+          send(res, 200, JSON.stringify(fgd));
         },
 
         '/api/maps': (_req, res) => {

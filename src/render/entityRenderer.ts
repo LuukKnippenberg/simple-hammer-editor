@@ -5,6 +5,7 @@ import {
 import type { MapEntity, VmfDocument } from '../vmf/map.ts';
 import { loadModel, type SourceModel } from '../assets/mdl.ts';
 import type { MaterialLibrary } from './materials.ts';
+import { fgdClass } from '../assets/fgd.ts';
 
 /** Source angles (pitch yaw roll, degrees) to a rotation: yaw about Z, then pitch about Y, then roll about X. */
 export function sourceRotation(angles: Vector3): Quaternion {
@@ -17,9 +18,10 @@ export function entityMatrix(e: MapEntity): Matrix4 {
   return new Matrix4().compose(e.origin ?? new Vector3(), sourceRotation(e.angles), new Vector3(scale, scale, scale));
 }
 
+/** The model an entity shows: its `model` key, or the FGD studio() model of its class. */
 export function entityModel(e: MapEntity): string | null {
   if (e.solids.length) return null;
-  const m = e.get('model');
+  const m = e.get('model') ?? fgdClass(e.classname)?.studio;
   return m && m.toLowerCase().endsWith('.mdl') ? m.toLowerCase().replace(/\\/g, '/') : null;
 }
 

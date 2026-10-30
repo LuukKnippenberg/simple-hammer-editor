@@ -25,7 +25,7 @@ function rgb565(c: number, out: number[], o: number) {
 }
 
 /** Software DXT1/3/5 decoder, used only when the GPU lacks sRGB S3TC. */
-function decodeDxt(mip: VtfMip, enc: string): Uint8Array {
+export function decodeDxt(mip: VtfMip, enc: string): Uint8Array {
   const { width: w, height: h, data } = mip;
   const out = new Uint8Array(w * h * 4);
   const bw = Math.max(1, (w + 3) >> 2), bh = Math.max(1, (h + 3) >> 2);

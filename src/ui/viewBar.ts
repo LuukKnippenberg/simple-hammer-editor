@@ -1,7 +1,7 @@
 import type { Editor } from '../editor.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
-import type { MeshLambertMaterial } from 'three';
+import { Vector3, type MeshLambertMaterial } from 'three';
 
 /** Top bar: map picker, open-file, and view toggles. */
 export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLElement): void {
@@ -38,6 +38,13 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     });
   });
 
+  const newMap = () => {
+    if (editor.dirty && !confirm('Discard unsaved changes?')) return;
+    editor.loadDocument(VmfDocument.empty(), 'untitled.vmf');
+    editor.dirty = true;
+    select.value = '';
+    editor.setView(new Vector3(-1200, -1200, 1100), new Vector3(0, 0, 0));
+  };
   const save = async (name?: string) => {
     try {
       const r = await editor.save(name);
@@ -78,6 +85,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
   bar.append(
     h('div.brand', {}, 'Simple ', h('span', {}, 'Hammer'), ' Editor'),
     select,
+    h('button', { onclick: () => newMap(), title: 'Start an empty map' }, 'New'),
     h('button', { onclick: () => fileInput.click(), title: 'Open a .vmf from disk' }, 'Open file…'),
     fileInput,
     h('button', { onclick: () => save(), title: 'Save to maps/ (Ctrl+S)' }, 'Save'),
@@ -91,7 +99,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     toggle('Wireframe', 'Draw brushes as wireframe', () => !!(editor.materials.all()[0]?.material as MeshLambertMaterial | undefined)?.wireframe, (v) => {
       for (const m of editor.materials.all()) (m.material as MeshLambertMaterial).wireframe = v;
     }),
-    toggle('Grid', 'Show the ground grid', () => editor.grid.visible, (v) => (editor.grid.visible = v)),
+    toggle('Grid', 'Show the ground grid', () => editor.gridHelper.visible, (v) => (editor.gridHelper.visible = v)),
   );
 
   const refreshMaps = async (selectId?: string) => {

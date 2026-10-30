@@ -32,6 +32,15 @@ Maps are listed from this repo's `maps/` folder and from the game's `mapsrc/` fo
 | Middle mouse drag | Pan |
 | Alt + left drag | Orbit around the point under the cursor |
 | Mouse wheel | Zoom towards the cursor |
+| 1 / 2 / 3 / 4 | Select, Block, Paint, Entity tool |
+| M / R | Gizmo: move / resize |
+| Shift + click | Add to selection |
+| Ctrl + D, Delete | Duplicate, delete |
+| Ctrl + Z, Ctrl + Y | Undo, redo |
+| [ and ] | Grid size |
+| , and . | Rotate entities (Shift: 90°) |
+| F | Focus the selection |
+| Ctrl + S | Save |
 
 ## Phases
 
@@ -67,7 +76,7 @@ Development is split into phases; each phase ends with screenshots in `docs/scre
 ### Phase 2: writing VMF files
 
 - KeyValues nodes keep pairs and child blocks in one ordered list, so a parse → write round-trip is
-  byte-identical. Verified by the test suite against the sample map and all 55 VMFs in the game's `mapsrc/`.
+  byte-identical. Verified by the test suite against the sample map and all 54 VMFs in the game's `mapsrc/`.
 - Edits go through typed wrappers (`MapSide`, `MapSolid`, `MapEntity`) that write back into the tree, so
   anything the editor does not understand (visgroups, editor colours, connections, cameras) survives.
 - Save (Ctrl+S), Save as and Download. Saves go to this repo's `maps/` folder and bump `mapversion` like
@@ -78,10 +87,34 @@ Development is split into phases; each phase ends with screenshots in `docs/scre
 ![Phase 2 edited, unsaved](docs/screenshots/phase2-edited-unsaved.png)
 ![Phase 2 saved and reloaded](docs/screenshots/phase2-saved-and-reloaded.png)
 
+### Phase 3: editing tools
+
+- **Select**: click picks a brush or entity (Shift adds); a move/resize gizmo snaps to the grid, with
+  texture lock while moving. Brushes inside brush entities can be picked one by one.
+- **Block**: drag a rectangle on any surface to create a brush with the current material and height.
+- **Paint**: click a face to apply the current material (Shift: whole brush, Ctrl: pick a material).
+- **Entity**: click to place the class chosen in the Entities tab. A control point automatically gets its
+  `trigger_capture_area`. Entity classes, keys, choices and editor models come from the game's FGD.
+- Inspector with FGD-typed entity fields and brush size inputs; material browser with thumbnails decoded
+  from the VTFs; undo/redo; duplicate; delete.
+- Fixed brush picking after BVH construction (triangle order changes inside the BVH).
+
+The screenshots below were taken by `scripts/phase3-demo.mjs`, which builds a small arena from an empty
+map with real mouse and keyboard input (it is saved as `maps/phase3_arena.vmf`).
+
+![Drawing a wall with the block tool](docs/screenshots/phase3-block-tool-drawing.png)
+![Blocks created](docs/screenshots/phase3-blocks-created.png)
+![Moving with the gizmo](docs/screenshots/phase3-move-gizmo.png)
+![Resizing with the gizmo](docs/screenshots/phase3-resize-gizmo.png)
+![Painting with the material browser](docs/screenshots/phase3-paint-materials.png)
+![Entities and the FGD-driven inspector](docs/screenshots/phase3-entities-inspector.png)
+![Live editing in the large sample map](docs/screenshots/phase3-select-in-city16.png)
+
 ## Development
 
 ```bash
 npm test           # unit tests (vitest)
 npm run typecheck
 npm run screenshot -- scripts/shots/phase0.json   # needs the dev server running
+node scripts/phase3-demo.mjs                      # scripted editing session with screenshots
 ```
