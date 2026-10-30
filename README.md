@@ -325,7 +325,7 @@ tools by `scripts/build-sofia.mjs` (map logic and landmarks in `src/examples/sof
 **Layout** (64×64 cells, 8192 units square), drawn with the map sketch:
 
 - **Old town** (south, ground level): 16 dense blocks of 2–4 storey buildings with cobbled alleys and
-  rubble courtyards, littered with debris, dumpsters, crates and drums. 15 groups of zombies (classic,
+  rubble courtyards, littered with debris, dumpsters, crates and drums. 12 groups of zombies (classic,
   fast, poison and zombines, 59 in total) wait in the courtyards and alley junctions.
 - **Tram line** (one level up, reached by stairs/ramps): a wide street with two tram tracks, trams,
   parked cars and street lamps (reference images 3 and 4).
