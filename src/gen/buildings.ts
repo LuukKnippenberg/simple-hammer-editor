@@ -9,6 +9,7 @@ import { chooseRoof, roofSolids, type RoofKind, type RoofOption } from './roofs.
 import { chooseCap, towerSides, towerSolids } from './towers.ts';
 import { entranceSteps, streetFacade, wallOf, type FeatureEntity } from './facadeFeatures.ts';
 import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle, type Style } from './styles.ts';
+import { wallClutter, type Anchor, type BlockDressing } from './streets.ts';
 
 export { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle };
 
@@ -58,6 +59,8 @@ export interface GeneratedBuildings {
   /** Point entities (rooftop props). */
   entities: { classname: string; origin: Vector3; keys: Record<string, string> }[];
   buildings: number;
+  /** For the street pass across blocks (`streetDressing`): outline, cable anchors, yards. */
+  dressing: BlockDressing;
 }
 
 const inside = (poly: Vector2[], p: Vector2) => poly.every((a, i) => {
@@ -105,7 +108,7 @@ function partSolids(
   doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel, roof: { kind: RoofKind; material: string },
   street: {
     isStreet?: (a: Vector2, b: Vector2) => boolean; rng: Rng; entities: FeatureEntity[];
-    oriels: boolean; balconies: boolean; roofHuts: boolean; weathering: number;
+    oriels: boolean; balconies: boolean; roofHuts: boolean; weathering: number; anchors: Anchor[];
   },
 ): { world: KVNode[]; detail: KVNode[]; roofHeight: (p: Vector2) => number; windows: FacadeTile } {
   const world: KVNode[] = [], detail: KVNode[] = [];
@@ -176,6 +179,11 @@ function partSolids(
     }, deco);
     detail.push(...r.solids);
     roofHeight = r.heightAt;
+    // A TV antenna on some ridges.
+    if (main && level >= 1 && deco.chance(0.35)) {
+      const c = new Box2().setFromPoints(poly).getCenter(new Vector2());
+      if (inside(poly, c)) street.entities.push({ classname: 'prop_static', origin: new Vector3(Math.round(c.x), Math.round(c.y), Math.round(r.heightAt(c) + 100)), keys: { model: 'models/props_rooftop/antenna04a.mdl', angles: `0 ${deco.int(0, 359)} 0`, solid: '0' } });
+    }
   } else if (main) {
     // Parapet: one brush per edge between the cornice line and 4 units inside the wall.
     const outer = cleanPolygon(offsetPolygon(poly, overhang));
@@ -214,6 +222,7 @@ function partSolids(
       }, street.rng);
       detail.push(...f.solids);
       street.entities.push(...f.entities);
+      if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors));
       // Weathering: stains running down from under the cornice and from window sills.
       const stains = Math.round((w.len / 256) * street.weathering * 2 * street.rng.next());
       for (let k = 0; k < stains; k++) {
@@ -297,7 +306,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
     new Vector2(Math.ceil(footprint.min.x / 64) * 64, Math.ceil(footprint.min.y / 64) * 64),
     new Vector2(Math.floor(footprint.max.x / 64) * 64, Math.floor(footprint.max.y / 64) * 64),
   );
-  const out: GeneratedBuildings = { solids: [], detail: [], entities: [], buildings: 0 };
+  const out: GeneratedBuildings = { solids: [], detail: [], entities: [], buildings: 0, dressing: { area, z0: footprint.min.z, anchors: [], yards: [], obstacles: [] } };
   const z0 = footprint.min.z;
   const level = opts.detail ?? 2;
   // Decoration draws from its own sequence, so the layout and textures don't change with the detail level.
@@ -312,11 +321,14 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
     rng: new Rng(opts.seed * 7 + 11),
     entities: out.entities,
     oriels: arch.oriels, balconies: arch.balconies, roofHuts: arch.roofHuts, weathering: opts.weathering ?? 0.5,
+    anchors: out.dressing.anchors,
   };
   const plan = planBlock(area, rng, {
     minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
     corners: opts.corners ?? arch.corners, courtyards: opts.courtyards ?? true, annexes: opts.annexes ?? true,
   });
+  out.dressing.yards.push(...plan.yards);
+  out.dressing.obstacles.push(...plan.sheds);
   const styles: readonly FacadeStyle[] = arch.facades;
   const first = rng.int(0, styles.length - 1);
   const styleOf = (slot: number) => FACADE_STYLES[opts.style ?? styles[(first + slot) % styles.length]];

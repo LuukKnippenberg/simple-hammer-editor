@@ -46,6 +46,9 @@ export interface BlockPlan {
   walls: WallPlan[];
   /** Rectangles of the main buildings, for sky bridges between neighbours. */
   lots: { box: Box2; floors: number }[];
+  /** Open courtyards and back yards, and the sheds standing in them. */
+  yards: Box2[];
+  sheds: Box2[];
 }
 
 export interface PlanOptions {
@@ -116,7 +119,7 @@ function splitSpan(a: number, b: number, rng: Rng, min: number, max: number): nu
  * rounded corners and an extra floor; yards and courtyards get low annexes and walls with gateways.
  */
 export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
-  const out: BlockPlan = { buildings: [], walls: [], lots: [] };
+  const out: BlockPlan = { buildings: [], walls: [], lots: [], yards: [], sheds: [] };
   const size = area.getSize(new Vector2());
   if (size.x < 128 || size.y < 128) return out;
   const blockCorners = rectPoly(area);
@@ -162,6 +165,7 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
       new Box2(new Vector2(area.min.x, inner.max.y), new Vector2(inner.min.x, area.max.y)),
     ];
     for (const c of corners) addLot(c, floorsFor(true));
+    out.yards.push(inner.clone());
     const sides: Box2[][] = [
       splitSpan(inner.min.x, inner.max.x, rng, 192, 640).map((x, i, xs) => xs[i + 1] === undefined ? null : new Box2(new Vector2(x, area.min.y), new Vector2(xs[i + 1], inner.min.y))).filter((b): b is Box2 => !!b),
       splitSpan(inner.min.x, inner.max.x, rng, 192, 640).map((x, i, xs) => xs[i + 1] === undefined ? null : new Box2(new Vector2(x, inner.max.y), new Vector2(xs[i + 1], area.max.y))).filter((b): b is Box2 => !!b),
@@ -201,6 +205,7 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
         const overlaps = sheds.some((s) => Math.min(s.max.x, box.max.x) > Math.max(s.min.x, box.min.x) && Math.min(s.max.y, box.max.y) > Math.max(s.min.y, box.min.y));
         if (overlaps) continue;
         sheds.push(box);
+        out.sheds.push(box);
         out.buildings.push({ parts: [annex(box)], styleSlot: slot++ });
       }
     }
@@ -240,11 +245,13 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
       else { wing.min[axis] = box.max[axis] - wingWidth; yard.max[axis] = wing.min[axis]; }
       const extra: Part[] = [{ poly: rectPoly(wing), floors: Math.max(1, floors - rng.int(0, 1)), kind: 'main', cornerEdges: [] }];
       const ysize = yard.getSize(new Vector2());
+      out.yards.push(yard.clone());
       if (o.annexes && ysize.x >= 192 && ysize.y >= 192 && rng.chance(0.6)) {
         const shed = yard.clone();
         shed.max[axis] = Math.min(yard.max[axis], yard.min[axis] + rng.pick([128, 192]));
         if (fromMin) shed.min[other] = shed.max[other] - 128; else shed.max[other] = shed.min[other] + 128;
         extra.push(annex(shed));
+        out.sheds.push(shed);
       }
       addLot(front, floors, extra);
     } else {

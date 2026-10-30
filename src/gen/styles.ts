@@ -35,7 +35,7 @@ export interface Architecture {
   /** Relative weights of roof shapes. */
   roofs: Partial<Record<RoofKind, number>>;
   corners: CornerOption;
-  /** Multiplies the chance of a corner tower. */
+  /** Multiplies the chance of a corner tower (0.6 rounded, 0.35 cut, 0.2 square corners at 1). */
   towers: number;
   oriels: boolean;
   balconies: boolean;
@@ -48,11 +48,11 @@ export interface Architecture {
 export const ARCHITECTURES = {
   mixed: {
     label: 'Mixed', facades: ['stucco', 'stone', 'brown', 'brick', 'pale', 'ochre', 'yellow', 'framed', 'cream', 'blue', 'rose', 'sand'],
-    roofs: { flat: 1, hip: 2, mansard: 2, gable: 1, curved: 1 }, corners: 'mixed', towers: 1, oriels: true, balconies: true, roofHuts: true, floors: [3, 6],
+    roofs: { flat: 1, hip: 2, mansard: 2, gable: 1, curved: 1 }, corners: 'mixed', towers: 0.35, oriels: true, balconies: true, roofHuts: true, floors: [3, 6],
   },
   tenement: {
     label: 'Pre-war tenements', facades: ['ochre', 'yellow', 'cream', 'framed', 'stucco', 'pale', 'rose', 'sand', 'blue'],
-    roofs: { mansard: 3, curved: 2, hip: 2, gable: 1 }, corners: 'mixed', towers: 1.3, oriels: true, balconies: true, roofHuts: false, floors: [3, 6],
+    roofs: { mansard: 3, curved: 2, hip: 2, gable: 1 }, corners: 'mixed', towers: 0.4, oriels: true, balconies: true, roofHuts: false, floors: [3, 6],
   },
   soviet: {
     label: 'Soviet blocks', facades: ['soviet', 'stone', 'pale'],

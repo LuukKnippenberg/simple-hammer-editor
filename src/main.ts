@@ -15,6 +15,7 @@ import { mountHelp } from './ui/help.ts';
 import { Hover } from './edit/hover.ts';
 import { mountLogicPanel } from './ui/logicPanel.ts';
 import { IoLines } from './render/ioLines.ts';
+import { RopeRenderer } from './render/ropeRenderer.ts';
 import { mountMissionPanel } from './ui/missionPanel.ts';
 import { GameplayOverlay } from './render/gameplayOverlay.ts';
 import { LightingPreview } from './render/lightingPreview.ts';
@@ -64,6 +65,7 @@ tabs.add('Settings', mountMapSettingsPanel(editor, lighting));
 const logic = mountLogicPanel(editor);
 tabs.add('Logic', logic.panel);
 new IoLines(editor);
+new RopeRenderer(editor);
 new GameplayOverlay(editor);
 editor.on('selection', () => {
   if (!editor.selection.isEmpty && editor.tools.current.name === 'select') tabs.show('Selection');

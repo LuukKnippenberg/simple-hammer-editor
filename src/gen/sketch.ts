@@ -3,6 +3,7 @@ import type { KVNode } from '../vmf/keyvalues.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
 import { detailEntityNode, generateBuildings, type ArchitectureName, type FacadeStyle } from './buildings.ts';
+import { streetDressing, type BlockDressing } from './streets.ts';
 import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
 import { Rng } from './rng.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
@@ -95,6 +96,8 @@ const THEMES: Record<SketchTheme, { blend: string; alpha: Record<Surface, number
 };
 
 const TREES = ['models/props_foliage/tree_deciduous_03a.mdl', 'models/props_foliage/tree_deciduous_03b.mdl', 'models/props_foliage/mall_tree_medium01.mdl', 'models/props_foliage/tree_pine06.mdl'];
+/** City 17's bare, leafless street trees. */
+const CITY_TREES = ['models/props_foliage/tree_dead03.mdl', 'models/props_foliage/tree_dead04.mdl', 'models/props_foliage/tree_dry02.mdl', 'models/props_foliage/tree_deciduous_03a.mdl'];
 const DEBRIS = ['models/props_debris/concrete_debris128pile001a.mdl', 'models/props_debris/concrete_debris128pile001b.mdl', 'models/props_debris/plaster_floorpile001a.mdl', 'models/props_debris/concrete_chunk02a.mdl'];
 const CARS = ['models/props_vehicles/car002a.mdl', 'models/props_vehicles/car003a.mdl', 'models/props_vehicles/car004a.mdl', 'models/props_vehicles/car005a.mdl', 'models/props_vehicles/van001a.mdl', 'models/props_vehicles/truck003a.mdl'];
 
@@ -250,6 +253,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
   }
 
   // Buildings: one generated block per rectangle of building cells, on that cell's height level.
+  const dressings: BlockDressing[] = [];
   for (const { box, level } of featureRects(s, Feature.Building)) {
     const z = level * s.levelHeight;
     const fp = box.clone();
@@ -259,6 +263,11 @@ export function generateFromSketch(s: Sketch): SketchResult {
     const d = detailEntityNode(doc, b.detail);
     if (d) ents.push(d);
     for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
+    dressings.push(b.dressing);
+  }
+  // Cables across streets, lamps and trees: only between blocks on the same level.
+  for (const z of new Set(dressings.map((d) => d.z0))) {
+    for (const e of streetDressing(dressings.filter((d) => d.z0 === z), rng)) ents.push(entity(doc, e.classname, e.origin, e.keys));
   }
   // Walls: 48-thick concrete runs through wall cells, joined across neighbours.
   for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
@@ -280,7 +289,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
       const px = (x + rng.range(0.2, 0.8)) * SKETCH_CELL, py = (y + rng.range(0.2, 0.8)) * SKETCH_CELL;
       return new Vector3(Math.round(px), Math.round(py), Math.round(flatHeight(px, py)) - 2);
     };
-    if (f === Feature.Trees) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(TREES), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
+    if (f === Feature.Trees) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(s.theme === 'city' ? CITY_TREES : TREES), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
     else if (f === Feature.Rubble && rng.chance(0.7)) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(DEBRIS), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
     else if (f === Feature.Cars && rng.chance(0.6)) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(CARS), angles: `0 ${rng.int(0, 3) * 90 + rng.int(-12, 12)} 0`, solid: '6' }));
   }

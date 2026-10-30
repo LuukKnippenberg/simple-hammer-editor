@@ -510,6 +510,44 @@ Courtyard walls and party walls stay plain. Features sit on whole window bays an
 ![Sheds and workshops around a yard](docs/screenshots/buildings-p6-sheds.png)
 ![The Building panel](docs/screenshots/buildings-p6-panel.png)
 
+### Building phase 7: street dressing, and a test district
+
+**Wall clutter** on street walls (`src/gen/streets.ts`): drainpipes down from the cornice at the wall
+ends, satellite dishes, gas meters by the ground floor, cable insulators, and TV antennas on some ridges.
+
+**The street pass** runs over all blocks generated together (Building panel with several blocks
+selected, Generate map, Sketch):
+
+- **Overhead cables**: each building's street walls offer anchors; anchors facing each other across a
+  street (128–900 apart) are joined by a `move_rope` → `keyframe_rope` pair with sag. The editor now
+  draws ropes (`src/render/ropeRenderer.ts`), with the sag from their Slack.
+- **Lamp posts** along the pavements, arms out over the street; none in alleys (gaps under 192).
+- **Bare trees** in courtyards and yards (clear of the sheds) and alternating with lamps on wide streets.
+  City-theme sketches now use bare trees for their Trees feature too.
+
+**Test district** (`maps/c17_district.vmf`, built by `scripts/build-district.mjs` from
+`src/examples/district.ts`): a 40×40-cell sketch of pre-war tenement blocks (8×8 cells, 256-unit streets)
+around a paved square, set up as a two-player skirmish (starts in opposite corners, three capture points,
+four scrap points).
+
+| | Sofia (before these phases) | City 17 district |
+|---|---|---|
+| Brushes | 1,107 | 3,152 (317 world, the rest func_detail) |
+| Props / decals / cables | 566 / 52 / 0 | 606 / 219 / 24 |
+| Compile with navmesh (fast) | about 30 s | 38.6 s, sealed |
+| Editor (lighting preview, 900k triangles) | 240 FPS | 240 FPS (frame-rate cap) |
+
+`scripts/compile-map.mjs` compiles a map from `maps/` like the compile dialog (map settings, vbsp, vvis,
+vrad, navmesh) without the browser, optionally into another install:
+`node --experimental-transform-types scripts/compile-map.mjs c17_district --install "<game root>"`.
+
+![The district](docs/screenshots/district-02-overview.png)
+![The RTS view over the square](docs/screenshots/district-03-rts-view.png)
+![A street: cables between the facades, insulators, a lamp post, balconies](docs/screenshots/district-04-street.png)
+![The square with bare trees](docs/screenshots/district-05-square.png)
+![A crossing: lamps, cables, awnings, rounded corners](docs/screenshots/district-06-crossing.png)
+![Rooftops: mansards, dormers, chimneys, a tower](docs/screenshots/district-07-rooftops.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

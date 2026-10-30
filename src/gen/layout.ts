@@ -5,6 +5,7 @@ import { boxFaces, solidNode } from '../edit/brushes.ts';
 import { buildBrushFaces } from '../geom/brush.ts';
 import { dispBaseGrid, dispCorners } from '../geom/displacement.ts';
 import { ARCHITECTURES, detailEntityNode, generateBuildings, type ArchitectureName } from './buildings.ts';
+import { streetDressing, type BlockDressing } from './streets.ts';
 import { Rng } from './rng.ts';
 import { cameraSpawnFor } from '../lw/kits.ts';
 
@@ -318,6 +319,7 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
   }
 
   // Buildings on city blocks, trees in forest cells.
+  const dressings: BlockDressing[] = [];
   for (const region of regions(L, Cell.Block)) {
     for (const r of rectangles(L, region)) {
       const inset = r.clone();
@@ -331,8 +333,10 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
       const d = detailEntityNode(doc, b.detail);
       if (d) ents.push(d);
       for (const e of b.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
+      dressings.push(b.dressing);
     }
   }
+  for (const e of streetDressing(dressings, rng)) ents.push(entity(doc, e.classname, e.origin, e.keys));
   const cells = (type: Cell) => L.cells.flatMap((c, i) => (c === type ? [{ x: i % L.w, y: Math.floor(i / L.w) }] : []));
   for (const c of cells(Cell.Forest)) {
     for (let k = 0; k < 3; k++) {
