@@ -705,6 +705,29 @@ rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), d
 ![The sound browser searching "fire loop"](docs/screenshots/local-sound-browser.png)
 ![Fire barrels and a generator: 3 local sounds playing](docs/screenshots/local-fires.png)
 
+### Mission flow: the flowchart editor
+
+**Mission tab → Mission flow** opens a flowchart of the mission (`src/lw/mission.ts`,
+`src/ui/missionFlow.ts`), saved next to the map as `maps/<name>.mission.json` (loaded and saved with it).
+
+- **Stages** are cards: a title, the **messages** shown when the stage starts, the **objectives** shown
+  while it runs, and **transitions**. The first transition whose condition is met wins; it leads to
+  another stage, to 🏆 Victory or to 💀 Defeat, and marks the stage's objectives completed or failed.
+- **Conditions**: 📍 reach a location (an area drawn in the viewport), 💥 destroy units or an object (by
+  name), ☠ destroy a faction, 👥 have an amount of troops (population at least / at most N), ⏱ survive for
+  a time, 🛡 lose a unit or object (lead it to Defeat for "keep it alive"), ⚑ capture a point, and 💰 gain
+  resources (listed, but the game has no entity that reports resources: see below).
+- **Editing**: drag cards to arrange them, drag the background to pan, the wheel zooms, ⤢ Fit shows it
+  all. Drag a transition's dot onto a card to send it there. The side panel edits the selected stage;
+  name fields offer the map's targetnames (unit groups, capture points).
+- Sofia's mission (built by hand in the Sofia phase) as a flowchart: the old town → the tram line →
+  the assault on the Largo → Victory when the flag is captured, Defeat when you are wiped out.
+
+![The Mission tab before a flowchart exists](docs/screenshots/mission-tab-empty.png)
+![Connecting a transition by dragging its dot onto Defeat](docs/screenshots/mission-flow-connecting.png)
+![Sofia's mission as a flowchart](docs/screenshots/mission-flow.png)
+![Editing a stage: messages, objectives, a capture transition](docs/screenshots/mission-flow-stage.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

@@ -1,0 +1,131 @@
+{
+ "version": 1,
+ "start": "oldtown",
+ "stages": [
+  {
+   "id": "oldtown",
+   "title": "The old town",
+   "x": 40,
+   "y": 60,
+   "messages": [
+    "Sofia, old town. The Combine garrison holds the Largo, but the alleys between us are crawling with the dead. Push north through the courtyards to the tram line."
+   ],
+   "objectives": [
+    {
+     "id": "o1",
+     "text": "Fight through the old town to the tram line"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t1",
+     "condition": {
+      "kind": "reach",
+      "area": [
+       -4064,
+       -1024,
+       4064,
+       -512
+      ],
+      "z": 128,
+      "owner": "2"
+     },
+     "to": "tram",
+     "completes": true
+    },
+    {
+     "id": "t2",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "tram",
+   "title": "The tram line",
+   "x": 360,
+   "y": 40,
+   "messages": [
+    "The tram line. The Largo is just north and the Combine are dug in around the Party House. Reinforcements are coming up the line from the east."
+   ],
+   "objectives": [
+    {
+     "id": "o2",
+     "text": "Take the Largo"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t3",
+     "condition": {
+      "kind": "reach",
+      "area": [
+       -1536,
+       128,
+       1408,
+       2688
+      ],
+      "z": 128,
+      "owner": "2"
+     },
+     "to": "assault",
+     "completes": true
+    },
+    {
+     "id": "t4",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "assault",
+   "title": "Assault on the Largo",
+   "x": 680,
+   "y": 60,
+   "messages": [
+    "They have seen us! Combine reinforcements from the Party House and the cathedral.",
+    "Capture the flag in the middle of the Largo."
+   ],
+   "objectives": [
+    {
+     "id": "o3",
+     "text": "Capture the flag at the Largo"
+    },
+    {
+     "id": "o4",
+     "text": "Hold out against the counter-attack"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "t5",
+     "condition": {
+      "kind": "capture",
+      "target": "largo_flag",
+      "owner": "2"
+     },
+     "to": "victory",
+     "completes": true
+    },
+    {
+     "id": "t6",
+     "condition": {
+      "kind": "destroy_faction",
+      "owner": "2"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  }
+ ]
+}

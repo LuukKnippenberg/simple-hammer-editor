@@ -16,8 +16,9 @@ export function missionRes(editor: Editor, mapName: string): string {
 }
 
 /** Mission tab: mission info, Lambda Wars kits with their settings, relations and a short summary. */
-export function mountMissionPanel(editor: Editor): HTMLElement {
+export function mountMissionPanel(editor: Editor, openFlow: () => void = () => {}): HTMLElement {
   const tool = editor.tools.tools.kit as KitTool;
+  const flowEl = h('div');
   const infoEl = h('div');
   const kitsEl = h('div.kits');
   const formEl = h('div');
@@ -107,12 +108,22 @@ export function mountMissionPanel(editor: Editor): HTMLElement {
     toast(editor.container, created.length ? `Added ${created.filter((e) => e.classname === 'wars_player_relation').length} relation(s): you hate every other unit owner` : 'Relations already set');
   };
 
+  const renderFlow = () => {
+    const g = editor.mission;
+    flowEl.replaceChildren(
+      h('p.hint', {}, g ? `${g.stages.length} stage${g.stages.length === 1 ? '' : 's'}: ${g.stages.map((s) => s.title).join(' \u2192 ')}` : 'Define the mission as a flowchart: stages with messages and objectives, and the conditions that lead from one to the next.'),
+      h('button.primary', { onclick: openFlow }, g ? '\u25c7 Open mission flow' : '\u25c7 Create mission flow'));
+  };
+  editor.on('mission', renderFlow);
+  editor.on('document', renderFlow);
+  renderFlow();
   for (const ev of ['document', 'change']) editor.on(ev, () => { renderInfo(); renderSummary(); });
   renderInfo();
   renderKits();
   renderSummary();
   return h('div', {},
     h('div.section', {}, h('h3', {}, 'Mission'), infoEl),
+    h('div.section', {}, h('h3', {}, 'Mission flow'), flowEl),
     h('div.section', {}, h('h3', {}, 'Lambda Wars kits'), kitsEl, formEl),
     h('div.section', {}, h('h3', {}, 'Relations'),
       h('p.hint', {}, 'Make you (Player 0) and every other unit owner enemies, applied at map start.'),

@@ -22,6 +22,7 @@ import { LocalSoundPlayer } from './audio/localSounds.ts';
 import { setSoundscapeController } from './ui/soundUi.ts';
 import { audio } from './audio/engine.ts';
 import { mountMissionPanel } from './ui/missionPanel.ts';
+import { mountMissionFlow } from './ui/missionFlow.ts';
 import { GameplayOverlay } from './render/gameplayOverlay.ts';
 import { LightingPreview } from './render/lightingPreview.ts';
 import { mountLightingPanel } from './ui/lightingPanel.ts';
@@ -63,7 +64,8 @@ document.getElementById('topbar')!.querySelector('.spacer')!.after(audioBtn);
 const tabs = mountSidebar(document.getElementById('sidebar')!);
 tabs.add('Selection', mountInspector(editor));
 tabs.add('Materials', mountMaterialBrowser(editor));
-tabs.add('Mission', mountMissionPanel(editor));
+const missionFlow = mountMissionFlow(editor);
+tabs.add('Mission', mountMissionPanel(editor, () => missionFlow.open()));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[title^="Entity"]')?.click()));
 const mapPanel = h('div');
 mountDocumentPanel(editor, mapPanel);
@@ -105,6 +107,7 @@ declare global {
       soundscapes: SoundscapeController;
       audio: typeof audio;
       sketch: typeof sketchDialog;
+      missionFlow: typeof missionFlow;
       setView(pos: [number, number, number], target: [number, number, number]): void;
       /** Page coordinates of a world point (for scripted mouse input). */
       project(p: [number, number, number]): [number, number];
@@ -123,6 +126,7 @@ window.__editor = {
   soundscapes,
   audio,
   sketch: sketchDialog,
+  missionFlow,
   setView(pos, target) {
     editor.camera.position.set(...pos);
     editor.controls.lookAt(new Vector3(...target));

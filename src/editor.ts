@@ -16,6 +16,7 @@ import { Selection } from './edit/selection.ts';
 import { History } from './edit/history.ts';
 import { ToolManager } from './edit/tools.ts';
 import type { Sketch } from './gen/sketch.ts';
+import { parseMission, type MissionGraph } from './lw/mission.ts';
 
 export interface FrameStats {
   fps: number;
@@ -61,6 +62,8 @@ export class Editor {
   lastAutosave: Date | null = null;
   /** The 2D sketch the map was generated from (saved as maps/<name>.sketch.json). */
   sketch: Sketch | null = null;
+  /** The mission flowchart (saved as maps/<name>.mission.json). */
+  mission: MissionGraph | null = null;
   /** Transient status text (e.g. block dimensions while dragging). */
   status = '';
   private listeners = new Map<string, Set<() => void>>();
@@ -192,6 +195,7 @@ export class Editor {
     this.history.clear();
     this.hidden.clear();
     this.sketch = null;
+    this.mission = null;
     this.selection.clear();
     const t0 = performance.now();
     this.world.sync(doc);
@@ -221,6 +225,11 @@ export class Editor {
     if (sk.ok) {
       this.sketch = await sk.json();
       this.emit('sketch');
+    }
+    const ms = await fetch(`/api/mission?id=${encodeURIComponent(id)}`);
+    if (ms.ok) {
+      this.mission = parseMission(await ms.text());
+      this.emit('mission');
     }
   }
 
@@ -287,6 +296,9 @@ export class Editor {
     if (!res.ok) throw new Error(out.error ?? 'save failed');
     if (this.sketch) {
       await fetch(`/api/sketch?name=${encodeURIComponent(name.replace(/\.vmf$/i, '.sketch.json'))}`, { method: 'POST', body: JSON.stringify(this.sketch) });
+    }
+    if (this.mission) {
+      await fetch(`/api/mission?name=${encodeURIComponent(name.replace(/\.vmf$/i, '.mission.json'))}`, { method: 'POST', body: JSON.stringify(this.mission, null, 1) });
     }
     this.mapName = name;
     this.sourceText = text;

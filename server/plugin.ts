@@ -55,6 +55,22 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
       };
       load();
 
+      const sidecar = (kind: string): Route => async (req, res, url) => {
+        const ext = new RegExp(`^[\\w\\- .]+\\.${kind}\\.json$`, 'i');
+        if (req.method === 'POST') {
+          const name = (url.searchParams.get('name') ?? '').trim();
+          if (!ext.test(name)) return send(res, 400, JSON.stringify({ error: 'invalid file name' }));
+          const dir = join(cfg.rootDir, 'maps');
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, name), await readBody(req));
+          return send(res, 200, JSON.stringify({ name }));
+        }
+        const file = resolveMap(cfg, url.searchParams.get('id') ?? '');
+        const side = file?.replace(/\.vmf$/i, `.${kind}.json`);
+        if (!side || !existsSync(side)) return send(res, 404, JSON.stringify({ error: `no ${kind}` }));
+        send(res, 200, readFileSync(side));
+      };
+
       const routes: Record<string, Route> = {
         '/api/config': (_req, res) =>
           send(res, 200, JSON.stringify({
@@ -113,21 +129,9 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           send(res, 200, readFileSync(file), 'text/plain; charset=utf-8');
         },
 
-        // 2D sketches saved next to maps in maps/ (<map>.sketch.json).
-        '/api/sketch': async (req, res, url) => {
-          if (req.method === 'POST') {
-            const name = (url.searchParams.get('name') ?? '').trim();
-            if (!/^[\w\- .]+\.sketch\.json$/i.test(name)) return send(res, 400, JSON.stringify({ error: 'invalid file name' }));
-            const dir = join(cfg.rootDir, 'maps');
-            mkdirSync(dir, { recursive: true });
-            writeFileSync(join(dir, name), await readBody(req));
-            return send(res, 200, JSON.stringify({ name }));
-          }
-          const file = resolveMap(cfg, url.searchParams.get('id') ?? '');
-          const sk = file?.replace(/\.vmf$/i, '.sketch.json');
-          if (!sk || !existsSync(sk)) return send(res, 404, JSON.stringify({ error: 'no sketch' }));
-          send(res, 200, readFileSync(sk));
-        },
+        // Files saved next to maps in maps/: the 2D sketch (<map>.sketch.json) and the mission flowchart (<map>.mission.json).
+        '/api/sketch': sidecar('sketch'),
+        '/api/mission': sidecar('mission'),
 
         // Autosaves of unsaved work, listed in the map picker under "Autosaves".
         '/api/autosave': async (req, res, url) => {
