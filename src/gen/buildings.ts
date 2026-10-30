@@ -3,11 +3,11 @@ import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import type { VmfDocument } from '../vmf/map.ts';
 import { solidNode } from '../edit/brushes.ts';
 import { Rng } from './rng.ts';
-import { FLOOR, bayCount, cleanPolygon, convexHull, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
+import { FLOOR, bayCount, ccw, cleanPolygon, convexHull, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
 import { planBlock, type CornerOption, type Part, type WallPlan } from './buildingPlan.ts';
-import { chooseRoof, roofSolids, type RoofKind, type RoofOption } from './roofs.ts';
+import { chooseRoof, inradius, roofSolids, type RoofKind, type RoofOption } from './roofs.ts';
 import { chooseCap, towerSides, towerSolids } from './towers.ts';
-import { entranceSteps, streetFacade, wallOf, type FeatureEntity } from './facadeFeatures.ts';
+import { entranceSteps, streetFacade, wallOf, type FeatureEntity, type Wall } from './facadeFeatures.ts';
 import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle, type Style } from './styles.ts';
 import { wallClutter, type Anchor, type BlockDressing } from './streets.ts';
 
@@ -73,10 +73,145 @@ export type DetailLevel = 0 | 1 | 2 | 3;
 
 const BASE = t('building_template003a', 0);
 
-/** A band around the footprint, `out` units proud of the wall. */
-function band(doc: VmfDocument, poly: Vector2[], out: number, zMin: number, zMax: number, tile: FacadeTile): KVNode | null {
-  const p = cleanPolygon(offsetPolygon(poly, out));
-  return isConvexCcw(p) ? solidNode(doc, facadePrism(p, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
+/**
+ * Another wing or wall of the block. Where one stands against a wall (a party wall), the decoration of
+ * that wall stops at the corner instead of running on into the neighbour's facade.
+ */
+export interface Neighbour {
+  poly: Vector2[];
+  /** Height up to which it hides the wall it stands against (its parapet or roof included). */
+  cover: number;
+  /** How far its own bands, cornice and eaves stand out of its walls between two heights (only its eaves or parapet with `roof`). */
+  reach: (zMin: number, zMax: number, roof?: boolean) => number;
+}
+
+/** A stretch of a wall (distances from its start) hidden by neighbours, with their reach at either end. */
+interface PartySpan { from: number; to: number; reachFrom: number; reachTo: number }
+
+/** Where neighbours standing higher than `zMin` hide the wall, sorted and merged. */
+function partySpans(w: Wall, neighbours: Neighbour[], zMin: number, zMax: number): PartySpan[] {
+  const spans: PartySpan[] = [];
+  for (const nb of neighbours) {
+    if (nb.cover <= zMin) continue;
+    nb.poly.forEach((c, i) => {
+      const d = nb.poly[(i + 1) % nb.poly.length];
+      // A shared wall runs the other way round the neighbour, on the same line.
+      if (new Vector2().subVectors(d, c).normalize().dot(w.dir) > -0.999) return;
+      if (Math.abs(new Vector2().subVectors(c, w.a).dot(w.out)) > 0.5) return;
+      const from = Math.max(0, new Vector2().subVectors(d, w.a).dot(w.dir)), to = Math.min(w.len, new Vector2().subVectors(c, w.a).dot(w.dir));
+      const reach = nb.reach(zMin, zMax);
+      if (to - from > 0.5) spans.push({ from, to, reachFrom: reach, reachTo: reach });
+    });
+  }
+  spans.sort((a, b) => a.from - b.from);
+  const out: PartySpan[] = [];
+  for (const s of spans) {
+    const last = out[out.length - 1];
+    if (!last || s.from > last.to + 0.5) out.push({ ...s });
+    else if (s.to > last.to + 0.5) { last.to = s.to; last.reachTo = s.reachTo; }
+    else if (s.to > last.to - 0.5) last.reachTo = Math.max(last.reachTo, s.reachTo);
+  }
+  return out;
+}
+
+/**
+ * Inside corners between buildings that touch only at a corner: how far a neighbour reaches over the wall
+ * from its start and from its end, where the neighbour's wall runs outwards from that corner. Of two
+ * bands meeting there the one on the wall that ends at the corner gives way; a neighbour's eaves or
+ * parapet can't, so a band gives way to those at either end.
+ */
+function cornerReach(w: Wall, neighbours: Neighbour[], zMin: number, zMax: number): { start: number; end: number } {
+  const reach = { start: 0, end: 0 };
+  for (const nb of neighbours) {
+    if (nb.cover <= zMin) continue;
+    nb.poly.forEach((c, i) => {
+      const d = nb.poly[(i + 1) % nb.poly.length];
+      if (c.distanceTo(w.b) < 0.5 && new Vector2().subVectors(d, c).dot(w.out) > 0.5) reach.end = Math.max(reach.end, nb.reach(zMin, zMax));
+      if (d.distanceTo(w.a) < 0.5 && new Vector2().subVectors(c, d).dot(w.out) > 0.5) reach.start = Math.max(reach.start, nb.reach(zMin, zMax, true));
+    });
+  }
+  return reach;
+}
+
+/** Where two lines (a point and a direction each) cross. */
+function meet(p: Vector2, u: Vector2, q: Vector2, v: Vector2): Vector2 {
+  const cross = u.x * v.y - u.y * v.x;
+  if (Math.abs(cross) < 1e-9) return q.clone();
+  const w = new Vector2().subVectors(q, p);
+  return p.clone().addScaledVector(u, (w.x * v.y - w.y * v.x) / cross);
+}
+
+/**
+ * A band around the footprint, `out` units proud of the wall, that stops at party walls: one slab over
+ * the free walls (ending flush with the party walls) and strips along walls that neighbours hide only in
+ * part. Where a strip meets a neighbour's wall at an inside corner it stops short by the neighbour's own
+ * reach, so the two bands butt instead of overlapping.
+ */
+export function band(doc: VmfDocument, poly: Vector2[], out: number, zMin: number, zMax: number, tile: FacadeTile, neighbours: Neighbour[] = []): KVNode[] {
+  const solid = (p: Vector2[]) => {
+    const q = cleanPolygon(p);
+    return isConvexCcw(q) ? [solidNode(doc, facadePrism(q, zMin, zMax, tile, tile.material, zMin, tile.material))] : [];
+  };
+  const n = poly.length;
+  const walls = poly.map((a, i) => wallOf(a, poly[(i + 1) % n]));
+  const party = walls.map((w) => partySpans(w, neighbours, zMin, zMax));
+  const cut = walls.map((w) => cornerReach(w, neighbours, zMin, zMax));
+  const strip = party.map((s, i) => s.length > 0 || cut[i].start > 0 || cut[i].end > 0);
+  const solids = solid(offsetPolygon(poly, strip.map((s) => (s ? 0 : out))));
+  const openStart = (k: number) => !party[k].some((s) => s.from < 0.5);
+  const openEnd = (k: number) => !party[k].some((s) => s.to > walls[k].len - 0.5) && !cut[k].end;
+  const at = (w: Wall, t: number, d: number) => w.a.clone().addScaledVector(w.dir, t).addScaledVector(w.out, d);
+  walls.forEach((w, i) => {
+    if (!strip[i]) return;
+    const p = (i + n - 1) % n, q = (i + 1) % n;
+    // The corner before a strip belongs to the strip; the one after it to the next wall when that is a
+    // strip too, or to this one when the next wall is part of the slab.
+    const dPrev = openEnd(p) ? out : 0;
+    const dNext = openStart(q) && !strip[q] ? out : 0;
+    const corner = (other: Wall, d: number) => [0, out].map((o) => meet(at(w, 0, o), w.dir, at(other, 0, d), other.dir));
+    let from = 0, reachFrom: number | null = cut[i].start || null;
+    for (const s of [...party[i], null]) {
+      const reachTo = s ? s.reachFrom : cut[i].end || null;
+      const t0 = from + (reachFrom ?? 0), t1 = (s ? s.from : w.len) - (reachTo ?? 0);
+      if (t1 - t0 >= 8) {
+        const [a0, a1] = reachFrom === null ? corner(walls[p], dPrev) : [at(w, t0, 0), at(w, t0, out)];
+        const [b0, b1] = reachTo === null ? corner(walls[q], dNext) : [at(w, t1, 0), at(w, t1, out)];
+        solids.push(...solid(ccw([a0, b0, b1, a1])));
+      }
+      if (s) { from = s.to; reachFrom = s.reachTo; }
+    }
+  });
+  return solids;
+}
+
+interface BandSpec { zMin: number; zMax: number; out: number; base?: boolean }
+
+/** The bands of a wing: base course, ledges (a heavy one over the ground floor, thin ones on every `every` floor line), cornice. */
+function partBands(part: Part, z0: number, level: DetailLevel, every = 1): BandSpec[] {
+  const main = part.kind === 'main', top = z0 + part.floors * FLOOR;
+  const bands: BandSpec[] = [];
+  if (level >= 1) bands.push({ zMin: z0 - 32, zMax: z0 + 20, out: 4, base: true });
+  if (level >= 2 && main && part.floors > 1) {
+    bands.push({ zMin: z0 + FLOOR - 6, zMax: z0 + FLOOR + 6, out: 6 });
+    for (let k = 2; k < part.floors; k++) if ((k - 1) % every === 0) bands.push({ zMin: z0 + k * FLOOR - 4, zMax: z0 + k * FLOOR + 4, out: 4 });
+  }
+  // Stepped cornice: a fascia, then the overhanging top band.
+  if (main && level >= 1) bands.push({ zMin: top - 24, zMax: top - 16, out: 6 });
+  bands.push({ zMin: top - 16, zMax: top, out: main && level >= 1 ? 14 : 8 });
+  return bands;
+}
+
+/** A wing as the other wings see it: hidden up to its parapet or roof, reaching out by its bands and eaves. */
+function partNeighbour(part: Part, z0: number, level: DetailLevel, roof: RoofKind): Neighbour {
+  const top = z0 + part.floors * FLOOR, main = part.kind === 'main';
+  const overhang = main && level >= 1 ? 14 : 8;
+  // Pitched roofs: at least as high as the steepest roof over this footprint.
+  const cover = roof !== 'flat' ? top + 1.2 * inradius(part.poly) + 32 : main ? top + 32 : top;
+  const zones = partBands(part, z0, level);
+  if (level >= 3 && main && part.floors > 1) zones.push({ zMin: top - 36, zMax: top - 24, out: 12 });
+  const eaves = { zMin: top, zMax: cover, out: roof !== 'flat' ? overhang + 2 : main ? overhang : 0 };
+  zones.push(eaves);
+  return { poly: part.poly, cover, reach: (zMin, zMax, r) => Math.max(0, ...(r ? [eaves] : zones).filter((b) => b.zMin < zMax && zMin < b.zMax).map((b) => b.out)) };
 }
 
 /** A small block standing on the wall at `at`, `width` along the wall and `depth` proud of it. */
@@ -110,6 +245,7 @@ function partSolids(
     isStreet?: (a: Vector2, b: Vector2) => boolean; rng: Rng; entities: FeatureEntity[];
     oriels: boolean; balconies: boolean; roofHuts: boolean; weathering: number; anchors: Anchor[];
   },
+  neighbours: Neighbour[] = [],
 ): { world: KVNode[]; detail: KVNode[]; roofHeight: (p: Vector2) => number; windows: FacadeTile } {
   const world: KVNode[] = [], detail: KVNode[] = [];
   let roofHeight = (_p: Vector2) => z0 + part.floors * FLOOR + 32;
@@ -125,37 +261,38 @@ function partSolids(
   world.push(solidNode(doc, facadePrism(poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : roofTop, z0)));
   if (part.floors > 1) world.push(solidNode(doc, facadePrism(poly, z0 + FLOOR, top, windows, roofTop, z0)));
   const main = part.kind === 'main';
+  const walls = poly.map((a, i) => wallOf(a, poly[(i + 1) % poly.length]));
+  /** Stretches of wall i that neighbours hide between two heights. */
+  const party = (i: number, zMin: number, zMax: number) => partySpans(walls[i], neighbours, zMin, zMax);
+  const hidden = (i: number, from: number, to: number, zMin: number, zMax: number) => party(i, zMin, zMax).some((p) => p.from < to && p.to > from);
 
-  // Base course of stone along the street.
-  if (level >= 1) add(band(doc, poly, 4, z0 - 32, z0 + 20, BASE));
-  // Ledges: a heavier one over the ground floor, thin ones between upper floors (all, or every other).
-  if (level >= 2 && main && part.floors > 1) {
-    add(band(doc, poly, 6, z0 + FLOOR - 6, z0 + FLOOR + 6, s.trim));
-    const every = deco.pick([1, 2]);
-    for (let k = 2; k < part.floors; k++) if ((k - 1) % every === 0) add(band(doc, poly, 4, z0 + k * FLOOR - 4, z0 + k * FLOOR + 4, s.trim));
-  }
-  // Stepped cornice: a fascia, then the overhanging top band.
+  // Base course of stone along the street; ledges, a heavier one over the ground floor and thin ones
+  // between upper floors (all, or every other); the stepped cornice. All stop at party walls.
+  const every = level >= 2 && main && part.floors > 1 ? deco.pick([1, 2]) : 1;
+  const bands = partBands(part, z0, level, every);
+  for (const b of bands) detail.push(...band(doc, poly, b.out, b.zMin, b.zMax, b.base ? BASE : s.trim, neighbours));
   const overhang = main && level >= 1 ? 14 : 8;
-  if (main && level >= 1) add(band(doc, poly, 6, top - 24, top - 16, s.trim));
-  add(band(doc, poly, overhang, top - 16, top, s.trim));
 
+  const colMin = z0 + FLOOR + 6, colTop = level >= 3 ? top - 36 : top - 24;
   if (level >= 2 && main && part.floors > 1) {
-    const colTop = level >= 3 ? top - 36 : top - 24;
-    // Quoins on the outer corners (not between the segments of a rounded corner).
+    // Quoins on the outer corners (not between the segments of a rounded corner, nor at party walls).
     poly.forEach((v, i) => {
-      const n = poly.length;
-      const dIn = new Vector2().subVectors(v, poly[(i + n - 1) % n]).normalize(), dOut = new Vector2().subVectors(poly[(i + 1) % n], v).normalize();
-      if (dIn.dot(dOut) < Math.cos((40 * Math.PI) / 180)) add(cornerBlock(doc, poly, i, 16, 4, z0 + FLOOR + 6, colTop, s.plain));
+      const n = poly.length, prev = (i + n - 1) % n;
+      const dIn = new Vector2().subVectors(v, poly[prev]).normalize(), dOut = new Vector2().subVectors(poly[(i + 1) % n], v).normalize();
+      const free = !hidden(prev, walls[prev].len - 24, walls[prev].len, colMin, colTop) && !hidden(i, 0, 24, colMin, colTop);
+      if (dIn.dot(dOut) < Math.cos((40 * Math.PI) / 180) && free) add(cornerBlock(doc, poly, i, 16, 4, colMin, colTop, s.plain));
     });
     // Columns between window bays on long walls: every second or third bay.
     const step = deco.pick([2, 3]);
     poly.forEach((a, i) => {
-      const b = poly[(i + 1) % poly.length];
-      const len = a.distanceTo(b);
+      const len = walls[i].len;
       const bays = bayCount(len, windows);
       if (len < 256 || bays < 4) return;
-      const dir = new Vector2().subVectors(b, a).normalize();
-      for (let k = step; k <= bays - step; k += step) add(wallBlock(doc, a.clone().addScaledVector(dir, (k * len) / bays), dir, 16, 4, z0 + FLOOR + 6, colTop, s.plain));
+      for (let k = step; k <= bays - step; k += step) {
+        const along = (k * len) / bays;
+        if (hidden(i, along - 10, along + 10, colMin, colTop)) continue;
+        add(wallBlock(doc, a.clone().addScaledVector(walls[i].dir, along), walls[i].dir, 16, 4, colMin, colTop, s.plain));
+      }
     });
   }
   // Brackets under the cornice at every bay.
@@ -168,14 +305,21 @@ function partSolids(
       for (let k = 0; k <= bays; k++) {
         if ((k === 0 || k === bays) && len < 96) continue;
         const along = Math.min(len - 6, Math.max(6, (k * len) / bays));
+        if (hidden(i, along - 6, along + 6, top - 36, top - 24)) continue;
         add(wallBlock(doc, a.clone().addScaledVector(dir, along), dir, 8, 12, top - 36, top - 24, s.trim));
       }
     });
   }
   if (pitched) {
+    // No eaves over party walls, nor on walls that meet a neighbour at an inside corner (the two roofs'
+    // eaves would cross there).
+    const eavesStop = walls.map((w, i) => {
+      const corner = cornerReach(w, neighbours, top, top + 1);
+      return party(i, top, top + 1).length > 0 || corner.start > 0 || corner.end > 0;
+    });
     const r = roofSolids(doc, poly, top, {
       kind: roof.kind, material: roof.material, wall: s.plain, window: windows, overhang,
-      dormers: main && level >= 1, chimneys: main && level >= 1,
+      dormers: main && level >= 1, chimneys: main && level >= 1, party: eavesStop,
     }, deco);
     detail.push(...r.solids);
     roofHeight = r.heightAt;
@@ -185,11 +329,14 @@ function partSolids(
       if (inside(poly, c)) street.entities.push({ classname: 'prop_static', origin: new Vector3(Math.round(c.x), Math.round(c.y), Math.round(r.heightAt(c) + 100)), keys: { model: 'models/props_rooftop/antenna04a.mdl', angles: `0 ${deco.int(0, 359)} 0`, solid: '0' } });
     }
   } else if (main) {
-    // Parapet: one brush per edge between the cornice line and 4 units inside the wall.
-    const outer = cleanPolygon(offsetPolygon(poly, overhang));
+    // Parapet: one brush per edge between the cornice line and 4 units inside the wall; none on walls a
+    // neighbour hides, and flush with the wall where one hides it in part.
+    const shared = walls.map((_, i) => party(i, top, top + 32));
+    const outer = cleanPolygon(offsetPolygon(poly, shared.map((p) => (p.length ? 0 : overhang))));
     const inner = cleanPolygon(offsetPolygon(poly, -4));
     if (inner.length === outer.length && isConvexCcw(inner)) {
       outer.forEach((a, i) => {
+        if (shared[i].some((p) => p.from < 0.5 && p.to > walls[i].len - 0.5)) return;
         const b = outer[(i + 1) % outer.length];
         const quad = [a, b, inner[(i + 1) % inner.length], inner[i]];
         if (isConvexCcw(quad)) detail.push(solidNode(doc, facadePrism(quad, top, top + 32, s.plain, s.plain.material, top, NODRAW)));
@@ -333,15 +480,28 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   const first = rng.int(0, styles.length - 1);
   const styleOf = (slot: number) => FACADE_STYLES[opts.style ?? styles[(first + slot) % styles.length]];
 
-  for (const b of plan.buildings) {
-    const s = styleOf(b.styleSlot);
-    const main = b.parts[0];
-    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', main.poly.length === 4, arch.roofs);
+  // Roofs first: every wing's decoration stops at its neighbours' walls, up to their roofs.
+  const roofs = plan.buildings.map((b) => {
+    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', b.parts[0].poly.length === 4, arch.roofs);
     // Sheds get a low metal roof half of the time.
     const shedRoof = roofRng.chance(0.5) ? { kind: 'hip' as const, material: 'METAL/METALROOF005A' } : { kind: 'flat' as const, material: ROOF };
-    for (const part of b.parts) {
-      const partRoof = part.kind === 'annex' ? shedRoof : roof.kind === 'gable' && part.poly.length !== 4 ? { ...roof, kind: 'hip' as const } : roof;
-      const r = partSolids(doc, part, s, z0, rng, deco, level, partRoof, street);
+    return { roof, parts: b.parts.map((part) => (part.kind === 'annex' ? shedRoof : roof.kind === 'gable' && part.poly.length !== 4 ? { ...roof, kind: 'hip' as const } : roof)) };
+  });
+  const wings = plan.buildings.flatMap((b, i) => b.parts.map((part, j) => ({ part, as: partNeighbour(part, z0, level, roofs[i].parts[j].kind) })));
+  const courtWalls: Neighbour[] = plan.walls.map((w) => {
+    const side = new Vector2().subVectors(w.b, w.a).normalize().multiplyScalar(8);
+    const n = new Vector2(side.y, -side.x);
+    return { poly: ccw([w.a.clone().add(n), w.b.clone().add(n), w.b.clone().sub(n), w.a.clone().sub(n)]), cover: z0 + w.height, reach: () => 0 };
+  });
+
+  plan.buildings.forEach((b, bi) => {
+    const s = styleOf(b.styleSlot);
+    const main = b.parts[0];
+    const roof = roofs[bi].roof;
+    b.parts.forEach((part, j) => {
+      const partRoof = roofs[bi].parts[j];
+      const neighbours = [...wings.filter((w) => w.part !== part).map((w) => w.as), ...courtWalls];
+      const r = partSolids(doc, part, s, z0, rng, deco, level, partRoof, street, neighbours);
       out.solids.push(...r.world);
       out.detail.push(...r.detail);
       // Corner towers: most rounded corners, some cut and square ones.
@@ -349,7 +509,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
         const chance = arch.towers * (part.corner.shape === 'round' ? 0.6 : part.corner.shape === 'chamfer' ? 0.35 : 0.2);
         if (towerRng.chance(chance)) out.detail.push(...cornerTower(doc, part, s, r.windows, z0, r.roofHeight, towerRng));
       }
-    }
+    });
     if (main.kind === 'main') out.buildings++;
     if (opts.roofProps && main.kind === 'main' && roof.kind === 'flat') {
       const box = new Box2().setFromPoints(main.poly);
@@ -366,7 +526,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
         });
       }
     }
-  }
+  });
   for (const w of plan.walls) out.detail.push(...wallSolids(doc, w, styleOf(rng.int(0, 4)), z0));
 
   if (opts.alleys) {

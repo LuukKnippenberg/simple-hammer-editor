@@ -158,11 +158,12 @@ function tieredRoof(doc: VmfDocument, eaves: Vector2[], z0: number, tiers: Tier[
  * Gable roof over a rectangle: slopes on the two long sides, vertical gable walls (in the facade's plain
  * material) on the short ones.
  */
-function gableRoof(doc: VmfDocument, eaves: Vector2[], z0: number, rise: number, material: string, wall: FacadeTile): RoofResult | null {
-  if (eaves.length !== 4) return null;
+function gableRoof(doc: VmfDocument, eaves: Vector2[], z0: number, rise: number, material: string, wall: FacadeTile, walls: Vector2[]): RoofResult | null {
+  if (eaves.length !== 4 || walls.length !== 4) return null;
   const len = (i: number) => eaves[i].distanceTo(eaves[(i + 1) % 4]);
-  const long = len(0) >= len(1) ? [0, 2] : [1, 3];
-  const half = Math.min(len(0), len(1)) / 2;
+  // Slopes on the long walls (eaves differ in depth where some stop at party walls).
+  const long = walls[0].distanceTo(walls[1]) >= walls[1].distanceTo(walls[2]) ? [0, 2] : [1, 3];
+  const half = len((long[0] + 1) % 4) / 2;
   const slopes = slopePlanes(eaves, z0, rise, material);
   const planes: PlaneSpec[] = [{ point: new Vector3(eaves[0].x, eaves[0].y, z0), normal: new Vector3(0, 0, -1), material: NODRAW }];
   for (let i = 0; i < 4; i++) {
@@ -198,6 +199,8 @@ export interface RoofOptions {
   overhang: number;
   dormers: boolean;
   chimneys: boolean;
+  /** Edges that stand against a neighbour: no eaves or dormers there. */
+  party?: boolean[];
 }
 
 /** A small gabled dormer on wall edge a→b at `along`, standing on the roof base. */
@@ -244,9 +247,10 @@ function dormer(doc: VmfDocument, a: Vector2, b: Vector2, along: number, z: numb
  * `poly` is the wall footprint, `top` the height of the wall top.
  */
 export function roofSolids(doc: VmfDocument, poly: Vector2[], top: number, o: RoofOptions, rng: Rng): RoofResult {
-  const eaves = cleanPolygon(offsetPolygon(poly, o.overhang + 2));
+  // Party walls (o.party) get no overhang: the roof stops at the neighbour's wall.
+  const eaves = cleanPolygon(offsetPolygon(poly, poly.map((_, i) => (o.party?.[i] ? 0 : o.overhang + 2))));
   let r: RoofResult | null = null;
-  if (o.kind === 'gable') r = gableRoof(doc, eaves, top, 0.9, o.material, o.wall);
+  if (o.kind === 'gable') r = gableRoof(doc, eaves, top, 0.9, o.material, o.wall, poly);
   if (!r && o.kind !== 'flat') r = tieredRoof(doc, eaves, top, TIERS[o.kind === 'gable' ? 'hip' : o.kind], o.material);
   if (!r) return { solids: [], heightAt: () => top, dormerZ: null };
 
@@ -255,7 +259,7 @@ export function roofSolids(doc: VmfDocument, poly: Vector2[], top: number, o: Ro
     poly.forEach((a, i) => {
       const b = poly[(i + 1) % poly.length];
       const len = a.distanceTo(b);
-      if (len < 256) return;
+      if (len < 256 || o.party?.[i]) return;
       const count = Math.floor((len - 128) / 128);
       for (let k = 0; k < count; k++) r!.solids.push(...dormer(doc, a, b, 64 + (len - 128) * (k + 0.5) / count, r!.dormerZ!, o));
     });
