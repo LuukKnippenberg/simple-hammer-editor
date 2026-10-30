@@ -946,6 +946,25 @@ the middle is the route. Their ground is left as it is by default, so they sit o
 ![Rebel barricade on rubble with rebels and a capture point](docs/screenshots/poi-p4-barricade-rubble.png)
 ![Ration distribution](docs/screenshots/poi-p4-rations.png)
 
+- **Junkyard** (1024×896 to 3072): gravel inside a chain-link or barbed-wire fence, rows of wrecks along two
+  sides (half with another wreck on top, some upside down), containers and a roll-off dumpster along the
+  others, tyre stacks, gravel heaps, dumpsters, a van and a truck cab, beams, drums and pipes. **Scrap**: three
+  `scrap_marker` piles by default, one per quadrant first so workers have room round them.
+- **Construction site** (1152×1024 to 3072): a fenced dirt yard round a half-built concrete frame: a
+  foundation 16 high that units step onto, a grid of columns, a whole slab over the first floor and a
+  smaller one higher up (1 to 3 floors), a ragged brick wall going up along the back, scaffolding (poles,
+  plank decks, rails) along the front, a crane frame, sand and gravel heaps, a container, a bulldozer, concrete
+  pipes, pallets, beams and cinder blocks.
+- **Tank farm** (1152 to 3072): concrete, up to six big brush tanks with low roofs, each in a 16-high bund,
+  pipe runs on supports along the outer side of each row, a pump house, smaller tank models, drums and
+  explosive barrels (`prop_physics`), a barbed fence.
+
+![Junkyard with scrap piles and a capture point](docs/screenshots/poi-p4-junkyard.png)
+![In the junkyard](docs/screenshots/poi-p4-junkyard-close.png)
+![Construction site](docs/screenshots/poi-p4-construction.png)
+![The half-built frame and its scaffolding](docs/screenshots/poi-p4-construction-close.png)
+![Tank farm](docs/screenshots/poi-p4-tankfarm.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
