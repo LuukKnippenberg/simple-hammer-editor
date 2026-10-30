@@ -452725,3 +452725,12 @@ entity
 	"LowPriority" "0"
 	"origin" "2048 2432 2"
 }
+entity
+{
+	"id" "38912"
+	"classname" "unit_scan"
+	"targetname" "reveal_rations"
+	"unittype" "unit_scan"
+	"ownernumber" "2"
+	"origin" "-1664 -1408 32"
+}

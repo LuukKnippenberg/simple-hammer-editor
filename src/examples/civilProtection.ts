@@ -235,6 +235,10 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
     citizen('loiterer', SPOTS.loiterer);
     citizen('litterer', SPOTS.litterer);
     citizen('runner', SPOTS.runner);
+    // Fog of war lifted over the ration line for the first objectives, as sp_radio_tower does around its tower:
+    // an invisible scan unit of the player (896 units of sight, enough for the lanes and all three citizens).
+    // The flyer stage kills it. It counts as one population while it lives.
+    addEnt('unit_scan', at(17, 13, 32), { targetname: 'reveal_rations', unittype: 'unit_scan', ownernumber: '2' });
     // The runner flees to the order entity itself (an info_target as order target ends the move at once).
     addEnt('wars_give_order', at(SPOTS.hideout[0], SPOTS.hideout[1], 16), { targetname: 'runner_flee', unitname: 'runner', overwriteexistingorders: '1' });
     // The asset: a Stalker standing in the outpost, neutral until Unit 09 takes command of it.
@@ -379,6 +383,8 @@ export function civilProtectionMission(screens: string[] = ['screen', 'screen_2'
     stage('flyer', 'The flyer', 4, 0, {
       messages: [{ speaker: 'Dispatch', text: 'The runner dropped something on the street. Inspect it.', hint: 'Move Unit 09 onto the paper by the kerb.' }],
       objectives: [{ id: 'o6', text: 'Inspect the dropped flyer' }],
+      // The ration area and its three citizens go back under fog of war.
+      actions: [act('reveal_rations', 'Kill')],
       transitions: [t(reach(AREA.flyer), 'report')],
     }),
     stage('report', 'Report to Outpost Kilo', 5, 0, {

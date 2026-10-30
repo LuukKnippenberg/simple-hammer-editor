@@ -399,7 +399,15 @@
      "text": "Inspect the dropped flyer"
     }
    ],
-   "actions": [],
+   "actions": [
+    {
+     "id": "a_reveal_off",
+     "target": "reveal_rations",
+     "input": "Kill",
+     "param": "",
+     "delay": 0
+    }
+   ],
    "gates": [],
    "transitions": [
     {
