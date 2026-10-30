@@ -28,14 +28,15 @@ const info = await d.eval(async () => {
   solids.push(solidNode(doc, boxFaces(new Vector3(0, 0, -64), new Vector3(Wd, Ht, 0), { top: 'NATURE/DIRTFLOOR003A', bottom: 'TOOLS/TOOLSNODRAW', sides: 'TOOLS/TOOLSNODRAW' })));
   const rect = (x, y, w, h) => rectPoly(new Box2(new Vector2(x, y), new Vector2(x + w, y + h)));
   const ell = (x, y) => [new Vector2(x, y), new Vector2(x + 512, y), new Vector2(x + 512, y + 256), new Vector2(x + 256, y + 256), new Vector2(x + 256, y + 512), new Vector2(x, y + 512)];
-  const houses = [];
+  const houses = [], plans = [];
   const add = (fp, opts) => {
     const h = interiorHouse(doc, fp, 0, opts);
     solids.push(...h.world);
     const det = detailEntityNode(doc, h.detail);
     if (det) ents.push(det);
     for (const e of h.entities) ents.push(entity(doc, e.classname, e.origin, e.keys));
-    houses.push({ box: new Box2().setFromPoints(h.plan.footprint), storeys: h.plan.storeys, stairs: h.plan.stairs ? { foot: h.plan.stairs.foot, head: h.plan.stairs.head } : null, entrances: h.plan.entrances.map((e) => e.centre), ...opts });
+    houses.push({ box: new Box2().setFromPoints(h.plan.footprint), storeys: h.plan.storeys, stairs: h.plan.stairs ? { foot: h.plan.stairs.foot, head: h.plan.stairs.head } : null, entrances: h.plan.entrances.map((e) => e.centre.clone().addScaledVector(e.out, 64)), rooms: h.plan.rooms.map((r) => ({ c: r.box.getCenter(new Vector2()), storey: r.storey, sealed: !!r.sealed })), ...opts });
+    plans.push(h.plan);
     return h;
   };
   // One row per style: furnished one-storey, bare one-storey, two storeys, an L, and (first row) wide doors.
@@ -115,14 +116,36 @@ const info = await d.eval(async () => {
     ents.push(trig);
   }
   // Camera views for screenshots (layout space; the map is shifted by (-3072, -2048) at the end).
-  const view = (delay, target) => {
+  const views = [];
+  const view = (delay, target, height = 700, name = 'view', door) => {
     const at = target.clone().add(new Vector3(-3072, -2048, 0));
-    connections.items.push(new KVPair('OnMapSpawn', io('she_client', 'Command', `setpos ${Math.round(at.x)} ${Math.round(at.y - 400)} 820`, String(delay), '-1')));
+    // Looking north at 65°: the camera stands south of its target.
+    const back = height / Math.tan((65 * Math.PI) / 180);
+    connections.items.push(new KVPair('OnMapSpawn', io('she_client', 'Command', `setpos ${Math.round(at.x)} ${Math.round(at.y - back)} ${height}`, String(delay), '-1')));
     connections.items.push(new KVPair('OnMapSpawn', io('she_client', 'Command', 'setang 65 90 0', String(delay), '-1')));
+    // The engine's own screenshot (lambdawars/screenshots): window captures go stale when the game is in the background.
+    connections.items.push(new KVPair('OnMapSpawn', io('she_client', 'Command', 'jpeg', String(delay + 3), '-1')));
+    views.push({ name, x: Math.round(at.x), y: Math.round(at.y), height, ...(door ? { door: { x: door.at.x - 3072, y: door.at.y - 2048, nx: door.open.x, ny: door.open.y } } : {}) });
   };
-  view(15, new Vector3(2624, 800, 0));
-  view(70, new Vector3(3392, 768, 0));
-  view(100, new Vector3(1280, 768, 0));
+  // Doorways into sealed rooms, closed off; the camera looks north, so openings whose open side faces south show best.
+  const { wallBox } = await import('/src/gen/interiorPlan.ts');
+  const blockedDoors = plans.flatMap((plan) => plan.walls.flatMap((w) => w.openings.filter((o) => o.blocked).map((o) => {
+    const wb = wallBox(w), c = wb.getCenter(new Vector2());
+    c[w.axis] = wb.min[w.axis] + (o.from + o.to) / 2;
+    const left = w.axis === 'x' ? new Vector2(0, 1) : new Vector2(-1, 0);
+    const open = w.left >= 0 && plan.rooms[w.left].sealed ? left.negate() : left;
+    return { kind: o.blocked, at: c, open };
+  })));
+  // Quick views: on this machine the game closes about 40 s after loading (CEF helper error).
+  view(14, new Vector3(2624, 800, 0), 700, 'farmhouse-2f');
+  let t = 21;
+  for (const kind of ['furniture', 'door', 'boarded']) {
+    const b = blockedDoors.filter((x) => x.kind === kind).sort((p, q) => p.open.y - q.open.y)[0];
+    if (!b) continue;
+    // The RTS camera keeps its own minimum height, so closer views don't land on their target.
+    view(t, new Vector3(b.at.x + b.open.x * 48, b.at.y + b.open.y * 48, 0), 700, `blocked-${kind}`, b);
+    t += 7;
+  }
   ents.push(auto);
 
   addEnvironment(doc, solids, ents, { width: Wd, height: Ht, apron: 256, maxHeight: 768, sunYaw: 40, fogColor: '185 195 205' });
@@ -141,11 +164,13 @@ const info = await d.eval(async () => {
   };
   if (!W.lighting.enabled) { W.lighting.setEnabled(true); ed.emit('lighting'); }
   W.lighting.refresh();
-  return { stats, saved: await ed.save('interiors_test.vmf'), houses: houses.map((h) => ({ x: (h.box.min.x + h.box.max.x) / 2 + shift.x, y: (h.box.min.y + h.box.max.y) / 2 + shift.y, style: h.style, storeys: h.storeys, stairs: h.stairs && { foot: [h.stairs.foot.x + shift.x, h.stairs.foot.y + shift.y], head: [h.stairs.head.x + shift.x, h.stairs.head.y + shift.y] } })) };
+  return { stats, views, saved: await ed.save('interiors_test.vmf'), houses: houses.map((h) => ({ x: (h.box.min.x + h.box.max.x) / 2 + shift.x, y: (h.box.min.y + h.box.max.y) / 2 + shift.y, style: h.style, storeys: h.storeys, doors: h.entrances.map((p) => [p.x + shift.x, p.y + shift.y]), rooms: h.rooms.map((r) => ({ at: [r.c.x + shift.x, r.c.y + shift.y], storey: r.storey, sealed: r.sealed })), stairs: h.stairs && { foot: [h.stairs.foot.x + shift.x, h.stairs.foot.y + shift.y], head: [h.stairs.head.x + shift.x, h.stairs.head.y + shift.y] } })) };
 });
 console.log(JSON.stringify(info.stats));
 console.log('saved', JSON.stringify(info.saved));
 // House centres and stair ends in map coordinates, for checking in game.
+// Camera views of the scripted in-game screenshots, for matching editor shots.
+if (process.env.VIEWS_OUT) (await import('node:fs')).writeFileSync(process.env.VIEWS_OUT, JSON.stringify(info.views, null, 1));
 if (process.env.HOUSES_OUT) (await import('node:fs')).writeFileSync(process.env.HOUSES_OUT, JSON.stringify(info.houses, null, 1));
 await d.settle(4000);
 await d.view([-600, -4200, 4200], [-300, -200, 0]);
