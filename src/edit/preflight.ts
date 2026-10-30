@@ -5,6 +5,7 @@ import type { MapEntity, MapSolid } from '../vmf/map.ts';
 import { boxSolid, solidBounds } from './brushes.ts';
 import { editorBlock, entityNode } from './actions.ts';
 import { loadModel } from '../assets/mdl.ts';
+import { fetchGameFile } from '../assets/fetch.ts';
 import { SETTING_GROUPS, groupState } from '../lw/mapSettings.ts';
 
 export interface Check {
@@ -74,7 +75,10 @@ export async function nonStaticProps(editor: Editor): Promise<MapEntity[]> {
   const models = new Map<string, boolean>();
   await Promise.all([...new Set(props.map((e) => e.get('model')!.toLowerCase()))].map(async (m) => {
     const mdl = await loadModel(m);
-    models.set(m, !mdl || mdl.isStatic);
+    // Moved models keep their old compiled-in name; vbsp then can't find the .vvd and stops.
+    const name = mdl?.internalName.replace(/\.mdl$/, '');
+    const moved = !!mdl && !!name && `models/${name}.mdl` !== m && !(await fetchGameFile(`models/${name}.vvd`));
+    models.set(m, !mdl || (mdl.isStatic && !moved));
   }));
   return props.filter((e) => models.get(e.get('model')!.toLowerCase()) === false);
 }

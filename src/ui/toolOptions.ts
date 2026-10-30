@@ -3,11 +3,13 @@ import type { BlockTool, KitTool } from '../edit/tools.ts';
 import type { RoadTool } from '../edit/roadTool.ts';
 import { ROAD_STYLES, type RoadStyle } from '../gen/roads.ts';
 import { makeTerrain, type GroundTool } from '../edit/groundTool.ts';
+import type { PowerlineTool } from '../edit/powerlineTool.ts';
+import { POLE_TYPES, type PoleType } from '../gen/powerlines.ts';
 import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
 import { h, toast } from './dom.ts';
 
-const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground' } as const;
+const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline' } as const;
 const HINTS = {
   select: 'Click to select · Shift adds · drag the gizmo · M move / R resize',
   block: 'Drag on a surface to draw a block',
@@ -17,6 +19,7 @@ const HINTS = {
   decal: 'Click a wall or floor to place · pick decals in the Materials tab',
   road: 'Click points · snaps onto roads to join them · Enter or double-click builds · Backspace removes a point',
   ground: 'Drag on terrain to paint or sculpt',
+  powerline: 'Click points along the route · Enter or double-click places poles and wires',
 } as const;
 
 /** Small panel in the viewport corner with the active tool's settings. */
@@ -108,6 +111,20 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
           title: 'Replace the selected floor brushes with displacement terrain in this ground set',
           onclick: () => { const n = makeTerrain(editor, floors, tool.set); render(); toast(editor.container, `Made ${n} terrain patches`); },
         }, floors.length ? `Turn ${floors.length} selected floor${floors.length > 1 ? 's' : ''} into terrain` : 'Select a floor brush to turn it into terrain'));
+    }
+    if (name === 'powerline') {
+      const tool = editor.tools.tools.powerline as PowerlineTool;
+      const pole = h('select', {}, ...Object.entries(POLE_TYPES).map(([k, p]) => h('option', { value: k }, p.label))) as HTMLSelectElement;
+      pole.value = tool.pole;
+      pole.addEventListener('change', () => { tool.pole = pole.value as PoleType; pole.blur(); });
+      const spacing = h('input', { type: 'number', value: String(tool.spacing), step: '64', min: '192' }) as HTMLInputElement;
+      spacing.addEventListener('change', () => { tool.spacing = Math.max(192, Number(spacing.value) || 640); spacing.blur(); });
+      const sag = h('input', { type: 'range', min: 0, max: 0.15, step: 0.01, value: tool.slack }) as HTMLInputElement;
+      sag.addEventListener('input', () => (tool.slack = Number(sag.value)));
+      const feeds = h('input', { type: 'checkbox', checked: tool.feeds }) as HTMLInputElement;
+      feeds.addEventListener('change', () => (tool.feeds = feeds.checked));
+      rows.push(h('div.row', {}, h('label', {}, 'Poles'), pole), h('div.row', {}, h('label', {}, 'Spacing'), spacing), h('div.row', {}, h('label', {}, 'Sag'), sag),
+        h('div.row', {}, h('label', {}, 'House feeds'), feeds));
     }
     if (name === 'kit') {
       const kit = (editor.tools.tools.kit as KitTool).kit;

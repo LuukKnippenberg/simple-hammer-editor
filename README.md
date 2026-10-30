@@ -611,6 +611,37 @@ The **Ground tool** (8) paints and sculpts displacement terrain (`src/edit/terra
 ![The dirt track across the grass](docs/screenshots/ground-dirt-track.png)
 ![The Ground tool's options and brush ring on the hill](docs/screenshots/ground-hill-tool.png)
 
+### Powerlines
+
+The **Powerline tool** (9): click points along the route, Enter or double-click builds. Poles stand at
+even spacing per leg and at every bend (turned to bisect it), on the ground under each point; a sagging
+rope runs per wire from pole to pole (`move_rope` → `keyframe_rope` chains), drawn in the viewport.
+
+| Poles | Model | Wires |
+|---|---|---|
+| Wooden, two wires | `props_forest/utilitypole01b` | 2 |
+| Wooden, three wires | `props_forest/utilitypole01d` (prop_dynamic) | 3 |
+| Wide crossarm | `props_forest/utilitypole03a` (prop_dynamic) | 4 |
+| City pole, side arm | `props_c17/utilitypole02b` | 2 |
+
+- The pole models have no attachment points; the wire positions were measured from their geometry.
+- **House feeds** (on by default): from each pole, a wire across to the nearest wall within 480 units
+  (found by raycasting the map), ending on a wall insulator.
+- **Spacing** and **sag** in the tool options; selecting any pole or rope shows a Powerline panel (pole
+  type, spacing, sag, feeds, delete), and changes rebuild the whole line. The first pole stores the route.
+- **Moved models**: `utilitypole01a/01d/03a` were moved from `props_c17` without being recompiled; their
+  compiled-in name points to a `.vvd` that doesn't exist, and vbsp stops ("Unable to load vertex data").
+  The model loader now reads that name, and the compile dialog's static prop check also catches such
+  models (and converts them to prop_dynamic, which the game loads by path).
+- Two powerlines with house feeds over painted terrain compile through vbsp, vvis and vrad, with all 34
+  rope keyframes in the BSP.
+
+![A powerline along a village street and one across the fields](docs/screenshots/powerlines-overview.png)
+![Down the street: wires on the crossarms, feeds to the houses](docs/screenshots/powerlines-street.png)
+![House feeds to wall insulators](docs/screenshots/powerlines-feeds.png)
+![Wide-crossarm poles over the hill](docs/screenshots/powerlines-hill.png)
+![The Powerline panel](docs/screenshots/powerlines-panel.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

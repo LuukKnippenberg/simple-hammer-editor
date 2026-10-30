@@ -19,6 +19,8 @@ export interface SourceModel {
    * (unless it sets allowstatic). vbsp deletes static props that break either rule.
    */
   isStatic: boolean;
+  /** The name compiled into the model. vbsp loads a static prop's .vvd by this name, not by the file's path. */
+  internalName: string;
 }
 
 const cache = new Map<string, Promise<SourceModel | null>>();
@@ -81,7 +83,8 @@ function parseMdl(buf: ArrayBuffer) {
   const text = new TextDecoder('latin1').decode(new Uint8Array(buf));
   const pd = text.indexOf('prop_data');
   const physicsOnly = pd >= 0 && !/"allowstatic"\s*"1"/i.test(text.slice(pd, pd + 400));
-  return { version, textures, cdmaterials, skinTable, models, isStatic: (flags & 0x10) !== 0 && !physicsOnly };
+  const internalName = cstr(dv, 12).replace(/\\/g, '/').toLowerCase();
+  return { version, textures, cdmaterials, skinTable, models, isStatic: (flags & 0x10) !== 0 && !physicsOnly, internalName };
 }
 
 /** LOD 0 vertices of a VVD (positions, normals, uvs), with fixups applied. */
@@ -222,7 +225,7 @@ async function load(path: string): Promise<SourceModel | null> {
     geo.computeBoundingSphere();
     parts.push({ geometry: geo, skinRef });
   }
-  const model: SourceModel = { name: path, parts, skins, bounds, isStatic: mdl.isStatic };
+  const model: SourceModel = { name: path, parts, skins, bounds, isStatic: mdl.isStatic, internalName: mdl.internalName };
   if (alt) await pickCdMaterials(model, mdl.textures, alt);
   return model;
 }

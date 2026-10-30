@@ -12,9 +12,10 @@ import { moveOverlayBasis, placeDecal } from './decals.ts';
 import { shapeSolids, type ShapeKind } from './shapes.ts';
 import { RoadTool } from './roadTool.ts';
 import { GroundTool } from './groundTool.ts';
+import { PowerlineTool } from './powerlineTool.ts';
 import { isTyping } from '../render/cameraControls.ts';
 
-export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground';
+export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline';
 
 export interface Tool {
   name: ToolName;
@@ -442,7 +443,7 @@ export class ToolManager {
     this.select = new SelectTool(editor);
     this.tools = {
       select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor),
-      kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor), ground: new GroundTool(editor),
+      kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor), ground: new GroundTool(editor), powerline: new PowerlineTool(editor),
     };
     this.current = this.select;
     const dom = editor.renderer.domElement;

@@ -86,7 +86,7 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
     const bad = await nonStaticProps(editor);
     checks.push({
       id: 'static', label: 'Static props use static models', severity: 'warning', ok: !bad.length,
-      detail: bad.length ? `${bad.length} prop_static use a physics-only model; vbsp would delete them. Converting them to prop_dynamic keeps them.` : 'All prop_static models were compiled with $staticprop.',
+      detail: bad.length ? `${bad.length} prop_static use a physics-only or moved model; vbsp would delete them or stop. Converting them to prop_dynamic keeps them.` : 'All prop_static models were compiled with $staticprop.',
       fixLabel: 'Convert to prop_dynamic',
       fix: bad.length ? () => convertToDynamic(editor, bad) : undefined,
     });

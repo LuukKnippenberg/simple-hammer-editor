@@ -12,6 +12,8 @@ import type { RoofOption } from '../gen/roofs.ts';
 import { ioSection } from './ioEditor.ts';
 import { ROAD_STYLES, centreline, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
 import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
+import { POLE_TYPES, powerlineOf, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
+import { editPowerline } from '../edit/powerlineTool.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -53,6 +55,8 @@ export function mountInspector(editor: Editor): HTMLElement {
     const roadEnt = ents.length === 1 ? ents[0] : !ents.length && owners.size === 1 ? [...owners][0] : null;
     const road = roadEnt ? roadOf(roadEnt) : null;
     if (roadEnt && road) panel.append(roadPanel(editor, roadEnt, road));
+    const line = ents.length === 1 ? powerlineOf(editor.doc.entities, ents[0]) : null;
+    if (line) panel.append(powerlinePanel(editor, ents[0], line.spec, line.members.length));
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
     if (solids.length) panel.append(brushEditor(editor));
     if ([...sel.solids].some((s) => !s.entity)) panel.append(buildingPanel(editor));
@@ -164,6 +168,26 @@ function roadPanel(editor: Editor, e: MapEntity, road: RoadSpec): HTMLElement {
           toast(editor.container, n ? `Blended into ${n} terrain patch${n > 1 ? 'es' : ''}` : 'No terrain under this road (Ground tool: turn the floor into terrain)');
         },
       }, 'Blend into ground')));
+}
+
+/** A powerline's settings; changes rebuild its poles and wires. */
+function powerlinePanel(editor: Editor, e: MapEntity, spec: PowerlineSpec, count: number): HTMLElement {
+  const pole = h('select', {}, ...Object.entries(POLE_TYPES).map(([k, p]) => h('option', { value: k }, p.label))) as HTMLSelectElement;
+  pole.value = spec.pole;
+  pole.addEventListener('change', () => editPowerline(editor, e, { pole: pole.value as PoleType }));
+  const spacing = h('input', { type: 'number', value: String(spec.spacing), step: '64', min: '192' }) as HTMLInputElement;
+  spacing.addEventListener('change', () => editPowerline(editor, e, { spacing: Math.max(192, Number(spacing.value) || 640) }));
+  const sag = h('input', { type: 'range', min: 0, max: 0.15, step: 0.01, value: spec.slack }) as HTMLInputElement;
+  sag.addEventListener('change', () => editPowerline(editor, e, { slack: Number(sag.value) }));
+  const feeds = h('input', { type: 'checkbox', checked: !!spec.feeds }) as HTMLInputElement;
+  feeds.addEventListener('change', () => editPowerline(editor, e, { feeds: feeds.checked }));
+  return h('div.section', {}, h('h3', {}, 'Powerline'),
+    h('p.hint', {}, `${spec.points.length} route points, ${count} entities (poles and rope keyframes).`),
+    h('div.row', {}, h('label', {}, 'Poles'), pole),
+    h('div.row', {}, h('label', {}, 'Spacing'), spacing),
+    h('div.row', {}, h('label', {}, 'Sag'), sag),
+    h('div.row', {}, h('label', {}, 'House feeds'), feeds),
+    h('button', { onclick: () => { const l = powerlineOf(editor.doc.entities, e); if (l) { editor.history.remove('Delete powerline', [], l.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline'));
 }
 
 /** Turns the selected block brushes into buildings. */
