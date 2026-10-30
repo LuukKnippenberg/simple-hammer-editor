@@ -14,6 +14,7 @@ import { loadFgd } from './assets/fgd.ts';
 import { Selection } from './edit/selection.ts';
 import { History } from './edit/history.ts';
 import { ToolManager } from './edit/tools.ts';
+import type { Sketch } from './gen/sketch.ts';
 
 export interface FrameStats {
   fps: number;
@@ -55,6 +56,8 @@ export class Editor {
   entityClass = 'info_start_wars';
   entityModel = 'models/props_c17/oildrum001.mdl';
   lastAutosave: Date | null = null;
+  /** The 2D sketch the map was generated from (saved as maps/<name>.sketch.json). */
+  sketch: Sketch | null = null;
   /** Transient status text (e.g. block dimensions while dragging). */
   status = '';
   private listeners = new Map<string, Set<() => void>>();
@@ -179,6 +182,7 @@ export class Editor {
     this.dirty = false;
     this.history.clear();
     this.hidden.clear();
+    this.sketch = null;
     this.selection.clear();
     const t0 = performance.now();
     this.world.sync(doc);
@@ -203,6 +207,11 @@ export class Editor {
     const doc = VmfDocument.parse(text);
     console.log(`[editor] parsed ${id} in ${Math.round(performance.now() - t0)} ms`);
     this.loadDocument(doc, id.split(':')[1] ?? id, text);
+    const sk = await fetch(`/api/sketch?id=${encodeURIComponent(id)}`);
+    if (sk.ok) {
+      this.sketch = await sk.json();
+      this.emit('sketch');
+    }
   }
 
   /**
@@ -265,6 +274,9 @@ export class Editor {
     const res = await fetch(`/api/map/save?name=${encodeURIComponent(name)}`, { method: 'POST', body: text });
     const out = await res.json();
     if (!res.ok) throw new Error(out.error ?? 'save failed');
+    if (this.sketch) {
+      await fetch(`/api/sketch?name=${encodeURIComponent(name.replace(/\.vmf$/i, '.sketch.json'))}`, { method: 'POST', body: JSON.stringify(this.sketch) });
+    }
     this.mapName = name;
     this.sourceText = text;
     this.dirty = false;

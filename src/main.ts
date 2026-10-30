@@ -19,6 +19,7 @@ import { mountMissionPanel } from './ui/missionPanel.ts';
 import { GameplayOverlay } from './render/gameplayOverlay.ts';
 import { LightingPreview } from './render/lightingPreview.ts';
 import { mountLightingPanel } from './ui/lightingPanel.ts';
+import { mountSketchDialog } from './ui/sketchDialog.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -35,7 +36,9 @@ mountToolbar(editor, document.getElementById('toolbar')!, { hoverPoint: () => ho
 mountToolOptions(editor, viewport);
 const compileDialog = mountCompileDialog(editor);
 const generatorDialog = mountGeneratorDialog(editor);
+const sketchDialog = mountSketchDialog(editor);
 document.getElementById('topbar')!.querySelector('.spacer')!.before(
+  h('button', { onclick: () => sketchDialog.open(), title: 'Draw the map in 2D with height levels, then generate it' }, '✎ Sketch'),
   h('button', { onclick: () => generatorDialog.open(), title: 'Generate a complete map from a painted layout' }, '⚙ Generate map'),
   h('button.primary', { onclick: () => compileDialog.open(), title: 'Compile the map and run it in Lambda Wars' }, '▶ Compile & test'),
 );
@@ -72,6 +75,7 @@ declare global {
       tabs: typeof tabs;
       logic: typeof logic;
       lighting: LightingPreview;
+      sketch: typeof sketchDialog;
       setView(pos: [number, number, number], target: [number, number, number]): void;
       /** Page coordinates of a world point (for scripted mouse input). */
       project(p: [number, number, number]): [number, number];
@@ -87,6 +91,7 @@ window.__editor = {
   tabs,
   logic,
   lighting,
+  sketch: sketchDialog,
   setView(pos, target) {
     editor.camera.position.set(...pos);
     editor.controls.lookAt(new Vector3(...target));

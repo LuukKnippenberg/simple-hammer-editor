@@ -185,14 +185,14 @@ function block(name: string, size: number, rowFn: (r: number) => string): KVNode
   return n;
 }
 
-/** A 512×512 terrain patch: a thin world brush whose top face is a power-3 displacement. */
-function terrainPatch(doc: VmfDocument, x0: number, y0: number, size: number, material: string, heightAt: (x: number, y: number) => number, alphaAt: (x: number, y: number) => number): KVNode {
+/** A square terrain patch: a thin world brush whose top face is a displacement (power 3: 9×9, power 4: 17×17 vertices). */
+export function terrainPatch(doc: VmfDocument, x0: number, y0: number, size: number, material: string, heightAt: (x: number, y: number) => number, alphaAt: (x: number, y: number) => number, power = 3): KVNode {
   const min = new Vector3(x0, y0, -16), max = new Vector3(x0 + size, y0 + size, 0);
   const node = solidNode(doc, boxFaces(min, max, { top: material, bottom: 'TOOLS/TOOLSNODRAW', sides: 'TOOLS/TOOLSNODRAW' }));
   const solid = new MapSolid(node, null);
   const top = buildBrushFaces(solid).find((f) => f.plane.normal.z > 0.99)!;
   const start = new Vector3(x0, y0, 0);
-  const power = 3, n = (1 << power) + 1;
+  const n = (1 << power) + 1;
   const grid = dispBaseGrid(dispCorners(top, start), n);
   const fmt = (v: number) => String(Math.round(v * 100) / 100);
   const disp = new KVNode('dispinfo');
@@ -214,7 +214,7 @@ function terrainPatch(doc: VmfDocument, x0: number, y0: number, size: number, ma
   return node;
 }
 
-function entity(doc: VmfDocument, classname: string, origin: Vector3, keys: Record<string, string> = {}): KVNode {
+export function entity(doc: VmfDocument, classname: string, origin: Vector3, keys: Record<string, string> = {}): KVNode {
   const e = new KVNode('entity');
   e.items.push(new KVPair('id', String(doc.nextId())), new KVPair('classname', classname));
   for (const [k, v] of Object.entries(keys)) e.items.push(new KVPair(k, v));
@@ -367,41 +367,60 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
     ents.push(entity(doc, 'scrap_marker', new Vector3(x, y, Math.round(ground(x, y))), { angles: `0 ${rng.int(0, 359)} 0`, autoconstruct: '1', constructed: '2' }));
   }
 
-  // Lighting, fog, camera spawn.
-  const mid = new Vector3((L.w * CELL) / 2, (L.h * CELL) / 2, 0);
-  ents.push(entity(doc, 'light_environment', new Vector3(mid.x, mid.y, 1200), {
-    pitch: '-50', angles: `0 ${rng.int(20, 70)} 0`, _light: '255 236 205 500', _ambient: '165 182 210 160',
+  const maxH = opts.highGround + 6 * 128 + 256;
+  addEnvironment(doc, solids, ents, { width: W, height: H, apron: APRON, maxHeight: maxH, sunYaw: rng.int(20, 70), fogColor: opts.theme === 'city' ? '170 175 180' : '185 195 205' });
+  return finishDoc(doc, solids, ents, new Vector3(ox, oy, 0));
+}
+
+/** Six boxes around `box` (the inside stays empty). */
+export function shellSolids(doc: VmfDocument, box: Box3, material: string, t: number): KVNode[] {
+  const a = box.min, b = box.max;
+  const parts: [Vector3, Vector3][] = [
+    [new Vector3(a.x - t, a.y - t, a.z - t), new Vector3(b.x + t, b.y + t, a.z)],
+    [new Vector3(a.x - t, a.y - t, b.z), new Vector3(b.x + t, b.y + t, b.z + t)],
+    [new Vector3(a.x - t, a.y - t, a.z), new Vector3(a.x, b.y + t, b.z)],
+    [new Vector3(b.x, a.y - t, a.z), new Vector3(b.x + t, b.y + t, b.z)],
+    [new Vector3(a.x, a.y - t, a.z), new Vector3(b.x, a.y, b.z)],
+    [new Vector3(a.x, b.y, a.z), new Vector3(b.x, b.y + t, b.z)],
+  ];
+  return parts.map(([lo, hi]) => solidNode(doc, boxFaces(lo, hi, material)));
+}
+
+export interface EnvironmentOptions {
+  /** Playable area size (layout space starts at 0,0). */
+  width: number;
+  height: number;
+  apron: number;
+  maxHeight: number;
+  sunYaw: number;
+  fogColor: string;
+  sunPitch?: number;
+  light?: string;
+  ambient?: string;
+}
+
+/** Sun, fog, camera spawn, the sealing sky shell and the RTS map boundary. */
+export function addEnvironment(doc: VmfDocument, solids: KVNode[], ents: KVNode[], o: EnvironmentOptions): void {
+  const mid = new Vector3(o.width / 2, o.height / 2, 0);
+  ents.push(entity(doc, 'light_environment', new Vector3(mid.x, mid.y, o.maxHeight), {
+    pitch: String(o.sunPitch ?? -50), angles: `0 ${o.sunYaw} 0`, _light: o.light ?? '255 236 205 500', _ambient: o.ambient ?? '165 182 210 160',
     _lightHDR: '-1 -1 -1 1', _ambientHDR: '-1 -1 -1 1', _lightscaleHDR: '1', _AmbientScaleHDR: '1', SunSpreadAngle: '2',
   }));
-  ents.push(entity(doc, 'env_fog_controller', new Vector3(mid.x, mid.y, 1300), {
-    fogenable: '1', fogcolor: opts.theme === 'city' ? '170 175 180' : '185 195 205', fogcolor2: '255 255 255', fogstart: '3000', fogend: '14000',
+  ents.push(entity(doc, 'env_fog_controller', new Vector3(mid.x, mid.y, o.maxHeight + 100), {
+    fogenable: '1', fogcolor: o.fogColor, fogcolor2: '255 255 255', fogstart: '3000', fogend: '14000',
     fogmaxdensity: '0.6', fogdir: '1 0 0', fogblend: '0', farz: '-1', spawnflags: '1', angles: '0 0 0',
   }));
-  ents.push(entity(doc, 'info_player_start', new Vector3(mid.x, mid.y, 900), { angles: '0 0 0' }));
-
-  // Sky shell (seals the map) and the RTS map boundary just inside it.
-  const maxH = opts.highGround + 6 * 128 + 256;
-  const inner = new Box3(new Vector3(-APRON - 64, -APRON - 64, -64), new Vector3(L.w * CELL + APRON + 64, L.h * CELL + APRON + 64, maxH + 1024));
-  const shell = (box: Box3, material: string, t: number) => {
-    const a = box.min, b = box.max;
-    const parts: [Vector3, Vector3][] = [
-      [new Vector3(a.x - t, a.y - t, a.z - t), new Vector3(b.x + t, b.y + t, a.z)],
-      [new Vector3(a.x - t, a.y - t, b.z), new Vector3(b.x + t, b.y + t, b.z + t)],
-      [new Vector3(a.x - t, a.y - t, a.z), new Vector3(a.x, b.y + t, b.z)],
-      [new Vector3(b.x, a.y - t, a.z), new Vector3(b.x + t, b.y + t, b.z)],
-      [new Vector3(a.x, a.y - t, a.z), new Vector3(b.x, a.y, b.z)],
-      [new Vector3(a.x, b.y, a.z), new Vector3(b.x, b.y + t, b.z)],
-    ];
-    return parts.map(([lo, hi]) => solidNode(doc, boxFaces(lo, hi, material)));
-  };
-  solids.push(...shell(inner, 'TOOLS/TOOLSSKYBOX', 32));
-  const boundary = entity(doc, 'func_map_boundary', new Vector3(mid.x, mid.y, maxH / 2), { bloat: '-32.0' });
-  const bInner = new Box3(new Vector3(0, 0, -32), new Vector3(L.w * CELL, L.h * CELL, maxH + 512));
-  for (const s of shell(bInner, 'TOOLS/TOOLSPLAYERCLIP', 32)) boundary.items.push(s);
+  ents.push(entity(doc, 'info_player_start', new Vector3(mid.x, mid.y, o.maxHeight - 300), { angles: '0 0 0' }));
+  const inner = new Box3(new Vector3(-o.apron - 64, -o.apron - 64, -64), new Vector3(o.width + o.apron + 64, o.height + o.apron + 64, o.maxHeight + 1024));
+  solids.push(...shellSolids(doc, inner, 'TOOLS/TOOLSSKYBOX', 32));
+  const boundary = entity(doc, 'func_map_boundary', new Vector3(mid.x, mid.y, o.maxHeight / 2), { bloat: '-32.0' });
+  for (const s of shellSolids(doc, new Box3(new Vector3(0, 0, -32), new Vector3(o.width, o.height, o.maxHeight + 512)), 'TOOLS/TOOLSPLAYERCLIP', 32)) boundary.items.push(s);
   ents.push(boundary);
+}
 
-  // Shift into a map centred on the origin and attach everything.
-  const shift = new Vector3(ox, oy, 0);
+/** Moves everything by `shift` (texture-locked), attaches it to the document and re-reads it. */
+export function finishDoc(doc: VmfDocument, solids: KVNode[], ents: KVNode[], shift: Vector3): VmfDocument {
+  const world = doc.world;
   const moveNode = (n: KVNode) => {
     for (const side of n.childrenNamed('side')) {
       const plane = side.get('plane')!;

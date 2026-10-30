@@ -261,6 +261,30 @@ compiled result:
 ![Night with placed point and spot lights](docs/screenshots/phase9-night-lights.png)
 ![Lighting controls](docs/screenshots/phase9-lighting-panel.png)
 
+### Phase 10: 2D map drawing with height layers
+
+**Sketch** (top bar) opens a 2D painter for drawing a map from above on a grid of 128-unit cells, with
+separate layers:
+
+| Layer | Paints |
+|---|---|
+| Height | Levels 0–4 (level height configurable, default 128). Level changes become cliffs; **Ramp** cells turn a step into a walkable slope. |
+| Surface | Grass, dirt, road, cobble, rubble: blended into the terrain through displacement alpha. |
+| Features | Buildings (on their cell's level, floors and facade configurable), trees, walls, debris, cars. |
+| Markers | Mission start, multiplayer start, capture point, scrap, zombie and Combine groups, Combine wave, rebels: placed with the phase 8 kits. |
+
+Brush, rectangle and fill tools, brush sizes, mirror/rotational symmetry, undo, and city/rural themes.
+**Generate 3D map** builds power-4 displacement terrain (32-unit vertices: cliffs stay sharp, ramps are
+solved as smooth surfaces between the levels around them), the features, markers, lighting, sky shell and
+map boundary. The sketch is saved next to the map as `maps/<name>.sketch.json` and reopened with it, so
+a map can be redrawn and regenerated. The example below compiles sealed with a navmesh in 11 seconds.
+
+![Height layer: plateau, hill and ramps](docs/screenshots/phase10-sketch-height.png)
+![Complete sketch with roads, buildings, trees and markers](docs/screenshots/phase10-sketch-complete.png)
+![Generated map](docs/screenshots/phase10-generated-overview.png)
+![Road up the ramp through the cliff](docs/screenshots/phase10-generated-cliff-ramp.png)
+![Generated map with the lighting preview](docs/screenshots/phase10-generated-lit.png)
+
 ## Development
 
 ```bash

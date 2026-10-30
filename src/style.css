@@ -199,3 +199,13 @@ kbd { font: 12px Consolas, monospace; background: var(--panel-2); border: 1px so
 label.check { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; }
 .row input[type='range'] { flex: 1; }
 .row input[type='color'] { flex: 0 0 44px; padding: 0 2px; height: 26px; }
+
+.modal.sketch { width: 96vw; max-width: none; height: 92vh; display: flex; flex-direction: column; }
+.modal.sketch .modal-head .hint { margin-left: 12px; flex: 1; }
+.sketch-body { flex: 1; display: flex; gap: 14px; min-height: 0; }
+.sketch-canvas-wrap { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; background: #111316; border-radius: 4px; }
+.sketch-canvas { cursor: crosshair; image-rendering: pixelated; box-shadow: 0 0 0 1px #000; }
+.sketch-side { width: 300px; overflow-y: auto; }
+.seg { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; }
+.seg button { flex: 1; padding: 3px 6px; font-size: 12px; }
+.swatch.ramp { background: repeating-linear-gradient(45deg, #ddd 0 2px, #555 2px 4px); }

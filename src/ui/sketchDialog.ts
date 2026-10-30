@@ -1,0 +1,314 @@
+import type { Editor } from '../editor.ts';
+import {
+  FEATURE_INFO, MARKER_INFO, SURFACE_INFO, Feature, Surface, emptySketch, generateFromSketch, placeMarkers, symmetricCells,
+  type MarkerKind, type Sketch, type SketchTheme,
+} from '../gen/sketch.ts';
+import { FACADE_STYLES, type FacadeStyle } from '../gen/buildings.ts';
+import { h, toast } from './dom.ts';
+import { VmfDocument } from '../vmf/map.ts';
+
+type Layer = 'height' | 'surface' | 'feature' | 'marker';
+type Shape = 'brush' | 'rect' | 'fill';
+const LEVEL_COLORS = ['#1d2f22', '#4f7a3a', '#a3a14e', '#c98a45', '#f0e2c0'];
+
+/** The current sketch is kept on the editor so it survives closing the dialog and is saved with the map. */
+/**
+ * Map sketch dialog: paint height levels (with ramps), ground surfaces, features (buildings, trees,
+ * walls, debris, cars) and markers on a 128-unit grid, then generate the 3D map from it.
+ */
+export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLElement; generate(): void } {
+  const backdrop = h('div.modal-backdrop', { hidden: true });
+  const dialog = h('div.modal.sketch');
+  backdrop.append(dialog);
+  document.body.append(backdrop);
+  const close = () => (backdrop.hidden = true);
+
+  let s: Sketch = editor.sketch ?? emptySketch(48, 48, 'city');
+  let layer: Layer = 'height';
+  let shape: Shape = 'brush';
+  let size = 2;
+  let symmetry: 'none' | 'mirror' | 'rotate' = 'none';
+  let level = 1;
+  let ramp = false;
+  let surface: Surface = Surface.Road;
+  let feature: Feature = Feature.Building;
+  let marker: MarkerKind = 'zombies';
+  const undo: string[] = [];
+  const snapshot = () => { undo.push(JSON.stringify(s)); if (undo.length > 60) undo.shift(); };
+
+  const canvas = h('canvas.sketch-canvas') as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d')!;
+  const wrap = h('div.sketch-canvas-wrap', {}, canvas);
+  const side = h('div.sketch-side');
+  const info = h('div.hint');
+  let PX = 14;
+
+  const draw = (preview?: { x0: number; y0: number; x1: number; y1: number }) => {
+    const availW = wrap.clientWidth - 16, availH = wrap.clientHeight - 16;
+    if (availW > 0 && availH > 0) PX = Math.max(4, Math.floor(Math.min(availW / s.w, availH / s.h)));
+    canvas.width = s.w * PX;
+    canvas.height = s.h * PX;
+    const Y = (y: number) => (s.h - 1 - y) * PX; // row 0 is south
+    for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+      const i = y * s.w + x;
+      ctx.fillStyle = SURFACE_INFO[s.surface[i] as Surface].color;
+      ctx.fillRect(x * PX, Y(y), PX, PX);
+      // Height as a light-to-dark wash.
+      const lv = s.levels[i];
+      ctx.fillStyle = LEVEL_COLORS[Math.min(4, lv)];
+      ctx.globalAlpha = layer === 'height' ? 0.62 : 0.28;
+      ctx.fillRect(x * PX, Y(y), PX, PX);
+      ctx.globalAlpha = 1;
+      if (s.ramps[i]) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath();
+        for (let k = -PX; k < PX; k += 4) { ctx.moveTo(x * PX + k, Y(y) + PX); ctx.lineTo(x * PX + k + PX, Y(y)); }
+        ctx.save(); ctx.beginPath(); ctx.rect(x * PX, Y(y), PX, PX); ctx.clip();
+        for (let k = -PX; k < PX; k += 4) { ctx.moveTo(x * PX + k, Y(y) + PX); ctx.lineTo(x * PX + k + PX, Y(y)); }
+        ctx.stroke(); ctx.restore();
+      }
+      const f = s.features[i] as Feature;
+      if (f !== Feature.None) {
+        ctx.fillStyle = FEATURE_INFO[f].color;
+        const m = f === Feature.Building ? 1 : f === Feature.Wall ? PX * 0.32 : PX * 0.22;
+        if (f === Feature.Trees) { ctx.beginPath(); ctx.arc(x * PX + PX / 2, Y(y) + PX / 2, PX * 0.36, 0, Math.PI * 2); ctx.fill(); }
+        else ctx.fillRect(x * PX + m, Y(y) + m, PX - 2 * m, PX - 2 * m);
+      }
+    }
+    // Cliffs: dark edges where neighbouring levels differ and neither cell is a ramp.
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+      const i = y * s.w + x;
+      if (x + 1 < s.w && s.levels[i] !== s.levels[i + 1] && !s.ramps[i] && !s.ramps[i + 1]) { ctx.moveTo((x + 1) * PX, Y(y)); ctx.lineTo((x + 1) * PX, Y(y) + PX); }
+      if (y + 1 < s.h && s.levels[i] !== s.levels[i + s.w] && !s.ramps[i] && !s.ramps[i + s.w]) { ctx.moveTo(x * PX, Y(y)); ctx.lineTo((x + 1) * PX, Y(y)); }
+    }
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    // Faint grid every 4 cells (512 units).
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath();
+    for (let x = 0; x <= s.w; x += 4) { ctx.moveTo(x * PX + 0.5, 0); ctx.lineTo(x * PX + 0.5, canvas.height); }
+    for (let y = 0; y <= s.h; y += 4) { ctx.moveTo(0, canvas.height - y * PX + 0.5); ctx.lineTo(canvas.width, canvas.height - y * PX + 0.5); }
+    ctx.stroke();
+    for (const m of s.markers) {
+      const mi = MARKER_INFO[m.kind];
+      const cx = m.x * PX, cy = canvas.height - m.y * PX;
+      ctx.fillStyle = mi.color;
+      ctx.strokeStyle = '#000';
+      ctx.beginPath(); ctx.arc(cx, cy, Math.max(7, PX * 0.6), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#000';
+      ctx.font = `bold ${Math.max(9, PX * 0.7)}px Segoe UI`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(mi.letter, cx, cy + 1);
+    }
+    if (preview) {
+      ctx.strokeStyle = '#e8a33d';
+      ctx.setLineDash([4, 3]);
+      const x0 = Math.min(preview.x0, preview.x1), x1 = Math.max(preview.x0, preview.x1), y0 = Math.min(preview.y0, preview.y1), y1 = Math.max(preview.y0, preview.y1);
+      ctx.strokeRect(x0 * PX, Y(y1), (x1 - x0 + 1) * PX, (y1 - y0 + 1) * PX);
+      ctx.setLineDash([]);
+    }
+    const n = (f: Feature) => s.features.filter((x) => x === f).length;
+    info.textContent = `${s.w}×${s.h} cells (${s.w * 128}×${s.h * 128} units) · ${n(Feature.Building)} building cells · ${s.markers.length} markers`;
+  };
+
+  /** Applies the current layer's value to one cell (plus its symmetric copies). */
+  const applyCell = (x: number, y: number, erase: boolean) => {
+    for (const [cx, cy] of symmetricCells(s, x, y, symmetry)) {
+      if (cx < 0 || cy < 0 || cx >= s.w || cy >= s.h) continue;
+      const i = cy * s.w + cx;
+      if (layer === 'height') {
+        if (ramp) s.ramps[i] = erase ? 0 : 1;
+        else { s.levels[i] = erase ? 0 : level; s.ramps[i] = 0; }
+      } else if (layer === 'surface') s.surface[i] = erase ? (s.theme === 'city' ? Surface.Paved : Surface.Grass) : surface;
+      else if (layer === 'feature') s.features[i] = erase ? Feature.None : feature;
+    }
+  };
+  const paintAt = (x: number, y: number, erase: boolean) => {
+    const r = size - 1, o = Math.floor(r / 2);
+    for (let dy = 0; dy <= r; dy++) for (let dx = 0; dx <= r; dx++) applyCell(x - o + dx, y - o + dy, erase);
+  };
+  const fillFrom = (x: number, y: number, erase: boolean) => {
+    const key = (i: number) => layer === 'height' ? `${s.levels[i]}:${s.ramps[i]}` : layer === 'surface' ? String(s.surface[i]) : String(s.features[i]);
+    const start = y * s.w + x, target = key(start);
+    const seen = new Uint8Array(s.w * s.h);
+    const stack = [start];
+    seen[start] = 1;
+    while (stack.length) {
+      const i = stack.pop()!;
+      const cx = i % s.w, cy = Math.floor(i / s.w);
+      applyCell(cx, cy, erase);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + dx, ny = cy + dy, k = ny * s.w + nx;
+        if (nx < 0 || ny < 0 || nx >= s.w || ny >= s.h || seen[k] || key(k) !== target) continue;
+        seen[k] = 1;
+        stack.push(k);
+      }
+    }
+  };
+
+  const cellOf = (e: PointerEvent) => {
+    const r = canvas.getBoundingClientRect();
+    const fx = ((e.clientX - r.left) / r.width) * s.w, fy = s.h - ((e.clientY - r.top) / r.height) * s.h;
+    return { x: Math.floor(fx), y: Math.floor(fy), fx, fy };
+  };
+  let down: { x: number; y: number; erase: boolean } | null = null;
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('pointerdown', (e) => {
+    const c = cellOf(e);
+    const erase = e.button === 2;
+    snapshot();
+    if (layer === 'marker') {
+      const near = s.markers.findIndex((m) => Math.hypot(m.x - c.fx, m.y - c.fy) < 0.9);
+      if (near >= 0) s.markers.splice(near, 1);
+      if (!erase && near < 0) s.markers.push({ kind: marker, x: Math.round(c.fx * 2) / 2, y: Math.round(c.fy * 2) / 2 });
+      draw();
+      return;
+    }
+    if (shape === 'fill') { fillFrom(c.x, c.y, erase); draw(); return; }
+    down = { x: c.x, y: c.y, erase };
+    canvas.setPointerCapture(e.pointerId);
+    if (shape === 'brush') { paintAt(c.x, c.y, erase); draw(); }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!down) return;
+    const c = cellOf(e);
+    if (shape === 'brush') { paintAt(c.x, c.y, down.erase); draw(); }
+    else draw({ x0: down.x, y0: down.y, x1: c.x, y1: c.y });
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    if (!down) return;
+    if (shape === 'rect') {
+      const c = cellOf(e);
+      for (let y = Math.min(down.y, c.y); y <= Math.max(down.y, c.y); y++) for (let x = Math.min(down.x, c.x); x <= Math.max(down.x, c.x); x++) applyCell(x, y, down.erase);
+    }
+    down = null;
+    draw();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (backdrop.hidden) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && undo.length) {
+      s = JSON.parse(undo.pop()!);
+      e.preventDefault();
+      draw();
+    }
+  });
+
+  // --- Side panel -----------------------------------------------------------------------------------
+  const seg = <T extends string | number>(opts: [T, string][], get: () => T, set: (v: T) => void) => {
+    const el = h('div.seg');
+    const render = () => el.replaceChildren(...opts.map(([v, l]) => h((v === get() ? 'button.active' : 'button') as 'button', { onclick: () => { set(v); render(); renderSide(); } }, l)));
+    render();
+    return el;
+  };
+  const swatches = <T extends number | string>(entries: [T, { label: string; color: string }][], get: () => T, set: (v: T) => void) =>
+    h('div.palette', {}, ...entries.map(([v, inf]) => h((v === get() ? 'button.pal.active' : 'button.pal') as 'button', { onclick: () => { set(v); renderSide(); } },
+      h('span.swatch', { style: { background: inf.color } }), inf.label)));
+
+  const renderSide = () => {
+    const layerOpts: [Layer, string][] = [['height', 'Height'], ['surface', 'Surface'], ['feature', 'Features'], ['marker', 'Markers']];
+    let paint: HTMLElement;
+    if (layer === 'height') {
+      paint = h('div', {},
+        h('div.palette', {}, ...[0, 1, 2, 3, 4].map((l) => h((!ramp && l === level ? 'button.pal.active' : 'button.pal') as 'button', { onclick: () => { level = l; ramp = false; renderSide(); } },
+          h('span.swatch', { style: { background: LEVEL_COLORS[l] } }), `Level ${l} (${l * s.levelHeight})`)),
+          h((ramp ? 'button.pal.active' : 'button.pal') as 'button', { onclick: () => { ramp = true; renderSide(); } }, h('span.swatch.ramp'), 'Ramp')),
+        h('p.hint', {}, 'Level changes become cliffs; paint Ramp over a step to make it walkable.'));
+    } else if (layer === 'surface') {
+      paint = swatches(Object.entries(SURFACE_INFO).map(([k, v]) => [Number(k) as Surface, v]), () => surface, (v) => (surface = v));
+    } else if (layer === 'feature') {
+      paint = swatches(Object.entries(FEATURE_INFO).filter(([k]) => Number(k) !== Feature.None).map(([k, v]) => [Number(k) as Feature, v]), () => feature, (v) => (feature = v));
+    } else {
+      paint = h('div', {}, swatches(Object.entries(MARKER_INFO) as [MarkerKind, { label: string; color: string }][], () => marker, (v) => (marker = v)),
+        h('p.hint', {}, 'Click to place, click a marker again to remove it.'));
+    }
+    const theme = h('select', {}, h('option', { value: 'city' }, 'City (cobblestone)'), h('option', { value: 'rural' }, 'Rural (grass)')) as HTMLSelectElement;
+    theme.value = s.theme;
+    theme.addEventListener('change', () => {
+      snapshot();
+      // The theme's default ground (cobble in the city, grass in the countryside) follows the theme.
+      const from = s.theme === 'city' ? Surface.Paved : Surface.Grass;
+      s.theme = theme.value as SketchTheme;
+      const to = s.theme === 'city' ? Surface.Paved : Surface.Grass;
+      s.surface = s.surface.map((v) => (v === from ? to : v));
+      draw();
+    });
+    const facade = h('select', {}, h('option', { value: '' }, 'Mixed'), ...Object.keys(FACADE_STYLES).map((k) => h('option', { value: k }, k))) as HTMLSelectElement;
+    facade.value = s.facade ?? '';
+    facade.addEventListener('change', () => (s.facade = (facade.value || undefined) as FacadeStyle | undefined));
+    const num = (value: number, set: (v: number) => void, min = 1, max = 99) => {
+      const i = h('input', { type: 'number', value, min, max }) as HTMLInputElement;
+      i.addEventListener('change', () => set(Math.max(min, Math.min(max, parseInt(i.value, 10) || min))));
+      return i;
+    };
+    const sizeSel = h('select', {}, ...[32, 48, 64].map((n) => h('option', { value: n, selected: n === s.w }, `${n}×${n} (${n * 128} units)`))) as HTMLSelectElement;
+    sizeSel.addEventListener('change', () => {
+      const n = parseInt(sizeSel.value, 10);
+      if (n === s.w) return;
+      snapshot();
+      const old = s;
+      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade };
+      for (let y = 0; y < Math.min(n, old.h); y++) for (let x = 0; x < Math.min(n, old.w); x++) {
+        const a = y * n + x, b = y * old.w + x;
+        s.levels[a] = old.levels[b]; s.ramps[a] = old.ramps[b]; s.surface[a] = old.surface[b]; s.features[a] = old.features[b];
+      }
+      s.markers = old.markers.filter((m) => m.x < n && m.y < n);
+      draw();
+    });
+    side.replaceChildren(
+      h('div.section', {}, h('h3', {}, 'Layer'), seg(layerOpts, () => layer, (v) => { layer = v; draw(); })),
+      h('div.section', {}, h('h3', {}, 'Paint'), paint,
+        layer !== 'marker' ? h('div.row', {}, h('label', {}, 'Tool'), seg<Shape>([['brush', 'Brush'], ['rect', 'Rectangle'], ['fill', 'Fill']], () => shape, (v) => (shape = v))) : null,
+        layer !== 'marker' ? h('div.row', {}, h('label', {}, 'Brush size'), seg<number>([[1, '1'], [2, '2'], [3, '3'], [5, '5']], () => size, (v) => (size = v))) : null,
+        h('div.row', {}, h('label', {}, 'Symmetry'), seg<'none' | 'mirror' | 'rotate'>([['none', 'None'], ['mirror', 'Mirror'], ['rotate', 'Rotate']], () => symmetry, (v) => (symmetry = v)))),
+      h('div.section', {}, h('h3', {}, 'Map'),
+        h('div.row', {}, h('label', {}, 'Theme'), theme),
+        h('div.row', {}, h('label', {}, 'Size'), sizeSel),
+        h('div.row', {}, h('label', {}, 'Level height'), num(s.levelHeight, (v) => (s.levelHeight = v), 32, 512)),
+        h('div.row', {}, h('label', {}, 'Floors'), num(s.floors[0], (v) => (s.floors[0] = v), 1, 12), h('span.muted', {}, 'to'), num(s.floors[1], (v) => (s.floors[1] = v), 1, 12)),
+        h('div.row', {}, h('label', {}, 'Facade'), facade),
+        h('div.row', {}, h('label', {}, 'Seed'), num(s.seed, (v) => (s.seed = v), 1, 1e9))),
+      h('div.row', {}, h('button', { onclick: () => { if (confirm('Clear the sketch?')) { snapshot(); s = emptySketch(s.w, s.h, s.theme); draw(); } } }, 'Clear')),
+      h('button.primary.big', { onclick: generate }, '⚙ Generate 3D map'),
+      info,
+    );
+  };
+
+  function generate(): void {
+    if (editor.dirty && editor.sketch !== s && !confirm('Replace the current map with the generated one? Unsaved changes are lost.')) return;
+    const t0 = performance.now();
+    const r = generateFromSketch(s);
+    placeMarkers({ doc: r.doc }, s, r);
+    // Markers were added through wrappers; re-read so every wrapper is fresh.
+    const doc = VmfDocument.parse(r.doc.serialize());
+    const name = editor.mapName.endsWith('.vmf') && editor.sketch ? editor.mapName : 'sketch_map.vmf';
+    editor.loadDocument(doc, name, '');
+    editor.sketch = s;
+    editor.dirty = true;
+    editor.emit('change');
+    close();
+    toast(editor.container, `Generated ${doc.allSolids().length} brushes and ${doc.entities.length} entities in ${Math.round(performance.now() - t0)} ms`);
+  }
+
+  dialog.append(
+    h('div.modal-head', {}, h('b', {}, 'Map sketch'), h('span.hint', {}, 'Left drag paints, right drag erases, Ctrl+Z undoes. North is up; each cell is 128 units.'), h('button', { onclick: close }, '✕')),
+    h('div.sketch-body', {}, wrap, side),
+  );
+  renderSide();
+  new ResizeObserver(() => { if (!backdrop.hidden) draw(); }).observe(wrap);
+
+  return {
+    open() {
+      if (editor.sketch && editor.sketch !== s) s = editor.sketch;
+      backdrop.hidden = false;
+      renderSide();
+      draw();
+      requestAnimationFrame(() => requestAnimationFrame(() => draw()));
+    },
+    generate,
+    dialog,
+  };
+}
+
