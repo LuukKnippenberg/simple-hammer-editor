@@ -2,7 +2,8 @@ import { Color, DoubleSide, MeshLambertMaterial, Vector2, type Texture } from 't
 import { loadVmt, normalizeMaterialPath, type Vmt } from '../assets/vmt.ts';
 import { loadTexture } from '../assets/textures.ts';
 
-export type MaterialKind = 'opaque' | 'tool' | 'sky' | 'translucent' | 'blend';
+/** `handle`: editor-only boxes (POI handles), drawn faint and never compiled. */
+export type MaterialKind = 'opaque' | 'tool' | 'sky' | 'translucent' | 'blend' | 'handle';
 
 export interface MaterialInfo {
   name: string;
@@ -23,6 +24,7 @@ const TOOL_FLAGS = ['%compilenodraw', '%compileclip', '%compileplayerclip', '%co
 
 export function classify(name: string, vmt?: Vmt | null): MaterialKind {
   const n = name.toLowerCase();
+  if (n.startsWith('editor/')) return 'handle';
   if (vmt) {
     const p = vmt.params;
     if (p.get('%compilesky') === '1' || p.get('%compile2dsky') === '1') return 'sky';
@@ -88,6 +90,13 @@ export class MaterialLibrary {
     let info = this.world.get(key);
     if (!info) {
       const kind = classify(key);
+      if (kind === 'handle') {
+        // Not a game material: nothing to load.
+        const material = new MeshLambertMaterial({ color: 0xffa630, emissive: 0x3a2000, transparent: true, opacity: 0.16, depthWrite: false });
+        info = { name: key, kind, width: 512, height: 512, material, loaded: true, preview: null };
+        this.world.set(key, info);
+        return info;
+      }
       const material = kind === 'tool' || kind === 'sky'
         ? new MeshLambertMaterial({ color: toolTint(key, kind), transparent: true, opacity: 0.3, depthWrite: false })
         : new MeshLambertMaterial({ color: hashColor(key) });

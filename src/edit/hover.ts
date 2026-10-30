@@ -42,8 +42,11 @@ export class Hover {
     if (!e) return;
     this.pending = null;
     const ed = this.editor;
-    const hit = pickObject(ed, ed.ndcFromEvent(e));
-    this.point = hit?.point.clone() ?? null;
+    const ndc = ed.ndcFromEvent(e);
+    // The cursor point (paste, placing) is on what's under a POI handle; the outline shows the handle.
+    const under = pickObject(ed, ndc);
+    const hit = ed.tools.current.name === 'select' ? pickObject(ed, ndc, { handles: true }) : under;
+    this.point = under?.point.clone() ?? null;
     let label = '';
     let box: Box3 | null = null;
     if (hit?.entity) {

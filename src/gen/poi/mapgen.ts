@@ -5,6 +5,7 @@ import type { ParamValue } from '../../lw/kits.ts';
 import { Rng } from '../rng.ts';
 import { buildPoi, newSpec, poiType, POI_TYPES } from './registry.ts';
 import { encodePoi, POI_ID_KEY, POI_KEY } from './spec.ts';
+import { handleNode } from './handle.ts';
 import type { Landscape, PoiSpec, Rect, Rotation } from './types.ts';
 import './catalogue.ts';
 
@@ -96,7 +97,7 @@ export function addPoiToDoc(doc: VmfDocument, spec: PoiSpec, ground: (x: number,
   const e = new KVNode('entity');
   e.items.push(new KVPair('id', String(doc.nextId())), new KVPair('classname', 'func_detail'),
     new KVPair(POI_KEY, encodePoi(spec)), new KVPair(POI_ID_KEY, spec.uid), ...out.detail);
-  doc.roots.push(e);
+  doc.roots.push(e, handleNode(doc, spec));
   for (const pe of out.entities) {
     if (pe.solids?.length) {
       const b = new KVNode('entity');

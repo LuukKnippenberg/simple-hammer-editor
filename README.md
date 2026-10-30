@@ -1429,6 +1429,24 @@ None of the catalogue's types were skipped. Differences from the plan:
   the ground there has to be cut away by hand.
 - One tool shortcut was added: **P** (all number keys were taken).
 
+### POI handles
+
+Every POI gets a **handle**: a faint orange box over its rectangle (`she_poi_handle`, `src/gen/poi/handle.ts`).
+It is the easy way to work with a POI as one object:
+
+- **Select**: with the Select tool, a click on the handle, or on anything the POI made, selects the whole POI;
+  the Selection tab then shows only its settings. Other tools ignore handles, so they still reach the ground
+  and props inside. Hide the handles (**POI handles** in the view bar) to pick single props and brushes.
+- **Move** (M) and **resize** (R): drag the gizmo; when the drag ends the POI is rebuilt to fit, in the same
+  undo step. A moved POI stands on the ground at its new spot (unless it was also lifted or lowered); a resize
+  is clamped to the type's sizes.
+- **Turn**: the comma and period keys turn it a quarter turn around its centre. **Ctrl+D** builds a copy next
+  to it (same settings and seed), **Delete** removes it with everything it made.
+- Handles are editor-only: saved VMFs keep them, compiles leave them out. POIs made before handles existed
+  get one when they are regenerated.
+
+`scripts/poi-handles-demo.mjs` generates a playground and drives all of this with the mouse and keyboard.
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

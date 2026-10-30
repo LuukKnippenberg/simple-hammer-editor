@@ -16,6 +16,9 @@ import { PowerlineTool } from './powerlineTool.ts';
 import { SoundTool } from './soundTool.ts';
 import { PoiTool } from './poiTool.ts';
 import { isTyping } from '../render/cameraControls.ts';
+import { handleDragged } from '../gen/poi/action.ts';
+import { handleOf, isHandle } from '../gen/poi/handle.ts';
+import { POI_ID_KEY } from '../gen/poi/spec.ts';
 
 export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi';
 
@@ -34,10 +37,10 @@ export interface Tool {
 
 export const snap = (v: number, g: number) => Math.round(v / g) * g;
 
-/** Nearest brush or entity under the cursor. */
-export function pickObject(editor: Editor, ndc: Vector2): { solid?: MapSolid; entity?: MapEntity; point: Vector3; normal?: Vector3; side?: MapSolid['sides'][number] } | null {
+/** Nearest brush or entity under the cursor (POI handles count with `handles`). */
+export function pickObject(editor: Editor, ndc: Vector2, opts: { handles?: boolean } = {}): { solid?: MapSolid; entity?: MapEntity; point: Vector3; normal?: Vector3; side?: MapSolid['sides'][number] } | null {
   const ray = editor.raycaster(ndc);
-  const b = editor.world.raycast(ray);
+  const b = editor.world.raycast(ray, opts);
   const en = editor.entities.raycast(ray);
   if (en && (!b || en.distance < b.distance)) return { entity: en.entity, point: en.point };
   if (b) return { solid: b.solid, point: b.point, normal: b.normal, side: b.side };
@@ -167,15 +170,27 @@ export class SelectTool implements Tool {
   up(e: PointerEvent, ndc: Vector2): void {
     if (this.marquee) return this.finishMarquee(e);
     if (this.downAt.distanceTo(new Vector2(e.clientX, e.clientY)) > 4 || this.gizmo.dragging) return;
-    const hit = pickObject(this.editor, ndc);
+    const hit = pickObject(this.editor, ndc, { handles: true });
     const sel = this.editor.selection;
     if (!hit) {
       if (!e.shiftKey) sel.clear();
       return;
     }
-    const item = hit.entity ? { entity: hit.entity } : { solid: hit.solid };
+    const item: { solid?: MapSolid; entity?: MapEntity } = this.poiHandle(hit.entity ?? hit.solid?.entity ?? undefined) ?? (hit.entity ? { entity: hit.entity } : { solid: hit.solid });
     if (e.shiftKey) sel.toggle(item);
     else sel.set(item.solid ? [item.solid] : [], item.entity ? [item.entity] : []);
+  }
+
+  /**
+   * A click on a POI's handle selects the whole POI by its handle; so does a click on anything the POI made,
+   * while handles are shown (hide them to pick single props and brushes).
+   */
+  private poiHandle(owner: MapEntity | undefined): { entity: MapEntity } | null {
+    if (!owner) return null;
+    if (isHandle(owner)) return { entity: owner };
+    const uid = owner.get(POI_ID_KEY);
+    const handle = uid && this.editor.world.visibleKinds.handle ? handleOf(this.editor.doc, uid) : null;
+    return handle ? { entity: handle } : null;
   }
 
   private dragStart(): void {
@@ -241,7 +256,18 @@ export class SelectTool implements Tool {
   private dragEnd(): void {
     if (!this.start) return;
     this.start = null;
-    this.endHistory?.();
+    const sel = this.editor.selection;
+    const handle = sel.entities.size === 1 && !sel.solids.size ? [...sel.entities][0] : null;
+    if (handle && isHandle(handle)) {
+      // A dragged POI handle: the POI is rebuilt to fit, in the same undo step as the drag.
+      const mode = this.mode;
+      this.editor.history.group(mode === 'translate' ? 'Move POI' : 'Resize POI', () => {
+        this.endHistory?.();
+        handleDragged(this.editor, handle, mode);
+      });
+    } else {
+      this.endHistory?.();
+    }
     this.endHistory = null;
     this.editor.changed();
     this.syncGizmo();

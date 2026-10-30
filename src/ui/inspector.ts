@@ -21,6 +21,7 @@ import { audio } from '../audio/engine.ts';
 import { presetsFor } from '../lw/soundPresets.ts';
 import { addPreset } from '../edit/presetAction.ts';
 import { poiEditor, selectedPoi } from './poiPanel.ts';
+import { duplicatePoi, selectedPois } from '../gen/poi/action.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -34,6 +35,16 @@ export function mountInspector(editor: Editor): HTMLElement {
           h('p.hint', {}, 'Click a brush or entity to select it. Shift-click adds to the selection.'),
           h('p.hint', {}, 'Tools: 1 select · 2 block · 3 paint · 4 entity. M move · R resize · F focus · Ctrl+D duplicate · Del delete · [ ] grid.')),
       );
+      return;
+    }
+    // POI handles stand for their POIs: only the POI's settings (a handle's own keys are internal).
+    const pois = selectedPois(editor);
+    if (pois.length) {
+      panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
+        h('div', {}, pois.length > 1 ? `${pois.length} points of interest` : 'Point of interest'),
+        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the POI handles (view bar) to pick single props and brushes.'),
+        pois.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicatePoi(editor, pois[0]) }, 'Duplicate')) : null));
+      if (pois.length === 1) { const p = poiEditor(editor, pois[0]); if (p) panel.append(p); }
       return;
     }
     const solids = sel.allSolids();

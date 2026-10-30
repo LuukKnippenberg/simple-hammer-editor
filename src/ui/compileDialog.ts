@@ -7,6 +7,7 @@ import { applyMapSettings } from '../lw/mapSettings.ts';
 import { buildMissionInto } from '../lw/missionBuild.ts';
 import { logicAnchor } from '../lw/missionAction.ts';
 import { checkMission } from '../lw/missionCheck.ts';
+import { stripHandles } from '../gen/poi/handle.ts';
 
 export interface CompileOutcome {
   ok: boolean;
@@ -29,6 +30,8 @@ export async function compileCurrent(
   const copy = VmfDocument.parse(editor.doc.serialize());
   const added = applyMapSettings(copy);
   if (added.length) onLine('step', `Map settings added with default values: ${added.join(', ')}`);
+  // POI handles only exist in the editor.
+  stripHandles(copy);
   // The mission flowchart is always compiled as it stands now.
   if (editor.mission?.stages.length) {
     const r = buildMissionInto(copy, editor.mission, logicAnchor(copy));

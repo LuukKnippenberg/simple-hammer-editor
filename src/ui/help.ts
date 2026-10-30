@@ -16,7 +16,7 @@ const SHORTCUTS: [string, string][] = [
   ['H · U', 'Hide selection · unhide all (editor only)'],
   ['L', 'Toggle the lighting preview'],
   ['[ ]', 'Grid size'],
-  [', .', 'Rotate entities (Shift: 90°)'],
+  [', .', 'Rotate entities (Shift: 90°); turn a selected POI a quarter turn'],
   ['F', 'Focus the selection'],
   ['Ctrl+S', 'Save'],
   ['?', 'This overlay'],

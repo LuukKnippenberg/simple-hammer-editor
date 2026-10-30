@@ -7,6 +7,7 @@ import { solidBounds } from '../../edit/brushes.ts';
 import { readDisp, vertexPos, type Disp } from '../../edit/terrain.ts';
 import { buildPoi, newSpec, poiOf } from './registry.ts';
 import { encodePoi, POI_ID_KEY, POI_KEY, POI_WORLD_KEY } from './spec.ts';
+import { fitHandle, handleNode, handleOf, isHandle, placeFromHandle, turned } from './handle.ts';
 import type { PoiEntity, PoiSpec, PoiType, Rect } from './types.ts';
 import type { ParamValue } from '../../lw/kits.ts';
 import type { Landscape, Rotation } from './types.ts';
@@ -20,16 +21,18 @@ export interface PoiMembers {
   detail: MapEntity | null;
   entities: MapEntity[];
   world: MapSolid[];
+  /** The box to select and drag it by (POIs made before handles existed get one when rebuilt). */
+  handle: MapEntity | null;
 }
 
-/** Everything a POI made: its func_detail, its entities and its world brushes. */
+/** Everything a POI made: its func_detail, its entities, its world brushes and its handle. */
 export function poiMembers(editor: Editor, uid: string): PoiMembers {
   const doc = editor.doc;
   const detail = doc.entities.find((e) => e.classname === 'func_detail' && e.get(POI_KEY) && e.get(POI_ID_KEY) === uid) ?? null;
-  const entities = doc.entities.filter((e) => e !== detail && e.get(POI_ID_KEY) === uid);
+  const entities = doc.entities.filter((e) => e !== detail && !isHandle(e) && e.get(POI_ID_KEY) === uid);
   const ids = new Set((detail?.get(POI_WORLD_KEY) ?? '').split(' ').filter(Boolean));
   const world = ids.size ? doc.worldEntity.solids.filter((s) => ids.has(s.node.get('id') ?? '')) : [];
-  return { detail, entities, world };
+  return { detail, entities, world, handle: handleOf(doc, uid) };
 }
 
 /** The POI an entity or brush belongs to (its func_detail), if any. */
@@ -140,7 +143,7 @@ export function applyPoi(editor: Editor, spec: PoiSpec, label: string, existing:
   const doc = editor.doc;
   let detail: MapEntity | null = existing;
   editor.history.group(label, () => {
-    const old = existing ? poiMembers(editor, existing.get(POI_ID_KEY) ?? spec.uid) : { detail: null, entities: [], world: [] };
+    const old = existing ? poiMembers(editor, existing.get(POI_ID_KEY) ?? spec.uid) : { detail: null, entities: [], world: [], handle: null };
     // A first build tells which terrain the POI wants levelled and cut (it doesn't depend on the ground).
     const plan = buildPoi(VmfDocument.empty(), spec).terrain;
     const level = !!plan?.paint;
@@ -172,6 +175,14 @@ export function applyPoi(editor: Editor, spec: PoiSpec, label: string, existing:
       const c = new Vector3((spec.rect.x0 + spec.rect.x1) / 2, (spec.rect.y0 + spec.rect.y1) / 2, out.waterLevel + 64).round();
       ents.push(doc.addEntity(entityNode(editor, 'water_lod_control', c, { cheapwaterstartdistance: '2000', cheapwaterenddistance: '3500' })));
     }
+    // The handle follows the rectangle; it keeps its identity, so a selected handle stays selected.
+    if (old.handle) {
+      const end = editor.history.begin('Fit POI handle', [], [old.handle]);
+      fitHandle(doc, old.handle, spec);
+      end();
+    } else {
+      ents.push(doc.addEntity(handleNode(doc, spec)));
+    }
     editor.history.added('Add POI', world, existing ? ents : [detail, ...ents]);
   });
   editor.changed();
@@ -182,7 +193,7 @@ export function applyPoi(editor: Editor, spec: PoiSpec, label: string, existing:
 export function generatePoi(editor: Editor, type: PoiType, r: Rect, z: number, o: { rotation?: Rotation; seed?: number; landscape?: Landscape; params?: Record<string, ParamValue> } = {}): MapEntity {
   const spec = newSpec(type, r, z, o);
   const e = applyPoi(editor, spec, `Generate ${type.label.toLowerCase()}`);
-  editor.selection.set([], [e]);
+  selectPoi(editor, e);
   return e;
 }
 
@@ -197,7 +208,49 @@ export function regeneratePoi(editor: Editor, detail: MapEntity, patch: Partial<
     if (moved) spec.rect = { x0: spec.rect.x0 + moved[0], y0: spec.rect.y0 + moved[1], x1: spec.rect.x1 + moved[0], y1: spec.rect.y1 + moved[1] };
   }
   const e = applyPoi(editor, spec, label, detail);
-  editor.selection.set([], [e]);
+  selectPoi(editor, e);
+  return e;
+}
+
+/** The POIs (their func_details) whose handles are selected, if the selection is nothing but handles. */
+export function selectedPois(editor: Editor): MapEntity[] {
+  const sel = editor.selection;
+  if (sel.solids.size || !sel.entities.size || ![...sel.entities].every(isHandle)) return [];
+  return [...sel.entities].map((h) => poiOwner(editor, h)).filter((d): d is MapEntity => !!d);
+}
+
+/** Selects a POI by its handle (or its func_detail if it has none yet). */
+export function selectPoi(editor: Editor, detail: MapEntity): void {
+  editor.selection.set([], [handleOf(editor.doc, detail.get(POI_ID_KEY) ?? '') ?? detail]);
+}
+
+/** Rebuilds a POI where its handle was dragged to (call when a move or resize of the handle ends). */
+export function handleDragged(editor: Editor, handle: MapEntity, mode: 'translate' | 'scale'): void {
+  const detail = poiOwner(editor, handle);
+  const p = detail && poiOf(detail);
+  if (!detail || !p || !handle.solids[0]) return;
+  const box = solidBounds(handle.solids[0]), r = p.spec.rect;
+  if (box.min.x === r.x0 && box.min.y === r.y0 && box.max.x === r.x1 && box.max.y === r.y1 && box.min.z === p.spec.z) return;
+  const at = placeFromHandle(p.spec, p.type, box, mode, groundSampler(editor, p.spec.uid, p.spec.z, null, 0));
+  regeneratePoi(editor, detail, at, `${mode === 'translate' ? 'Move' : 'Resize'} ${p.type.label.toLowerCase()}`);
+}
+
+/** Turns a POI a quarter turn around its centre (dir 1: counter-clockwise). */
+export function turnPoi(editor: Editor, detail: MapEntity, dir: 1 | -1): void {
+  const p = poiOf(detail);
+  if (p) regeneratePoi(editor, detail, turned(p.spec, p.type, dir), `Turn ${p.type.label.toLowerCase()}`);
+}
+
+/** Builds a copy of a POI (same settings and seed) next to it, along +x, and selects the copy. */
+export function duplicatePoi(editor: Editor, detail: MapEntity): MapEntity | null {
+  const p = poiOf(detail);
+  if (!p) return null;
+  const { rect, rotation, seed, landscape, params } = p.spec;
+  const dx = rect.x1 - rect.x0 + 128;
+  const r = { x0: rect.x0 + dx, y0: rect.y0, x1: rect.x1 + dx, y1: rect.y1 };
+  const z = groundSampler(editor, null, p.spec.z, null, 0)((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
+  const e = applyPoi(editor, newSpec(p.type, r, z, { rotation, seed, landscape, params }), `Duplicate ${p.type.label.toLowerCase()}`);
+  selectPoi(editor, e);
   return e;
 }
 
@@ -217,7 +270,7 @@ export function deletePoi(editor: Editor, detail: MapEntity): void {
   const uid = detail.get(POI_ID_KEY);
   if (!uid) return;
   const m = poiMembers(editor, uid);
-  editor.history.remove('Delete POI', m.world, [detail, ...m.entities]);
+  editor.history.remove('Delete POI', m.world, [detail, ...m.entities, ...(m.handle ? [m.handle] : [])]);
   editor.selection.clear();
   editor.changed();
 }
@@ -236,7 +289,8 @@ export function poisFromBlocks(editor: Editor, type: PoiType, solids: MapSolid[]
       out.push(applyPoi(editor, spec, 'Generate POI'));
     });
   });
-  editor.selection.set([], out);
+  const uids = new Set(out.map((e) => e.get(POI_ID_KEY)));
+  editor.selection.set([], editor.doc.entities.filter((e) => isHandle(e) && uids.has(e.get(POI_ID_KEY))));
   return out;
 }
 

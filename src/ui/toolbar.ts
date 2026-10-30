@@ -2,6 +2,7 @@ import type { Editor } from '../editor.ts';
 import type { ToolName } from '../edit/tools.ts';
 import { copySelection, deleteSelection, duplicateSelection, pasteClipboard, rotateEntities, tieToEntity } from '../edit/actions.ts';
 import { isTyping } from '../render/cameraControls.ts';
+import { deletePoi, duplicatePoi, selectedPois, turnPoi } from '../gen/poi/action.ts';
 import { h, toast } from './dom.ts';
 
 const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
@@ -87,6 +88,17 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     if (isTyping(e)) return;
     const ctrl = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
+    // Selected POI handles act for their whole POI.
+    const pois = selectedPois(editor);
+    if (pois.length && poiKey(k, ctrl)) {
+      if (k === 'delete' || k === 'backspace') editor.history.group(pois.length > 1 ? 'Delete POIs' : 'Delete POI', () => pois.forEach((p) => deletePoi(editor, p)));
+      else if (k === 'd' && pois.length === 1) duplicatePoi(editor, pois[0]);
+      else if (k === 'c') toast(editor.container, 'POIs are copied with Ctrl+D (duplicate)', 1800);
+      else if (k === ',' || k === '.') editor.history.group('Turn POI', () => pois.forEach((p) => turnPoi(editor, p, k === ',' ? 1 : -1)));
+      editor.emit('poi');
+      e.preventDefault();
+      return;
+    }
     if (ctrl && k === 'z' && !e.shiftKey) editor.undo();
     else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) editor.redo();
     else if (ctrl && k === 'd') duplicateSelection(editor);
@@ -114,4 +126,9 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     }
     e.preventDefault();
   });
+}
+
+/** Keys that act on a whole POI when its handle is selected. */
+function poiKey(k: string, ctrl: boolean): boolean {
+  return ctrl ? k === 'd' || k === 'c' : k === 'delete' || k === 'backspace' || k === ',' || k === '.';
 }

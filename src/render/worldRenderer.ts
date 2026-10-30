@@ -133,7 +133,7 @@ export class WorldRenderer {
   private materials: MaterialLibrary;
   /** Objects hidden in the editor; shared with the editor. */
   hidden: Set<object> = new Set();
-  visibleKinds: Record<MaterialKind, boolean> = { opaque: true, blend: true, translucent: true, tool: false, sky: false };
+  visibleKinds: Record<MaterialKind, boolean> = { opaque: true, blend: true, translucent: true, tool: false, sky: false, handle: true };
   stats = { brushes: 0, faces: 0, triangles: 0, batches: 0, buildMs: 0 };
   private shadows = false;
 
@@ -145,7 +145,7 @@ export class WorldRenderer {
   private shadowFlags(mesh: Mesh, kind: MaterialKind): void {
     const solid = kind === 'opaque' || kind === 'blend';
     mesh.castShadow = this.shadows && solid;
-    mesh.receiveShadow = this.shadows && kind !== 'tool' && kind !== 'sky';
+    mesh.receiveShadow = this.shadows && kind !== 'tool' && kind !== 'sky' && kind !== 'handle';
   }
 
   constructor(materials: MaterialLibrary) {
@@ -221,7 +221,7 @@ export class WorldRenderer {
     const mesh = new Mesh(geo, info.material);
     mesh.name = key;
     mesh.matrixAutoUpdate = false;
-    if (info.kind === 'tool' || info.kind === 'sky' || info.kind === 'translucent') mesh.renderOrder = 1;
+    if (info.kind === 'tool' || info.kind === 'sky' || info.kind === 'translucent' || info.kind === 'handle') mesh.renderOrder = 1;
     this.shadowFlags(mesh, info.kind);
     this.group.add(mesh);
     this.batches.set(key, { mesh, kind: info.kind, triSolid, triSide });
@@ -259,8 +259,9 @@ export class WorldRenderer {
     return this.geoms.get(s)?.bounds ?? null;
   }
 
-  raycast(ray: Raycaster): BrushHit | null {
-    const meshes = [...this.batches.values()].filter((b) => b.mesh.visible).map((b) => b.mesh);
+  /** Nearest brush hit. POI handles only count with `handles` (the Select tool); other tools reach what's inside. */
+  raycast(ray: Raycaster, opts: { handles?: boolean } = {}): BrushHit | null {
+    const meshes = [...this.batches.values()].filter((b) => b.mesh.visible && (opts.handles || b.kind !== 'handle')).map((b) => b.mesh);
     for (const m of meshes) if (!m.geometry.boundsTree) m.geometry.computeBoundsTree();
     ray.firstHitOnly = true;
     const hits: Intersection[] = ray.intersectObjects(meshes, false);
