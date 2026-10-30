@@ -401,7 +401,7 @@
    ],
    "actions": [
     {
-     "id": "a_reveal_off",
+     "id": "a44",
      "target": "reveal_rations",
      "input": "Kill",
      "param": "",
@@ -411,7 +411,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t44",
+     "id": "t45",
      "condition": {
       "kind": "reach",
       "area": [
@@ -448,14 +448,14 @@
    ],
    "actions": [
     {
-     "id": "a45",
+     "id": "a46",
      "target": "outpost_gate",
      "input": "Disable",
      "param": "",
      "delay": 0
     },
     {
-     "id": "a46",
+     "id": "a47",
      "target": "outpost_gate_nav",
      "input": "Disable",
      "param": "",
@@ -465,7 +465,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t47",
+     "id": "t48",
      "condition": {
       "kind": "reach",
       "area": [
@@ -504,7 +504,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t48",
+     "id": "t49",
      "condition": {
       "kind": "reach",
       "area": [
@@ -549,56 +549,56 @@
    ],
    "actions": [
     {
-     "id": "a49",
+     "id": "a50",
      "target": "asset",
      "input": "ChangeOwner",
      "param": "2",
      "delay": 0
     },
     {
-     "id": "a50",
+     "id": "a51",
      "target": "outpost_hq",
      "input": "ChangeOwner",
      "param": "2",
      "delay": 0
     },
     {
-     "id": "a51",
+     "id": "a52",
      "target": "shot_uprising",
      "input": "Enable",
      "param": "",
      "delay": 0.5
     },
     {
-     "id": "a52",
+     "id": "a53",
      "target": "uprising_siren",
      "input": "PlaySound",
      "param": "",
      "delay": 1
     },
     {
-     "id": "a53",
+     "id": "a54",
      "target": "screen_static",
      "input": "Enable",
      "param": "",
      "delay": 2
     },
     {
-     "id": "a54",
+     "id": "a55",
      "target": "screen_2_static",
      "input": "Enable",
      "param": "",
      "delay": 2
     },
     {
-     "id": "a55",
+     "id": "a56",
      "target": "uprising_fx",
      "input": "Start",
      "param": "",
      "delay": 2.5
     },
     {
-     "id": "a56",
+     "id": "a57",
      "target": "atmo_dusk",
      "input": "Trigger",
      "param": "",
@@ -608,7 +608,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t57",
+     "id": "t58",
      "condition": {
       "kind": "capture",
       "target": "outpost_relay",
@@ -618,7 +618,7 @@
      "completes": true
     },
     {
-     "id": "t58",
+     "id": "t59",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -649,7 +649,7 @@
    "actions": [],
    "gates": [
     {
-     "id": "g59",
+     "id": "g60",
      "op": "unlock",
      "ability": "build_comb_powergenerator",
      "owner": "2"
@@ -657,7 +657,7 @@
    ],
    "transitions": [
     {
-     "id": "t60",
+     "id": "t61",
      "condition": {
       "kind": "building",
       "building": "build_comb_powergenerator",
@@ -669,7 +669,7 @@
      "completes": true
     },
     {
-     "id": "t61",
+     "id": "t62",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -700,7 +700,7 @@
    "actions": [],
    "gates": [
     {
-     "id": "g62",
+     "id": "g63",
      "op": "unlock",
      "ability": "build_comb_powergenerator_scrap",
      "owner": "2"
@@ -708,7 +708,7 @@
    ],
    "transitions": [
     {
-     "id": "t63",
+     "id": "t64",
      "condition": {
       "kind": "building",
       "building": "build_comb_powergenerator_scrap",
@@ -720,7 +720,7 @@
      "completes": true
     },
     {
-     "id": "t64",
+     "id": "t65",
      "condition": {
       "kind": "survive",
       "seconds": 90
@@ -729,7 +729,7 @@
      "completes": true
     },
     {
-     "id": "t65",
+     "id": "t66",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -760,7 +760,7 @@
    "actions": [],
    "gates": [
     {
-     "id": "g66",
+     "id": "g67",
      "op": "unlock",
      "ability": "build_comb_garrison",
      "owner": "2"
@@ -768,7 +768,7 @@
    ],
    "transitions": [
     {
-     "id": "t67",
+     "id": "t68",
      "condition": {
       "kind": "building",
       "building": "build_comb_garrison",
@@ -780,7 +780,7 @@
      "completes": true
     },
     {
-     "id": "t68",
+     "id": "t69",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -812,7 +812,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t69",
+     "id": "t70",
      "condition": {
       "kind": "ability",
       "ability": "unit_metropolice",
@@ -823,7 +823,7 @@
      "completes": true
     },
     {
-     "id": "t70",
+     "id": "t71",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -854,13 +854,13 @@
    "actions": [],
    "gates": [
     {
-     "id": "g71",
+     "id": "g72",
      "op": "unlock",
      "ability": "build_comb_armory",
      "owner": "2"
     },
     {
-     "id": "g72",
+     "id": "g73",
      "op": "unlock",
      "ability": "build_comb_energycell",
      "owner": "2"
@@ -868,7 +868,7 @@
    ],
    "transitions": [
     {
-     "id": "t73",
+     "id": "t74",
      "condition": {
       "kind": "building",
       "building": "build_comb_armory",
@@ -880,7 +880,7 @@
      "completes": true
     },
     {
-     "id": "t74",
+     "id": "t75",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -911,7 +911,7 @@
    "actions": [],
    "gates": [
     {
-     "id": "g75",
+     "id": "g76",
      "op": "unlock",
      "ability": "build_comb_barricade",
      "owner": "2"
@@ -919,7 +919,7 @@
    ],
    "transitions": [
     {
-     "id": "t76",
+     "id": "t77",
      "condition": {
       "kind": "building",
       "building": "build_comb_barricade",
@@ -931,7 +931,7 @@
      "completes": true
     },
     {
-     "id": "t77",
+     "id": "t78",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -961,7 +961,7 @@
    ],
    "actions": [
     {
-     "id": "a78",
+     "id": "a79",
      "target": "wave1",
      "input": "Enable",
      "param": "",
@@ -971,7 +971,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t79",
+     "id": "t80",
      "condition": {
       "kind": "destroy",
       "target": "wave1"
@@ -980,7 +980,7 @@
      "completes": true
     },
     {
-     "id": "t80",
+     "id": "t81",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -1015,25 +1015,25 @@
    "actions": [],
    "gates": [
     {
-     "id": "g81",
+     "id": "g82",
      "op": "unlock",
      "ability": "unit_combine",
      "owner": "2"
     },
     {
-     "id": "g82",
+     "id": "g83",
      "op": "unlock",
      "ability": "unit_combine_sg",
      "owner": "2"
     },
     {
-     "id": "g83",
+     "id": "g84",
      "op": "unlock",
      "ability": "unit_combine_ar2",
      "owner": "2"
     },
     {
-     "id": "g84",
+     "id": "g85",
      "op": "unlock",
      "ability": "unit_combine_heavy",
      "owner": "2"
@@ -1041,7 +1041,7 @@
    ],
    "transitions": [
     {
-     "id": "t85",
+     "id": "t86",
      "condition": {
       "kind": "all",
       "conditions": [
@@ -1063,7 +1063,7 @@
      "completes": true
     },
     {
-     "id": "t86",
+     "id": "t87",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -1093,14 +1093,14 @@
    ],
    "actions": [
     {
-     "id": "a87",
+     "id": "a88",
      "target": "wave2",
      "input": "Enable",
      "param": "",
      "delay": 5
     },
     {
-     "id": "a88",
+     "id": "a89",
      "target": "wave3",
      "input": "Enable",
      "param": "",
@@ -1110,7 +1110,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t89",
+     "id": "t90",
      "condition": {
       "kind": "survive",
       "seconds": 240
@@ -1119,7 +1119,7 @@
      "completes": true
     },
     {
-     "id": "t90",
+     "id": "t91",
      "condition": {
       "kind": "destroy_faction",
       "owner": "2"
@@ -1148,56 +1148,56 @@
    ],
    "actions": [
     {
-     "id": "a91",
+     "id": "a92",
      "target": "atmo_citadel",
      "input": "Trigger",
      "param": "",
      "delay": 0
     },
     {
-     "id": "a92",
+     "id": "a93",
      "target": "wave2",
      "input": "Disable",
      "param": "",
      "delay": 0
     },
     {
-     "id": "a93",
+     "id": "a94",
      "target": "wave3",
      "input": "Disable",
      "param": "",
      "delay": 0
     },
     {
-     "id": "a94",
+     "id": "a95",
      "target": "striders",
      "input": "ChangeOwner",
      "param": "2",
      "delay": 0
     },
     {
-     "id": "a95",
+     "id": "a96",
      "target": "strider_route_go",
      "input": "Trigger",
      "param": "",
      "delay": 0.5
     },
     {
-     "id": "a96",
+     "id": "a97",
      "target": "dropship_route_flyby",
      "input": "StartForward",
      "param": "",
      "delay": 0.5
     },
     {
-     "id": "a97",
+     "id": "a98",
      "target": "shot_overwatch",
      "input": "Enable",
      "param": "",
      "delay": 1
     },
     {
-     "id": "a98",
+     "id": "a99",
      "target": "gunship_route_flyby",
      "input": "StartForward",
      "param": "",
@@ -1207,7 +1207,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t99",
+     "id": "t100",
      "condition": {
       "kind": "survive",
       "seconds": 30
@@ -1238,7 +1238,7 @@
    "gates": [],
    "transitions": [
     {
-     "id": "t100",
+     "id": "t101",
      "condition": {
       "kind": "survive",
       "seconds": 8

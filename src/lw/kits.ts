@@ -228,6 +228,64 @@ export const KITS: Kit[] = [
     },
   },
   {
+    id: 'queue', label: 'Walking queue', icon: '🚶',
+    hint: 'A line of people at a counter that moves: every few seconds the one in front steps out to the side and walks back to the entrance, and the rest step up one place, front first. Place it at the head of the line.',
+    params: [
+      { key: 'name', label: 'Name', type: 'text', default: 'queue' },
+      { key: 'unit', label: 'Unit', type: 'unit', default: 'unit_citizen' },
+      { key: 'owner', label: 'Owner', type: 'select', default: '0', options: OWNERS },
+      { key: 'slots', label: 'Places in line', type: 'number', default: 10, hint: 'Two more people walk the way back' },
+      { key: 'spacing', label: 'Spacing', type: 'number', default: 52 },
+      { key: 'yaw', label: 'Facing (yaw)', type: 'number', default: 90, hint: 'The direction the line faces: 0 east, 90 north' },
+      { key: 'length', label: 'Entrance distance', type: 'number', default: 700, hint: 'From the head to where people join the line' },
+      { key: 'side', label: 'Leave to the', type: 'select', default: 'left', options: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }] },
+      { key: 'out', label: 'Leave distance', type: 'number', default: 180, hint: 'How far to the side people walk off with their ration' },
+      { key: 'interval', label: 'Seconds per step', type: 'number', default: 7 },
+      { key: 'phase', label: 'Start delay (s)', type: 'number', default: 1, hint: 'Offset lines next to each other so they don\'t move together' },
+    ],
+    place(editor, at, p) {
+      const name = uniqueName(editor, String(p.name || 'queue'));
+      const u = findUnit(String(p.unit)) ?? UNITS[0];
+      const slots = Math.max(2, Math.min(24, Math.round(Number(p.slots) || 10)));
+      const spacing = Number(p.spacing) || 52;
+      const length = Math.max(Number(p.length) || 700, slots * spacing);
+      const yaw = Number(p.yaw) || 0;
+      const interval = Math.max(2, Number(p.interval) || 7);
+      const rad = (yaw * Math.PI) / 180;
+      const fwd = new Vector3(Math.cos(rad), Math.sin(rad), 0);
+      const side = new Vector3(-fwd.y, fwd.x, 0).multiplyScalar(p.side === 'right' ? -1 : 1);
+      const pt = (back: number, out = 0) => at.clone().addScaledVector(fwd, -back).addScaledVector(side, out);
+      // The loop, in the order people walk it: the head, off to the side with the ration, back to the
+      // entrance, then up the line from the last place to the first. Everyone moves one spot per step.
+      const ring = [pt(0), pt(40, Number(p.out) || 180), pt(length), ...Array.from({ length: slots - 1 }, (_, i) => pt((slots - 1 - i) * spacing))];
+      // Who moves when within a step: the one leaving first, then each place from the front, so the line
+      // closes up a person at a time. Walking off and back has no wait.
+      const rank = (j: number) => (j < 3 ? (j === 0 ? 1 : 0) : ring.length - j + 1);
+      const stepDelay = Math.min(0.5, (interval * 0.8) / (slots + 1));
+      const out: MapEntity[] = [];
+      // One order per spot; PerformOrderUnit takes the person by name (the engine looks the parameter up).
+      ring.forEach((q, j) => out.push(add(editor, 'wars_give_order', v(q.x, q.y, q.z + 16), {
+        targetname: `${name}_p${j}`, angles: `0 ${Math.round(j === 1 ? yaw + (p.side === 'right' ? -90 : 90) : yaw)} 0`, overwriteexistingorders: '1',
+      })));
+      ring.forEach((q, c) => out.push(add(editor, u.cls, v(q.x, q.y, q.z + 4), {
+        targetname: `${name}_c${c}`, ownernumber: String(p.owner), angles: `0 ${Math.round(yaw)} 0`, unittype: u.unittype,
+      })));
+      // Step t sends person c from spot (c + t) to (c + t + 1); the steps run in a loop, one every interval.
+      const n = ring.length;
+      for (let t = 0; t < n; t++) {
+        const step = add(editor, 'logic_relay', v(at.x - 48, at.y + t * 24, at.z + 64), { targetname: `${name}_step${t}`, spawnflags: '0' });
+        for (let c = 0; c < n; c++) {
+          const to = (c + t + 1) % n;
+          connect(step, { output: 'OnTrigger', target: `${name}_p${to}`, input: 'PerformOrderUnit', param: `${name}_c${c}`, delay: +(rank(to) * stepDelay).toFixed(2) });
+        }
+        connect(step, { output: 'OnTrigger', target: `${name}_step${(t + 1) % n}`, input: 'Trigger', delay: interval });
+        out.push(step);
+      }
+      connect(mapStart(editor, at), { output: 'OnMapSpawn', target: `${name}_step0`, input: 'Trigger', delay: Math.max(0, Number(p.phase) || 0) });
+      return out;
+    },
+  },
+  {
     id: 'message', label: 'Mission message', icon: '💬',
     hint: 'A message box. Shown at map start, or wire Display from a trigger.',
     params: [

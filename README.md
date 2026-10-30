@@ -234,7 +234,8 @@ feature needs and wires their outputs, as one undo step:
 | Multiplayer start | `info_start_wars` (HQ spawn, team hint) + its `info_player_wars` camera |
 | Mission player start | camera spawn, `wars_player_setup` (faction, colour, applied at start) and a starting squad of mixed units |
 | Unit group | N units of any unit type of the game, for an owner, with a shared name and an optional custom unittype |
-| Attack wave | `unit_maker` → `wars_give_order` → `info_target` goal; starts disabled so a trigger can enable it |
+| Attack wave | `unit_maker` → `wars_give_order`, which sends the units to itself (move it to change the goal); starts disabled so a trigger can enable it |
+| Walking queue | A line of people at a counter that moves: every few seconds the one in front walks off to the side and back to the entrance, and the rest step up one place, front first. One `wars_give_order` per spot (`PerformOrderUnit` takes the person by name) and a loop of `logic_relay` steps |
 | Mission message | `wars_messagebox`, shown at map start through a shared `logic_auto` or wired to a trigger |
 | Objective | `wars_mission_objective`; "completing wins" wires it to the map's `wars_win_condition` |
 
@@ -1763,8 +1764,18 @@ The Combine tutorial from the design doc, built with the editor's tools by `scri
 
 **Layout** (60×48 cells, one route from the south-west to the north-east), drawn with the map sketch:
 
-- **Station plaza**: a square with a Breencast screen and Combine occupation, the ration distribution lanes, a
-  rail yard along the south edge, and a billboard screen. Unit 09 (one `unit_metropolice_riot`) starts here.
+- **The station** (`buildStation`, with `src/gen/hall.ts`): Unit 09 starts inside a City 17 train station. A tall
+  concourse (plaster walls with tall window models, a stone tile floor, columns with lamps, benches facing the
+  Breencast on the north wall) holds the ration line; archways lead through to a train shed over the rail yard,
+  and one door in the stone front opens onto the housing street. The roof is invisible, as with the generated
+  interiors, but blocks the sun (a `TOOLSBLOCKLIGHT` func_brush with `vrad_brush_cast_shadows`) except over
+  skylight strips, so shafts of light fall on the floor; girders run across the top.
+  The ration line is in use (`decorateRationLine`): a Walking queue in each of the three lanes, 42 citizens
+  who step up one at a time and walk back round to the entrance once served, each lane on its own beat. Civil
+  Protection stands behind the counter and at the entrance, a scanner hovers over the lines and citizens watch
+  the Breencast (all neutral). A `unit_scan` of the player lifts the fog of war over the ration area until the
+  flyer stage. The generated city leaves vbsp almost no room for t-junctions, so the station's walls are plain
+  (no window holes), its roof and girders are brush entities and nothing of it touches the buildings next door.
 - **Housing block**: tenements (some with enterable interiors) along a narrow street, and a dead-end alley
   the runner flees into. Posters and lambda graffiti on the walls, the flyer and ration papers on the kerb.
 - **Canal street**: north from the housing street, fences along the pavements, the Combine checkpoint POI
@@ -1821,8 +1832,9 @@ From the uprising on, losing every unit loses.
   `addEnvironment`); before, the canal POI's floor was outside the shell and the map leaked.
 - A `wars_give_order` whose order target is an `info_target` gives a move order that ends at once (checked in
   game: the unit's order list is empty right after). Without a target the unit moves to the order entity
-  itself, so the runner's and the waves' orders stand at their destinations instead. The Attack wave kit and
-  the Sofia map still use an `info_target` goal.
+  itself, so the runner's and the waves' orders stand at their destinations instead. The Attack wave kit now
+  works the same way (the order entity is the goal), and the Sofia, arena and interiors test maps were moved
+  over to it.
 
 **Checked in game** (Steam install, `scripts/civil-protection-test.mjs` builds `sp_tutorial_combine_test`
 with shorter timers and a driver for each stage; the console log shows every stage starting). Every

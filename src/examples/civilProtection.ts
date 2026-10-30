@@ -15,13 +15,13 @@
  * the outpost, whose north edge is the canal; the old city lies beyond the bridge, the Citadel boulevard
  * east of the outpost.
  */
-import { Raycaster, Vector3 } from 'three';
+import { Raycaster, Vector2, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
 import { Feature, Surface, emptySketch, type Sketch, type SketchMarker, type SketchPoi } from '../gen/sketch.ts';
 import { boxSolid } from '../edit/brushes.ts';
 import { entityNode, editorBlock } from '../edit/actions.ts';
 import { KVNode, KVPair } from '../vmf/keyvalues.ts';
-import { KITS, applyStandardRelations, recordKit, type ParamValue } from '../lw/kits.ts';
+import { KITS, applyStandardRelations, placeUnits, recordKit, spread, type ParamValue } from '../lw/kits.ts';
 import type { AbilityGate, MissionGraph, Stage, Transition } from '../lw/mission.ts';
 import { getConnections } from '../vmf/io.ts';
 import { placeDecalRay } from '../edit/decals.ts';
@@ -29,6 +29,7 @@ import { MODEL_BOUNDS } from '../gen/poi/models.ts';
 import { ATMOSPHERE_PRESETS, pathEntities, shotEntities, type EntitySpec } from '../lw/cinematics.ts';
 import { addScreen, buildAtmosphere, buildFlyby, buildSendAlong, groundBelow } from '../lw/cinematicsAction.ts';
 import { Rng } from '../gen/rng.ts';
+import { hallBrushes, type HallWall } from '../gen/hall.ts';
 
 const W = 60;
 const H = 48;
@@ -61,8 +62,8 @@ const BOULEVARD: Rect = [53, 0, 59, 32];
 const OLD_CITY: Rect = [23, 41, 56, 47];
 
 const POIS: SketchPoi[] = [
-  { type: 'railyard', x: 0, y: 0, w: 22, h: 7, seed: 11, params: { tracks: 3, cars: 50, wrecks: 1, canopy: true } },
-  { type: 'square', x: 1, y: 8, w: 11, h: 11, seed: 12, params: { feature: 'breencast', water: false, trees: true, combine: true, lights: false, capture: false } },
+  // The train shed of the station (its walls and roof are added after generating, see buildStation).
+  { type: 'railyard', x: 0, y: 0, w: 22, h: 7, seed: 11, params: { tracks: 3, cars: 50, wrecks: 1, canopy: false } },
   { type: 'rations', x: 13, y: 9, w: 8, h: 8, seed: 13, params: { lanes: 3 } },
   { type: 'checkpoint', x: 36, y: 18, w: 7, h: 4, seed: 14, params: { surface: 'none', apc: true, lights: true } },
   { type: 'canal', x: 24, y: 33, w: 32, h: 8, seed: 15, params: { bridges: 1, width: 384 } },
@@ -157,6 +158,174 @@ export interface CivilReport {
   notes: string[];
 }
 
+/** The station (world units): the concourse north of the train shed, its exit onto the housing street. */
+export const STATION = {
+  // Off the map edge: walls on the edges of the ground brushes there give more t-junctions than vbsp can fix.
+  west: X(0) + 48,
+  south: Y(0) + 48,
+  /** The wall between concourse and shed (centre line). */
+  divider: Y(7) + 16,
+  north: Y(19) + 48,
+  /** The concourse's east front (on the housing street) and the shed's east wall. */
+  front: X(21) + 16,
+  // Clear of the housing block's buildings (which start at X(22)): walls flush with theirs add t-junctions.
+  shedEast: X(22) - 48,
+  /** The door in the front, where the street meets it. */
+  door: [Y(12), Y(14)] as [number, number],
+  /** Archways from the concourse onto the shed's walkway. */
+  arches: [[X(2), X(4)], [X(6.5), X(8.5)], [X(11), X(13)], [X(18.5), X(20.5)]] as [number, number][],
+  /** The Breencast billboard on the north wall: no windows behind it. */
+  billboard: [X(8) - 16, X(11) + 16] as [number, number],
+};
+
+/**
+ * The station Unit 09 starts in, after the HL2 one: a tall concourse with the ration line, benches and the
+ * Breencast, archways through to a train shed over the rail yard, and one door in its stone front onto the
+ * housing street. Walls 416 high with a band of windows, an invisible roof that keeps the sun out apart from
+ * skylight strips (shafts of light), girders across the top and lamps on the columns. `ground` gives the floor
+ * height (the editor's raycast; 0 without one).
+ */
+export function buildStation(editor: Editor, ground: (x: number, y: number) => number = () => 0): { brushes: number; props: number } {
+  const doc = editor.doc;
+  const S = STATION;
+  const T = 32, FLOOR = -16, HEIGHT = 432;
+  let props = 0;
+  const addEnt = (cls: string, origin: Vector3, keys: Record<string, string>) => doc.addEntity(entityNode(editor, cls, origin.clone().round(), keys));
+  /** A prop on the floor (`lift` above it), prop_static where the model allows it. */
+  const prop = (model: string, x: number, y: number, yaw = 0, lift = 0) => {
+    const b = MODEL_BOUNDS[model];
+    addEnt(b && b[6] === 0 ? 'prop_dynamic' : 'prop_static', new Vector3(x, y, ground(x, y) + lift - (b ? b[2] : 0)), { model: `models/${model}.mdl`, angles: `0 ${Math.round(yaw)} 0`, solid: '6' });
+    props++;
+  };
+  // Tall windows high up the inside of the walls, every 256 except where something else is (the door, the
+  // billboard). They are models, not holes: window holes split every wall into piers, sills and lintels, and
+  // with the generated city around it that is more t-junctions than vbsp can fix. The front's stone shows
+  // windows of its own outside.
+  const windows = (from: number, to: number, skip: [number, number][] = []): number[] => {
+    const out: number[] = [];
+    for (let c = Math.min(from, to) + 192; c <= Math.max(from, to) - 128; c += 256) {
+      if (!skip.some(([s0, s1]) => c + 96 > Math.min(s0, s1) && c - 96 < Math.max(s0, s1))) out.push(c);
+    }
+    return out;
+  };
+  /** A wall from a to b (extended by half its thickness at both ends), cut for doors at world ranges along it. */
+  const wall = (ax: number, ay: number, bx: number, by: number, inside: 1 | 0, doors: [number, number, number][], panes: number[]): HallWall => {
+    const dir = new Vector2(bx - ax, by - ay).normalize();
+    const a = new Vector2(ax, ay).addScaledVector(dir, -T / 2), b = new Vector2(bx, by).addScaledVector(dir, T / 2);
+    const along = (w: number) => (dir.x !== 0 ? (w - a.x) * dir.x : (w - a.y) * dir.y);
+    const span = (w0: number, w1: number) => [Math.min(along(w0), along(w1)), Math.max(along(w0), along(w1))];
+    // The window models stand on the inner face, facing in (the model's thin axis is its x).
+    const n = new Vector2(-dir.y, dir.x);
+    for (const c of panes) {
+      const p = new Vector2(dir.x !== 0 ? c : ax, dir.y !== 0 ? c : ay).addScaledVector(n, T / 2 + 4);
+      addEnt('prop_static', new Vector3(p.x, p.y, FLOOR + 320), { model: 'models/pg_props/pg_buildings/pg_big_hall_window.mdl', angles: `0 ${Math.round((Math.atan2(n.y, n.x) * 180) / Math.PI)} 0`, solid: '0' });
+      props++;
+    }
+    return {
+      a, b, thickness: T, inside,
+      openings: doors.map(([w0, w1, top]) => { const [from, to] = span(w0, w1); return { from, to, z0: 0, z1: top - FLOOR }; }),
+    };
+  };
+  const doorTop = 256, archTop = 304;
+  // The ration lanes' east barricades stood where the door now opens.
+  for (const e of doc.entities.filter((q) => q.classname === 'prop_static' && /combine_barricade/.test(q.get('model') ?? '') && q.origin
+    && q.origin.x > S.front - 96 && q.origin.x < S.front && q.origin.y > S.door[0] - 128 && q.origin.y < S.door[1] + 96)) doc.removeEntity(e);
+  const walls: HallWall[] = [
+    wall(S.west, S.south, S.shedEast, S.south, 1, [], windows(S.west, S.shedEast)),
+    wall(S.shedEast, S.south, S.shedEast, S.divider, 1, [], windows(S.south, S.divider)),
+    wall(S.shedEast, S.divider, S.front, S.divider, 1, [], []),
+    wall(S.front, S.divider, S.front, S.north, 1, [[S.door[0], S.door[1], doorTop]], windows(S.divider, S.north, [S.door])),
+    wall(S.front, S.north, S.west, S.north, 1, [], windows(S.west, S.front, [S.billboard])),
+    wall(S.west, S.north, S.west, S.south, 1, [], windows(S.south, S.north)),
+    wall(S.west, S.divider, S.front, S.divider, 0, S.arches.map(([x0, x1]) => [x0, x1, archTop]), []),
+  ];
+  // Skylights: two strips along the concourse, one over each outer track of the shed, broken by roof bands.
+  const bands: [number, number][] = [[X(1), X(7)], [X(8), X(14)], [X(15), X(20.5)]];
+  const strips = (ys: [number, number][]) => ys.flatMap(([y0, y1]) => bands.map(([x0, x1]): [number, number, number, number] => [x0, y0, x1, y1]));
+  const inner = { x0: S.west + T / 2, x1: S.front - T / 2, south: S.south + T / 2, divider0: S.divider - T / 2, divider1: S.divider + T / 2, north: S.north - T / 2 };
+  const hall = hallBrushes(doc, {
+    floorZ: FLOOR, height: HEIGHT, walls,
+    materials: {
+      inner: 'PLASTER/PLASTERWALL035D', outer: 'BUILDING_TEMPLATE/BUILDING_TRAINSTATION_TEMPLATE002R', outerScale: 0.5,
+      cap: 'CONCRETE/CONCRETEFLOOR028A', glass: 'GLASS/GLASSWINDOW029A',
+    },
+    // Over the walls and a little beyond (the roof floats a little above the wall tops), but not touching the
+    // buildings next door.
+    roofs: [
+      { rect: [S.west - 40, S.divider, S.front + 40, S.north + 40], skylights: strips([[Y(10.5) - 48, Y(10.5) + 48], [Y(15.5) - 48, Y(15.5) + 48]]) },
+      { rect: [S.west - 40, S.south - 40, S.shedEast + 40, S.divider], skylights: strips([[Y(1.5) - 40, Y(1.5) + 40], [Y(5.5) - 40, Y(5.5) + 40]]) },
+    ],
+    girders: [
+      { rect: [inner.x0, inner.divider1, inner.x1, inner.north], along: 'y', every: 384, size: 16, material: 'METAL/METALBAR001A' },
+      { rect: [inner.x0, inner.south, S.shedEast - T / 2, inner.divider0], along: 'y', every: 320, size: 16, material: 'METAL/METALBAR001A' },
+    ],
+  });
+  for (const n of hall.world) doc.addSolid(n);
+  const brushEnt = (cls: string, keys: Record<string, string>, solids: KVNode[]) => {
+    const e = new KVNode('entity');
+    e.items.push(new KVPair('id', String(doc.nextId())), new KVPair('classname', cls));
+    for (const [k, v] of Object.entries(keys)) e.items.push(new KVPair(k, v));
+    e.items.push(...solids, editorBlock());
+    doc.addEntity(e);
+  };
+  // The roof blocks the sun from a func_brush (see HallBrushes.roof); the girders are a brush entity too, so
+  // neither adds to the world's t-junctions.
+  brushEnt('func_brush', { targetname: 'station_roof', Solidity: '1', spawnflags: '2', rendermode: '10', disableshadows: '1', vrad_brush_cast_shadows: '1', StartDisabled: '0' }, hall.roof);
+  brushEnt('func_brush', { targetname: 'station_girders', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', StartDisabled: '0' }, hall.girders);
+  // The concourse floor: large stone tiles, just above the ground.
+  doc.addSolid(boxSolid(doc, new Vector3(inner.x0, inner.divider1, -12), new Vector3(inner.x1, inner.north, 4), { top: 'TILE/TILEFLOOR021A', bottom: 'TOOLS/TOOLSNODRAW', sides: 'TOOLS/TOOLSNODRAW' }));
+  // Lamps: warm light over the concourse and the platforms (the roof keeps the daylight out).
+  const lamp = (x: number, y: number) => addEnt('light', new Vector3(x, y, 300), { _light: '255 222 178 240', _lightHDR: '-1 -1 -1 1', _quadratic_attn: '1', _fifty_percent_distance: '320', _zero_percent_distance: '880' });
+  for (let x = X(1.5); x < S.front - 128; x += 448) for (const y of [Y(9), Y(12), Y(15), Y(18)]) lamp(x, y);
+  for (let x = X(1.5); x < S.shedEast - 128; x += 576) for (const y of [Y(2), Y(5)]) lamp(x, y);
+  // Columns along the north wall and between the arches, each with a lamp on its inner face.
+  const column = (x: number, y: number, face: number) => {
+    prop('props_trainstation/trainstation_column001', x, y, 0);
+    addEnt('prop_static', new Vector3(x + Math.cos((face * Math.PI) / 180) * 14, y + Math.sin((face * Math.PI) / 180) * 14, ground(x, y) + 190), { model: 'models/props_trainstation/column_light001a.mdl', angles: `0 ${face} 0`, solid: '0' });
+    props++;
+  };
+  for (let x = X(1.5); x < S.front - 96; x += 512) if (x < S.billboard[0] - 64 || x > S.billboard[1] + 64) column(x, inner.north - 12, 270);
+  const archFree = (x: number) => !S.arches.some(([a0, a1]) => x > a0 - 48 && x < a1 + 48);
+  for (let x = X(1.5); x < X(12.5); x += 384) if (archFree(x)) column(x, inner.divider1 + 12, 90);
+  // Waiting room: two rows of benches facing the Breencast (the crowd stands in front of them), bins at the
+  // row ends, payphones on the west wall.
+  for (const y of [Y(12.6), Y(13.6)]) for (let x = X(7.3); x <= X(11.2); x += 92) prop('props_trainstation/bench_indoor001a', x, y, 90);
+  for (const y of [Y(12.6), Y(13.6)]) { prop('props_trainstation/trashcan_indoor001b', X(6.8), y); prop('props_trainstation/trashcan_indoor001b', X(11.8), y); }
+  for (const y of [Y(10.5), Y(11), Y(11.5)]) prop('props_trainstation/payphone001a', inner.x0 + 10, y, 0);
+  // Combine monitors on the north wall either side of the billboard, ornaments by the door.
+  for (const x of [S.billboard[0] - 160, S.billboard[1] + 160]) prop('props_combine/combine_intmonitor003', x, inner.north - 4, 270, 120);
+  for (const y of [S.door[0] - 48, S.door[1] + 48]) prop('props_trainstation/trainstation_ornament001', inner.x1 - 28, y, 180);
+  return { brushes: hall.world.length + hall.roof.length + 1, props };
+}
+
+/**
+ * The ration line in use: a walking queue in each of the three lanes (the rations POI puts them 176 apart,
+ * their heads 320 from its far edge, in front of the counter). The outer lanes leave to their own side; the
+ * middle one also goes west, a little further out. Each line starts at its own time so they don't step together.
+ * Around it, all neutral set dressing: Civil Protection behind the counter (between the booth and the crates)
+ * and at the entrance corners, a scanner over the lines, citizens on the plaza watching the Breencast and a
+ * few by the way to the lines. `ground` gives the floor height (the editor's raycast; 0 without one).
+ */
+export function decorateRationLine(editor: Editor, ground: (x: number, y: number) => number = () => 0): void {
+  const kit = (id: string, pos: Vector3, params: Record<string, ParamValue>) => {
+    const k = KITS.find((x) => x.id === id)!;
+    return k.place(editor, pos, { ...Object.fromEntries(k.params.map((p) => [p.key, p.default])), ...params });
+  };
+  const on = (x: number, y: number) => new Vector3(Math.round(x), Math.round(y), Math.round(ground(x, y)));
+  const rations = POIS.find((q) => q.type === 'rations')!;
+  const laneX = (i: number) => X(rations.x) + (rations.w * C) / 2 + (i - 1) * 176;
+  const headY = Y(rations.y) + rations.h * C - 320 + 16;
+  const lanes: [string, number, number][] = [['left', 176, 1], ['left', 300, 3.3], ['right', 176, 5.6]];
+  lanes.forEach(([side, out, phase], i) => kit('queue', on(laneX(i), headY), {
+    name: `ration_line${i + 1}`, unit: 'unit_citizen', owner: '0', slots: 12, spacing: 52, yaw: 90, length: 700, side, out, interval: 7, phase,
+  }));
+  const guards: [number, number, number][] = [[laneX(0) + 10, headY + 140, 270], [laneX(2) + 48, headY + 130, 270], [laneX(0) - 320, headY - 790, 45], [laneX(2) + 320, headY - 790, 135]];
+  for (const [gx, gy, yaw] of guards) placeUnits(editor, 'unit_metropolice', [on(gx, gy).setZ(ground(gx, gy) + 4)], '0', 'ration_guard', yaw);
+  placeUnits(editor, 'unit_scanner', [on(laneX(1), headY - 300)], '0', 'ration_scanner', 270);
+  placeUnits(editor, 'unit_citizen', spread(on(X(9.5), Y(15.5)), 10, 80), '0', 'plaza_crowd', 90);
+  placeUnits(editor, 'unit_citizen', spread(on(X(11.4), Y(10.6)), 4, 72), '0', 'plaza_crowd', 0);
+}
+
 /** Adds the set pieces, units, cinematics and logic to the generated map, and the mission flowchart. */
 export async function decorateCivilProtection(editor: Editor): Promise<CivilReport> {
   const doc = editor.doc;
@@ -191,6 +360,10 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
   const byName = (n: string) => doc.entities.find((e) => e.get('targetname') === n);
 
   recordKit(editor, 'Civil Protection set pieces', () => {
+    // The station around the start: concourse, train shed, the door onto the housing street.
+    const station = buildStation(editor, ground);
+    brushes += station.brushes;
+    props += station.props;
     // The checkpoint's forcefield gate: a never-solid func_brush for the look, a func_nav_blocker that keeps
     // units out of the gap until the gate opens (Disable unblocks the navmesh there).
     brushEntity('func_brush', { targetname: 'outpost_gate', Solidity: '1', StartDisabled: '0', rendermode: '0', disableshadows: '1', vrad_brush_cast_shadows: '0' },
@@ -198,7 +371,7 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
     brushEntity('func_nav_blocker', { targetname: 'outpost_gate_nav', StartDisabled: '0' },
       new Vector3(GATE.x - GATE.w / 2 - 16, GATE.y - 32, -16), new Vector3(GATE.x + GATE.w / 2 + 16, GATE.y + 32, 128), 'TOOLS/TOOLSNODRAW');
 
-    // A billboard on the plaza for the Breencast screen (the screen itself is added below).
+    // A billboard on the concourse's north wall for the Breencast screen (the screen itself is added below).
     const bx0 = X(8), bx1 = X(11), by = Y(19) + 24;
     doc.addSolid(boxSolid(doc, new Vector3(bx0, by, -8), new Vector3(bx1, by + 16, 304), { top: 'METAL/METALWALL003A', bottom: 'TOOLS/TOOLSNODRAW', sides: 'METAL/METALWALL003A' }));
     brushes++;
@@ -239,6 +412,7 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
     // an invisible scan unit of the player (896 units of sight, enough for the lanes and all three citizens).
     // The flyer stage kills it. It counts as one population while it lives.
     addEnt('unit_scan', at(17, 13, 32), { targetname: 'reveal_rations', unittype: 'unit_scan', ownernumber: '2' });
+    decorateRationLine(editor, ground);
     // The runner flees to the order entity itself (an info_target as order target ends the move at once).
     addEnt('wars_give_order', at(SPOTS.hideout[0], SPOTS.hideout[1], 16), { targetname: 'runner_flee', unitname: 'runner', overwriteexistingorders: '1' });
     // The asset: a Stalker standing in the outpost, neutral until Unit 09 takes command of it.
@@ -312,6 +486,9 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
   await decal('decals/decal_posters002a', new Vector3(X(29), Y(18), 100), new Vector3(1, 0, 0));
   for (const cx of [24, 31, 35]) await decal(rng.pick(['decals/decal_posters001a', 'decals/decal_posters003a', 'decals/decal_posters005a']), new Vector3(X(cx), Y(13), 110), new Vector3(0, 1, 0));
   for (const cx of [26, 33]) await decal('decals/combinepropaganda01a', new Vector3(X(cx), Y(12.5), 150), new Vector3(0, -1, 0));
+  // Propaganda in the station: on the concourse's north and west walls.
+  for (const cx of [3, 5.5, 13.5]) await decal('decals/combinepropaganda01a', new Vector3(X(cx), Y(17.6), 170), new Vector3(0, 1, 0));
+  for (const cy of [13, 16]) await decal(rng.pick(['decals/decal_posters001a', 'decals/decal_posters003a', 'decals/decal_posters005a']), new Vector3(X(1), Y(cy), 120), new Vector3(-1, 0, 0));
   // Scorch marks and blood in the old city.
   for (const [cx, cy] of [[31, 42.5], [49, 42.4], [38, 43.5], [44, 45.5], [27, 42]]) await decal('decals/decal_crater001a', new Vector3(X(cx), Y(cy), 200), down);
   for (const [cx, cy] of [[34, 42], [46, 43]]) await decal('decals/bloodstain_002', new Vector3(X(cx), Y(cy), 200), down);

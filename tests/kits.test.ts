@@ -38,6 +38,32 @@ describe('Lambda Wars kits', () => {
     expect(validateConnections(ed.doc).filter((p) => p.severity === 'error')).toEqual([]);
   });
 
+  it('walking queue moves everyone one spot per step, the leaver first and then the line from the front', () => {
+    const ed = stubEditor();
+    recordKit(ed, 'q', () => kit('queue').place(ed, new Vector3(0, 0, 0), { ...params('queue'), slots: 4, spacing: 50, yaw: 90, length: 400, side: 'left', out: 200, interval: 6 }));
+    expect(validateConnections(ed.doc).filter((p) => p.severity === 'error')).toEqual([]);
+    const named = (n: string) => ed.doc.entities.find((e) => e.get('targetname') === n)!;
+    // Four places plus two walking back: six people, six spots, six steps.
+    expect(ed.doc.entities.filter((e) => e.classname === 'unit_citizen')).toHaveLength(6);
+    const spot = (j: number) => named(`queue_p${j}`).origin!.toArray().map(Math.round);
+    // Head, off to the left (west when facing north), the entrance, then the line from the last place up.
+    expect([spot(0), spot(1), spot(2), spot(3), spot(4), spot(5)]).toEqual([[0, 0, 16], [-200, -40, 16], [0, -400, 16], [0, -150, 16], [0, -100, 16], [0, -50, 16]]);
+    // Everyone starts on their own spot.
+    expect(named('queue_c3').origin!.toArray().map(Math.round)).toEqual([0, -150, 4]);
+    const step0 = getConnections(named('queue_step0'));
+    const to = (c: number) => step0.find((x) => x.param === `queue_c${c}`)!;
+    expect(to(0)).toMatchObject({ target: 'queue_p1', input: 'PerformOrderUnit', delay: 0 });
+    expect(to(5)).toMatchObject({ target: 'queue_p0' });
+    // The front closes up first, the last place last; the next step follows after the interval and loops.
+    expect(to(5).delay).toBeLessThan(to(4).delay);
+    expect(to(4).delay).toBeLessThan(to(3).delay);
+    expect(to(3).delay).toBeLessThan(to(2).delay);
+    expect(Math.max(...step0.map((x) => x.delay))).toBe(6);
+    expect(step0.find((x) => x.target === 'queue_step1')).toMatchObject({ input: 'Trigger', delay: 6 });
+    expect(getConnections(named('queue_step5')).find((x) => x.input === 'Trigger')!.target).toBe('queue_step0');
+    expect(getConnections(ed.doc.entities.find((e) => e.classname === 'logic_auto')!)).toEqual([expect.objectContaining({ target: 'queue_step0', input: 'Trigger' })]);
+  });
+
   it('messages and winning objectives share one map_start and one win condition, and undo in one step', () => {
     const ed = stubEditor();
     for (let i = 0; i < 2; i++) recordKit(ed, 'msg', () => kit('message').place(ed, new Vector3(i * 64, 0, 0), params('message')));
