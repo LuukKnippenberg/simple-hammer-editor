@@ -13,7 +13,7 @@ import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
 import { h, toast } from './dom.ts';
 
-const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound' } as const;
+const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest' } as const;
 const HINTS = {
   select: 'Click to select · Shift adds · drag the gizmo · M move / R resize',
   block: 'Drag on a surface to draw a block',
@@ -25,6 +25,7 @@ const HINTS = {
   ground: 'Drag on terrain to paint or sculpt',
   powerline: 'Click points along the route · Enter or double-click places poles and wires',
   sound: 'Click to place · turn on Audio in the top bar to hear the map',
+  poi: 'Drag a rectangle (or click) to place · pick the type and settings in the POI tab',
 } as const;
 
 /** Small panel in the viewport corner with the active tool's settings. */

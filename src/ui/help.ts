@@ -6,6 +6,7 @@ const SHORTCUTS: [string, string][] = [
   ['T', 'Toggle the top view (right drag pans, wheel zooms)'],
   ['1 – 6', 'Select · Block · Paint · Entity · Lambda Wars kit · Decal tool'],
   ['7 – 0', 'Road · Ground · Powerline · Sound tool (Enter builds a road or line, Backspace removes a point)'],
+  ['P', 'Point of interest tool: drag a rectangle to fill it (type and settings in the POI tab)'],
   ['Click · Shift+click · drag', 'Select · add to selection · box select'],
   ['M · R', 'Gizmo: move · resize'],
   ['Ctrl+C · Ctrl+V', 'Copy · paste at the cursor'],

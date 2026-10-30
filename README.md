@@ -794,6 +794,47 @@ It follows the flowchart only; it does not run the game.
 ![Playing it through: the assault on the Largo](docs/screenshots/mission-sim-assault.png)
 ![Playing it through: victory and the log](docs/screenshots/mission-sim-victory.png)
 
+## Points of interest
+
+The **POI tool** (P) fills a rectangle with a finished area: a square, a parking lot, a Combine checkpoint,
+a dock. Plan: [docs/poi-generator-plan.md](docs/poi-generator-plan.md). Every POI is built for an RTS: it
+offers cover, chokepoints, high ground or a place to capture, and always leaves routes open for the big units.
+
+### POI phase 0: framework and tool
+
+- **Drawing**: pick a type in the **POI** tab, then drag a rectangle on the ground (a click places one at the
+  type's default size). The rectangle snaps to 64 and is clamped to the type's sizes; the preview arrow shows
+  which way the layout faces. *Fill selected block* turns selected block brushes into POIs instead.
+- **Editing afterwards**, like roads: a POI's brushes are one `func_detail` carrying its spec in `she_poi`
+  (type, seed, rectangle, rotation, ground height, landscape, parameters); its entities carry `she_poi_id`,
+  and world brushes (water, later) are listed by id. Selecting any part shows the POI's settings in the
+  Selection and POI tabs; every change rebuilds it in place as one undo step. *Regenerate* rebuilds from the
+  stored spec (it follows the POI when it was moved with the gizmo), *Re-roll* picks a new seed, *Delete*
+  removes everything it made.
+- **The toolkit** (`src/gen/poi/kit.ts`) every type builds on, in the POI's own frame (rotations of 90° turn
+  the whole layout):
+  - pads (paving, asphalt, grass, sand) cut into pieces of at most 1024, reaching below the lowest terrain;
+  - edges with gaps: fences and hedges from models, walls, kerbs and railings from brushes, a
+    `fow_blocker` along hedges and high walls on request; `perimeter()` opens a gap wherever a route leaves;
+  - placement: single props, rows, scatter with spacing; every prop stands on the pad or terrain under it
+    (from its measured bounds) and is refused on a reserved route or on top of something placed;
+  - **routes**: through-routes at least 128 wide (large units have a radius of 58) are reserved first;
+  - overlays and painted lines on the pads, lights, lamp posts;
+  - gameplay hooks each type opts into: a capture point at its focus (control point + capture area), scrap
+    piles, enemy unit groups. They show up as parameters automatically.
+- **Model table** (`src/gen/poi/models.ts`): bounds of about 240 models measured with the editor's MDL loader,
+  and whether each is a valid `prop_static`; the rest become `prop_dynamic`.
+- **Terrain**: on displacement terrain the POI levels the ground under it (blending back over 192 units) and
+  paints the terrain's second texture there; props sample the ground with a ray that skips the POI's own brushes.
+- The first type is a plain **paved lot** (paving, asphalt or gravel, kerbs, lamp posts).
+- Tests (`tests/poi.test.ts`): the spec round-trip; a rebuild leaves the same parts and nothing stray, undo
+  restores the old ones; for every registered type at four rotations, brushes are valid, every prop model is
+  in the table and off the routes, and the same seed gives the same output.
+
+![Dragging a rectangle with the POI tool](docs/screenshots/poi-p0-drag.png)
+![The paved lot on levelled terrain](docs/screenshots/poi-p0-lot.png)
+![Selected: its settings, rebuilt with asphalt, a capture point and two scrap piles](docs/screenshots/poi-p0-panel.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

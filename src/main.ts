@@ -33,6 +33,7 @@ import { mountLightingPanel } from './ui/lightingPanel.ts';
 import { mountSketchDialog } from './ui/sketchDialog.ts';
 import { mountInstallPicker } from './ui/installPicker.ts';
 import { mountMapSettingsPanel } from './ui/mapSettingsPanel.ts';
+import { mountPoiPanel } from './ui/poiPanel.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -85,6 +86,7 @@ const missionFlow = mountMissionFlow(editor, {
   check: () => (editor.mission ? checkMission(editor.mission, editor.doc) : []),
 });
 tabs.add('Mission', mountMissionPanel(editor, () => missionFlow.open()));
+tabs.add('POI', mountPoiPanel(editor, () => tabs.show('POI')));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[title^="Entity"]')?.click()));
 const mapPanel = h('div');
 mountDocumentPanel(editor, mapPanel);
