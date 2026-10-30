@@ -3,6 +3,8 @@ import { Vector3 } from 'three';
 import { VmfDocument } from '../src/vmf/map.ts';
 import { History } from '../src/edit/history.ts';
 import { KITS, applyStandardRelations, recordKit } from '../src/lw/kits.ts';
+import { UNITS, findUnit, parseSquad, formatSquad, unitForEntity } from '../src/lw/units.ts';
+import { entityModel, entityMatrix } from '../src/render/entityRenderer.ts';
 import { getConnections, validateConnections } from '../src/vmf/io.ts';
 import type { Editor } from '../src/editor.ts';
 
@@ -59,5 +61,64 @@ describe('Lambda Wars kits', () => {
     const rel = ed.doc.entities.filter((e) => e.classname === 'wars_player_relation');
     expect(rel.map((e) => e.get('targetplayer')).sort()).toEqual(['1', '3']);
     expect(rel.every((e) => e.get('disposition') === '1' && e.get('subjectplayer') === '2')).toBe(true);
+  });
+
+  it('the unit list comes from the game: every type the Civil Protection tutorial needs is there', () => {
+    for (const t of ['unit_stalker', 'unit_citizen', 'unit_strider', 'unit_combinedropship', 'unit_combinegunship',
+      'unit_scanner', 'unit_clawscanner', 'unit_manhack', 'unit_metropolice', 'unit_metropolice_riot', 'unit_combine_sg', 'unit_rebel_rpg']) {
+      expect(findUnit(t), t).toBeDefined();
+    }
+    expect(findUnit('unit_metropolice_riot')).toMatchObject({ cls: 'unit_metropolice', faction: 'combine', model: 'models/police_extended.mdl' });
+    expect(findUnit('unit_scanner')).toMatchObject({ cls: 'unit_cscanner', air: 370 });
+    expect(findUnit('unit_citizen')?.faction).toBe('citizens');
+    // The ids of the first kit list still resolve (POI catalogue, saved settings).
+    expect(findUnit('metropolice')?.unittype).toBe('unit_metropolice_smg1');
+    expect(new Set(UNITS.map((u) => u.id)).size).toBe(UNITS.length);
+    expect(UNITS.some((u) => /^unit_(dummy|damage_controller)/.test(u.cls))).toBe(false);
+  });
+
+  it('air units are placed at their flying height, ground units on the ground', () => {
+    const ed = stubEditor();
+    recordKit(ed, 'air', () => kit('unit_group').place(ed, new Vector3(0, 0, 100), { ...params('unit_group'), unit: 'unit_combinedropship', count: 2 }));
+    recordKit(ed, 'ground', () => kit('unit_group').place(ed, new Vector3(0, 2000, 100), { ...params('unit_group'), unit: 'unit_stalker', count: 2 }));
+    const ships = ed.doc.entities.filter((e) => e.classname === 'unit_combinedropship');
+    expect(ships.map((e) => e.origin!.z)).toEqual([700, 700]);
+    // Big hulls get more room than the 64 the kit asks for.
+    expect(Math.abs(ships[0].origin!.x - ships[1].origin!.x)).toBeGreaterThanOrEqual(320);
+    expect(ed.doc.entities.filter((e) => e.classname === 'unit_stalker').every((e) => e.origin!.z === 104)).toBe(true);
+  });
+
+  it('a custom unittype keeps the class of the chosen unit, also in waves', () => {
+    const ed = stubEditor();
+    recordKit(ed, 'g', () => kit('unit_group').place(ed, new Vector3(), { ...params('unit_group'), unit: 'unit_metropolice', count: 1, unittype: 'sp_tutorial_unit_metropolice_baton' }));
+    const cop = ed.doc.entities.find((e) => e.classname === 'unit_metropolice')!;
+    expect(cop.get('unittype')).toBe('sp_tutorial_unit_metropolice_baton');
+    // An unknown unittype still draws as its class.
+    expect(entityModel(cop)).toBe('models/police.mdl');
+    recordKit(ed, 'w', () => kit('wave').place(ed, new Vector3(), { ...params('wave'), unit: 'unit_stalker', unittype: 'sp_stalker_x' }));
+    expect(ed.doc.entities.find((e) => e.classname === 'unit_maker')!.get('NPCType')).toBe('sp_stalker_x');
+  });
+
+  it('mission start places a mixed squad', () => {
+    const ed = stubEditor();
+    const squad = formatSquad([{ unit: 'unit_metropolice_riot', count: 1, unittype: '' }, { unit: 'unit_stalker', count: 2, unittype: '' }]);
+    expect(parseSquad(squad)).toHaveLength(2);
+    recordKit(ed, 'sp', () => kit('sp_start').place(ed, new Vector3(), { ...params('sp_start'), faction: 'combine', squad }));
+    const units = ed.doc.entities.filter((e) => e.get('targetname') === 'player_squad');
+    expect(units.map((e) => e.get('unittype')).sort()).toEqual(['unit_metropolice_riot', 'unit_stalker', 'unit_stalker']);
+    expect(units.every((e) => e.get('ownernumber') === '2')).toBe(true);
+    expect(parseSquad(String(params('sp_start').squad))).toEqual([{ unit: 'rebel', count: 6, unittype: '' }]);
+  });
+
+  it('units draw with the model and scale of their unittype', () => {
+    const ed = stubEditor();
+    recordKit(ed, 'g', () => kit('unit_group').place(ed, new Vector3(), { ...params('unit_group'), unit: 'unit_metropolice_riot', count: 1 }));
+    recordKit(ed, 'g', () => kit('unit_group').place(ed, new Vector3(), { ...params('unit_group'), unit: 'unit_combinegunship', count: 1 }));
+    const riot = ed.doc.entities.find((e) => e.get('unittype') === 'unit_metropolice_riot')!;
+    const gunship = ed.doc.entities.find((e) => e.classname === 'unit_combinegunship')!;
+    expect(unitForEntity(riot)?.label).toBe('Metrocop');
+    expect(entityModel(riot)).toBe('models/police_extended.mdl');
+    expect(entityModel(gunship)).toBe('models/gunship.mdl');
+    expect(new Vector3().setFromMatrixScale(entityMatrix(gunship)).x).toBeCloseTo(0.75);
   });
 });

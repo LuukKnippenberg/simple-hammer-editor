@@ -1,7 +1,65 @@
 import type { Editor } from '../editor.ts';
 import type { KitTool } from '../edit/tools.ts';
-import { KITS, UNITS, applyStandardRelations, recordKit, type Kit, type ParamValue } from '../lw/kits.ts';
+import { KITS, applyStandardRelations, recordKit, type Kit, type ParamValue } from '../lw/kits.ts';
+import { FACTIONS, UNITS, findUnit, formatSquad, parseSquad, unitForEntity, unitSearchText, type SquadEntry } from '../lw/units.ts';
 import { h, toast } from './dom.ts';
+
+/**
+ * Searchable unit drop-down: a filter box over a select grouped by faction. Game-mode copies (overrun_,
+ * char_, ...) are listed after each faction's own units. Typing filters label, unittype and class.
+ */
+export function unitPicker(value: string, onChange: (id: string) => void): HTMLElement {
+  const search = h('input', { type: 'search', placeholder: 'Search units…' }) as HTMLInputElement;
+  const select = h('select') as HTMLSelectElement;
+  let current = findUnit(value)?.id ?? UNITS[0].id;
+  const fill = () => {
+    const q = search.value.trim().toLowerCase();
+    const match = UNITS.filter((u) => !q || q.split(/\s+/).every((w) => unitSearchText(u).includes(w)));
+    const groups: HTMLOptGroupElement[] = [];
+    for (const f of FACTIONS) {
+      for (const variant of [false, true]) {
+        const list = match.filter((u) => u.faction === f.id && !!u.variant === variant);
+        if (!list.length) continue;
+        groups.push(h('optgroup', { label: variant ? `${f.label} · game-mode copies` : f.label },
+          ...list.map((u) => h('option', { value: u.id, title: `${u.cls} · ${u.source}` }, `${u.label}${u.air ? ' ✈' : ''} — ${u.unittype}`))));
+      }
+    }
+    select.replaceChildren(...groups);
+    if (match.some((u) => u.id === current)) select.value = current;
+    else if (match.length) {
+      current = match[0].id;
+      select.value = current;
+      onChange(current);
+    }
+  };
+  search.addEventListener('input', fill);
+  select.addEventListener('change', () => { current = select.value; onChange(current); });
+  fill();
+  return h('div', { style: { flex: '1', minWidth: '0', display: 'flex', flexDirection: 'column', gap: '2px' } }, search, select);
+}
+
+/** Mixed starting squad: one row per unit type with a count and an optional custom unittype. */
+function squadEditor(value: string, onChange: (squad: string) => void): HTMLElement {
+  const box = h('div', { style: { flex: '1', minWidth: '0' } });
+  let entries: SquadEntry[] = parseSquad(value);
+  const commit = () => onChange(formatSquad(entries));
+  const render = () => {
+    const rows = entries.map((e, i) => {
+      const count = h('input.num', { type: 'number', min: '0', value: String(e.count), title: 'How many' }) as HTMLInputElement;
+      count.addEventListener('change', () => { e.count = Math.max(0, parseInt(count.value, 10) || 0); commit(); });
+      const custom = h('input', { type: 'text', value: e.unittype, placeholder: 'custom unittype (optional)' }) as HTMLInputElement;
+      custom.addEventListener('change', () => { e.unittype = custom.value.trim(); commit(); });
+      const remove = h('button', { title: 'Remove', onclick: () => { entries.splice(i, 1); commit(); render(); } }, '✕');
+      return h('div', { style: { borderLeft: '2px solid var(--border)', paddingLeft: '6px', marginBottom: '6px' } },
+        unitPicker(e.unit, (id) => { e.unit = id; commit(); }),
+        h('div.row', { style: { marginTop: '2px' } }, count, custom, remove));
+    });
+    const addBtn = h('button', { onclick: () => { entries.push({ unit: entries.at(-1)?.unit ?? UNITS[0].id, count: 1, unittype: '' }); commit(); render(); } }, '+ Add unit');
+    box.replaceChildren(...rows, addBtn);
+  };
+  render();
+  return box;
+}
 
 /** Singleplayer mission settings stored on worldspawn: `message` is Source's map title key. */
 export function missionInfo(editor: Editor): { name: string; description: string } {
@@ -47,12 +105,17 @@ export function mountMissionPanel(editor: Editor, openFlow: () => void = () => {
   const renderForm = (kit: Kit) => {
     const values = tool.paramsFor(kit.id);
     const rows = kit.params.map((p) => {
-      let input: HTMLInputElement | HTMLSelectElement;
+      let input: HTMLElement;
       const set = (val: ParamValue) => { values[p.key] = val; };
-      if (p.type === 'select') {
-        input = h('select', {}, ...(p.options ?? []).map((o) => h('option', { value: o.value }, o.label))) as HTMLSelectElement;
-        input.value = String(values[p.key]);
-        input.addEventListener('change', () => set((input as HTMLSelectElement).value));
+      if (p.type === 'unit') {
+        input = unitPicker(String(values[p.key]), set);
+      } else if (p.type === 'squad') {
+        input = squadEditor(String(values[p.key]), set);
+      } else if (p.type === 'select') {
+        const sel = h('select', {}, ...(p.options ?? []).map((o) => h('option', { value: o.value }, o.label)));
+        sel.value = String(values[p.key]);
+        sel.addEventListener('change', () => set(sel.value));
+        input = sel;
       } else if (p.type === 'check') {
         input = h('input', { type: 'checkbox', checked: !!values[p.key] }) as HTMLInputElement;
         input.addEventListener('change', () => set((input as HTMLInputElement).checked));
@@ -60,7 +123,8 @@ export function mountMissionPanel(editor: Editor, openFlow: () => void = () => {
         input = h('input', { type: p.type === 'number' ? 'number' : 'text', value: String(values[p.key]) }) as HTMLInputElement;
         input.addEventListener('change', () => set(p.type === 'number' ? parseFloat((input as HTMLInputElement).value) || 0 : (input as HTMLInputElement).value));
       }
-      return h('div.row', { title: p.hint ?? '' }, h('label', {}, p.label), input);
+      const big = p.type === 'unit' || p.type === 'squad';
+      return h('div.row', { title: p.hint ?? '', style: big ? { alignItems: 'flex-start' } : undefined }, h('label', {}, p.label), input);
     });
     formEl.replaceChildren(h('p.hint', {}, kit.hint), ...rows, h('p.hint', {}, 'Click in the viewport to place (tool 5).'));
   };
@@ -84,17 +148,18 @@ export function mountMissionPanel(editor: Editor, openFlow: () => void = () => {
     const count = (f: (cls: string) => boolean) => ents.filter((e) => f(e.classname)).length;
     const byFaction = new Map<string, number>();
     for (const e of ents) {
-      const u = UNITS.find((x) => x.cls === e.classname);
+      const u = unitForEntity(e);
       if (!u) continue;
       const side = e.get('ownernumber') === '2' ? 'yours' : u.faction;
       byFaction.set(side, (byFaction.get(side) ?? 0) + 1);
     }
+    const factionRows: [string, string][] = FACTIONS.filter((f) => byFaction.get(f.id) || f.id === 'zombies' || f.id === 'combine')
+      .map((f) => [f.label, String(byFaction.get(f.id) ?? 0)]);
     const waves = ents.filter((e) => e.classname === 'unit_maker').reduce((n, e) => n + (parseInt(e.get('MaxNPCCount') ?? '0', 10) || 0), 0);
     const rows: [string, string][] = [
       ['Player camera', count((c) => c === 'info_player_wars') ? '✓' : '— add a Mission player start'],
       ['Your units', String(byFaction.get('yours') ?? 0)],
-      ['Zombies', String(byFaction.get('zombies') ?? 0)],
-      ['Combine', String(byFaction.get('combine') ?? 0)],
+      ...factionRows,
       ['Wave units', String(waves)],
       ['Objectives', String(count((c) => c === 'wars_mission_objective'))],
       ['Win condition', count((c) => c === 'wars_win_condition') ? '✓' : '—'],
