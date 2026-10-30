@@ -10,6 +10,8 @@ import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type DetailLevel, 
 import type { CornerOption } from '../gen/buildingPlan.ts';
 import type { RoofOption } from '../gen/roofs.ts';
 import { ioSection } from './ioEditor.ts';
+import { ROAD_STYLES, centreline, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
+import { rebuildRoads } from '../gen/roadAction.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -47,6 +49,10 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (ents.length === 1 && ents[0].solids.length) {
       panel.append(h('div.section', {}, h('button', { onclick: () => moveToWorld(editor, ents[0]) }, 'Move brushes to world')));
     }
+    // A road, or a brush picked out of one: the road's settings.
+    const roadEnt = ents.length === 1 ? ents[0] : !ents.length && owners.size === 1 ? [...owners][0] : null;
+    const road = roadEnt ? roadOf(roadEnt) : null;
+    if (roadEnt && road) panel.append(roadPanel(editor, roadEnt, road));
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
     if (solids.length) panel.append(brushEditor(editor));
     if ([...sel.solids].some((s) => !s.entity)) panel.append(buildingPanel(editor));
@@ -129,6 +135,27 @@ function entityEditor(editor: Editor, e: MapEntity): HTMLElement {
   const newVal = h('input', { placeholder: 'value' }) as HTMLInputElement;
   section.append(h('div.row', {}, newKey, newVal, h('button', { onclick: () => newKey.value && commit(newKey.value, newVal.value) }, '+')));
   return section;
+}
+
+/** A road's style and sizes; changes rebuild all roads, so crossings stay open. */
+function roadPanel(editor: Editor, e: MapEntity, road: RoadSpec): HTMLElement {
+  const apply = (patch: Partial<RoadSpec>) => rebuildRoads(editor, 'Edit road', { replace: [e, { ...road, ...patch }] });
+  const style = h('select', {}, ...Object.entries(ROAD_STYLES).map(([k, s]) => h('option', { value: k }, s.label))) as HTMLSelectElement;
+  style.value = road.style;
+  style.addEventListener('change', () => apply({ style: style.value as RoadStyle }));
+  const num = (key: 'width' | 'pavement' | 'radius', step: number, min: number) => {
+    const i = h('input', { type: 'number', value: String(road[key]), step: String(step), min: String(min) }) as HTMLInputElement;
+    i.addEventListener('change', () => apply({ [key]: Math.max(min, parseFloat(i.value) || min) }));
+    return i;
+  };
+  const len = centreline(road.points, road.radius).reduce((s, p, i, a) => s + (i ? p.distanceTo(a[i - 1]) : 0), 0);
+  return h('div.section', {}, h('h3', {}, 'Road'),
+    h('p.hint', {}, `${road.points.length} points, ${Math.round(len)} units long. Draw new roads with the Road tool (7).`),
+    h('div.row', {}, h('label', {}, 'Style'), style),
+    h('div.row', {}, h('label', {}, 'Width'), num('width', 32, 64)),
+    h('div.row', {}, h('label', {}, 'Pavement'), num('pavement', 16, 0)),
+    h('div.row', {}, h('label', {}, 'Corners'), num('radius', 32, 0)),
+    h('button', { onclick: () => rebuildRoads(editor, 'Rebuild roads') }, 'Rebuild all roads'));
 }
 
 /** Turns the selected block brushes into buildings. */

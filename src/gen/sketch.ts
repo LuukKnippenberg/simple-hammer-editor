@@ -4,6 +4,7 @@ import { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
 import { detailEntityNode, generateBuildings, type ArchitectureName, type FacadeStyle } from './buildings.ts';
 import { streetDressing, type BlockDressing } from './streets.ts';
+import { buildRoads, defaultRoad, roadEntityNode, type RoadSpec } from './roads.ts';
 import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
 import { Rng } from './rng.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
@@ -189,17 +190,22 @@ export function levelBlocks(s: Sketch): Box3[] {
 
 /** Rectangles covering the cells of one feature type that share a height level (greedy). */
 function featureRects(s: Sketch, f: Feature): { box: Box3; level: number }[] {
+  return cellRects(s, (i) => s.features[i] === f, 8);
+}
+
+/** Greedy rectangles of matching cells on one height level, at most `max` cells along each side. */
+function cellRects(s: Sketch, match: (i: number) => boolean, max: number): { box: Box3; level: number }[] {
   const used = new Uint8Array(s.w * s.h);
   const out: { box: Box3; level: number }[] = [];
-  const is = (x: number, y: number, lvl: number) => x >= 0 && y >= 0 && x < s.w && y < s.h && s.features[y * s.w + x] === f && s.levels[y * s.w + x] === lvl && !used[y * s.w + x];
+  const is = (x: number, y: number, lvl: number) => x >= 0 && y >= 0 && x < s.w && y < s.h && match(y * s.w + x) && s.levels[y * s.w + x] === lvl && !used[y * s.w + x];
   for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
     const lvl = s.levels[y * s.w + x];
     if (!is(x, y, lvl)) continue;
     let x1 = x;
-    while (is(x1 + 1, y, lvl) && x1 - x < 7) x1++;
+    while (is(x1 + 1, y, lvl) && x1 - x < max - 1) x1++;
     let y1 = y;
     const rowOk = (yy: number) => { for (let xx = x; xx <= x1; xx++) if (!is(xx, yy, lvl)) return false; return true; };
-    while (y1 - y < 7 && rowOk(y1 + 1)) y1++;
+    while (y1 - y < max - 1 && rowOk(y1 + 1)) y1++;
     for (let yy = y; yy <= y1; yy++) for (let xx = x; xx <= x1; xx++) used[yy * s.w + xx] = 1;
     out.push({ box: new Box3(new Vector3(x * SKETCH_CELL, y * SKETCH_CELL, 0), new Vector3((x1 + 1) * SKETCH_CELL, (y1 + 1) * SKETCH_CELL, 0)), level: lvl });
   }
@@ -252,6 +258,43 @@ export function generateFromSketch(s: Sketch): SketchResult {
     solids.push(terrainPatch(doc, x, y, P, theme.blend, heightAt, alphaAt, 4));
   }
 
+  const shift = new Vector3(-mapW / 2, -mapH / 2, 0);
+  // Roads over the road cells, built by the road tool's code (so they can be edited as roads): in the city
+  // an asphalt carriageway with kerbs and pavements inside the road cells, in the countryside a dirt track.
+  // A piece that ends against another road runs on to its centre, so the crossing opens.
+  const roads: RoadSpec[] = [];
+  const isRoad = (cx: number, cy: number) => cx >= 0 && cy >= 0 && cx < s.w && cy < s.h && s.surface[cy * s.w + cx] === Surface.Road;
+  for (const { box } of cellRects(s, (i) => s.surface[i] === Surface.Road, 64)) {
+    const size = box.getSize(new Vector3());
+    const alongX = size.x >= size.y;
+    const long = Math.max(size.x, size.y), short = Math.min(size.x, size.y);
+    const c = box.getCenter(new Vector3());
+    const ends = alongX ? [new Vector3(box.min.x, c.y, 0), new Vector3(box.max.x, c.y, 0)] : [new Vector3(c.x, box.min.y, 0), new Vector3(c.x, box.max.y, 0)];
+    const cell = (v: number) => Math.floor(v / SKETCH_CELL);
+    ends.forEach((p, k) => {
+      const out = k === 0 ? -1 : 1;
+      const beyond = alongX ? isRoad(cell(p.x) + (out < 0 ? -1 : 0), cell(c.y)) : isRoad(cell(c.x), cell(p.y) + (out < 0 ? -1 : 0));
+      if (beyond) { if (alongX) p.x += out * SKETCH_CELL; else p.y += out * SKETCH_CELL; }
+      p.z = flatHeight(p.x - (alongX ? out : 0), p.y - (alongX ? 0 : out));
+    });
+    if (s.theme === 'city') {
+      const pavement = short >= 384 ? 64 : 48;
+      // The pavement stops 6 units short of the building line, clear of the buildings' base course (4 out):
+      // overlapping detail brushes get chopped against each other, and over a whole district the extra
+      // t-junctions overflow vbsp's limit.
+      const width = Math.max(96, short - 2 * (pavement + 8 + 6));
+      roads.push({ ...defaultRoad('asphalt', ends), width, pavement, radius: 0, lined: long >= short * 2 && width >= 128, lift: 3 });
+    } else {
+      roads.push({ ...defaultRoad('dirt', ends), width: short - 32, radius: 0, lift: 2 });
+    }
+  }
+  // Longest first: through roads keep their surface across junctions.
+  roads.sort((a, b) => b.points[0].distanceTo(b.points[1]) - a.points[0].distanceTo(a.points[1]));
+  buildRoads(doc, roads).forEach((nodes, i) => {
+    const stored = { ...roads[i], points: roads[i].points.map((p) => p.clone().add(shift)) };
+    ents.push(roadEntityNode(doc, stored, nodes));
+  });
+
   // Buildings: one generated block per rectangle of building cells, on that cell's height level.
   const dressings: BlockDressing[] = [];
   for (const { box, level } of featureRects(s, Feature.Building)) {
@@ -300,7 +343,6 @@ export function generateFromSketch(s: Sketch): SketchResult {
     sunYaw: rng.int(20, 70), fogColor: theme.fog, cameraGround: levelBlocks(s),
   });
   doc.world.set('skyname', theme.sky);
-  const shift = new Vector3(-mapW / 2, -mapH / 2, 0);
   const out = finishDoc(doc, solids, ents, shift);
   return { doc: out, shift, heightAt: (x, y) => flatHeight(x - shift.x, y - shift.y) };
 }

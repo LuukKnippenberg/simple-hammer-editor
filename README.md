@@ -532,9 +532,9 @@ four scrap points).
 
 | | Sofia (before these phases) | City 17 district |
 |---|---|---|
-| Brushes | 1,107 | 3,152 (317 world, the rest func_detail) |
+| Brushes | 1,107 | 3,946 (317 world, the rest func_detail; 794 of them roads) |
 | Props / decals / cables | 566 / 52 / 0 | 606 / 219 / 24 |
-| Compile with navmesh (fast) | about 30 s | 38.6 s, sealed |
+| Compile with navmesh (fast) | about 30 s | 44.2 s, sealed |
 | Editor (lighting preview, 900k triangles) | 240 FPS | 240 FPS (frame-rate cap) |
 
 `scripts/compile-map.mjs` compiles a map from `maps/` like the compile dialog (map settings, vbsp, vvis,
@@ -547,6 +547,43 @@ vrad, navmesh) without the browser, optionally into another install:
 ![The square with bare trees](docs/screenshots/district-05-square.png)
 ![A crossing: lamps, cables, awnings, rounded corners](docs/screenshots/district-06-crossing.png)
 ![Rooftops: mansards, dormers, chimneys, a tower](docs/screenshots/district-07-rooftops.png)
+
+## Roads, powerlines, audio and mission flow
+
+### Roads
+
+The **Road tool** (7) draws roads as a line of points: click points (they snap to the grid, and onto
+existing roads to join them), Enter or double-click builds, Backspace removes the last point, Escape
+cancels. The preview shows the rounded centre line and the edges of the carriageway and pavements.
+
+| Style | Surface | Kerbs and pavements | Default width |
+|---|---|---|---|
+| Asphalt road | the game's asphalt with a dashed centre line, one tile across so the line sits on the centre | 8-unit kerbs, paving slabs | 256 + 2 × 96 |
+| Cobbled street | cobble | yes | 192 + 2 × 64 |
+| Tram street | cobble with two tracks of steel rails | yes | 320 + 2 × 96 |
+| Dirt track | dirt, almost flush with the ground | none | 160 |
+
+- **Corners** are rounded with a set radius, so every piece stays a small convex brush; slopes follow the
+  points' heights. Roads are func_detail and store their points and settings on the entity (`she_road`).
+- **Crossings**: all roads are rebuilt together. The earlier road's surface wins where carriageways
+  overlap; kerbs and pavements give way to other roads (convex polygon subtraction), which opens T-junctions
+  and crossings. Rails stay on top.
+- **Editing**: selecting a road (or any of its brushes) shows a Road panel for style, width, pavement and
+  corner radius; changes rebuild all roads.
+- **Sketch**: road cells become roads through the same code: asphalt with kerbs and pavements in the city
+  (dirt tracks in the countryside), longest roads first so they run through junctions, pieces that end
+  against another road extended to its centre. The test district's streets are now built this way.
+- Long straights are cut into 512-unit pieces, and sketch pavements stop 6 units short of the building
+  line. Pavements overlapping the buildings' base course pushed the district past vbsp's limit of 65,536
+  t-junction indices ("Too many t-junctions to fix up"). Drawing a pavement into a building's base course
+  with the Road tool can still do that on very large maps.
+
+![Drawing a dirt track: the preview with its edges](docs/screenshots/roads-drawing.png)
+![An asphalt road with a rounded bend, a tram street, a cobbled side street and a dirt track](docs/screenshots/roads-overview.png)
+![A T-junction: the cobbled street opens the asphalt road's kerb and pavement](docs/screenshots/roads-junction.png)
+![The tram street crossing the asphalt road; rails stay on top](docs/screenshots/roads-crossing.png)
+![The rounded bend](docs/screenshots/roads-bend.png)
+![The Road panel](docs/screenshots/roads-panel.png)
 
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 

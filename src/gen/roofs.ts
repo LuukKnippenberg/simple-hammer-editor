@@ -24,7 +24,7 @@ const CHIMNEY: FacadeTile = { material: 'BUILDING_TEMPLATE/BUILDING_TEMPLATE011B
 const CHIMNEY_CAP = 'CONCRETE/CONCRETEFLOOR028C';
 
 /** A brush plane: a point on it and its outward normal. */
-interface PlaneSpec {
+export interface PlaneSpec {
   point: Vector3;
   normal: Vector3;
   material: string;
@@ -33,7 +33,7 @@ interface PlaneSpec {
 }
 
 /** Three points on the plane in Hammer's order, so the face normal comes out as `normal`. */
-function planeFace(p: PlaneSpec): FaceSpec {
+export function planeFace(p: PlaneSpec): FaceSpec {
   const n = p.normal.clone().normalize();
   const t = Math.abs(n.z) > 0.999 ? new Vector3(1, 0, 0) : new Vector3(0, 0, 1).cross(n).normalize();
   const a = p.point.clone();
@@ -54,7 +54,7 @@ function slopeAxes(edgeDir: Vector3, normal: Vector3): { u: TexAxis; v: TexAxis 
  * A convex brush from planes. Planes that end up with no face (they don't touch the volume) are dropped,
  * so the compiler never sees a redundant side.
  */
-function planeBrush(doc: VmfDocument, planes: PlaneSpec[]): KVNode | null {
+export function planeBrush(doc: VmfDocument, planes: PlaneSpec[]): KVNode | null {
   const node = solidNode(doc, planes.map(planeFace));
   const solid = new MapSolid(node, null);
   const faces = buildBrushFaces(solid);

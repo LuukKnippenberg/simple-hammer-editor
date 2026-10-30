@@ -10,8 +10,10 @@ import { placeEntity } from './actions.ts';
 import { KITS, recordKit, type ParamValue } from '../lw/kits.ts';
 import { moveOverlayBasis, placeDecal } from './decals.ts';
 import { shapeSolids, type ShapeKind } from './shapes.ts';
+import { RoadTool } from './roadTool.ts';
+import { isTyping } from '../render/cameraControls.ts';
 
-export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal';
+export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road';
 
 export interface Tool {
   name: ToolName;
@@ -20,6 +22,10 @@ export interface Tool {
   down(e: PointerEvent, ndc: Vector2): void;
   move(e: PointerEvent, ndc: Vector2): void;
   up(e: PointerEvent, ndc: Vector2): void;
+  /** Pointer moving over the viewport with no button held. */
+  hoverAt?(ndc: Vector2): void;
+  /** Keyboard input while the tool is active; return true to consume it. */
+  key?(e: KeyboardEvent): boolean;
 }
 
 export const snap = (v: number, g: number) => Math.round(v / g) * g;
@@ -433,7 +439,10 @@ export class ToolManager {
 
   constructor(editor: Editor) {
     this.select = new SelectTool(editor);
-    this.tools = { select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor), kit: new KitTool(editor), decal: new DecalTool(editor) };
+    this.tools = {
+      select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor),
+      kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor),
+    };
     this.current = this.select;
     const dom = editor.renderer.domElement;
     dom.addEventListener('pointerdown', (e) => {
@@ -443,7 +452,16 @@ export class ToolManager {
     });
     window.addEventListener('pointermove', (e) => {
       if (this.active) this.current.move(e, editor.ndcFromEvent(e));
+      else if (e.target === dom && e.buttons === 0) this.current.hoverAt?.(editor.ndcFromEvent(e));
     });
+    // Before the global shortcuts, so a tool can take Enter, Escape or Backspace.
+    window.addEventListener('keydown', (e) => {
+      if (isTyping(e) || e.ctrlKey || e.metaKey) return;
+      if (this.current.key?.(e)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }, true);
     window.addEventListener('pointerup', (e) => {
       if (!this.active || e.button !== 0) return;
       this.active = false;

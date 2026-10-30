@@ -21,13 +21,13 @@ export function buildDistrictSketch(): Sketch {
   const fill = (x0: number, y0: number, x1: number, y1: number, f: (i: number) => void) => {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) f(y * N + x);
   };
-  // Streets are road, the pavement along the blocks cobble.
+  // Streets are road (asphalt with kerbs and pavements); the ground under the blocks cobble.
   fill(0, 0, N - 1, N - 1, (i) => (s.surface[i] = Surface.Road));
   for (const bx of BLOCKS) {
     for (const by of BLOCKS) {
       const square = (bx === 11 || bx === 21) && (by === 11 || by === 21);
       if (square) continue;
-      fill(bx - 1, by - 1, bx + 8, by + 8, (i) => (s.surface[i] = Surface.Paved));
+      fill(bx, by, bx + 7, by + 7, (i) => (s.surface[i] = Surface.Paved));
       // Some blocks split in two by a lane, for row houses and alleys.
       if ((bx === 31 && by === 11) || (bx === 1 && by === 21)) {
         fill(bx, by, bx + 7, by + 2, (i) => (s.features[i] = Feature.Building));
