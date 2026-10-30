@@ -867,6 +867,32 @@ offers cover, chokepoints, high ground or a place to capture, and always leaves 
 ![Abandoned playground on rubber](docs/screenshots/poi-p1-playground-abandoned.png)
 ![All of phase 1](docs/screenshots/poi-p1-overview.png)
 
+### POI phase 2: park and market
+
+- **Park** (1280 to 4096, default 1792): grass, a gravel loop round a centre feature and four winding spokes
+  (one bend each, pushed sideways at random) out to the middle of each side; the paths are the routes, kept
+  clear by squares along them. Centre: a raised ornamental pond with a stone rim (dry until phase 6), a
+  fountain, a bandstand (a 16-high octagonal stage units can step onto, posts, a pointed metal roof) or plain
+  lawn. Hedges round the edge with gaps at the paths and a `fow_blocker` along them (*Hedges block sight*),
+  clusters of trees and bushes on the lawns (*Tree density*), benches and bins along the spokes and round the
+  loop, lamp posts. It can hold a zombie group.
+- **Market** (896×768 to 3072×3072): cobbles, pitches on a grid of back-to-back rows between 160-wide lanes
+  (the routes, both ways). Each stall is brushes: a timber counter, four posts and a roof sloping to the
+  front in corrugated metal, painted metal or shingles, or a board roof with striped awnings (the HL2 awning
+  models) along the front; melons, crates and plastic crates on the counter, pallets, barrels and crates
+  behind. Empty pitches get a cart. *Covered hall* adds columns round the stall block and an open frame of
+  beams on top; *Abandoned* leaves roofs missing, fewer goods and rubbish in the lanes. The capture point
+  takes one pitch in the middle.
+- Toolkit: `path()` lays a strip of convex brushes along a polyline with discs at the bends and reserves it.
+
+![Park with a pond, hedges and tree clusters](docs/screenshots/poi-p2-park-pond.png)
+![Park with a bandstand](docs/screenshots/poi-p2-park-bandstand.png)
+![In the park](docs/screenshots/poi-p2-park-path.png)
+![Market](docs/screenshots/poi-p2-market.png)
+![A market lane: awnings, counters, melons and crates](docs/screenshots/poi-p2-market-lane.png)
+![Covered market hall](docs/screenshots/poi-p2-market-hall.png)
+![Abandoned market with a capture point](docs/screenshots/poi-p2-market-abandoned.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

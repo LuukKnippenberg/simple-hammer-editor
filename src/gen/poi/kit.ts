@@ -273,6 +273,29 @@ export class PoiKit {
     return r;
   }
 
+  /**
+   * A path along a local polyline: a strip of `material` (one convex brush per segment, discs at the bends)
+   * raised `top` above the ground, reserved as a route by squares along it.
+   */
+  path(points: [number, number][], material: string, width = ROUTE_WIDTH, top = 4): void {
+    const h = width / 2;
+    for (let i = 0; i + 1 < points.length; i++) {
+      const [a, b] = [points[i], points[i + 1]];
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 1) continue;
+      const n = [-(b[1] - a[1]) / len * h, (b[0] - a[0]) / len * h];
+      this.prism([[a[0] - n[0], a[1] - n[1]], [b[0] - n[0], b[1] - n[1]], [b[0] + n[0], b[1] + n[1]], [a[0] + n[0], a[1] + n[1]]], -6, top, { top: material, bottom: NODRAW, sides: NODRAW });
+      // Squares along the segment keep props off it.
+      const steps = Math.max(1, Math.ceil(len / 48));
+      for (let k = 0; k <= steps; k++) {
+        const x = a[0] + ((b[0] - a[0]) * k) / steps, y = a[1] + ((b[1] - a[1]) * k) / steps;
+        this.reserved.push(rect(x - h, y - h, x + h, y + h));
+      }
+      this.out.routes.push(this.worldRect(rect(a[0] - h, a[1] - h, a[0] + h, a[1] + h)));
+    }
+    for (const p of points.slice(1, -1)) this.cylinder(p[0], p[1], h, -6, top, { top: material, bottom: NODRAW, sides: NODRAW }, 8);
+  }
+
   /** A route across the POI through its middle: 'x' runs from the left edge to the right edge. */
   crossRoute(axis: 'x' | 'y', at?: number, width = ROUTE_WIDTH): Rect {
     return axis === 'x' ? this.route([0, at ?? this.D / 2], [this.W, at ?? this.D / 2], width) : this.route([at ?? this.W / 2, 0], [at ?? this.W / 2, this.D], width);
