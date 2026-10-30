@@ -551,6 +551,47 @@ vrad, navmesh) without the browser, optionally into another install:
 ![A crossing: lamps, cables, awnings, rounded corners](docs/screenshots/district-06-crossing.png)
 ![Rooftops: mansards, dormers, chimneys, a tower](docs/screenshots/district-07-rooftops.png)
 
+## Interior buildings
+
+Enterable, roofless "cutaway" houses next to the solid City 17 buildings: hollow walls cut off flat at one
+height, rooms with doorways, furniture and lights, sometimes stairs to a partial upper floor. Units walk into
+them and stay visible from the RTS camera. The plan is in
+[docs/interior-buildings-plan.md](docs/interior-buildings-plan.md).
+
+### Interior phase 1: floor-plan planner
+
+`src/gen/interiorPlan.ts` turns a footprint into an `InteriorPlan` (data only, no brushes):
+
+- **Rooms**: the footprint is rasterised on a 64 grid (grid lines through every corner, the last cell of a
+  run takes the remainder), cut into rectangles through its inner corners (an L becomes two), and each
+  rectangle is split along its longer side into rooms of at least 128 × 128 (192 with wide doors).
+- **Walls** come from the cell edges where the room changes: exterior walls 16 thick inside the
+  footprint, partitions 8 thick on the room line. Overlaps are resolved so the boxes never intersect: a
+  wall ending inside another is cut back to its face, the stronger wall keeps a corner, a crossing splits
+  the weaker one. Pieces are then split wherever the room on either side changes, so each face looks
+  into exactly one room.
+- **Openings**: entrances first (requested footprint edges, otherwise a long wall; a second one on
+  another side for houses over 384 long), then a spanning tree of inner doors so every room is reachable,
+  plus a few extra doors for loops, and sometimes a wide gap between living rooms. Doors are 64 or 96
+  wide (128 with wide doors); everything keeps 16 from wall ends and from walls that join the wall.
+  Windows (64 or 96, sill 40, lintel 96) go on outside walls about every 128–192 units, 32 clear of
+  doors and corners.
+- **Room types**: a hall or living room at the front door, a kitchen next to it, the bath next to the
+  kitchen, then bedrooms and storage; workshops get a workshop and storage rooms.
+- **Two storeys**: an upper floor over one end (a third to half of the house), and a straight flight of
+  8 steps (16 rise, 24 tread, 96 wide) along an outside wall of the open part, rising to the slab edge.
+  Room splits never cut through the stairs and the space in front of them.
+- **Lanes** (48 wide, from each door and the stairs to the middle of the room), **door zones** (64 deep
+  on both sides of every doorway) and a **porch** strip in front of the main door, for later phases.
+- Tests (`tests/interiorPlan.test.ts`, 6 footprints × 40 seeds × 3 option sets): every room reachable from
+  an entrance, door widths, openings clear of wall ends, joins and each other, rooms tiling the footprint,
+  disjoint wall boxes, the same seed giving the same plan, L-shapes, stairs landing on the upper floor.
+
+![Floor plans: one storey (top row, the last with wide doors), two storeys and a workshop](docs/screenshots/interiors-p1-plans.png)
+![One-storey plans: hall, living room, chequered kitchen, tiled bath, porch decks](docs/screenshots/interiors-p1-one-storey.png)
+![Two storeys: the upper floor's walls in white, a flight beside it](docs/screenshots/interiors-p1-two-storey.png)
+![An L with an upper wing, a tall narrow house and a workshop](docs/screenshots/interiors-p1-two-storey-2.png)
+
 ## Roads, powerlines, audio and mission flow
 
 ### Roads
