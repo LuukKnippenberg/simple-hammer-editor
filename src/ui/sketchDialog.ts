@@ -1,15 +1,15 @@
 import type { Editor } from '../editor.ts';
 import {
-  FEATURE_INFO, MARKER_INFO, SURFACE_INFO, Feature, Surface, emptySketch, generateFromSketch, placeMarkers, symmetricCells,
+  FEATURE_INFO, MARKER_INFO, AUTO_DETAIL, QUALITY_PAINT, SURFACE_INFO, Feature, Surface, emptySketch, generateFromSketch, placeMarkers, sketchBlocks, symmetricCells,
   type MarkerKind, type Sketch, type SketchTheme,
 } from '../gen/sketch.ts';
-import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle } from '../gen/buildings.ts';
+import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type BuildingQuality, type FacadeStyle } from '../gen/buildings.ts';
 import { h, toast } from './dom.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { drawSketchPois, sketchPoiInput, sketchPoiPanel } from './sketchPoiLayer.ts';
 import { placePois } from '../gen/poi/sketchPois.ts';
 
-type Layer = 'height' | 'surface' | 'feature' | 'marker' | 'poi';
+type Layer = 'height' | 'surface' | 'feature' | 'detail' | 'marker' | 'poi';
 type Shape = 'brush' | 'rect' | 'fill';
 const LEVEL_COLORS = ['#1d2f22', '#4f7a3a', '#a3a14e', '#c98a45', '#f0e2c0'];
 
@@ -35,6 +35,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
   let surface: Surface = Surface.Road;
   let feature: Feature = Feature.Building;
   let marker: MarkerKind = 'zombies';
+  let quality: 1 | 2 | 3 = 1;
   const undo: string[] = [];
   const snapshot = () => { undo.push(JSON.stringify(s)); if (undo.length > 60) undo.shift(); };
 
@@ -106,6 +107,24 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       ctx.fillText(mi.letter, cx, cy + 1);
     }
     drawSketchPois(ctx, s, PX, Y, layer === 'poi');
+    if (layer === 'detail') {
+      // Painted cells as a wash; each block outlined in the quality it will be built at.
+      for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+        const v = s.quality?.[y * s.w + x] as 1 | 2 | 3 | undefined;
+        if (!v) continue;
+        ctx.fillStyle = QUALITY_PAINT[v].color;
+        ctx.globalAlpha = 0.45;
+        ctx.fillRect(x * PX, Y(y), PX, PX);
+        ctx.globalAlpha = 1;
+      }
+      const color = (q: BuildingQuality) => Object.values(QUALITY_PAINT).find((p) => p.quality === q)!.color;
+      ctx.lineWidth = 3;
+      for (const b of sketchBlocks(s)) {
+        ctx.strokeStyle = color(b.quality);
+        ctx.strokeRect(b.x0 * PX + 1.5, Y(b.y1 - 1) + 1.5, (b.x1 - b.x0) * PX - 3, (b.y1 - b.y0) * PX - 3);
+      }
+      ctx.lineWidth = 1;
+    }
     if (preview) {
       ctx.strokeStyle = '#e8a33d';
       ctx.setLineDash([4, 3]);
@@ -127,6 +146,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
         else { s.levels[i] = erase ? 0 : level; s.ramps[i] = 0; }
       } else if (layer === 'surface') s.surface[i] = erase ? (s.theme === 'city' ? Surface.Paved : Surface.Grass) : surface;
       else if (layer === 'feature') s.features[i] = erase ? Feature.None : feature;
+      else if (layer === 'detail') (s.quality ??= new Array(s.w * s.h).fill(0))[i] = erase ? 0 : quality;
     }
   };
   const paintAt = (x: number, y: number, erase: boolean) => {
@@ -134,7 +154,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
     for (let dy = 0; dy <= r; dy++) for (let dx = 0; dx <= r; dx++) applyCell(x - o + dx, y - o + dy, erase);
   };
   const fillFrom = (x: number, y: number, erase: boolean) => {
-    const key = (i: number) => layer === 'height' ? `${s.levels[i]}:${s.ramps[i]}` : layer === 'surface' ? String(s.surface[i]) : String(s.features[i]);
+    const key = (i: number) => layer === 'height' ? `${s.levels[i]}:${s.ramps[i]}` : layer === 'surface' ? String(s.surface[i]) : layer === 'detail' ? String(s.quality?.[i] ?? 0) : String(s.features[i]);
     const start = y * s.w + x, target = key(start);
     const seen = new Uint8Array(s.w * s.h);
     const stack = [start];
@@ -213,7 +233,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       h('span.swatch', { style: { background: inf.color } }), inf.label)));
 
   const renderSide = () => {
-    const layerOpts: [Layer, string][] = [['height', 'Height'], ['surface', 'Surface'], ['feature', 'Features'], ['marker', 'Markers'], ['poi', 'POIs']];
+    const layerOpts: [Layer, string][] = [['height', 'Height'], ['surface', 'Surface'], ['feature', 'Features'], ['detail', 'Detail'], ['marker', 'Markers'], ['poi', 'POIs']];
     let paint: HTMLElement;
     if (layer === 'height') {
       paint = h('div', {},
@@ -225,6 +245,9 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       paint = swatches(Object.entries(SURFACE_INFO).map(([k, v]) => [Number(k) as Surface, v]), () => surface, (v) => (surface = v));
     } else if (layer === 'feature') {
       paint = swatches(Object.entries(FEATURE_INFO).filter(([k]) => Number(k) !== Feature.None).map(([k, v]) => [Number(k) as Feature, v]), () => feature, (v) => (feature = v));
+    } else if (layer === 'detail') {
+      paint = h('div', {}, swatches(Object.entries(QUALITY_PAINT).map(([k, v]) => [Number(k) as 1 | 2 | 3, v]), () => quality, (v) => (quality = v)),
+        h('p.hint', {}, `Paint high detail where the mission goes and filler elsewhere; right drag removes paint. A block takes its most detailed paint; unpainted ones follow Building detail (auto: high within ${AUTO_DETAIL.high} cells of markers and POIs, medium within ${AUTO_DETAIL.medium}). Outlines show the result.`));
     } else if (layer === 'poi') {
       paint = sketchPoiPanel(renderSide);
     } else {
@@ -252,6 +275,10 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       h('option', { value: '' }, 'From architecture'), h('option', { value: 'none' }, 'None'), h('option', { value: 'some' }, 'Some'), h('option', { value: 'all' }, 'All')) as HTMLSelectElement;
     interiors.value = s.interiors ?? '';
     interiors.addEventListener('change', () => (s.interiors = (interiors.value || undefined) as Sketch['interiors']));
+    const detailSel = h('select', { title: 'How detailed unpainted buildings are (paint the Detail layer to choose per block)' },
+      h('option', { value: 'high' }, 'High everywhere'), h('option', { value: 'auto' }, 'Auto: by distance to the action')) as HTMLSelectElement;
+    detailSel.value = s.buildingDetail ?? 'high';
+    detailSel.addEventListener('change', () => { s.buildingDetail = detailSel.value as Sketch['buildingDetail']; draw(); });
     const num = (value: number, set: (v: number) => void, min = 1, max = 99) => {
       const i = h('input', { type: 'number', value, min, max }) as HTMLInputElement;
       i.addEventListener('change', () => set(Math.max(min, Math.min(max, parseInt(i.value, 10) || min))));
@@ -263,10 +290,12 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       if (n === s.w) return;
       snapshot();
       const old = s;
-      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade, architecture: old.architecture, interiors: old.interiors };
+      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade, architecture: old.architecture, interiors: old.interiors, buildingDetail: old.buildingDetail };
+      if (old.quality) s.quality = new Array(n * n).fill(0);
       for (let y = 0; y < Math.min(n, old.h); y++) for (let x = 0; x < Math.min(n, old.w); x++) {
         const a = y * n + x, b = y * old.w + x;
         s.levels[a] = old.levels[b]; s.ramps[a] = old.ramps[b]; s.surface[a] = old.surface[b]; s.features[a] = old.features[b];
+        if (s.quality) s.quality[a] = old.quality![b];
       }
       s.markers = old.markers.filter((m) => m.x < n && m.y < n);
       s.pois = (old.pois ?? []).filter((p) => p.x + p.w <= n && p.y + p.h <= n);
@@ -285,6 +314,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
         h('div.row', {}, h('label', {}, 'Floors'), num(s.floors[0], (v) => (s.floors[0] = v), 1, 12), h('span.muted', {}, 'to'), num(s.floors[1], (v) => (s.floors[1] = v), 1, 12)),
         h('div.row', {}, h('label', {}, 'Architecture'), arch),
         h('div.row', {}, h('label', {}, 'Interiors'), interiors),
+        h('div.row', {}, h('label', {}, 'Building detail'), detailSel),
         h('div.row', {}, h('label', {}, 'Facade'), facade),
         h('div.row', {}, h('label', {}, 'Seed'), num(s.seed, (v) => (s.seed = v), 1, 1e9))),
       h('div.row', {}, h('button', { onclick: () => { if (confirm('Clear the sketch?')) { snapshot(); s = emptySketch(s.w, s.h, s.theme); draw(); } } }, 'Clear')),

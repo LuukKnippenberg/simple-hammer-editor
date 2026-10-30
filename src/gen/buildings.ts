@@ -53,6 +53,11 @@ export interface BuildingOptions {
   annexes?: boolean;
   /** Facade decoration (default 2: base course, ledges, columns, stepped cornice). */
   detail?: DetailLevel;
+  /**
+   * How much this block builds (default high): full detail near the action, less on filler blocks further
+   * away. It caps the decoration and turns off interiors, towers and street features (see QUALITY).
+   */
+  quality?: BuildingQuality;
   /** Roof shape: one kind for every building, or the architecture's mix (default). */
   roofs?: RoofOption;
   /** Towers with domes, bells, onions or spires on some street corners (default on). */
@@ -93,6 +98,19 @@ const inside = (poly: Vector2[], p: Vector2) => poly.every((a, i) => {
 
 /** How much facade decoration to build: 0 a plain cornice, 1 + base course, 2 + ledges and columns, 3 + brackets. */
 export type DetailLevel = 0 | 1 | 2 | 3;
+
+export type BuildingQuality = 'high' | 'medium' | 'filler';
+
+/**
+ * What each quality builds. Decoration is what a generated city spends vbsp's t-junction buffer on (65536
+ * indices): on sp_tutorial_combine, buildings at detail 2 use 98.8% of it, at detail 1 53%, at detail 0 18%
+ * (scripts/tjunc-budget.mjs). Interiors, towers and street features cost far less but add up on many blocks.
+ */
+export const QUALITY: Record<BuildingQuality, { label: string; hint: string; maxDetail: DetailLevel; interiors: boolean; towers: boolean; streetFeatures: boolean }> = {
+  high: { label: 'High', hint: 'Everything the settings ask for', maxDetail: 3, interiors: true, towers: true, streetFeatures: true },
+  medium: { label: 'Medium', hint: 'Base course and cornice only, no enterable houses', maxDetail: 1, interiors: false, towers: true, streetFeatures: true },
+  filler: { label: 'Filler', hint: 'Plain walls with their windows and a cornice; no towers, oriels or balconies', maxDetail: 0, interiors: false, towers: false, streetFeatures: false },
+};
 
 const BASE = t('building_template003a', 0);
 
@@ -502,7 +520,8 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   );
   const out: GeneratedBuildings = { solids: [], detail: [], entities: [], buildings: 0, interiorHouses: 0, dressing: { area, z0: footprint.min.z, anchors: [], yards: [], obstacles: [] } };
   const z0 = footprint.min.z;
-  const level = opts.detail ?? 2;
+  const quality = QUALITY[opts.quality ?? 'high'];
+  const level = Math.min(opts.detail ?? 2, quality.maxDetail) as DetailLevel;
   // Decoration draws from its own sequence, so the layout and textures don't change with the detail level.
   const deco = new Rng(opts.seed * 31 + 7);
   const roofRng = new Rng(opts.seed * 17 + 3);
@@ -514,7 +533,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
     isStreet: (a: Vector2, b: Vector2) => onLine(a, b, 'x', area.min.x) || onLine(a, b, 'x', area.max.x) || onLine(a, b, 'y', area.min.y) || onLine(a, b, 'y', area.max.y),
     rng: new Rng(opts.seed * 7 + 11),
     entities: out.entities,
-    oriels: arch.oriels, balconies: arch.balconies, roofHuts: arch.roofHuts, weathering: opts.weathering ?? 0.5,
+    oriels: arch.oriels && quality.streetFeatures, balconies: arch.balconies && quality.streetFeatures, roofHuts: arch.roofHuts, weathering: opts.weathering ?? 0.5,
     anchors: out.dressing.anchors,
   };
   const plan = planBlock(area, rng, {
@@ -542,7 +561,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   });
 
   // Enterable houses: decided from their own sequence, so the other choices keep their seeds.
-  const interiors = opts.interiors ?? arch.interiors;
+  const interiors = quality.interiors ? opts.interiors ?? arch.interiors : 'none';
   const intRng = new Rng(opts.seed * 41 + 17);
   const allParts = plan.buildings.flatMap((b) => b.parts);
   const boxOf = (p: Part) => new Box2().setFromPoints(p.poly);
@@ -626,7 +645,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
       out.solids.push(...r.world);
       out.detail.push(...r.detail);
       // Corner towers: most rounded corners, some cut and square ones.
-      if (part.corner && part.floors >= 3 && (opts.towers ?? true)) {
+      if (part.corner && part.floors >= 3 && (opts.towers ?? true) && quality.towers) {
         const chance = arch.towers * (part.corner.shape === 'round' ? 0.6 : part.corner.shape === 'chamfer' ? 0.35 : 0.2);
         if (towerRng.chance(chance)) out.detail.push(...cornerTower(doc, part, s, r.windows, z0, r.roofHeight, towerRng));
       }

@@ -2,7 +2,7 @@ import { Box2, Box3, Vector2, Vector3 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
-import type { ArchitectureName, FacadeStyle } from './buildings.ts';
+import type { ArchitectureName, BuildingQuality, FacadeStyle } from './buildings.ts';
 import type { BlockDressing } from './streets.ts';
 import { blockIntoDoc, blockUids, groupStreet, type BlockSpec } from './buildingStore.ts';
 import { buildRoads, defaultRoad, roadEntityNode, roadGround, type RoadSpec } from './roads.ts';
@@ -85,6 +85,50 @@ export interface Sketch {
   interiors?: 'none' | 'some' | 'all';
   /** Points of interest: rectangles in cells, built by the POI generator (see placePois in poi/sketchPois.ts). */
   pois?: SketchPoi[];
+  /**
+   * How detailed the buildings are where nothing is painted (see blockQuality): `high` everywhere (default),
+   * or `auto` by distance to the action (markers and POIs).
+   */
+  buildingDetail?: 'high' | 'auto';
+  /** Per cell, painted: 0 (or missing) not painted, 1 high, 2 medium, 3 filler (QUALITY_PAINT). */
+  quality?: number[];
+}
+
+/** The painted values of the sketch's Detail layer. */
+export const QUALITY_PAINT: Record<1 | 2 | 3, { quality: BuildingQuality; label: string; color: string }> = {
+  1: { quality: 'high', label: 'High detail', color: '#e05a4f' },
+  2: { quality: 'medium', label: 'Medium detail', color: '#e8a33d' },
+  3: { quality: 'filler', label: 'Filler', color: '#6e8fb0' },
+};
+
+/** Auto detail: blocks within this many cells of a marker or POI are high, within the second medium, the rest filler. */
+export const AUTO_DETAIL = { high: 3, medium: 8 };
+
+/**
+ * The quality of a block of buildings on cells [x0, x1) × [y0, y1): the most detailed quality painted on any of
+ * its cells; else by the sketch's `buildingDetail` (auto: the cell gap to the nearest marker or POI).
+ */
+export function blockQuality(s: Sketch, x0: number, y0: number, x1: number, y1: number): BuildingQuality {
+  let painted = 0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const v = s.quality?.[y * s.w + x] ?? 0;
+    if (v && (!painted || v < painted)) painted = v;
+  }
+  if (painted) return QUALITY_PAINT[painted as 1 | 2 | 3].quality;
+  if (s.buildingDetail !== 'auto') return 'high';
+  // Gap between two cell ranges along one axis (0 when they overlap).
+  const gap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, b0 - a1, a0 - b1);
+  const dist = (bx0: number, by0: number, bx1: number, by1: number) => Math.hypot(gap(x0, x1, bx0, bx1), gap(y0, y1, by0, by1));
+  const d = Math.min(Infinity, ...s.markers.map((m) => dist(m.x, m.y, m.x, m.y)), ...(s.pois ?? []).map((p) => dist(p.x, p.y, p.x + p.w, p.y + p.h)));
+  return d <= AUTO_DETAIL.high ? 'high' : d <= AUTO_DETAIL.medium ? 'medium' : 'filler';
+}
+
+/** The blocks of buildings the sketch makes (cell rectangles) and their quality, as the generator will build them. */
+export function sketchBlocks(s: Sketch): { x0: number; y0: number; x1: number; y1: number; quality: BuildingQuality }[] {
+  return featureRects(s, Feature.Building).map(({ box }) => {
+    const x0 = Math.round(box.min.x / SKETCH_CELL), y0 = Math.round(box.min.y / SKETCH_CELL), x1 = Math.round(box.max.x / SKETCH_CELL), y1 = Math.round(box.max.y / SKETCH_CELL);
+    return { x0, y0, x1, y1, quality: blockQuality(s, x0, y0, x1, y1) };
+  });
 }
 
 export interface SketchPoi {
@@ -347,7 +391,10 @@ export function generateFromSketch(s: Sketch): SketchResult {
     const spec: BlockSpec = {
       uid: uid(), group: group.id, street: 'ground', groupSeed: group.seed, z,
       rect: { x0: box.min.x + shift.x, y0: box.min.y + shift.y, x1: box.max.x + shift.x, y1: box.max.y + shift.y },
-      options: { seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture, interiors: s.interiors },
+      options: {
+        seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture, interiors: s.interiors,
+        quality: blockQuality(s, Math.round(box.min.x / SKETCH_CELL), Math.round(box.min.y / SKETCH_CELL), Math.round(box.max.x / SKETCH_CELL), Math.round(box.max.y / SKETCH_CELL)),
+      },
     };
     const b = blockIntoDoc(doc, spec, (c, o, k) => entity(doc, c, o, k), shift);
     solids.push(...b.world);

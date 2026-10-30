@@ -4,7 +4,8 @@
 // way. Variants run side by side (vbsp alone takes a few minutes on a big map).
 //   node --experimental-transform-types scripts/tjunc-budget.mjs <name> [--variants a,b,...] [--jobs 4]
 // Variants: base, regen (every block rebuilt as it is: should match base), no-buildings, no-roads, no-pois,
-// no-interiors, detail-brush (blocks' detail brushes in func_brushes), detail0..detail3.
+// no-interiors, detail-brush (blocks' detail brushes in func_brushes), medium, filler (every block at that
+// quality), detail0..detail3.
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from '../server/config.ts';
@@ -78,6 +79,8 @@ const VARIANTS = {
       for (const [k, v] of Object.entries({ Solidity: '0', spawnflags: '2', vrad_brush_cast_shadows: '1', rendermode: '0', StartDisabled: '0' })) e.set(k, v);
     }
   },
+  medium: regenerate({ quality: 'medium' }),
+  filler: regenerate({ quality: 'filler' }),
   detail0: regenerate({ detail: 0 }),
   detail1: regenerate({ detail: 1 }),
   detail2: regenerate({ detail: 2 }),

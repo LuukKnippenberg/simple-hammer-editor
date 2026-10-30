@@ -7,7 +7,7 @@ import type { MapEntity } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
 import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, selectBlock, selectedBlocks } from '../gen/buildingAction.ts';
 import { blockFinder, blockOf } from '../gen/buildingStore.ts';
-import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type BuildingOptions, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
+import { ARCHITECTURES, FACADE_STYLES, QUALITY, type ArchitectureName, type BuildingOptions, type BuildingQuality, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
 import { INTERIOR_STYLES, type InteriorStyleName } from '../gen/styles.ts';
 import type { CornerOption } from '../gen/buildingPlan.ts';
 import type { RoofOption } from '../gen/roofs.ts';
@@ -300,6 +300,9 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
   const detail = h('select', { title: 'Facade decoration, built as func_detail' },
     h('option', { value: '0' }, 'None'), h('option', { value: '1' }, 'Low: base and cornice'),
     h('option', { value: '2', selected: true }, 'Medium: + ledges, columns'), h('option', { value: '3' }, 'High: + brackets')) as HTMLSelectElement;
+  // Filler blocks away from the action cost vbsp far less (decoration is what fills its t-junction buffer).
+  const quality = h('select', { title: 'High near the action, filler further away: decoration is what a big map runs out of room for' },
+    ...Object.entries(QUALITY).map(([k, q]) => h('option', { value: k, title: q.hint }, q.label))) as HTMLSelectElement;
   const roofs = h('select', {},
     h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'mansard' }, 'Mansard with dormers'),
     h('option', { value: 'hip' }, 'Hipped'), h('option', { value: 'gable' }, 'Gabled'),
@@ -326,6 +329,7 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
     corners.value = o.corners ?? '';
     roofs.value = o.roofs ?? 'mixed';
     detail.value = String(o.detail ?? 2);
+    quality.value = o.quality ?? 'high';
     towers.checked = o.towers ?? true;
     courtyards.checked = o.courtyards ?? true;
     annexes.checked = o.annexes ?? true;
@@ -348,7 +352,7 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
       alleys: alleys.checked, roofProps: props.checked, style: (style.value || undefined) as FacadeStyle | undefined,
       architecture: arch.value as ArchitectureName, weathering: parseFloat(weathering.value),
       corners: (corners.value || undefined) as CornerOption | undefined, courtyards: courtyards.checked, annexes: annexes.checked,
-      detail: Number(detail.value) as DetailLevel, roofs: roofs.value as RoofOption, towers: towers.checked,
+      detail: Number(detail.value) as DetailLevel, quality: quality.value as BuildingQuality, roofs: roofs.value as RoofOption, towers: towers.checked,
       interiors: (interiors.value || undefined) as BuildingOptions['interiors'], interiorStyle: (interiorStyle.value || undefined) as InteriorStyleName | undefined,
       cutHeight: Math.max(96, Math.min(128, parseInt(cut.value, 10) || 112)), furnish: furnish.value as BuildingOptions['furnish'],
       interiorLights: lights.checked, wideDoors: wideDoors.checked,
@@ -364,6 +368,7 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
     h('div.row', {}, h('label', {}, 'Facade'), style),
     h('div.row', {}, h('label', {}, 'Corners'), corners),
     h('div.row', {}, h('label', {}, 'Roofs'), roofs),
+    h('div.row', {}, h('label', {}, 'Quality'), quality),
     h('div.row', {}, h('label', {}, 'Detail'), detail),
     h('div.row', {}, h('label', {}, 'Towers'), towers, h('span.hint', {}, 'domes and spires on corners')),
     h('div.row', {}, h('label', {}, 'Courtyards'), courtyards, h('span.hint', {}, 'blocks of 896+ units')),
