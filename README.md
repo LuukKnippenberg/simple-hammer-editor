@@ -1086,6 +1086,15 @@ three barricades, a research plus two AR2 unlocks, then the armory locked and hi
 through `point_broadcastclientcommand` (`unit_create`, `wars_abi`) and each stage echoes into `console.log`.
 `scripts/mission-conditions-demo.mjs` takes the screenshots below.
 
+Verified in game (Steam install, `-condebug`, 2026-10-30): every transition fired in order (`SHE_STAGE_A` →
+`B` → `C` → `D` → `EndGame: Winners`). Stage B's counter ignored a barricade built before the stage
+("ignoring ADD because it is disabled"), an enemy barricade didn't count, the "all of" waited for the second AR2
+unlock, `GetTechNode('build_comb_armory', 2)` was locked with `showonunavailable` off, and the message box's
+Text arrived intact with its markup. Not seen: the message box and objective HUD themselves (CEF doesn't start
+on the test machine), and an ability completed by a real building: `wars_abi` cheats have no unit, so the
+manager was the activator (a real research or training has the building as activator, per the Python).
+`unit_create` can't place a second garrison next to the first at the cursor, so the test uses one.
+
 ![The test mission with the new conditions](docs/screenshots/mission-conditions-flow.png)
 ![Editing an "all of" transition](docs/screenshots/mission-conditions-allof.png)
 ![Ability gates](docs/screenshots/mission-conditions-gates.png)
