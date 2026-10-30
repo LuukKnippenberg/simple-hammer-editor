@@ -68,3 +68,71 @@ export const ARCHITECTURES = {
   },
 } as const satisfies Record<string, Architecture>;
 export type ArchitectureName = keyof typeof ARCHITECTURES;
+
+/** Materials for an open-top interior house (see `interiorShell.ts`). */
+export interface InteriorStyle {
+  label: string;
+  /** Outer face of the outside walls (one per house). */
+  outer: string[];
+  /** Inner walls of living rooms, bedrooms and halls (one per room). */
+  inner: string[];
+  /** Inner walls of kitchens and baths. */
+  wet: string[];
+  floor: string[];
+  wetFloor: string[];
+  /** Top of every cut wall: the bright outline seen from the camera. */
+  cap: string;
+  stair: string;
+  /** Porch deck and window boards. */
+  planks: string;
+  windows: ('open' | 'black' | 'boarded')[];
+}
+
+export const INTERIOR_STYLES = {
+  farmhouse: {
+    label: 'Plaster farmhouse',
+    outer: ['PLASTER/PLASTERWALL005A', 'PLASTER/PLASTERWALL014A', 'PLASTER/PLASTERWALL011A', 'PLASTER/PLASTERWALL003A'],
+    inner: ['PLASTER/PLASTERWALLPAPER001A', 'PLASTER/PLASTERWALLPAPER004A', 'PLASTER/PLASTERWALLPAPER005A', 'PLASTER/PLASTERWALLPAPER006A', 'PLASTER/PLASTERWALL034A'],
+    wet: ['TILE/TILEWALL007E', 'PLASTER/PLASTERWALL013A'],
+    floor: ['WOOD/WOODFLOOR006A', 'WOOD/WOODFLOOR002A', 'WOOD/EP2_WOODFLOOR01'],
+    wetFloor: ['TILE/TILEFLOOR001A', 'TILE/TILEFLOOR012A'],
+    cap: 'BUILDING_TEMPLATE/BUILDING_TEMPLATE002K', stair: 'WOOD/WOODSTAIR002A', planks: 'WOOD/WOODFLOOR007A', windows: ['black', 'open'],
+  },
+  shack: {
+    label: 'Wooden shack',
+    outer: ['WOOD/WOODWALL030A', 'WOOD/WOODWALL002A', 'WOOD/WOODWALL043A', 'WOOD/WOODWALL045A'],
+    inner: ['WOOD/WOODWALL009A', 'WOOD/WOODWALL050A', 'WOOD/WOODWALL003A'],
+    wet: ['WOOD/WOODWALL050A', 'PLASTER/PLASTERWALL013A'],
+    floor: ['WOOD/WOODFLOOR005A', 'WOOD/WOODFLOOR008A', 'WOOD/WOODFLOOR001A'],
+    wetFloor: ['WOOD/WOODFLOOR005A', 'CONCRETE/CONCRETEFLOOR001A'],
+    cap: 'WOOD/WOODWALL008A', stair: 'WOOD/WOODSTAIR002B', planks: 'WOOD/WOODFLOOR008A', windows: ['boarded', 'open'],
+  },
+  brick: {
+    label: 'Brick cottage',
+    outer: ['BRICK/BRICKWALL001A', 'BRICK/BRICKWALL009A', 'BRICK/BRICKWALL032A', 'BRICK/BRICKWALL021A'],
+    inner: ['PLASTER/PLASTERWALL013A', 'PLASTER/PLASTERWALL034A', 'PLASTER/PLASTERWALLPAPER004A', 'PLASTER/PLASTERWALLPAPER006A'],
+    wet: ['TILE/TILEWALL007E', 'TILE/TILEWALL009B'],
+    floor: ['WOOD/WOODFLOOR002A', 'WOOD/WOODFLOOR006A', 'WOOD/EP2_WOODFLOOR02'],
+    wetFloor: ['TILE/TILEFLOOR012A', 'TILE/TILEFLOOR001A'],
+    cap: 'BUILDING_TEMPLATE/BUILDING_TEMPLATE002K', stair: 'WOOD/WOODSTAIR002A', planks: 'WOOD/WOODFLOOR007A', windows: ['black', 'boarded'],
+  },
+  outbuilding: {
+    label: 'Concrete outbuilding',
+    outer: ['CONCRETE/CONCRETEWALL001A', 'CONCRETE/CONCRETEWALL029A', 'CONCRETE/CONCRETEWALL041A', 'CONCRETE/CONCRETEWALL004A'],
+    inner: ['CONCRETE/CONCRETEWALL019A', 'CONCRETE/CONCRETEWALL001A', 'PLASTER/PLASTERWALL003A'],
+    wet: ['CONCRETE/CONCRETEWALL019A'],
+    floor: ['CONCRETE/CONCRETEFLOOR001A', 'CONCRETE/CONCRETEFLOOR028A', 'CONCRETE/CONCRETEFLOOR033A'],
+    wetFloor: ['CONCRETE/CONCRETEFLOOR001A'],
+    cap: 'CONCRETE/CONCRETEFLOOR028C', stair: 'CONCRETE/CONCRETEFLOOR028A', planks: 'WOOD/WOODFLOOR008A', windows: ['open'],
+  },
+  slum: {
+    label: 'Corrugated slum shack',
+    outer: ['METAL/METALWALL018A', 'METAL/METALWALL021A', 'METAL/METALWALL006B', 'METAL/METALWALL001A'],
+    inner: ['WOOD/WOODWALL009A', 'WOOD/WOODWALL043A', 'WOOD/WOODWALL002A'],
+    wet: ['WOOD/WOODWALL050A'],
+    floor: ['WOOD/WOODFLOOR008A', 'CONCRETE/CONCRETEFLOOR001A', 'WOOD/WOODFLOOR001A'],
+    wetFloor: ['CONCRETE/CONCRETEFLOOR001A'],
+    cap: 'WOOD/WOODWALL048A', stair: 'WOOD/WOODSTAIR002B', planks: 'WOOD/WOODFLOOR008A', windows: ['open', 'boarded'],
+  },
+} as const satisfies Record<string, InteriorStyle>;
+export type InteriorStyleName = keyof typeof INTERIOR_STYLES;

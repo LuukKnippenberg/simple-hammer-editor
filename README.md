@@ -592,6 +592,53 @@ them and stay visible from the RTS camera. The plan is in
 ![Two storeys: the upper floor's walls in white, a flight beside it](docs/screenshots/interiors-p1-two-storey.png)
 ![An L with an upper wing, a tall narrow house and a workshop](docs/screenshots/interiors-p1-two-storey-2.png)
 
+### Interior phase 2: hollow shell, caps and floors
+
+`src/gen/interiorShell.ts` turns a plan into brushes, and `interiorHouse()` (`src/gen/interiorHouse.ts`, the
+function the point-of-interest generator calls) now builds real houses instead of a solid box.
+
+- **Walls**: each wall piece is split around its openings into convex boxes: full-height piers, a sill
+  block under each window and a lintel over doors and windows. Walls stop flat at the **cut height**
+  (default 112, 96–128 work), and the top of every wall brush (and every window sill) carries the
+  **cap** material, world aligned so caps line up across brushes: from above the house reads as a bright
+  outline of its floor plan.
+- **Faces**: each face looks up the room in front of it: the outer face gets the house's outside finish,
+  inner faces their room's finish (tiles in kitchens and baths, wallpaper or plaster elsewhere), the
+  reveals of openings the room's finish too, bottoms nodraw. Textures are 0.25 scale with one 128-unit
+  tile per storey, starting at the floor.
+- **Floors**: one slab per room, top at z0 + 8 (an 8-unit step for units), sunk 32 into the ground so
+  houses sit on uneven terrain; its outer sides show the outside finish like a plinth. A **porch** is a
+  plank deck at the same height, sometimes with railings on its ends.
+- **Windows**: open, backed with a black panel in the middle of the hole, or boarded with two or three
+  planks across the outside, per house from its style.
+- **Entities**: floor slabs are world brushes, walls, fills and the porch func_detail (open-top walls
+  don't seal or block vis usefully at RTS heights); func_detail still blocks units and the navmesh.
+- **Interior styles** (`INTERIOR_STYLES` in `src/gen/styles.ts`):
+
+| Style | Outside | Inside | Floors | Cap | Windows |
+|---|---|---|---|---|---|
+| Plaster farmhouse | cream, yellow and grey plaster | wallpapers, white tiles | wood planks, tiled kitchens | white trim | black or open |
+| Wooden shack | weathered white, red and grey siding | plank walls | worn planks | white planks | boarded or open |
+| Brick cottage | red and brown brick | plaster and wallpaper, tiles | wood, tiles | white trim | black or boarded |
+| Concrete outbuilding | concrete | concrete block | concrete | grey | open |
+| Corrugated slum shack | rusty, red, yellow and grey corrugated metal | planks | planks, concrete | grey planks | open or boarded |
+
+- Materials and window fills draw from their own random sequence, so they never change the floor plan.
+- Tests (`tests/interiorShell.test.ts`): every brush is a valid box, wall and floor brushes never overlap,
+  every opening is a clear hole, every wall stops at z0 + cut with the cap on top, inner faces use their
+  room's finish.
+- Five rows of seven houses (one row per style, the last house in each row cut at 96) are about 1,600
+  brushes, 45 per house.
+
+![Five rows of houses, one per style](docs/screenshots/interiors-p2-overview.png)
+![Plaster farmhouses from the RTS angle: white caps, wallpapered rooms, tiled kitchens, black windows](docs/screenshots/interiors-p2-farmhouse.png)
+![Wooden shacks](docs/screenshots/interiors-p2-shack.png)
+![Brick cottages](docs/screenshots/interiors-p2-brick.png)
+![Concrete outbuildings](docs/screenshots/interiors-p2-outbuilding.png)
+![Concrete outbuildings and corrugated slum shacks](docs/screenshots/interiors-p2-slum.png)
+![From above](docs/screenshots/interiors-p2-top.png)
+![A shack at eye level: boarded window, plank walls inside](docs/screenshots/interiors-p2-street.png)
+
 ## Roads, powerlines, audio and mission flow
 
 ### Roads
