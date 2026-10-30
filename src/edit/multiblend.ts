@@ -65,11 +65,12 @@ export function blendFromParams(name: string, p: Map<string, string>): BlendDef 
     return { texture: p.get(`$basetexture${n}`) ?? '', scale: parseFloat(p.get(`$scale${n}`) ?? '1') || 1, rotation: parseFloat(p.get(`$rotation${n}`) ?? '0') || 0 };
   };
   const base = slot(3);
-  const layers = [base];
-  for (let i = 0; i < 3; i++) {
-    const l = slot(i);
-    if (l.texture && l.texture.toLowerCase() !== base.texture.toLowerCase()) layers.push(l);
-  }
+  // Unused slots are exact copies of the base (see blendVmt). Only trailing ones are dropped: layer i must stay
+  // slot i, and a layer may reuse the base texture at another size or angle to break up its tiling.
+  const same = (l: BlendLayer) => !l.texture || (l.texture.toLowerCase() === base.texture.toLowerCase() && l.scale === base.scale && l.rotation === base.rotation);
+  const top = [slot(0), slot(1), slot(2)];
+  while (top.length && same(top[top.length - 1])) top.pop();
+  const layers = [base, ...top];
   return { name, layers, spec: p.get('$spectexture'), detailtype: p.get('%detailtype') };
 }
 

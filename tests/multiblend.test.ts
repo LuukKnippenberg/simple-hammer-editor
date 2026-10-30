@@ -86,4 +86,13 @@ describe('multiblend', () => {
     expect(back.layers.map((l) => l.texture)).toEqual(['nature/dirt', 'nature/mud']);
     expect(back.layers[1].scale).toBe(2);
   });
+
+  it('keeps a layer that reuses the base texture at another angle, in its slot', () => {
+    const def = { name: 'g', layers: [
+      { texture: 'nature/grass', scale: 1, rotation: 0 }, { texture: 'nature/grass', scale: 1.7, rotation: 47 }, { texture: 'nature/dirt', scale: 1, rotation: 0 },
+    ] };
+    const root = parseKeyValues(blendVmt(def))[0];
+    const back = blendFromParams('g', new Map(root.props.map(([k, v]) => [k.toLowerCase(), v] as [string, string])));
+    expect(back.layers.map((l) => [l.texture, l.rotation])).toEqual([['nature/grass', 0], ['nature/grass', 47], ['nature/dirt', 0]]);
+  });
 });
