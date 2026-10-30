@@ -163204,10 +163204,9 @@ entity
 	"id" "15132"
 	"classname" "wars_give_order"
 	"targetname" "order_upstairs"
-	"targetordername" "goal_upstairs"
 	"unitname" "squad_stairs"
 	"overwriteexistingorders" "1"
-	"origin" "-408 -1088 168"
+	"origin" "-408 -1088 144"
 }
 entity
 {
@@ -163320,10 +163319,9 @@ entity
 	"id" "15143"
 	"classname" "wars_give_order"
 	"targetname" "order_ell_room"
-	"targetordername" "goal_ell_room"
 	"unitname" "squad_ell"
 	"overwriteexistingorders" "1"
-	"origin" "192 -1152 40"
+	"origin" "192 -1152 16"
 }
 entity
 {
@@ -163436,10 +163434,9 @@ entity
 	"id" "15154"
 	"classname" "wars_give_order"
 	"targetname" "order_antlion_room"
-	"targetordername" "goal_antlion_room"
 	"unitname" "squad_antlion"
 	"overwriteexistingorders" "1"
-	"origin" "-1920 -1184 40"
+	"origin" "-1920 -1184 16"
 }
 entity
 {

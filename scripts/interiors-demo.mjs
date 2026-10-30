@@ -103,7 +103,7 @@ const info = await d.eval(async () => {
   auto.items.push(connections);
   for (const g of goals) {
     ents.push(entity(doc, 'info_target', g.at, { targetname: `goal_${g.name}` }));
-    ents.push(entity(doc, 'wars_give_order', new Vector3(g.at.x, g.at.y, g.at.z + 24), { targetname: `order_${g.name}`, targetordername: `goal_${g.name}`, unitname: g.unit, overwriteexistingorders: '1' }));
+    ents.push(entity(doc, 'wars_give_order', new Vector3(g.at.x, g.at.y, g.at.z + 24), { targetname: `order_${g.name}`, unitname: g.unit, overwriteexistingorders: '1' }));
     connections.items.push(new KVPair('OnMapSpawn', io(`order_${g.name}`, 'PerformOrder', '', '10', '-1')));
     connections.items.push(new KVPair('OnMapSpawn', io('she_cmd', 'Command', `echo SHE_ORDERED_${g.name.toUpperCase()}`, '10', '-1')));
     // Only the ordered squad counts (furniture inside sets off an unfiltered trigger at spawn).

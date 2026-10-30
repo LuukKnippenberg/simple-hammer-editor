@@ -54,7 +54,8 @@ export class GameplayOverlay {
     for (const m of ents.filter((e) => e.classname === 'unit_maker' && e.origin)) {
       ring(m.origin!, 96, 0xe05a4f, 24);
       const order = [...byName.values()].find((o) => o.classname === 'wars_give_order' && o.get('unitname')?.toLowerCase() === m.get('NPCTargetname')?.toLowerCase());
-      const goal = order?.get('targetordername') ? byName.get(order.get('targetordername')!.toLowerCase()) : undefined;
+      // Without an order target the units walk to the order entity itself.
+      const goal = order?.get('targetordername') ? byName.get(order.get('targetordername')!.toLowerCase()) : order;
       if (goal?.origin) {
         const a = m.origin!, b = goal.origin;
         line(a, b, 0xe05a4f);

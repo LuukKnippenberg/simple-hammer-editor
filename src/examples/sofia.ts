@@ -326,8 +326,8 @@ export async function decorateSofia(editor: Editor): Promise<SofiaReport> {
     // Both Combine waves converge on the flag.
     const flag = byName('largo_flag')?.origin;
     for (const w of ['party_house_wave', 'cathedral_wave']) {
-      const goal = byName(`${w}_goal`);
-      if (goal && flag) goal.origin = flag.clone().add(new Vector3(0, 0, 16));
+      const order = byName(`${w}_order`);
+      if (order && flag) order.origin = flag.clone().add(new Vector3(0, 0, 16));
     }
     applyStandardRelations(editor);
 

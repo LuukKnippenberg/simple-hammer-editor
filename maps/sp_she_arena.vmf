@@ -2232,23 +2232,14 @@ entity
 }
 entity
 {
-	"id" "188"
-	"classname" "info_target"
-	"targetname" "combine_wave_goal"
-	"angles" "0 0 0"
-	"origin" "-132 768 32"
-}
-entity
-{
 	"id" "189"
 	"classname" "wars_give_order"
 	"targetname" "combine_wave_order"
-	"targetordername" "combine_wave_goal"
 	"unitname" "combine_wave_unit"
 	"overwriteexistingorders" "1"
 	"ownernumber" "0"
 	"interceptcancelminrange" "0"
-	"origin" "768 808 48"
+	"origin" "-132 768 32"
 }
 entity
 {

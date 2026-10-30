@@ -235,8 +235,7 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
     citizen('loiterer', SPOTS.loiterer);
     citizen('litterer', SPOTS.litterer);
     citizen('runner', SPOTS.runner);
-    // A wars_give_order whose order target is an info_target gives a move order that ends at once (seen in
-    // game); without a target the unit moves to the order entity itself, so it stands at the destination.
+    // The runner flees to the order entity itself (an info_target as order target ends the move at once).
     addEnt('wars_give_order', at(SPOTS.hideout[0], SPOTS.hideout[1], 16), { targetname: 'runner_flee', unitname: 'runner', overwriteexistingorders: '1' });
     // The asset: a Stalker standing in the outpost, neutral until Unit 09 takes command of it.
     kit('unit_group', at(SPOTS.asset[0], SPOTS.asset[1]), { unit: 'unit_stalker', count: 1, owner: '0', name: 'asset' });
@@ -254,11 +253,9 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
     ];
     waves.forEach(([name, unit, count, live, freq], i) => {
       kit('wave', at(SPOTS.waves[i][0], SPOTS.waves[i][1]), { name, unit, count, live, freq, owner: '1', goal: 0, disabled: true });
-      // The same for the waves: the order entity goes to the outpost and moves the units to itself.
-      const goal = byName(`${name}_goal`);
-      if (goal) doc.removeEntity(goal);
+      // The wave's order entity is its goal: it goes to the outpost.
       const order = byName(`${name}_order`);
-      if (order) { order.node.delete('targetordername'); order.origin = at(SPOTS.outpost[0], SPOTS.outpost[1], 16); }
+      if (order) order.origin = at(SPOTS.outpost[0], SPOTS.outpost[1], 16);
     });
     applyStandardRelations(editor);
   });

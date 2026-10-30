@@ -136466,23 +136466,14 @@ entity
 }
 entity
 {
-	"id" "6017"
-	"classname" "info_target"
-	"targetname" "party_house_wave_goal"
-	"angles" "0 0 0"
-	"origin" "-64 1280 144"
-}
-entity
-{
 	"id" "6018"
 	"classname" "wars_give_order"
 	"targetname" "party_house_wave_order"
-	"targetordername" "party_house_wave_goal"
 	"unitname" "party_house_wave_unit"
 	"overwriteexistingorders" "1"
 	"ownernumber" "0"
 	"interceptcancelminrange" "0"
-	"origin" "-64 2920 160"
+	"origin" "-64 1280 144"
 }
 entity
 {
@@ -136505,23 +136496,14 @@ entity
 }
 entity
 {
-	"id" "6020"
-	"classname" "info_target"
-	"targetname" "cathedral_wave_goal"
-	"angles" "0 0 0"
-	"origin" "-64 1280 144"
-}
-entity
-{
 	"id" "6021"
 	"classname" "wars_give_order"
 	"targetname" "cathedral_wave_order"
-	"targetordername" "cathedral_wave_goal"
 	"unitname" "cathedral_wave_unit"
 	"overwriteexistingorders" "1"
 	"ownernumber" "0"
 	"interceptcancelminrange" "0"
-	"origin" "2112 2728 160"
+	"origin" "-64 1280 144"
 }
 entity
 {
@@ -140609,23 +140591,14 @@ entity
 }
 entity
 {
-	"id" "8845"
-	"classname" "info_target"
-	"targetname" "rebel_reinforce_goal"
-	"angles" "0 0 0"
-	"origin" "2240 -704 152"
-}
-entity
-{
 	"id" "8846"
 	"classname" "wars_give_order"
 	"targetname" "rebel_reinforce_order"
-	"targetordername" "rebel_reinforce_goal"
 	"unitname" "rebel_reinforce_unit"
 	"overwriteexistingorders" "1"
 	"ownernumber" "0"
 	"interceptcancelminrange" "0"
-	"origin" "3840 -664 168"
+	"origin" "2240 -704 152"
 }
 entity
 {

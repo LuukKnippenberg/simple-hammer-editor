@@ -198,7 +198,7 @@ export const KITS: Kit[] = [
   },
   {
     id: 'wave', label: 'Attack wave', icon: '🌊',
-    hint: 'unit_maker that spawns units when enabled and sends them to a goal (info_target) with wars_give_order. Air units spawn on the floor and climb to their flying height.',
+    hint: 'unit_maker that spawns units when enabled and sends them with wars_give_order to the order entity, which marks the goal. Air units spawn on the floor and climb to their flying height.',
     params: [
       { key: 'name', label: 'Name', type: 'text', default: 'wave' },
       { key: 'unit', label: 'Unit', type: 'unit', default: 'combine' },
@@ -207,15 +207,16 @@ export const KITS: Kit[] = [
       { key: 'live', label: 'Alive at once', type: 'number', default: 4 },
       { key: 'freq', label: 'Seconds between', type: 'number', default: 2 },
       { key: 'owner', label: 'Owner', type: 'select', default: '1', options: OWNERS },
-      { key: 'goal', label: 'Goal offset X', type: 'number', default: 768, hint: 'The goal can be moved afterwards' },
+      { key: 'goal', label: 'Goal offset X', type: 'number', default: 768, hint: 'Where the order entity goes; move it afterwards to change the goal' },
       { key: 'disabled', label: 'Start disabled', type: 'check', default: true },
     ],
     place(editor, at, p) {
       const name = uniqueName(editor, String(p.name || 'wave'));
       const u = findUnit(String(p.unit)) ?? UNITS[0];
-      const goal = add(editor, 'info_target', v(at.x + (Number(p.goal) || 0), at.y, at.z + 16), { targetname: `${name}_goal` });
-      const order = add(editor, 'wars_give_order', v(at.x, at.y + 40, at.z + 32), {
-        targetname: `${name}_order`, targetordername: `${name}_goal`, unitname: `${name}_unit`, overwriteexistingorders: '1',
+      // The order entity is the goal. With an Order Target the game makes a move order that needs a live target
+      // (GF_REQTARGETALIVE), so one aimed at an info_target ends at once and the units stay where they spawn.
+      const order = add(editor, 'wars_give_order', v(at.x + (Number(p.goal) || 0), at.y, at.z + 16), {
+        targetname: `${name}_order`, unitname: `${name}_unit`, overwriteexistingorders: '1',
       });
       const maker = add(editor, 'unit_maker', v(at.x, at.y, at.z + 16), {
         targetname: name, NPCType: String(p.unittype ?? '').trim() || u.unittype, NPCTargetname: `${name}_unit`, ownernumber: String(p.owner),
@@ -223,7 +224,7 @@ export const KITS: Kit[] = [
         StartDisabled: p.disabled ? '1' : '0', spawnflags: '0',
       });
       connect(maker, { output: 'OnSpawnNPC', target: `${name}_order`, input: 'PerformOrderUnit' });
-      return [maker, order, goal];
+      return [maker, order];
     },
   },
   {
