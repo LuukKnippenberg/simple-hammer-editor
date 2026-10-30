@@ -6,7 +6,7 @@ import {
   ATMOSPHERE_PRESETS, FLYBY_MODELS, PATH_CLASSES, SCREEN_MATERIALS, atmosphereOf, cameraShots, chainOf, pathLength, type AtmospherePreset,
 } from '../lw/cinematics.ts';
 import {
-  addShotFromView, atmosphereRelays, buildAtmosphere, buildFlyby, buildSendAlong, editShot, groundBelow, pathNameOf, removePathNode,
+  addShotFromView, atmosphereRelays, buildAtmosphere, buildFlyby, buildFlybyFollow, buildSendAlong, editShot, groundBelow, pathNameOf, removePathNode,
   sendAlongUnit, setPathHeight, setPathLoop, viewTarget,
 } from '../lw/cinematicsAction.ts';
 import { FAVOURITE_EFFECTS, loadParticleCatalog, particleLook } from '../lw/particles.ts';
@@ -150,7 +150,11 @@ function pathSection(editor: Editor, node: MapEntity): HTMLElement {
     row('Aircraft', model), row('Speed', speed, h('span.unit', {}, 'u/s')),
     h('div.row', {}, h('button', {
       onclick: () => { buildFlyby(editor, node, model.value, Number(speed.value) || 600); toast(editor.container, `Built ${path}_flyby: fire StartForward on it`); },
-    }, flyby ? 'Rebuild flyby' : 'Build flyby')),
+    }, flyby ? 'Rebuild flyby' : 'Build flyby'),
+    flyby ? h('button', {
+      title: 'A relay that starts the flyby and holds the RTS camera on it until it arrives (wars_player_follow_entity)',
+      onclick: () => { if (buildFlybyFollow(editor, node)) toast(editor.container, `Built ${path}_flyby_go: fire Trigger on it`); },
+    }, 'Camera follows it') : null),
     h('p.hint', {}, `A model on a func_tracktrain: follows the nodes' exact heights, can't be hurt, has no AI. ${Math.round(len / (Number(speed.value) || 600))} s at this speed. Fire `, h('b', {}, `${path}_flyby → StartForward`), '.'));
 }
 

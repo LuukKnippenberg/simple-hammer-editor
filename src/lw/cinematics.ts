@@ -351,3 +351,18 @@ export function atmosphereCcSpec(p: AtmospherePreset, at: Vector3): EntitySpec {
     },
   };
 }
+
+/**
+ * A flyby the RTS camera rides along with: `<train>_go` (Trigger) starts the train and makes the
+ * `<train>_cam` wars_player_follow_entity hold every player's camera on it, releasing it `seconds` later.
+ * Follow entities only act for their owner's player unless `allplayers` is set, so it is set.
+ */
+export function followFlybyEntities(train: string, seconds: number, at: Vector3): { follow: EntitySpec; relay: EntitySpec; connections: Connection[] } {
+  const cam = `${train}_cam`;
+  const c = (target: string, input: string, param = '', delay = 0): Connection => ({ output: 'OnTrigger', target, input, param, delay, times: -1 });
+  return {
+    follow: { classname: 'wars_player_follow_entity', origin: at.clone(), keys: { targetname: cam, allplayers: '1', forced: '1', enabled: '1', triggeronce: '0', spawnflags: '1', ownernumber: '2', [CINE_KEY]: train } },
+    relay: { classname: 'logic_relay', origin: at.clone().add(new Vector3(32, 0, 0)), keys: { targetname: `${train}_go`, spawnflags: '0', [CINE_KEY]: train } },
+    connections: [c(train, 'StartForward'), c(cam, 'CamFollowEntity', train), c(cam, 'CamReleaseFollowEntity', '', Math.round(seconds * 10) / 10)],
+  };
+}

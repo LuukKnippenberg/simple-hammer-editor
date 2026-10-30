@@ -11,7 +11,7 @@ import { recordKit, uniqueName } from './kits.ts';
 import { settingsEntity, SETTING_GROUPS, createGroupEntity } from './mapSettings.ts';
 import {
   CINE_KEY, PATH_CLASSES, STATIC_MATERIAL, anglesStr, atmosphereCcSpec, atmosphereConnections, atmosphereKeys, atmosphereOf, chainOf,
-  flybyEntities, lookAngles, pathNodeNames, sendAlongConnections, shotEntities, type AtmospherePreset, type EntitySpec,
+  flybyEntities, followFlybyEntities, lookAngles, pathLength, pathNodeNames, sendAlongConnections, shotEntities, type AtmospherePreset, type EntitySpec,
 } from './cinematics.ts';
 
 /** Editor-side actions for the cinematic pieces in cinematics.ts; each is one undo step. */
@@ -222,6 +222,28 @@ export function buildFlyby(editor: Editor, node: MapEntity, modelId: string, spe
   });
   editor.changed();
   return train;
+}
+
+/** `<path>_flyby_go`: starts the flyby with the players' camera following it until it arrives. */
+export function buildFlybyFollow(editor: Editor, node: MapEntity): MapEntity | null {
+  const path = pathNameOf(node);
+  const train = byName(editor, `${path}_flyby`);
+  const chain = chainOf(editor.doc, node);
+  if (!train || !chain) return null;
+  const speed = parseFloat(train.get('startspeed') ?? '600') || 600;
+  const seconds = pathLength(chain.nodes.map((n) => n.origin!)) / speed + 1;
+  const spec = followFlybyEntities(train.get('targetname')!, seconds, chain.nodes[0].origin!.clone().add(new Vector3(0, 64, 0)));
+  const old = [byName(editor, `${path}_flyby_cam`), byName(editor, `${path}_flyby_go`)].filter((e): e is MapEntity => !!e);
+  let relay!: MapEntity;
+  editor.history.group('Camera follows flyby', () => {
+    if (old.length) editor.history.remove('Remove old follow', [], old);
+    const [follow, r] = addSpecs(editor, [spec.follow, spec.relay]);
+    setConnections(r, spec.connections);
+    relay = r;
+    editor.history.added('Camera follows flyby', [], [follow, r]);
+  });
+  editor.changed();
+  return relay;
 }
 
 /** Texture size of a material's base texture (for fitting it to a screen panel). */

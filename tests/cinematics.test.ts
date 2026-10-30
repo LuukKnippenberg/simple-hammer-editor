@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { VmfDocument } from '../src/vmf/map.ts';
 import { KVNode, KVPair } from '../src/vmf/keyvalues.ts';
 import {
-  ATMOSPHERE_PRESETS, atmosphereConnections, atmosphereKeys, atmosphereOf, cameraShots, flybyEntities, lookAngles, pathChains,
+  ATMOSPHERE_PRESETS, atmosphereConnections, atmosphereKeys, atmosphereOf, cameraShots, flybyEntities, followFlybyEntities, lookAngles, pathChains,
   pathEntities, sendAlongConnections, shotEntities, simulateShot, type EntitySpec,
 } from '../src/lw/cinematics.ts';
 
@@ -98,6 +98,17 @@ describe('paths', () => {
     expect(train.keys.startspeed).toBe('700');
     expect(model.keys.parentname).toBe('route_flyby');
     expect(model.keys.model).toBe('models/gunship.mdl');
+  });
+});
+
+describe('follow camera', () => {
+  it('starts the train, follows it and lets go when it arrives', () => {
+    const f = followFlybyEntities('route_flyby', 8.4, new Vector3());
+    expect(f.follow.keys.allplayers).toBe('1');
+    expect(f.relay.keys.targetname).toBe('route_flyby_go');
+    expect(f.connections.map((c) => `${c.target}.${c.input}(${c.param})+${c.delay}`)).toEqual([
+      'route_flyby.StartForward()+0', 'route_flyby_cam.CamFollowEntity(route_flyby)+0', 'route_flyby_cam.CamReleaseFollowEntity()+8.4',
+    ]);
   });
 });
 
