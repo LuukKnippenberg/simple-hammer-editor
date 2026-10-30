@@ -56,7 +56,7 @@ export const FURNITURE = {
 type Key = keyof typeof FURNITURE;
 
 /** Wall lamp: a caged bulb whose plate is at the model origin, sticking out along +x. */
-const LAMP = m('props_c17/light_cagelight01_on', [-1, -3, -11], [8, 3, 2]);
+export const LAMP = m('props_c17/light_cagelight01_on', [-1, -3, -11], [8, 3, 2]);
 const WARM = '255 214 170';
 
 /** What goes in each kind of room: the first slot most often, later slots as the room and furnish level allow. */

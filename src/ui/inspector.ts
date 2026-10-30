@@ -20,6 +20,7 @@ import { soundBrowser } from './soundBrowser.ts';
 import { audio } from '../audio/engine.ts';
 import { presetsFor } from '../lw/soundPresets.ts';
 import { addPreset } from '../edit/presetAction.ts';
+import { poiEditor, selectedPoi } from './poiPanel.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -61,6 +62,9 @@ export function mountInspector(editor: Editor): HTMLElement {
     const roadEnt = ents.length === 1 ? ents[0] : !ents.length && owners.size === 1 ? [...owners][0] : null;
     const road = roadEnt ? roadOf(roadEnt) : null;
     if (roadEnt && road) panel.append(roadPanel(editor, roadEnt, road));
+    const poi = selectedPoi(editor);
+    const poiPanel = poi && poiEditor(editor, poi);
+    if (poiPanel) panel.append(poiPanel);
     if (ents.length === 1 && ents[0].classname === 'env_soundscape') panel.append(soundscapePanel(editor, ents[0]));
     if (ents.length === 1 && ents[0].classname === 'ambient_generic') panel.append(ambientPanel(editor, ents[0]));
     const fits = ents.length === 1 ? presetsFor(ents[0].get('model')) : [];

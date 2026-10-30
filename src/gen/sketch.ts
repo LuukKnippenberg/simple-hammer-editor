@@ -10,6 +10,7 @@ import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
 import { Rng } from './rng.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
 import type { Editor } from '../editor.ts';
+import { levelForPois, type PoiPlacement } from './poi/mapgen.ts';
 
 /**
  * A 2D map sketch: a grid of 128-unit cells with separate layers for height level, ground surface and
@@ -81,6 +82,28 @@ export interface Sketch {
   architecture?: ArchitectureName;
   /** Enterable open-top houses among the buildings (default from the architecture). */
   interiors?: 'none' | 'some' | 'all';
+  /** Points of interest: rectangles in cells, built by the POI generator (see placePois in poi/sketchPois.ts). */
+  pois?: SketchPoi[];
+}
+
+export interface SketchPoi {
+  type: string;
+  /** Rectangle in cells, from the south-west corner. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation?: 0 | 90 | 180 | 270;
+  seed: number;
+  params?: Record<string, ParamValue>;
+}
+
+/** A sketch's POIs as placements in layout units. */
+export function sketchPoiPlacements(s: Sketch): PoiPlacement[] {
+  return (s.pois ?? []).map((p) => ({
+    type: p.type, seed: p.seed, rotation: p.rotation ?? 0, params: p.params, landscape: s.theme === 'city' ? 'city' : undefined,
+    rect: { x0: p.x * SKETCH_CELL, y0: p.y * SKETCH_CELL, x1: (p.x + p.w) * SKETCH_CELL, y1: (p.y + p.h) * SKETCH_CELL },
+  }));
 }
 
 export function emptySketch(w: number, h: number, theme: SketchTheme = 'city'): Sketch {
@@ -224,6 +247,8 @@ export interface SketchResult {
   /** World offset applied to layout coordinates (for placing markers afterwards). */
   shift: Vector3;
   heightAt(x: number, y: number): number;
+  /** Ground height of each POI (in sketch order). */
+  poiLevels: number[];
 }
 
 /** Turns a sketch into a complete map (terrain, buildings, walls, props, lighting, shell, boundary). */
@@ -252,9 +277,12 @@ export function generateFromSketch(s: Sketch): SketchResult {
     const h = Math.sin(x * 0.013 + s.seed) * Math.cos(y * 0.011 - s.seed) + Math.sin((x + y) * 0.031);
     return h * theme.noise;
   };
-  const heightAt = (x: number, y: number) => Math.round((sampleGrid(heights, x, y) + noise(x, y)) * 10) / 10;
+  // POIs level the terrain under them (and cut their sea or pits into it).
+  const pois = levelForPois((x, y) => sampleGrid(heights, x, y), sketchPoiPlacements(s));
+  // No noise where a POI levelled the ground.
+  const heightAt = (x: number, y: number) => Math.round((pois.height(x, y) + noise(x, y) * (1 - pois.weight(x, y))) * 10) / 10;
   const alphaAt = (x: number, y: number) => sampleGrid(alpha, x, y);
-  const flatHeight = (x: number, y: number) => sampleGrid(heights, x, y);
+  const flatHeight = (x: number, y: number) => pois.height(x, y);
 
   const solids: KVNode[] = [];
   const ents: KVNode[] = [];
@@ -415,7 +443,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
   });
   doc.world.set('skyname', theme.sky);
   const out = finishDoc(doc, solids, ents, shift);
-  return { doc: out, shift, heightAt: (x, y) => groundAt(x - shift.x, y - shift.y) };
+  return { doc: out, shift, heightAt: (x, y) => groundAt(x - shift.x, y - shift.y), poiLevels: pois.levels };
 }
 
 /** Kit settings used for sketch markers. */

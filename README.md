@@ -1039,6 +1039,396 @@ It follows the flowchart only; it does not run the game.
 ![Playing it through: the assault on the Largo](docs/screenshots/mission-sim-assault.png)
 ![Playing it through: victory and the log](docs/screenshots/mission-sim-victory.png)
 
+## Points of interest
+
+The **POI tool** (P) fills a rectangle with a finished area: a square, a parking lot, a Combine checkpoint,
+a dock. Plan: [docs/poi-generator-plan.md](docs/poi-generator-plan.md). Every POI is built for an RTS: it
+offers cover, chokepoints, high ground or a place to capture, and always leaves routes open for the big units.
+
+### POI phase 0: framework and tool
+
+- **Drawing**: pick a type in the **POI** tab, then drag a rectangle on the ground (a click places one at the
+  type's default size). The rectangle snaps to 64 and is clamped to the type's sizes; the preview arrow shows
+  which way the layout faces. *Fill selected block* turns selected block brushes into POIs instead.
+- **Editing afterwards**, like roads: a POI's brushes are one `func_detail` carrying its spec in `she_poi`
+  (type, seed, rectangle, rotation, ground height, landscape, parameters); its entities carry `she_poi_id`,
+  and world brushes (water, later) are listed by id. Selecting any part shows the POI's settings in the
+  Selection and POI tabs; every change rebuilds it in place as one undo step. *Regenerate* rebuilds from the
+  stored spec (it follows the POI when it was moved with the gizmo), *Re-roll* picks a new seed, *Delete*
+  removes everything it made.
+- **The toolkit** (`src/gen/poi/kit.ts`) every type builds on, in the POI's own frame (rotations of 90° turn
+  the whole layout):
+  - pads (paving, asphalt, grass, sand) cut into pieces of at most 1024, reaching below the lowest terrain;
+  - edges with gaps: fences and hedges from models, walls, kerbs and railings from brushes, a
+    `fow_blocker` along hedges and high walls on request; `perimeter()` opens a gap wherever a route leaves;
+  - placement: single props, rows, scatter with spacing; every prop stands on the pad or terrain under it
+    (from its measured bounds) and is refused on a reserved route or on top of something placed;
+  - **routes**: through-routes 160 wide (large units have a radius of 58; phase 7's route check found 128 too
+    tight) are reserved first, and the gaps they open in fences and walls are 64 wider still;
+  - overlays and painted lines on the pads, lights, lamp posts;
+  - gameplay hooks each type opts into: a capture point at its focus (control point + capture area), scrap
+    piles, enemy unit groups. They show up as parameters automatically.
+- **Model table** (`src/gen/poi/models.ts`): bounds of about 240 models measured with the editor's MDL loader,
+  and whether each is a valid `prop_static`; the rest become `prop_dynamic`.
+- **Terrain**: on displacement terrain the POI levels the ground under it (blending back over 192 units) and
+  paints the terrain's second texture there; props sample the ground with a ray that skips the POI's own brushes.
+- The first type is a plain **paved lot** (paving, asphalt or gravel, kerbs, lamp posts).
+- Tests (`tests/poi.test.ts`): the spec round-trip; a rebuild leaves the same parts and nothing stray, undo
+  restores the old ones; for every registered type at four rotations, brushes are valid, every prop model is
+  in the table and off the routes, and the same seed gives the same output.
+
+![Dragging a rectangle with the POI tool](docs/screenshots/poi-p0-drag.png)
+![The paved lot on levelled terrain](docs/screenshots/poi-p0-lot.png)
+![Selected: its settings, rebuilt with asphalt, a capture point and two scrap piles](docs/screenshots/poi-p0-panel.png)
+
+### POI phase 1: square, parking lot, playground
+
+- **Square** (1024 to 3072, default 1408): a cobbled border band round a tiled field, a centre feature in an
+  open ring (a statue on a stepped plinth, a fountain basin with a column and bowl, or a Combine Breencast
+  screen on a pole), benches at the ring's corners facing it, trees in concrete planters on a grid that keeps
+  off the routes, and lamp posts round the edge with their arms over the square. Four routes lead from the
+  middle of each side to the ring. *Combine occupation* adds barricades in the corners and Combine flags. The
+  capture point (on by default) takes the centre in place of the feature.
+- **Parking lot** (768×704 to 3072×2048): asphalt, rows of 128 × 256 bays facing 192-wide aisles (back-to-back
+  rows share one), bay lines painted as overlays, an end lane joining the aisles to both long sides; aisles and
+  lane are the routes. Cars park in a share of the bays nose to the aisle with a few degrees of turn; wrecks
+  (the rusted variants, some on their roof) take any bay at an angle. A ticket booth by the entrance, lamp posts
+  at the row ends, kerbs with gaps where the routes leave. Fewer rows are built when the lot is not deep enough.
+- **Playground** (768×640 to 2048×2048): sand, rubber or gravel, a low timber fence with gates on all four
+  sides, three to six pieces of equipment shuffled onto a loose grid with room around each (swings, slide,
+  carousel, climbing frames, see-saw with its board, noughts-and-crosses post), a sandpit with a timber frame,
+  benches facing in, two trees. *Abandoned* drops some equipment and adds rubbish, tyres, an old couch and
+  mattress, stains and leaves. It can hold a zombie or headcrab group.
+- Toolkit additions: fences fill each run with whole pieces (long ones first, the rest spread as small gaps),
+  so no piece reaches into a gate; trees only claim their trunk for the route check; ring rims for basins;
+  lines as one bar of the street-marking texture; props tipped on their side or roof stand on the right point.
+
+![Square with a statue](docs/screenshots/poi-p1-square-statue.png)
+![Square with a dry fountain (water comes in phase 6)](docs/screenshots/poi-p1-square-fountain.png)
+![Combine-occupied square with a Breencast screen](docs/screenshots/poi-p1-square-combine.png)
+![Parking lot with a capture point](docs/screenshots/poi-p1-parking.png)
+![Parking lot with two rows, more cars and wrecks](docs/screenshots/poi-p1-parking-wrecks.png)
+![Playground](docs/screenshots/poi-p1-playground.png)
+![Playground close up: swings, climbing frames, see-saw, sandpit, benches, gates](docs/screenshots/poi-p1-playground-close.png)
+![Abandoned playground on rubber](docs/screenshots/poi-p1-playground-abandoned.png)
+![All of phase 1](docs/screenshots/poi-p1-overview.png)
+
+### POI phase 2: park and market
+
+- **Park** (1280 to 4096, default 1792): grass, a gravel loop round a centre feature and four winding spokes
+  (one bend each, pushed sideways at random) out to the middle of each side; the paths are the routes, kept
+  clear by squares along them. Centre: a raised ornamental pond with a stone rim (dry until phase 6), a
+  fountain, a bandstand (a 16-high octagonal stage units can step onto, posts, a pointed metal roof) or plain
+  lawn. Hedges round the edge with gaps at the paths and a `fow_blocker` along them (*Hedges block sight*),
+  clusters of trees and bushes on the lawns (*Tree density*), benches and bins along the spokes and round the
+  loop, lamp posts. It can hold a zombie group.
+- **Market** (896×768 to 3072×3072): cobbles, pitches on a grid of back-to-back rows between 160-wide lanes
+  (the routes, both ways). Each stall is brushes: a timber counter, four posts and a roof sloping to the
+  front in corrugated metal, painted metal or shingles, or a board roof with striped awnings (the HL2 awning
+  models) along the front; melons, crates and plastic crates on the counter, pallets, barrels and crates
+  behind. Empty pitches get a cart. *Covered hall* adds columns round the stall block and an open frame of
+  beams on top; *Abandoned* leaves roofs missing, fewer goods and rubbish in the lanes. The capture point
+  takes one pitch in the middle.
+- Toolkit: `path()` lays a strip of convex brushes along a polyline with discs at the bends and reserves it.
+
+![Park with a pond, hedges and tree clusters](docs/screenshots/poi-p2-park-pond.png)
+![Park with a bandstand](docs/screenshots/poi-p2-park-bandstand.png)
+![In the park](docs/screenshots/poi-p2-park-path.png)
+![Market](docs/screenshots/poi-p2-market.png)
+![A market lane: awnings, counters, melons and crates](docs/screenshots/poi-p2-market-lane.png)
+![Covered market hall](docs/screenshots/poi-p2-market-hall.png)
+![Abandoned market with a capture point](docs/screenshots/poi-p2-market-abandoned.png)
+
+### POI phase 3: sport fields
+
+- **Football pitch** (1280×896 to 3072×2560, default 1920×1600): a 1536 × 1024 pitch at the default size (it
+  shrinks to fit), grass, painted touch and goal lines, halfway line, centre circle, penalty and goal areas
+  with their arcs. Two goals from thin white boxes with a see-through chain-link net (back, sides and a roof
+  sloping from the bar). Stepped **bleachers** on one or both long sides: steps 16 high (under the 18 units
+  can climb), wood seats and concrete treads, a railing at the back, and a `TOOLS/TOOLSNPCCLIP` ramp over the
+  steps (a world brush) that starts one step in front and reaches the top at the top step's edge, so the
+  navmesh gets a smooth 1:3 slope that stays above every step's nose. Floodlight masts in the corners (lights
+  on request), a low railing round the field with gaps at the routes, team benches. *Running track*: a
+  red-brown oval of straights and half-round ends round the pitch. Routes run along the middle and across
+  beside the goals.
+- **Basketball court** (768×512 to 1536×1024): asphalt, a 640 × 384 court with lines, keys, circles and
+  three-point arcs, two hoops (pole, arm, backboard, ring), a tall chain-link fence with gates, benches.
+  *Abandoned* adds rubbish and stains.
+- Painted lines use one bar of the street-marking texture between its cracked ends; the blue dots in the
+  editor are the overlays' origin markers.
+
+![Football pitch with bleachers on both sides and floodlights](docs/screenshots/poi-p3-football.png)
+![Football pitch with a running track](docs/screenshots/poi-p3-football-track.png)
+![The bleachers](docs/screenshots/poi-p3-bleachers.png)
+![A goal and the pitch markings](docs/screenshots/poi-p3-goal.png)
+![Basketball court](docs/screenshots/poi-p3-basketball.png)
+![The court: hoops, lines and the fence with its gates](docs/screenshots/poi-p3-hoop.png)
+![Abandoned basketball court](docs/screenshots/poi-p3-basketball-abandoned.png)
+
+### POI phase 4: Half-Life 2 city set
+
+Mostly prop placement on the toolkit, with a few brush pieces. The checkpoint and the barricade span a
+street: drag them so their long side runs across the road (rotate by 90° for a road along x); the gap in
+the middle is the route. Their ground is left as it is by default, so they sit on the road.
+
+- **Combine checkpoint** (896×512 to 2560×1024): a line of tall and medium Combine barricades with a 192-wide
+  vehicle gap, the citizen scanner gate beside it and a short booth on the other side, floodlights behind the
+  line, a funnel of short barricades on the approach, Combine crates, an APC and a Breencast screen on the
+  Combine side. The capture point sits just behind the gap; Combine soldiers or Metro Police on request.
+- **Rebel barricade** (768×384 to 2560×1024): wrecked cars (some on their roof), furniture piles (couch,
+  bed, bath, laundry cart with a mattress or crate on top), the Lambda Wars barricade props, three-layer
+  sandbag walls (a new toolkit helper: rows of bags laid staggered and turned a little) and crates and drums,
+  laid end to end along the width with one gap; junk piled against both faces; ammo and supply crates behind,
+  explosive barrels as `prop_physics` (option).
+- **Ration distribution** (768 to 2048): queue lanes between Combine railings (lanes 144 apart: a 128-wide
+  route each and room for the rail), a counter with dispenser monitors across their heads, the booth behind
+  it, crates of rations, a Breencast screen, barricades on the flanks and ration papers on the ground.
+
+![Combine checkpoint across a street](docs/screenshots/poi-p4-checkpoint.png)
+![The checkpoint up close: gate, booth, barricades](docs/screenshots/poi-p4-checkpoint-close.png)
+![Checkpoint on concrete with a capture point and Metro Police](docs/screenshots/poi-p4-checkpoint-units.png)
+![Rebel barricade](docs/screenshots/poi-p4-barricade.png)
+![The barricade up close](docs/screenshots/poi-p4-barricade-close.png)
+![Rebel barricade on rubble with rebels and a capture point](docs/screenshots/poi-p4-barricade-rubble.png)
+![Ration distribution](docs/screenshots/poi-p4-rations.png)
+
+- **Junkyard** (1024×896 to 3072): gravel inside a chain-link or barbed-wire fence, rows of wrecks along two
+  sides (half with another wreck on top, some upside down), containers and a roll-off dumpster along the
+  others, tyre stacks, gravel heaps, dumpsters, a van and a truck cab, beams, drums and pipes. **Scrap**: three
+  `scrap_marker` piles by default, one per quadrant first so workers have room round them.
+- **Construction site** (1152×1024 to 3072): a fenced dirt yard round a half-built concrete frame: a
+  foundation 16 high that units step onto, a grid of columns, a whole slab over the first floor and a
+  smaller one higher up (1 to 3 floors), a ragged brick wall going up along the back, scaffolding (poles,
+  plank decks, rails) along the front, a crane frame, sand and gravel heaps, a container, a bulldozer, concrete
+  pipes, pallets, beams and cinder blocks.
+- **Tank farm** (1152 to 3072): concrete, up to six big brush tanks with low roofs, each in a 16-high bund,
+  pipe runs on supports along the outer side of each row, a pump house, smaller tank models, drums and
+  explosive barrels (`prop_physics`), a barbed fence.
+
+![Junkyard with scrap piles and a capture point](docs/screenshots/poi-p4-junkyard.png)
+![In the junkyard](docs/screenshots/poi-p4-junkyard-close.png)
+![Construction site](docs/screenshots/poi-p4-construction.png)
+![The half-built frame and its scaffolding](docs/screenshots/poi-p4-construction-close.png)
+![Tank farm](docs/screenshots/poi-p4-tankfarm.png)
+
+- **Rail yard** (1536×896 to 4096×2560): ballast, two to six tracks of rail models along the width with buffer
+  stops at both ends, 16-high platforms between pairs of tracks (with a canopy of posts and a pitched metal
+  roof on request), lines of parked train cars that block sight, wrecks lying on their side next to the
+  track, and level crossings kept free of cars (one in the middle, two on yards from 3072 long). Rails are
+  "walkable" props and may cross routes.
+- **Gas station** (1024×896 to 2048×1536): asphalt, a canopy on two columns over two pump islands, the kiosk
+  at the back built by `interiorHouse()` with its door facing the pumps (on this branch the interior
+  generator is still its stub, a closed box; the house becomes enterable when the interiors branch is
+  merged), propane tanks against it (`prop_physics`, explosive), a price sign on a pole, cars at the pumps,
+  tyres and a dumpster. Routes along the forecourt and up the side.
+- Toolkit: `house()` hands a local rectangle to `interiorHouse()` (doors on chosen sides) and files its world
+  brushes, detail brushes and entities with the POI.
+
+![Rail yard with platform canopies and train cars](docs/screenshots/poi-p4-railyard.png)
+![Among the tracks](docs/screenshots/poi-p4-railyard-close.png)
+![A longer yard: three tracks, two crossings, wrecks](docs/screenshots/poi-p4-railyard-wrecks.png)
+![Gas station](docs/screenshots/poi-p4-gasstation.png)
+![The canopy and pumps](docs/screenshots/poi-p4-gasstation-close.png)
+
+### POI phase 5: forest and rural set
+
+These mostly stand on the terrain itself (levelled under the POI) rather than on a pad.
+
+- **Rebel camp** (1024×896 to 2560): tents in a ring with their doors to a campfire (stones, charred logs,
+  a flickering light, logs to sit on), a resistance shack, the rebel radio tower, a wooden watch post (legs,
+  a deck at 128, rails, a tin roof, a ladder), a rebel flag, supply, ammo and item crates, a table, sandbags
+  either side of the way in, a few pines. Rebel squads on request.
+- **Thumper site** (896 to 2560): a Combine thumper on a disc of sand, short barricades and a light round it,
+  boulders and rocks, and antlion burrows (sand mounds with a dark hole) further out, each with an
+  `info_target` named `poi_<id>_burrow_N` to spawn waves from. Capture point by default; antlions, an antlion
+  guard, Combine or zombies on request (the toolkit now knows `unit_antlion` and `unit_antlionguard`).
+- **Crash site** (1024×896 to 2560): a scorched crater with a raised rim, a dropship container half buried in
+  it at an angle, gunship wreckage thrown along the crash path, headcrab canisters stuck in the ground, dead
+  and fallen trees, crates and drums, fires. Two scrap piles by default.
+- Toolkit: `extrude()` for convex sections lying down and `log()` for logs and pipes; more fence kinds
+  (farm planks, wooden rails).
+
+![Rebel camp](docs/screenshots/poi-p5-rebelcamp.png)
+![Round the campfire](docs/screenshots/poi-p5-rebelcamp-close.png)
+![Thumper site with antlions](docs/screenshots/poi-p5-thumper.png)
+![The thumper and its barricades](docs/screenshots/poi-p5-thumper-close.png)
+![Crash site](docs/screenshots/poi-p5-crashsite.png)
+![The crater and the dropship container](docs/screenshots/poi-p5-crashsite-close.png)
+
+- **Farmstead** (1408×1152 to 3072): a farmhouse built by `interiorHouse()` (one or two storeys, doors to the
+  yard and the road; a closed box on this branch until the interiors branch is merged), an open-fronted barn
+  of plank walls with a pitched roof and gables that units can walk into, hay bales inside, a stone well with
+  a little roof, a dirt yard, two furrowed fields along the front, a plank fence round it all with gaps at the
+  routes, a trough, a generator, tractor tyres and trees.
+- **Graveyard and chapel** (1152×1024 to 3072): grass, dirt paths through the middle and across, rows of
+  headstones and crosses (each with its grave in front; *Ravenholm look* opens some of them), a statue, a low
+  brick wall with gates, a chapel at the back (its nave from `interiorHouse()`, a stone bell tower with a
+  spire), dead trees, coffin pieces and the Ravenholm sign on posts by the gate. A zombie spawn site.
+- **Lookout tower** (768 to 1536): a wooden (legs, cross bracing) or concrete tower with a deck, parapet and
+  roof at 128 to 384 (default 256), reached by plank steps 16 high on the deck's open side with an NPC-clip
+  ramp over them (1.25 units of run per unit of height, under the navmesh's 45°; a POI too small for the
+  height asked for gets a lower deck), rocks and pines round it.
+
+![Farmstead](docs/screenshots/poi-p5-farmstead.png)
+![The yard: barn, well, house and fences](docs/screenshots/poi-p5-farmstead-close.png)
+![Graveyard with a chapel and zombies](docs/screenshots/poi-p5-graveyard.png)
+![Among the graves](docs/screenshots/poi-p5-graveyard-close.png)
+![Wooden lookout tower](docs/screenshots/poi-p5-lookout.png)
+![Its stair and deck](docs/screenshots/poi-p5-lookout-close.png)
+![Concrete lookout tower](docs/screenshots/poi-p5-lookout-concrete.png)
+
+- **Logging camp** (1152×1024 to 3072): a dirt clearing with pines round the edge, piles of brush logs
+  stacked in pyramids along rows (lines of cover; slots in rows filled until there are enough), an open
+  sawmill shed over a saw bench with a log on it and sawdust round it, a truck or trailer, stumps, fallen
+  trees, crates and drums.
+- **Combine power node** (896 to 2048): a concrete compound inside Combine fence panels with one gate, the
+  Lambda Wars power generator on a metal plinth with two Combine generators beside it, smaller generators in
+  the back corners joined by cables, Combine lights (lit on request), a Breencast screen by the gate, crates
+  and short barricades. Combine soldiers or elites on request.
+
+![Logging camp](docs/screenshots/poi-p5-logging.png)
+![The sawmill shed](docs/screenshots/poi-p5-logging-close.png)
+![Combine power node](docs/screenshots/poi-p5-powernode.png)
+![Inside the compound](docs/screenshots/poi-p5-powernode-close.png)
+
+### POI phase 6: water, the coast and the rocky set
+
+**Water.** `water()` makes a world brush (water can't be func_detail) whose top face is a `%compilewater`
+material; the first POI with water adds a `water_lod_control`. How units treat it was checked in the engine
+source: the Recast map mesh (`engine-src/src/game/server/recast/recast_mapmesh.cpp`) takes the world's
+collision (func_detail included) and props, and only filters out triangles with water below and air above,
+the water *surface*. The ground under water stays walkable. So:
+
+- **Ponds and fountains** keep their water inside a rim too high to climb (28 over the floor, the limit is
+  18): the floor is an island the navmesh can't reach. The park's pond and the square's and park's fountains
+  now hold water (*Water* option, on by default).
+- **Sea** (`sea()`): displacement terrain under the sea part is lowered 128 (a short, steep shore), water sits
+  16 below the ground, and a `func_nav_blocker` fills the water volume. In Lambda Wars that entity adds a
+  Recast box obstacle (`python/core/ents/navblocker.py`), so units don't path into the sea, while piers and
+  decks above the water stay walkable. On brush ground the ground under the sea has to be cut away by hand
+  (the POI can only lower displacements).
+- The coast POIs keep the sea at their back (local +y, the *Sea* percentage of their depth): rotate them so
+  their back faces the water.
+- A test map with the dock, the beach front and the park pond compiled without errors or leaks (two water
+  bodies, two nav blockers).
+
+**Coast:**
+
+- **Dock** (1024 to 3072): a concrete quay with a wall down to the seabed, one to four piers on poles out over
+  the water (each a 160-wide walkway route: chokepoints) with bollards, boats moored beside them (the HL2 row
+  boats), buoys, containers, crates and drums on the quay, an optional dock crane.
+- **Beach front** (1280×1024 to 4096×3072): sand down to the sea, a row of beach huts (from
+  `interiorHouse()`, doors to the sea), umbrellas with chairs and blankets, a lifeguard tower (deck at 128,
+  rails, a roof, a ladder), driftwood, and a breakwater of big coast rocks out into the water.
+- **Shipwreck** (1408×1280 to 3072): the big fishing boat beached on its side along the shore, half in the
+  water (a large wall of cover), spilled containers, crates, drums and pallets, rocks and driftwood; two
+  scrap piles.
+- **Lighthouse point** (1280 to 2560): a stone platform at the shore, a 512-high tapering lighthouse built
+  like the buildings' corner towers (body, cornice, drum, dome and lantern) with a gallery round the top and a
+  strong light, rocks round the point and into the water, the keeper's house (`interiorHouse()`) and a path.
+- **Coastal bunker** (1280×1024 to 3072×2560): sand dunes, the Combine bunker overlooking the beach, trenches
+  dug either side (the terrain lowered 40) lined with sandbags, barricades, a mortar, crates.
+
+![Dock](docs/screenshots/poi-p6-dock.png)
+![The piers and boats](docs/screenshots/poi-p6-dock-close.png)
+![Beach front](docs/screenshots/poi-p6-beach.png)
+![Shipwreck](docs/screenshots/poi-p6-shipwreck.png)
+![Lighthouse point](docs/screenshots/poi-p6-lighthouse.png)
+![Coastal bunker](docs/screenshots/poi-p6-bunker.png)
+![The park's pond now holds water](docs/screenshots/poi-p6-pond.png)
+
+**Rocky set and the canal:**
+
+- **Quarry** (1536 to 3072): a gravel floor open to the front with one to three 288-deep terraces of rock round the
+  other three sides, each step 64 high (too high to climb), one 192-wide 1:3 ramp per terrace alternating sides (the
+  chokepoints), a conveyor from the top down to the floor, a crane frame, mining carts on rails, a bulldozer.
+- **Mine entrance** (1024×896 to 2560×2048): a cliff face of rock brushes across the back with a tunnel mouth
+  cut into it (dark at the back), timber frames along the tunnel, rails running out with carts, industrial
+  lamps either side, boulders along the cliff foot, crates, drums and a generator. An `info_target`
+  `poi_<id>_tunnel` inside to spawn waves from.
+- **Overlook** (1024 to 2048): a rock ledge 64 to 192 high with a single dirt ramp up, sandbags along its
+  front edge, ammo, boulders round its foot.
+- **Rocky pass** (1024 to 3072): a dirt road through a gap between two stepped rock masses (with boulders on
+  top and along the faces, `fow_blocker`s over them on request), a rockslide half across the road leaving at
+  least 128 (the route).
+- **Radio relay** (1024 to 2048): a rocky knoll with one ramp, the rebel radio tower, a shack, a generator and
+  sandbags on top.
+- **Canal crossing** (1024 to 4096×2560, *Route Kanal*): a canal across the POI, the terrain lowered 192
+  under it, concrete walls down to a muddy floor, water and a nav blocker in it, one to three concrete bridges
+  with railings (the routes), ladders on the wall.
+
+![Quarry](docs/screenshots/poi-p6-quarry.png)
+![Mine entrance](docs/screenshots/poi-p6-mine.png)
+![The tunnel mouth, with zombies](docs/screenshots/poi-p6-mine-close.png)
+![Overlook](docs/screenshots/poi-p6-overlook.png)
+![Rocky pass](docs/screenshots/poi-p6-pass.png)
+![Radio relay](docs/screenshots/poi-p6-relay.png)
+![Canal crossing](docs/screenshots/poi-p6-canal.png)
+![The canal and its bridges](docs/screenshots/poi-p6-canal-close.png)
+
+### POI phase 7: map integration, showcase and the route check
+
+- **Sketch**: a **POIs** layer. Pick a type (grouped by landscape) and a rotation, drag a rectangle (grown to
+  the type's minimum and cut to its maximum size), right-click one to remove it. Generating levels the
+  terrain under each POI (and cuts its sea, pits or canal into it), builds it at that height with its spec
+  stored, so it can be changed in the editor like any other POI. The sketch keeps them in `pois`.
+- **Generate map**: a *POIs* count (default 2). The largest free rectangles away from the bases (ground,
+  woods, or building blocks in a dense city, which they clear) get a POI of the theme each, mirrored through
+  the map centre like the layout itself, so both players get the same; the pair nearest the centre gets
+  capture points.
+- `scripts/poi-demo.mjs` builds **`maps/poi_showcase.vmf`** (all 35 types at their default size and
+  settings with capture points, on displacement terrain without detail sprites: grass on a map this size
+  passes vbsp's 64K detail-prop limit) and **`maps/poi_test.vmf`** (a playable two-player map from *Generate
+  map*, rural, four POIs between the bases).
+- **Compiled** with `compile-map.mjs`: both without vbsp errors or leaks, no static props deleted (the
+  generator's own rocks that aren't static props are turned into `prop_dynamic`, as the compile dialog does),
+  the showcase's water brushes compile, navmeshes built (all five meshes).
+- **Route check in the game** (`scripts/poi-navcheck.mjs <map>`): loads the compiled map in a hidden
+  dedicated server, which loads its navmesh, and asks the game's own `NavMeshGetPathDistance` for a path along
+  every POI route (from 96 outside the POI where a route reaches its edge, through to the other side), and up
+  to the high ground of the lookout, overlook, relay, quarry and the football bleachers, once with a probe the
+  size of a human unit and once of a large unit (the server picks the `human` and `large` meshes for them).
+  A path more than 1.3 times the straight line counts as a detour round the POI, not a route through it.
+  Results (`docs/poi-navcheck-*.json`):
+
+  | Map | Checks | Human | Large |
+  |---|---|---|---|
+  | poi_showcase (35 POIs) | 92 | 92 paths, all direct | 91 paths, all direct |
+  | poi_test (4 POIs) | 8 | 8, all direct | 8, all direct |
+
+  The one miss is by design: the lookout tower's stair is 96 wide, for infantry; large units can't climb it.
+  The first run found real problems, now fixed: 128-wide routes and fence gaps were too tight for large units
+  (the large navmesh is eroded by their 58 radius), so routes are now 160 wide and gaps in fences and walls 64
+  wider than their route; the bleachers blocked the football pitch's middle route (now two halves per side);
+  the lighthouse path ran into the keeper's house; a Breencast screen stood on the power node's inner route;
+  the quarry's ramps sat inside the terrace they led to and stopped 8 short of the next one (a gap the navmesh
+  can't cross), and its terraces were too narrow for large units (now 288 deep, ramps 192 wide). The
+  high-ground checks only accept the top itself (the end point is looked for at most 48 below it), not the
+  ground beside it.
+- **Not done in the game client**: the checks above ran the game's server code on the compiled navmeshes,
+  not the game window. No in-game screenshots were taken (`capture-window.ps1` has given black frames).
+
+![The POI layer of the sketch](docs/screenshots/poi-p7-sketch.png)
+![The map generated from it](docs/screenshots/poi-p7-sketch-generated.png)
+![Generate map (city) with two mirrored pairs of POIs](docs/screenshots/poi-p7-generate-map.png)
+![poi_showcase: every POI type](docs/screenshots/poi-p7-showcase.png)
+![poi_test: a playable map with four POIs between the bases](docs/screenshots/poi-p7-test-map.png)
+
+### POI types skipped or changed
+
+None of the catalogue's types were skipped. Differences from the plan:
+
+- Houses inside POIs (gas station kiosk, farmhouse, chapel nave, beach huts, lighthouse keeper's house) come
+  from `interiorHouse()`, which on this branch is still the stub (a closed box). They become enterable when
+  the interiors branch is merged; nothing here needs to change for that.
+- Lines on sport fields and parking bays are overlays of one bar of the street-marking texture (there is no
+  plain white line material).
+- The football bleachers and the lookout tower are high ground for infantry; the bleachers' tops are reached
+  by large units too, the tower's deck only by human-size units.
+- Sea needs displacement terrain: a coast POI lowers displacements under its sea part, but on brush ground
+  the ground there has to be cut away by hand.
+- One tool shortcut was added: **P** (all number keys were taken).
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

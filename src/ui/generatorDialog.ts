@@ -97,10 +97,11 @@ export function mountGeneratorDialog(editor: Editor): { open(): void; generate()
     layout = randomLayout(n, n, theme.value as Theme, parseInt(seed.value, 10) || 1);
     draw();
   };
+  const pois = h('input', { type: 'number', value: '2', min: '0', max: '8', title: 'Points of interest in open ground, in mirrored pairs (one pair gets capture points)' }) as HTMLInputElement;
   const generate = () => {
     if (editor.dirty && !confirm('Replace the current map with the generated one? Unsaved changes are lost.')) return;
     const t0 = performance.now();
-    const doc = generateMap(layout, { theme: theme.value as Theme, seed: parseInt(seed.value, 10) || 1, highGround: parseInt(high.value, 10), architecture: arch.value as ArchitectureName, interiors: (interiors.value || undefined) as GenerateOptions['interiors'] });
+    const doc = generateMap(layout, { theme: theme.value as Theme, seed: parseInt(seed.value, 10) || 1, highGround: parseInt(high.value, 10), architecture: arch.value as ArchitectureName, interiors: (interiors.value || undefined) as GenerateOptions['interiors'], pois: Math.max(0, Math.min(8, parseInt(pois.value, 10) || 0)) });
     editor.loadDocument(doc, `generated_${theme.value}_${seed.value}.vmf`, '');
     editor.dirty = true;
     editor.emit('change');
@@ -124,7 +125,8 @@ export function mountGeneratorDialog(editor: Editor): { open(): void; generate()
           h('div.row', {}, h('label', {}, 'Interiors'), interiors),
           h('div.row', {}, h('label', {}, 'Size'), size),
           h('div.row', {}, h('label', {}, 'High ground'), high),
-          h('div.row', {}, h('label', {}, 'Seed'), seed)),
+          h('div.row', {}, h('label', {}, 'Seed'), seed),
+          h('div.row', {}, h('label', {}, 'POIs'), pois)),
         h('div.row', {}, h('button', { onclick: random }, '🎲 Random layout'), h('button', { onclick: () => { layout = emptyLayout(layout.w, layout.h); draw(); } }, 'Clear')),
         h('button.primary.big', { onclick: generate }, '⚙ Generate map'))),
   );

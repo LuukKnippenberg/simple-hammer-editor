@@ -9,6 +9,7 @@ import { streetDressing, type BlockDressing } from './streets.ts';
 import { standZ } from './props.ts';
 import { Rng } from './rng.ts';
 import { cameraSpawnFor } from '../lw/kits.ts';
+import { addPoisToMap, levelForPois, planLayoutPois } from './poi/mapgen.ts';
 
 export const CELL = 256;
 /** Scenery border outside the playable area (two terrain patches wide). */
@@ -56,6 +57,8 @@ export interface GenerateOptions {
   architecture?: ArchitectureName;
   /** Enterable houses among the buildings on blocks (default: some in the countryside, the architecture's in the city). */
   interiors?: 'none' | 'some' | 'all';
+  /** Points of interest to place in open ground (in mirrored pairs; 0 for none). */
+  pois?: number;
 }
 
 const THEMES = {
@@ -298,8 +301,15 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
   const rng = new Rng(opts.seed);
   const theme = THEMES[opts.theme];
   const ox = -(L.w * CELL) / 2, oy = -(L.h * CELL) / 2;
+  // Points of interest away from the bases, on ground, woods or (in a dense city) building blocks, which
+  // they clear.
+  const poiFree = (c: Cell) => c === Cell.Ground || c === Cell.Forest || c === Cell.Block;
+  const poiPlan = opts.pois ? planLayoutPois(L.w, L.h, CELL, (i) => poiFree(L.cells[i]), (i) => L.cells[i] === Cell.Base, opts.theme, opts.pois, opts.seed) : null;
+  if (poiPlan) L = { ...L, cells: L.cells.map((c, i) => (poiPlan.cells.has(i) && poiFree(c) ? Cell.Ground : c)) };
   // Work in layout space (0..w*CELL) and shift everything into a map centred on the origin at the end.
   const f = fields(L, opts, rng);
+  const poiLevel = poiPlan ? levelForPois(f.heightAt, poiPlan.placements) : null;
+  if (poiLevel) f.heightAt = poiLevel.height;
   const world = doc.world;
   world.set('skyname', opts.theme === 'city' ? 'sky_day01_07' : 'sky_day01_01');
   const solids: KVNode[] = [];
@@ -421,7 +431,8 @@ export function generateMap(L: Layout, opts: GenerateOptions): VmfDocument {
 
   const maxH = opts.highGround + 6 * 128 + 256;
   addEnvironment(doc, solids, ents, { width: W, height: H, apron: APRON, maxHeight: maxH, sunYaw: rng.int(20, 70), fogColor: opts.theme === 'city' ? '170 175 180' : '185 195 205' });
-  return finishDoc(doc, solids, ents, new Vector3(ox, oy, 0));
+  const out = finishDoc(doc, solids, ents, new Vector3(ox, oy, 0));
+  return poiPlan ? addPoisToMap(out, poiPlan.placements, poiLevel!.levels, { x: ox, y: oy }, f.heightAt) : out;
 }
 
 /** Six boxes around `box` (the inside stays empty). */

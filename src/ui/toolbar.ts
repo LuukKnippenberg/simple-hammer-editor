@@ -15,6 +15,7 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'ground', icon: '⛰', label: 'Ground: paint and sculpt terrain', key: '8' },
   { name: 'powerline', icon: '⚡', label: 'Powerline: click points, Enter or double-click to build', key: '9' },
   { name: 'sound', icon: '🔊', label: 'Sound: place soundscape zones and local sounds', key: '0' },
+  { name: 'poi', icon: '⛲', label: 'Point of interest: drag a rectangle to fill it with the type chosen in the POI tab', key: 'p' },
 ];
 const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
 
