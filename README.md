@@ -893,6 +893,32 @@ offers cover, chokepoints, high ground or a place to capture, and always leaves 
 ![Covered market hall](docs/screenshots/poi-p2-market-hall.png)
 ![Abandoned market with a capture point](docs/screenshots/poi-p2-market-abandoned.png)
 
+### POI phase 3: sport fields
+
+- **Football pitch** (1280×896 to 3072×2560, default 1920×1600): a 1536 × 1024 pitch at the default size (it
+  shrinks to fit), grass, painted touch and goal lines, halfway line, centre circle, penalty and goal areas
+  with their arcs. Two goals from thin white boxes with a see-through chain-link net (back, sides and a roof
+  sloping from the bar). Stepped **bleachers** on one or both long sides: steps 16 high (under the 18 units
+  can climb), wood seats and concrete treads, a railing at the back, and a `TOOLS/TOOLSNPCCLIP` ramp over the
+  steps (a world brush) that starts one step in front and reaches the top at the top step's edge, so the
+  navmesh gets a smooth 1:3 slope that stays above every step's nose. Floodlight masts in the corners (lights
+  on request), a low railing round the field with gaps at the routes, team benches. *Running track*: a
+  red-brown oval of straights and half-round ends round the pitch. Routes run along the middle and across
+  beside the goals.
+- **Basketball court** (768×512 to 1536×1024): asphalt, a 640 × 384 court with lines, keys, circles and
+  three-point arcs, two hoops (pole, arm, backboard, ring), a tall chain-link fence with gates, benches.
+  *Abandoned* adds rubbish and stains.
+- Painted lines use one bar of the street-marking texture between its cracked ends; the blue dots in the
+  editor are the overlays' origin markers.
+
+![Football pitch with bleachers on both sides and floodlights](docs/screenshots/poi-p3-football.png)
+![Football pitch with a running track](docs/screenshots/poi-p3-football-track.png)
+![The bleachers](docs/screenshots/poi-p3-bleachers.png)
+![A goal and the pitch markings](docs/screenshots/poi-p3-goal.png)
+![Basketball court](docs/screenshots/poi-p3-basketball.png)
+![The court: hoops, lines and the fence with its gates](docs/screenshots/poi-p3-hoop.png)
+![Abandoned basketball court](docs/screenshots/poi-p3-basketball-abandoned.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

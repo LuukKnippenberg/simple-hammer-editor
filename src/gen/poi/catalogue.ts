@@ -5,6 +5,7 @@ import { PARKING } from './catalog/parking.ts';
 import { PLAYGROUND } from './catalog/playground.ts';
 import { PARK } from './catalog/park.ts';
 import { MARKET } from './catalog/market.ts';
+import { BASKETBALL, FOOTBALL } from './catalog/sports.ts';
 
 /** Registers every POI type (importing this module is enough). */
-registerPoi(SQUARE, PARKING, PLAYGROUND, MARKET, PARK, LOT);
+registerPoi(SQUARE, PARKING, PLAYGROUND, MARKET, BASKETBALL, PARK, FOOTBALL, LOT);

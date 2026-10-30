@@ -214,11 +214,11 @@ export class PoiKit {
    * A round rim (fountain basin, pond edge, tower wall) as one convex brush per side: the ring between
    * `rOut` and `rIn` around a local point.
    */
-  ring(x: number, y: number, rOut: number, rIn: number, z0: number, z1: number, material: string | ShapeMaterials, sides = 16): KVNode[] {
+  ring(x: number, y: number, rOut: number, rIn: number, z0: number, z1: number, material: string | ShapeMaterials, sides = 16, from = 0, to = Math.PI * 2): KVNode[] {
     const m = typeof material === 'string' ? { top: material, bottom: material, sides: material } : material;
     const out: KVNode[] = [];
     for (let i = 0; i < sides; i++) {
-      const a0 = (i / sides) * Math.PI * 2, a1 = ((i + 1) / sides) * Math.PI * 2;
+      const a0 = from + (i / sides) * (to - from), a1 = from + ((i + 1) / sides) * (to - from);
       const pts: [number, number][] = [
         [x + Math.cos(a0) * rIn, y + Math.sin(a0) * rIn], [x + Math.cos(a0) * rOut, y + Math.sin(a0) * rOut],
         [x + Math.cos(a1) * rOut, y + Math.sin(a1) * rOut], [x + Math.cos(a1) * rIn, y + Math.sin(a1) * rIn],
@@ -512,7 +512,7 @@ export class PoiKit {
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
       // One of the texture's four bars, lengthwise: its u runs across the line, v along it.
-      this.overlay('decals/decalstreet008b', a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, width, len / n, yaw + 90, [0.08, 0, 0.17, 1]);
+      this.overlay('decals/decalstreet008b', a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, width, len / n, yaw + 90, [0.09, 0.1, 0.19, 0.9]);
     }
   }
 
