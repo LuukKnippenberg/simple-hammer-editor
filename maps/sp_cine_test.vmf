@@ -2,14 +2,14 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "5032"
-	"mapversion" "8"
+	"mapversion" "9"
 	"formatversion" "100"
 	"prefab" "0"
 }
 world
 {
 	"id" "1"
-	"mapversion" "8"
+	"mapversion" "9"
 	"classname" "worldspawn"
 	"skyname" "sky_day01_01"
 	"maxpropscreenwidth" "-1"
@@ -1978,12 +1978,12 @@ entity
 		"OnMapSpawn" "player_hates_1ApplyRelation0-1"
 		"OnMapSpawn" "player_hates_3ApplyRelation0-1"
 		"OnMapSpawn" "atmo_dayTrigger0-1"
-		"OnMapSpawn" "shot_introEnable15-1"
-		"OnMapSpawn" "route_flybyStartForward15.5-1"
-		"OnMapSpawn" "smoke_1Start16-1"
-		"OnMapSpawn" "fire_1Start16-1"
-		"OnMapSpawn" "atmo_duskTrigger18-1"
-		"OnMapSpawn" "screen_staticEnable21-1"
+		"OnMapSpawn" "shot_introEnable10-1"
+		"OnMapSpawn" "smoke_1Start10-1"
+		"OnMapSpawn" "fire_1Start10-1"
+		"OnMapSpawn" "atmo_duskTrigger12-1"
+		"OnMapSpawn" "route_flyby_goTrigger19-1"
+		"OnMapSpawn" "screen_staticEnable22-1"
 	}
 }
 entity
@@ -2565,4 +2565,34 @@ entity
 	"fadeOutDuration" "8"
 	"she_cine" "atmo_dusk"
 	"origin" "-768 -336 64"
+}
+entity
+{
+	"id" "243"
+	"classname" "wars_player_follow_entity"
+	"targetname" "route_flyby_cam"
+	"allplayers" "1"
+	"forced" "1"
+	"enabled" "1"
+	"triggeronce" "0"
+	"spawnflags" "1"
+	"ownernumber" "2"
+	"she_cine" "route_flyby"
+	"origin" "-1200 -836 600"
+}
+entity
+{
+	"id" "244"
+	"classname" "logic_relay"
+	"targetname" "route_flyby_go"
+	"spawnflags" "0"
+	"she_cine" "route_flyby"
+	"StartDisabled" "0"
+	"origin" "-1168 -836 600"
+	connections
+	{
+		"OnTrigger" "route_flybyStartForward0-1"
+		"OnTrigger" "route_flyby_camCamFollowEntityroute_flyby0-1"
+		"OnTrigger" "route_flyby_camCamReleaseFollowEntity8.4-1"
+	}
 }
