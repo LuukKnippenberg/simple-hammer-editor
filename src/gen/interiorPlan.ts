@@ -30,9 +30,17 @@ export interface Room {
   box: Box2;
   type: RoomType;
   storey: 1 | 2;
+  /**
+   * A ground room under the upper floor: the RTS camera can't see into it, so no unit may enter it. Its
+   * doorways are closed off (see `Opening.blocked`) and it stays empty.
+   */
+  sealed?: boolean;
 }
 
 export type OpeningKind = 'door' | 'window' | 'gap';
+
+/** How a doorway into a sealed room is closed off: a closed door, boards nailed across, or furniture pushed against it. */
+export type Blocker = 'door' | 'boarded' | 'furniture';
 
 export interface Opening {
   /** Distances along the wall from `a`. */
@@ -42,6 +50,8 @@ export interface Opening {
   /** Bottom and top of the hole above z0 (a gap or door with its lintel at the wall top has none). */
   sill: number;
   lintel: number;
+  /** A doorway into a sealed room, closed off: units can't pass it. */
+  blocked?: Blocker;
 }
 
 export interface PlanWall {
@@ -362,7 +372,7 @@ export function doorGraph(plan: InteriorPlan): Map<number, Set<number>> {
     g.get(a)!.add(b);
   };
   for (const w of plan.walls) {
-    if (!w.openings.some((o) => o.kind !== 'window')) continue;
+    if (!w.openings.some((o) => o.kind !== 'window' && !o.blocked)) continue;
     link(w.left, w.right);
     link(w.right, w.left);
   }
@@ -503,7 +513,8 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
     }
     roomRects.push(r);
   };
-  for (const r of rects) split(r, 0);
+  // The part under the upper floor is one sealed room: nobody sees its partitions.
+  for (const r of rects) if (r === upper) roomRects.push(r); else split(r, 0);
 
   const rooms: Room[] = roomRects.map((r) => ({ box: grid.box(r), type: 'living', storey: 1 }));
   roomRects.forEach((r, n) => {
@@ -511,6 +522,8 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
   });
   const upperBox = upper ? grid.box(upper) : undefined;
   const underUpper = (p: Vector2) => !!upperBox && p.x >= upperBox.min.x - EPS && p.x <= upperBox.max.x + EPS && p.y >= upperBox.min.y - EPS && p.y <= upperBox.max.y + EPS;
+  // Ground rooms under the upper floor are out of the camera's sight: sealed off.
+  for (const r of rooms) if (underUpper(r.box.getCenter(new Vector2()))) r.sealed = true;
   let upperRoom = -1;
   if (upperBox) {
     upperRoom = rooms.length;
@@ -657,7 +670,8 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
     const face = wallBox(w).translate(outNormal(w).multiplyScalar(w.thickness / 2 + 1));
     return (o.noEntrance ?? []).some((b) => Math.min(b.max.x, face.max.x) - Math.max(b.min.x, face.min.x) > 0 && Math.min(b.max.y, face.max.y) - Math.max(b.min.y, face.min.y) > 0);
   };
-  const allOutside = ground.filter((w) => w.exterior);
+  const sealedSide = (w: PlanWall) => [w.left, w.right].some((r) => r >= 0 && rooms[r].sealed);
+  const allOutside = ground.filter((w) => w.exterior && !sealedSide(w));
   const facingOut = allOutside.filter((w) => !facesNeighbour(w));
   const outside = facingOut.some((w) => fits(w, minDoor)) ? facingOut : allOutside;
   const onEdge = (w: PlanWall, e: number) => {
@@ -747,7 +761,7 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
   const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
   const pairs = new Map<string, PlanWall[]>();
   for (const w of ground) {
-    if (w.exterior || w.left < 0 || w.right < 0 || w.left === w.right) continue;
+    if (w.exterior || w.left < 0 || w.right < 0 || w.left === w.right || sealedSide(w)) continue;
     const key = `${Math.min(w.left, w.right)}:${Math.max(w.left, w.right)}`;
     if (!pairs.has(key)) pairs.set(key, []);
     pairs.get(key)!.push(w);
@@ -774,9 +788,25 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
   for (const key of keys) if (!doored.has(key) && rng.chance(0.2)) open(key);
   // Rooms the inside doors can't reach (walls too short beside the stairs) get their own door outside.
   for (const r of groundRooms) {
-    if (entrances.some((e) => find(e.room) === find(r))) continue;
+    if (rooms[r].sealed || entrances.some((e) => find(e.room) === find(r))) continue;
     const c = usable(outside.filter((w) => w.left === r || w.right === r), minDoor);
     if (c.length) addEntrance(rng.pick(c));
+  }
+
+  // Sealed rooms still show a doorway now and then, closed off: on the wall to a room units can reach, and
+  // sometimes on the outside. A plain wall is the fourth choice (no doorway at all).
+  const blockedDoor = (w: PlanWall, kinds: (Blocker | 'wall')[]) => {
+    const kind = rng.pick(kinds);
+    if (kind === 'wall' || !fits(w, minDoor)) return;
+    const op = placeOpening(w, w.exterior ? (o.wideDoors ? 128 : fits(w, 96) ? 96 : 64) : doorWidth(w), 'door', DOOR_MARGIN, rng.chance(0.5));
+    if (op) op.blocked = kind;
+  };
+  for (const r of groundRooms) {
+    if (!rooms[r].sealed) continue;
+    const inner = ground.filter((w) => !w.exterior && (w.left === r || w.right === r) && w.left >= 0 && w.right >= 0 && !(rooms[w.left].sealed && rooms[w.right].sealed));
+    if (inner.length) blockedDoor(inner.reduce((a, b) => (wallLength(b) > wallLength(a) ? b : a)), ['door', 'boarded', 'furniture', 'furniture', 'wall']);
+    const outer = ground.filter((w) => w.exterior && (w.left === r || w.right === r));
+    if (outer.length && rng.chance(0.35)) blockedDoor(rng.pick(outer), ['door', 'boarded']);
   }
 
   // Windows on outside walls: 64 or 96 wide, about one per 128–192 units of wall.
@@ -812,12 +842,14 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
       if (op.kind === 'window') continue;
       const c = wallPoint(w, (op.from + op.to) / 2);
       for (const [r, n] of [[w.left, left], [w.right, left.clone().negate()]] as const) {
+        // A closed-off doorway keeps the floor in front of it clear (for its blocker) but leads nowhere.
+        if (op.blocked && r >= 0 && rooms[r].sealed) continue;
         const face = c.clone().addScaledVector(n, w.thickness / 2);
         const z = new Box2().setFromPoints([
           face.clone().addScaledVector(dir, -(op.to - op.from) / 2), face.clone().addScaledVector(dir, (op.to - op.from) / 2).addScaledVector(n, DOOR_ZONE),
         ]);
         doorZones.push(z);
-        if (r >= 0) lane(face, centreOf(r), w.axis === 'x' ? 'y' : 'x');
+        if (r >= 0 && !op.blocked) lane(face, centreOf(r), w.axis === 'x' ? 'y' : 'x');
       }
     }
   });

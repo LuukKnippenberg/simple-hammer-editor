@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Box2, Vector2 } from 'three';
-import { planInterior } from '../src/gen/interiorPlan.ts';
+import { planInterior, wallBox } from '../src/gen/interiorPlan.ts';
 import { dressInterior, roomInterior, STATIC_MODELS } from '../src/gen/interiorDressing.ts';
 import { interiorHouse } from '../src/gen/interiorHouse.ts';
 import { rectPoly } from '../src/gen/buildingPlan.ts';
@@ -61,5 +61,31 @@ describe('interior dressing', () => {
       const a = interiorHouse(VmfDocument.empty(), fp, 0, { seed, furnish: 'none' }), b = interiorHouse(VmfDocument.empty(), fp, 0, { seed, furnish: 'full' });
       expect(JSON.stringify(a.plan)).toBe(JSON.stringify(b.plan));
     }
+  });
+
+  it('two storeys: sealed rooms stay empty; furniture closes off some doorways', () => {
+    let blockers = 0;
+    for (const { fp, seed } of CASES) {
+      const plan = planInterior(fp, new Rng(seed), { storeys: 2 });
+      const d = dressInterior(plan, 0, new Rng(seed * 23 + 13), { furnish: 'full' });
+      for (const p of d.props) {
+        expect(plan.rooms[p.room].sealed).toBeFalsy();
+        // Furniture closing a doorway stays out of the lanes to the doors people use too.
+        for (const b of [...plan.lanes, ...plan.keepClear]) expect(overlaps(b, p.box)).toBe(false);
+      }
+      for (const e of d.entities) {
+        const p = new Vector2(e.origin.x, e.origin.y);
+        const r = plan.rooms.findIndex((x) => x.storey === 1 && x.box.containsPoint(p));
+        if (e.origin.z < 120 && r >= 0) expect(plan.rooms[r].sealed).toBeFalsy();
+      }
+      const closed = plan.walls.flatMap((w) => w.openings.filter((o) => o.blocked === 'furniture').map((o) => ({ w, o })));
+      for (const { w, o } of closed) {
+        const wb = wallBox(w), ax = w.axis;
+        const hole = wb.clone();
+        hole.min[ax] = wb.min[ax] + o.from; hole.max[ax] = wb.min[ax] + o.to;
+        if (d.props.some((p) => overlaps(p.box, hole.clone().expandByScalar(4)))) blockers++;
+      }
+    }
+    expect(blockers).toBeGreaterThan(4);
   });
 });
