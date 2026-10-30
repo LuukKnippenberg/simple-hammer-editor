@@ -337,7 +337,6 @@ export class PoiKit {
     const keys: Record<string, string> = { model: path, angles: `${Math.round(o.pitch ?? 0)} ${this.yaw(yaw)} ${Math.round(o.roll ?? 0)}` };
     if (cls === 'prop_static') keys.solid = '6';
     if (cls === 'prop_dynamic') Object.assign(keys, { solid: '6', DisableBoneFollowers: '1' });
-    if (cls === 'prop_physics') Object.assign(keys, { spawnflags: '256' });
     this.out.entities.push({ classname: cls, origin: new Vector3(Math.round(w.x), Math.round(w.y), Math.round(z)), keys: { ...keys, ...o.keys } });
     return true;
   }
@@ -411,6 +410,32 @@ export class PoiKit {
       this.prism(quad, -8, spec.h, spec.mat, { occupy: true });
       if (o.fow) this.fowStrip(p0, p1, spec.w, spec.h + 32);
     }
+  }
+
+  /**
+   * A sandbag wall along a local line: rows of bags (48 × 24 × 12) laid in staggered layers, each turned a
+   * little, the top layer set back. Units can't climb it from 3 layers up (36 high).
+   */
+  sandbags(a: [number, number], b: [number, number], layers = 3): void {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 24) return;
+    const dir = [(b[0] - a[0]) / len, (b[1] - a[1]) / len], nrm = [-dir[1], dir[0]];
+    const mat = { top: 'NATURE/DIRTFLOOR004A', bottom: NODRAW, sides: 'NATURE/DIRTFLOOR004A' };
+    for (let l = 0; l < layers; l++) {
+      const inset = l === layers - 1 && layers > 1 ? 6 : 0;
+      const shift = l % 2 ? 24 : 0;
+      for (let s = shift; s + 40 <= len; s += 48) {
+        const c = [a[0] + dir[0] * (s + 24), a[1] + dir[1] * (s + 24)];
+        const t = this.rng.range(-0.07, 0.07), ct = Math.cos(t), st = Math.sin(t);
+        const u = [dir[0] * ct - dir[1] * st, dir[0] * st + dir[1] * ct], v = [-u[1], u[0]];
+        const hl = 23, hw = 12 - inset / 2;
+        const o = [c[0] + nrm[0] * (l % 2 ? 1 : -1) * 1.5, c[1] + nrm[1] * (l % 2 ? 1 : -1) * 1.5];
+        const q: [number, number][] = [[-hl, -hw], [hl, -hw], [hl, hw], [-hl, hw]].map(([p, w]) => [o[0] + u[0] * p + v[0] * w, o[1] + u[1] * p + v[1] * w]);
+        this.prism(q, l * 12 - (l === 0 ? 4 : 0), l * 12 + 12, mat);
+      }
+    }
+    const x0 = Math.min(a[0], b[0]) - 14, x1 = Math.max(a[0], b[0]) + 14, y0 = Math.min(a[1], b[1]) - 14, y1 = Math.max(a[1], b[1]) + 14;
+    this.occupied.push(rect(x0, y0, x1, y1));
   }
 
   /** A fog-of-war blocker (invisible brush entity) along a local line: units can't see past it. */

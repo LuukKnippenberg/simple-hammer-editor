@@ -919,6 +919,33 @@ offers cover, chokepoints, high ground or a place to capture, and always leaves 
 ![The court: hoops, lines and the fence with its gates](docs/screenshots/poi-p3-hoop.png)
 ![Abandoned basketball court](docs/screenshots/poi-p3-basketball-abandoned.png)
 
+### POI phase 4: Half-Life 2 city set
+
+Mostly prop placement on the toolkit, with a few brush pieces. The checkpoint and the barricade span a
+street: drag them so their long side runs across the road (rotate by 90° for a road along x); the gap in
+the middle is the route. Their ground is left as it is by default, so they sit on the road.
+
+- **Combine checkpoint** (896×512 to 2560×1024): a line of tall and medium Combine barricades with a 192-wide
+  vehicle gap, the citizen scanner gate beside it and a short booth on the other side, floodlights behind the
+  line, a funnel of short barricades on the approach, Combine crates, an APC and a Breencast screen on the
+  Combine side. The capture point sits just behind the gap; Combine soldiers or Metro Police on request.
+- **Rebel barricade** (768×384 to 2560×1024): wrecked cars (some on their roof), furniture piles (couch,
+  bed, bath, laundry cart with a mattress or crate on top), the Lambda Wars barricade props, three-layer
+  sandbag walls (a new toolkit helper: rows of bags laid staggered and turned a little) and crates and drums,
+  laid end to end along the width with one gap; junk piled against both faces; ammo and supply crates behind,
+  explosive barrels as `prop_physics` (option).
+- **Ration distribution** (768 to 2048): queue lanes between Combine railings (lanes 144 apart: a 128-wide
+  route each and room for the rail), a counter with dispenser monitors across their heads, the booth behind
+  it, crates of rations, a Breencast screen, barricades on the flanks and ration papers on the ground.
+
+![Combine checkpoint across a street](docs/screenshots/poi-p4-checkpoint.png)
+![The checkpoint up close: gate, booth, barricades](docs/screenshots/poi-p4-checkpoint-close.png)
+![Checkpoint on concrete with a capture point and Metro Police](docs/screenshots/poi-p4-checkpoint-units.png)
+![Rebel barricade](docs/screenshots/poi-p4-barricade.png)
+![The barricade up close](docs/screenshots/poi-p4-barricade-close.png)
+![Rebel barricade on rubble with rebels and a capture point](docs/screenshots/poi-p4-barricade-rubble.png)
+![Ration distribution](docs/screenshots/poi-p4-rations.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
