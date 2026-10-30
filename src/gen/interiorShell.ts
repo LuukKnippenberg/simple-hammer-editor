@@ -3,7 +3,7 @@ import type { KVNode } from '../vmf/keyvalues.ts';
 import type { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode, worldAlignedAxes, type FaceSpec } from '../edit/brushes.ts';
 import { Rng } from './rng.ts';
-import { FLOOR_TOP, STOREY, wallBox, wallLength, type InteriorPlan, type PlanWall } from './interiorPlan.ts';
+import { EXTERIOR_WALL, FLOOR_TOP, STOREY, wallBox, wallLength, type InteriorPlan, type PlanWall } from './interiorPlan.ts';
 import type { InteriorStyle } from './styles.ts';
 
 const NODRAW = 'TOOLS/TOOLSNODRAW';
@@ -11,6 +11,10 @@ const BLACK = 'TOOLS/TOOLSBLACK';
 const RAILING = 'METAL/METALRAIL001A';
 const NPCCLIP = 'TOOLS/TOOLSNPCCLIP';
 const CEILING = 'PLASTER/PLASTERCEILING008A';
+/** Invisible and not solid, but casts lightmap shadows (compiles nodraw, nonsolid, detail). */
+export const BLOCKLIGHT = 'TOOLS/TOOLSBLOCKLIGHT';
+/** Brush door textures (one door each, with its frame cropped off), by texture size. */
+const DOORS = { single: ['WOOD/WOODDOOR003A', 'WOOD/WOODDOOR015A', 'WOOD/WOODDOOR019A', 'WOOD/WOODDOOR028A', 'WOOD/WOODDOOR046A'], texture: [256, 512] as const };
 /** Upper floor slab thickness: 120 clear below it. */
 const SLAB = 8;
 /** How far the floor slabs and porch reach down into the ground, for uneven terrain. */
@@ -45,6 +49,13 @@ export interface ShellBrushes {
   clip: KVNode[];
   /** Stubs of the cut-away eaves: a band just under the cap around the outside. */
   eaves: KVNode[];
+  /** Closed doors, boards and dark panels in the doorways of sealed rooms. */
+  blockers: KVNode[];
+  /**
+   * Invisible light blockers over the rooms at the wall tops (world brushes, `BLOCKLIGHT`): vrad lights the
+   * open-top rooms like covered ones. The wall caps stay outside them, so they keep the sun.
+   */
+  ceilings: KVNode[];
 }
 
 /** Picks the materials for a house: one outside finish, one inside finish and floor per room. */
@@ -91,39 +102,47 @@ export function pickedBox(doc: VmfDocument, min: Vector3, max: Vector3, pick: (n
  * lintels (all cut at the plan's heights, capped on top), floor slabs per room, window fills and the porch.
  */
 export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, m: ShellMaterials, rng: Rng, stairMaterial = 'WOOD/WOODSTAIR002A', eaves = false): ShellBrushes {
-  const out: ShellBrushes = { floors: [], walls: [], fills: [], porch: [], upper: [], clip: [], eaves: [] };
+  const out: ShellBrushes = { floors: [], walls: [], fills: [], porch: [], upper: [], clip: [], eaves: [], blockers: [], ceilings: [] };
   const roomAt = (p: Vector2 | Vector3, storey: number) => plan.rooms.findIndex((r) => r.storey === storey
     && p.x >= r.box.min.x - 0.01 && p.x <= r.box.max.x + 0.01 && p.y >= r.box.min.y - 0.01 && p.y <= r.box.max.y + 0.01);
   const innerAt = (p: Vector3, storey: number) => { const r = roomAt(p, storey); return r < 0 ? m.outer : m.inner[r]; };
+  const sealedWall = (w: PlanWall) => [w.left, w.right].some((r) => r >= 0 && plan.rooms[r].sealed);
 
   for (const w of plan.walls) out.walls.push(...wallBrushes(doc, w, z0, m, innerAt));
 
-  // Window fills: a black panel in the middle of the wall, or boards nailed across the outside.
-  if (m.windows !== 'open') {
-    for (const w of plan.walls) {
-      const wb = wallBox(w), ax = w.axis, oa = ax === 'x' ? 'y' : 'x';
-      for (const o of w.openings) {
-        if (o.kind !== 'window') continue;
-        const hole = wb.clone();
-        hole.min[ax] = wb.min[ax] + o.from; hole.max[ax] = wb.min[ax] + o.to;
-        if (m.windows === 'black') {
-          const c = (hole.min[oa] + hole.max[oa]) / 2;
-          hole.min[oa] = c - 1; hole.max[oa] = c + 1;
-          out.fills.push(pickedBox(doc, new Vector3(hole.min.x, hole.min.y, z0 + o.sill), new Vector3(hole.max.x, hole.max.y, z0 + o.lintel), () => BLACK, z0));
-          continue;
-        }
-        // Boards on the outer face (the side away from the room).
-        const outSide = w.left === -1 ? (ax === 'x' ? 1 : -1) : (ax === 'x' ? -1 : 1);
-        const face = outSide > 0 ? hole.max[oa] : hole.min[oa];
-        hole.min[oa] = Math.min(face - outSide * 3, face - outSide); hole.max[oa] = Math.max(face - outSide * 3, face - outSide);
-        const h = o.lintel - o.sill;
-        const boards = rng.int(2, 3);
-        for (let k = 0; k < boards; k++) {
-          const zc = z0 + o.sill + ((k + 0.5) * h) / boards + rng.int(-3, 3);
-          out.fills.push(pickedBox(doc, new Vector3(hole.min.x, hole.min.y, zc - 5), new Vector3(hole.max.x, hole.max.y, zc + 5), () => m.planks, z0));
-        }
+  // Window fills: a black panel in the middle of the wall, or boards nailed across the outside. Sealed rooms
+  // never show open windows.
+  for (const w of plan.walls) {
+    const fill = m.windows === 'open' && sealedWall(w) ? 'black' : m.windows;
+    if (fill === 'open') continue;
+    const wb = wallBox(w), ax = w.axis, oa = ax === 'x' ? 'y' : 'x';
+    for (const o of w.openings) {
+      if (o.kind !== 'window') continue;
+      const hole = wb.clone();
+      hole.min[ax] = wb.min[ax] + o.from; hole.max[ax] = wb.min[ax] + o.to;
+      if (fill === 'black') {
+        const c = (hole.min[oa] + hole.max[oa]) / 2;
+        hole.min[oa] = c - 1; hole.max[oa] = c + 1;
+        out.fills.push(pickedBox(doc, new Vector3(hole.min.x, hole.min.y, z0 + o.sill), new Vector3(hole.max.x, hole.max.y, z0 + o.lintel), () => BLACK, z0));
+        continue;
+      }
+      // Boards on the outer face (the side away from the room).
+      const outSide = w.left === -1 ? (ax === 'x' ? 1 : -1) : (ax === 'x' ? -1 : 1);
+      const face = outSide > 0 ? hole.max[oa] : hole.min[oa];
+      hole.min[oa] = Math.min(face - outSide * 3, face - outSide); hole.max[oa] = Math.max(face - outSide * 3, face - outSide);
+      const h = o.lintel - o.sill;
+      const boards = rng.int(2, 3);
+      for (let k = 0; k < boards; k++) {
+        const zc = z0 + o.sill + ((k + 0.5) * h) / boards + rng.int(-3, 3);
+        out.fills.push(pickedBox(doc, new Vector3(hole.min.x, hole.min.y, zc - 5), new Vector3(hole.max.x, hole.max.y, zc + 5), () => m.planks, z0));
       }
     }
+  }
+
+  // Closed-off doorways of sealed rooms: a dark panel at the sealed side (the room beyond looks unlit), with
+  // a door in front of it, boards across the open side, or furniture pushed against it (placed by the dressing).
+  for (const w of plan.walls) {
+    for (const o of w.openings) if (o.blocked) out.blockers.push(...blockedDoorway(doc, plan, w, o, z0, m, rng));
   }
 
   // Floor slabs, one per ground room, sunk into the ground; their outer sides show the house's finish.
@@ -134,6 +153,7 @@ export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, 
   });
 
   if (plan.upperFloor && plan.stairs) upperFloor(doc, plan, z0, m, stairMaterial, out);
+  out.ceilings.push(...lightCeilings(doc, plan, z0));
 
   // Eave stubs: 8 out from the outer face, just under the cap, on the walls that reach the cut. They
   // hang in front of doorways, so only where that leaves 88 clear for the medium hull.
@@ -218,6 +238,114 @@ function upperFloor(doc: VmfDocument, plan: InteriorPlan, z0: number, m: ShellMa
     [P(low, o0, floor), P(high, o0, floor), P(high, o0, zTop)],
     [P(low, o1, floor), P(high, o1, floor), P(high, o1, zTop)],
   ], NPCCLIP));
+}
+
+/**
+ * Light blockers over the rooms units can see into: a slab over each open ground room and the upper room,
+ * just under the wall tops (its top is level with the caps, so they keep the sun), and for two storeys a
+ * curtain over the upper floor's open edge, between the two ceiling heights. Sealed rooms are already
+ * covered by the upper floor.
+ */
+function lightCeilings(doc: VmfDocument, plan: InteriorPlan, z0: number): KVNode[] {
+  const out: KVNode[] = [];
+  const box = (min: Vector3, max: Vector3) => out.push(solidNode(doc, boxFaces(min, max, BLOCKLIGHT)));
+  for (const r of plan.rooms) {
+    if (r.sealed) continue;
+    const z = z0 + (r.storey - 1) * STOREY + plan.cut;
+    box(new Vector3(r.box.min.x, r.box.min.y, z - 8), new Vector3(r.box.max.x, r.box.max.y, z));
+  }
+  if (plan.upperFloor && plan.stairs) {
+    const ub = plan.upperFloor, s = plan.stairs;
+    const ax = s.dir.x !== 0 ? 'x' : 'y', oa = ax === 'x' ? 'y' : 'x';
+    // The flight rises towards the upper floor, so its open edge is the side the stairs come from.
+    const edge = (s.dir.x || s.dir.y) > 0 ? ub.min[ax] : ub.max[ax];
+    const min = new Vector3(0, 0, z0 + plan.cut - 8), max = new Vector3(0, 0, z0 + STOREY + plan.cut - 8);
+    min[ax] = edge - 1; max[ax] = edge + 1;
+    min[oa] = ub.min[oa] + EXTERIOR_WALL; max[oa] = ub.max[oa] - EXTERIOR_WALL;
+    box(min, max);
+  }
+  return out;
+}
+
+/** Door textures are fitted to the hole: the left edge (seen from the front `n`) and the top line up. */
+function fittedAxes(n: Vector3, hole: { min: Vector3; max: Vector3 }, size: readonly [number, number]): { u: FaceSpec['u']; v: FaceSpec['v'] } {
+  const right = new Vector3().crossVectors(n.clone().negate(), new Vector3(0, 0, 1));
+  const corners = [hole.min, hole.max].map((p) => p.dot(right));
+  const width = Math.abs(corners[1] - corners[0]), height = hole.max.z - hole.min.z;
+  const su = width / size[0], sv = height / size[1];
+  return {
+    u: { axis: right, shift: -Math.min(...corners) / su, scale: su },
+    v: { axis: new Vector3(0, 0, -1), shift: hole.max.z / sv, scale: sv },
+  };
+}
+
+/**
+ * Brushes closing off a doorway into a sealed room, seen from the open side (the outside for an outer wall):
+ * a closed door in the frame, or a dark panel at the sealed face with three or four boards nailed across.
+ * A doorway closed with furniture (placed by the dressing) gets the panel and two boards over its top half.
+ */
+function blockedDoorway(doc: VmfDocument, plan: InteriorPlan, w: PlanWall, o: PlanWall['openings'][number], z0: number, m: ShellMaterials, rng: Rng): KVNode[] {
+  const out: KVNode[] = [];
+  const { box: hole } = openingBox(w, o);
+  const ax = w.axis, oa = ax === 'x' ? 'y' : 'x';
+  // Direction (along oa) from the wall towards the open side.
+  const sealedLeft = w.left >= 0 && !!plan.rooms[w.left].sealed;
+  const leftSign = ax === 'x' ? 1 : -1;
+  const openSign = sealedLeft ? -leftSign : leftSign;
+  const openFace = openSign > 0 ? hole.max[oa] : hole.min[oa], sealedFace = openSign > 0 ? hole.min[oa] : hole.max[oa];
+  const zb = z0 + o.sill, zt = z0 + o.lintel;
+  const slab = (a: number, b: number, z1: number, z2: number, pick: (n: Vector3, c: Vector3) => string) => {
+    const lo = new Vector3(hole.min.x, hole.min.y, z1), hi = new Vector3(hole.max.x, hole.max.y, z2);
+    lo[oa] = Math.min(a, b); hi[oa] = Math.max(a, b);
+    out.push(pickedBox(doc, lo, hi, pick, z0));
+    return { min: lo, max: hi };
+  };
+  const front = (n: Vector3) => Math.sign(n[oa]) === openSign;
+  if (o.blocked === 'door') {
+    // A door set back from the open face (4 in an outside wall, 2 in a partition), the wall's reveal around it.
+    const tex = rng.pick(DOORS.single);
+    const back = Math.min(4, w.thickness / 2 - 2);
+    const lo = new Vector3(hole.min.x, hole.min.y, zb), hi = new Vector3(hole.max.x, hole.max.y, zt);
+    lo[oa] = Math.min(openFace - openSign * back, openFace - openSign * (back + 4)); hi[oa] = Math.max(openFace - openSign * back, openFace - openSign * (back + 4));
+    const faces = boxFaces(lo, hi, NODRAW);
+    faces.forEach((f, i) => {
+      if (!front(NORMALS[i])) return;
+      f.material = tex;
+      Object.assign(f, fittedAxes(NORMALS[i], { min: lo, max: hi }, DOORS.texture));
+    });
+    out.push(solidNode(doc, faces));
+    return out;
+  }
+  slab(sealedFace, sealedFace + openSign * 2, zb, zt, (n) => (n[oa] ? BLACK : NODRAW));
+  // Boards nailed over the open face between two heights, reaching 6 onto the frame each side.
+  const along = (k: 'min' | 'max') => hole[k][ax] + (k === 'min' ? -6 : 6);
+  const f0 = openFace + openSign * 1, f1 = openFace + openSign * 4;
+  const boards = (n: number, z1: number, z2: number) => {
+    for (let k = 0; k < n; k++) {
+      const zc = z1 + ((k + 0.5) * (z2 - z1)) / n + rng.int(-4, 4);
+      const lo = new Vector3(hole.min.x, hole.min.y, zc - rng.int(4, 6)), hi = new Vector3(hole.max.x, hole.max.y, zc + rng.int(4, 6));
+      lo[ax] = along('min') + rng.int(0, 4); hi[ax] = along('max') - rng.int(0, 4);
+      lo[oa] = Math.min(f0, f1); hi[oa] = Math.max(f0, f1);
+      out.push(pickedBox(doc, lo, hi, () => m.planks, z0));
+    }
+  };
+  // Behind furniture, two boards over the top half (all there is when the furniture finds no room).
+  if (o.blocked === 'furniture') boards(2, zb + (zt - zb) * 0.55, zt - 6);
+  if (o.blocked === 'boarded') {
+    // Three or four boards over the whole height; one may run diagonally.
+    boards(rng.int(3, 4), zb + 10, zt - 10);
+    if (rng.chance(0.6)) {
+      // The brace lies over the others.
+      const g0 = f1, g1 = f1 + openSign * 2;
+      const P = (a: number, z: number, across: number) => { const v = new Vector3(0, 0, z); v[ax] = a; v[oa] = across; return v; };
+      const [a0, a1] = rng.chance(0.5) ? [along('min') + 4, along('max') - 4] : [along('max') - 4, along('min') + 4];
+      const z1 = zb + 14, z2 = zt - 14, t = 5;
+      const quad = (across: number) => [P(a0, z1 - t, across), P(a0, z1 + t, across), P(a1, z2 + t, across), P(a1, z2 - t, across)];
+      const qa = quad(g0), qb = quad(g1);
+      out.push(convexBrush(doc, [qa, qb, ...[0, 1, 2, 3].map((i) => [qa[i], qa[(i + 1) % 4], qb[(i + 1) % 4], qb[i]])], m.planks));
+    }
+  }
+  return out;
 }
 
 /** A convex brush from its faces (each given by three or more of its corners), all in one material. */

@@ -70,7 +70,10 @@ const ROOM_SETS: Record<RoomType, { wall: Key[][]; free?: Key[][] }> = {
   hall: { wall: [['boiler', 'box', 'drum']] },
 };
 
-const WALL_DECALS = ['decals/decalstain001a', 'decals/decalstain002a', 'decals/decalstain005a', 'decals/decalstain008a', 'decals/wallstain01a', 'decals/paperposter001b', 'decals/paperposter003a', 'decals/decalgraffiti001a', 'decals/decalgraffiti010a'];
+/** Long pieces that can be pushed against a doorway to close it (their length runs along local y). */
+const BLOCKERS: Key[] = ['couch', 'couch2', 'crate2', 'desk', 'bench'];
+
+const WALL_DECALS =['decals/decalstain001a', 'decals/decalstain002a', 'decals/decalstain005a', 'decals/decalstain008a', 'decals/wallstain01a', 'decals/paperposter001b', 'decals/paperposter003a', 'decals/decalgraffiti001a', 'decals/decalgraffiti010a'];
 const OUTER_STAINS = ['decals/decalstain001a', 'decals/decalstain002a', 'decals/decalstain005a', 'decals/decalstain008a', 'decals/decalstain010a', 'decals/decalstain012a', 'decals/wallstain01a'];
 const FLOOR_DECALS = ['decals/bloodstain_001', 'decals/bloodstain_002', 'decals/bloodstain_003', 'decals/debris_concrete001a', 'decals/rubble01a', 'decals/decalstain010a', 'decals/decalstain012a', 'decals/burn01a'];
 
@@ -138,6 +141,8 @@ export function dressInterior(plan: InteriorPlan, z0: number, rng: Rng, o: Dress
   });
 
   plan.rooms.forEach((room, r) => {
+    // Nobody sees or enters a sealed room.
+    if (room.sealed) return;
     const inner = roomInterior(plan, r);
     const size = inner.getSize(new Vector2());
     if (size.x < 48 || size.y < 48) return;
@@ -198,6 +203,32 @@ export function dressInterior(plan: InteriorPlan, z0: number, rng: Rng, o: Dress
       return true;
     };
 
+    // Doorways into sealed rooms closed with furniture: a long piece pushed against the doorway, centred on it.
+    for (const w of plan.walls) {
+      const other = w.left === r ? w.right : w.right === r ? w.left : -2;
+      if (other < 0 || !plan.rooms[other].sealed) continue;
+      const wb = wallBox(w), ax = w.axis;
+      const n = w.left === r ? (ax === 'x' ? new Vector2(0, 1) : new Vector2(-1, 0)) : (ax === 'x' ? new Vector2(0, -1) : new Vector2(1, 0));
+      const yaw = (Math.round((Math.atan2(n.y, n.x) * 180) / Math.PI) + 360) % 360;
+      for (const op of w.openings) {
+        if (op.blocked !== 'furniture') continue;
+        const width = op.to - op.from;
+        const c = wallBox(w).getCenter(new Vector2());
+        c[ax] = wb.min[ax] + (op.from + op.to) / 2;
+        c.addScaledVector(n, w.thickness / 2);
+        const fitting = BLOCKERS.map((k) => FURNITURE[k]).filter((it) => it.max[1] - it.min[1] >= width - 8 && FLOOR_TOP + it.max[2] - it.min[2] <= cut - 16);
+        // It may stand in its own doorway's zone, not in the lanes and zones of the doors people use.
+        const hole = wb.clone();
+        hole.min[ax] = wb.min[ax] + op.from; hole.max[ax] = wb.min[ax] + op.to;
+        const keepOut = blocked.filter((z) => !overlaps(z, hole.clone().expandByScalar(1)));
+        const tries = fitting.map((item) => {
+          const p = c.clone().addScaledVector(n, -item.min[0] + 1);
+          return { item, p, box: footprint(item, yaw, p) };
+        }).filter((t) => inner.containsBox(t.box) && !placed.some((x) => overlaps(x, t.box)) && !keepOut.some((z) => overlaps(z, t.box)));
+        if (tries.length) { const t = rng.pick(tries); add(t.item, t.p, yaw, t.box); }
+      }
+    }
+
     if (furnish !== 'none') {
       const set = ROOM_SETS[room.type];
       const area = size.x * size.y;
@@ -214,8 +245,9 @@ export function dressInterior(plan: InteriorPlan, z0: number, rng: Rng, o: Dress
       }
     }
 
-    // A caged lamp on a wall with a warm light in front of it; a quarter of the rooms stay dark.
-    if ((o.lights ?? true) && rng.chance(0.75)) {
+    // A caged lamp on a wall with a warm light in front of it. The rooms are lit as covered ones (see
+    // `lightCeilings`), so only one in ten stays dark.
+    if ((o.lights ?? true) && rng.chance(0.9)) {
       const zLamp = z0 + (room.storey - 1) * STOREY + Math.min(cut - 20, 92);
       const options: { p: Vector2; n: Vector2 }[] = [];
       for (const s of sides) {
@@ -232,10 +264,11 @@ export function dressInterior(plan: InteriorPlan, z0: number, rng: Rng, o: Dress
         const yaw = Math.round((Math.atan2(c.n.y, c.n.x) * 180) / Math.PI);
         out.entities.push({ classname: 'prop_static', origin: new Vector3(Math.round(c.p.x), Math.round(c.p.y), zLamp), keys: { model: LAMP.model, angles: `0 ${(yaw + 360) % 360} 0`, solid: '0' } });
         const lp = c.p.clone().addScaledVector(c.n, 16);
-        const brightness = rng.int(80, 150);
+        // Brighter and farther than a lamp in an open room would need: it is most of the room's light.
+        const brightness = rng.int(160, 240);
         out.entities.push({
           classname: 'light', origin: new Vector3(Math.round(lp.x), Math.round(lp.y), zLamp - 8),
-          keys: { _light: `${WARM} ${brightness}`, _lightHDR: '-1 -1 -1 1', _lightscaleHDR: '1', _fifty_percent_distance: '96', _zero_percent_distance: '320' },
+          keys: { _light: `${WARM} ${brightness}`, _lightHDR: '-1 -1 -1 1', _lightscaleHDR: '1', _fifty_percent_distance: '128', _zero_percent_distance: '448' },
         });
         out.litRooms.push(r);
       }

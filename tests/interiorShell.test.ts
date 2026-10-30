@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Box2, Box3, Vector2, Vector3 } from 'three';
 import { planInterior } from '../src/gen/interiorPlan.ts';
-import { interiorShell, openingBox, shellMaterials } from '../src/gen/interiorShell.ts';
+import { BLOCKLIGHT, interiorShell, openingBox, shellMaterials } from '../src/gen/interiorShell.ts';
 import { interiorHouse } from '../src/gen/interiorHouse.ts';
 import { rectPoly } from '../src/gen/buildingPlan.ts';
 import { INTERIOR_STYLES } from '../src/gen/styles.ts';
@@ -16,6 +16,7 @@ const ell = [new Vector2(0, 0), new Vector2(512, 0), new Vector2(512, 256), new 
 const Z0 = 64;
 const solid = (n: KVNode) => new MapSolid(n, null);
 const valid = (n: KVNode) => { const s = solid(n); return buildBrushFaces(s).length === s.sides.length && s.sides.length === 6; };
+const blocklight = (n: KVNode) => solid(n).sides.every((x) => x.material === BLOCKLIGHT);
 const volume = (a: Box3, b: Box3) => {
   const i = a.clone().intersect(b);
   return i.isEmpty() ? 0 : Math.max(0, i.max.x - i.min.x) * Math.max(0, i.max.y - i.min.y) * Math.max(0, i.max.z - i.min.z);
@@ -88,7 +89,8 @@ describe('interior house shells', () => {
   it('interiorHouse keeps floors in the world and walls in func_detail', () => {
     const doc = VmfDocument.empty();
     const h = interiorHouse(doc, rect(512, 384), 0, { seed: 4, style: 'shack' });
-    expect(h.world.length).toBe(h.plan.rooms.length);
+    expect(h.world.filter((n) => !blocklight(n)).length).toBe(h.plan.rooms.length);
+    expect(h.world.filter(blocklight).length).toBe(h.plan.rooms.length);
     expect(h.detail.length).toBeGreaterThan(20);
     for (const n of [...h.world, ...h.detail]) expect(valid(n)).toBe(true);
   });
@@ -126,10 +128,25 @@ describe('interior house shells', () => {
           if (sd.sides.some((x) => x.material === 'METAL/METALRAIL001A')) expect(volume(solidBounds(sd), head)).toBe(0);
         }
         // Walls, floors, slab and steps never overlap.
-        const boxes = [...h.world.filter((n) => !solid(n).sides.every((x) => x.material === 'TOOLS/TOOLSNPCCLIP')), ...h.detail].map((n) => solidBounds(solid(n)));
+        const boxes = [...h.world.filter((n) => !solid(n).sides.every((x) => x.material === 'TOOLS/TOOLSNPCCLIP') && !blocklight(n)), ...h.detail].map((n) => solidBounds(solid(n)));
         for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) expect(volume(boxes[i], boxes[j])).toBeLessThan(0.01);
       }
     }
     expect(built).toBeGreaterThan(20);
+  });
+
+  it('light blockers cover every room units can see into, level with the wall tops', () => {
+    for (const storeys of [1, 2] as const) {
+      for (let seed = 1; seed <= 8; seed++) {
+        const h = interiorHouse(VmfDocument.empty(), rect(640, 448), Z0, { seed, storeys });
+        const ceilings = h.world.filter(blocklight).map((n) => solidBounds(solid(n)));
+        const seen = h.plan.rooms.filter((r) => !r.sealed);
+        expect(ceilings.length).toBe(seen.length + (h.plan.storeys === 2 ? 1 : 0));
+        for (const r of seen) {
+          const top = Z0 + (r.storey - 1) * 128 + h.plan.cut;
+          expect(ceilings.some((c) => c.max.z === top && c.min.x <= r.box.min.x && c.max.x >= r.box.max.x && c.min.y <= r.box.min.y && c.max.y >= r.box.max.y)).toBe(true);
+        }
+      }
+    }
   });
 });

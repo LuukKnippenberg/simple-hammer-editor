@@ -22,6 +22,9 @@ function reachable(plan: InteriorPlan): Set<number> {
   return seen;
 }
 
+/** Rooms units may enter (all but the sealed ones), sorted. */
+const open = (plan: InteriorPlan) => plan.rooms.map((r, i) => (r.sealed ? -1 : i)).filter((i) => i >= 0).sort();
+
 function each(fn: (plan: InteriorPlan, fp: Vector2[], seed: number) => void, opts = {}) {
   for (const fp of FOOTPRINTS) for (const seed of SEEDS) fn(planInterior(fp, new Rng(seed), opts), fp, seed);
 }
@@ -31,7 +34,7 @@ describe('interior floor plans', () => {
     for (const opts of [{}, { wideDoors: true }, { storeys: 2 as const }]) {
       each((plan, _fp, seed) => {
         expect(plan.entrances.length, `seed ${seed}`).toBeGreaterThan(0);
-        expect(reachable(plan).size, `seed ${seed}`).toBe(plan.rooms.length);
+        expect([...reachable(plan)].sort(), `seed ${seed}`).toEqual(open(plan));
       }, opts);
     }
   });
@@ -154,7 +157,34 @@ describe('interior floor plans', () => {
       const plan = planInterior(bigEll, new Rng(seed), { storeys: 2 });
       expect(plan.storeys).toBe(2);
       expect(plan.upperFloor!.containsPoint(plan.stairs!.head)).toBe(true);
-      expect(reachable(plan).size).toBe(plan.rooms.length);
+      expect([...reachable(plan)].sort()).toEqual(open(plan));
     }
+  });
+
+  it('two storeys: the ground rooms under the upper floor are sealed, their doorways closed off', () => {
+    const kinds = new Set<string>();
+    let sealed = 0;
+    each((plan) => {
+      if (plan.storeys !== 2) return;
+      const up = plan.upperFloor!;
+      plan.rooms.forEach((r) => {
+        if (r.storey === 1) expect(!!r.sealed).toBe(up.containsBox(r.box));
+        else expect(r.sealed).toBeFalsy();
+      });
+      sealed += plan.rooms.filter((r) => r.sealed).length;
+      for (const e of plan.entrances) expect(plan.rooms[e.room].sealed).toBeFalsy();
+      for (const w of plan.walls) {
+        const touches = [w.left, w.right].some((r) => r >= 0 && plan.rooms[r].sealed);
+        const between = touches && [w.left, w.right].every((r) => r >= 0 && plan.rooms[r].sealed);
+        for (const o of w.openings) {
+          if (o.kind === 'window') continue;
+          // Doors into a sealed room are always closed off; others never are.
+          if (!between) expect(!!o.blocked).toBe(touches);
+          if (o.blocked) kinds.add(o.blocked);
+        }
+      }
+    }, { storeys: 2 });
+    expect(sealed).toBeGreaterThan(SEEDS.length);
+    expect([...kinds].sort()).toEqual(['boarded', 'door', 'furniture']);
   });
 });

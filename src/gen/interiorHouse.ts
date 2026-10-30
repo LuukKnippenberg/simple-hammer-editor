@@ -53,5 +53,6 @@ export function interiorHouse(doc: VmfDocument, footprint: Vector2[], z0: number
   const shell = interiorShell(doc, plan, z0, shellMaterials(plan, style, rng), rng, style.stair, opts.eaves && !opts.wideDoors);
   // Furniture, lamps and grime draw from a third sequence.
   const dressing = dressInterior(plan, z0, new Rng(opts.seed * 23 + 13), { furnish: opts.furnish, lights: opts.lights, weathering: opts.weathering });
-  return { world: [...shell.floors, ...shell.clip], detail: [...shell.walls, ...shell.fills, ...shell.porch, ...shell.upper, ...shell.eaves], entities: dressing.entities, plan };
+  // The light blockers compile as detail on their own (the material says so).
+  return { world: [...shell.floors, ...shell.clip, ...shell.ceilings], detail: [...shell.walls, ...shell.fills, ...shell.blockers, ...shell.porch, ...shell.upper, ...shell.eaves], entities: dressing.entities, plan };
 }
