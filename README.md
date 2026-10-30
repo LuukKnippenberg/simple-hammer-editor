@@ -1009,6 +1009,28 @@ These mostly stand on the terrain itself (levelled under the POI) rather than on
 ![Crash site](docs/screenshots/poi-p5-crashsite.png)
 ![The crater and the dropship container](docs/screenshots/poi-p5-crashsite-close.png)
 
+- **Farmstead** (1408×1152 to 3072): a farmhouse built by `interiorHouse()` (one or two storeys, doors to the
+  yard and the road; a closed box on this branch until the interiors branch is merged), an open-fronted barn
+  of plank walls with a pitched roof and gables that units can walk into, hay bales inside, a stone well with
+  a little roof, a dirt yard, two furrowed fields along the front, a plank fence round it all with gaps at the
+  routes, a trough, a generator, tractor tyres and trees.
+- **Graveyard and chapel** (1152×1024 to 3072): grass, dirt paths through the middle and across, rows of
+  headstones and crosses (each with its grave in front; *Ravenholm look* opens some of them), a statue, a low
+  brick wall with gates, a chapel at the back (its nave from `interiorHouse()`, a stone bell tower with a
+  spire), dead trees, coffin pieces and the Ravenholm sign on posts by the gate. A zombie spawn site.
+- **Lookout tower** (768 to 1536): a wooden (legs, cross bracing) or concrete tower with a deck, parapet and
+  roof at 128 to 384 (default 256), reached by plank steps 16 high on the deck's open side with an NPC-clip
+  ramp over them (1.25 units of run per unit of height, under the navmesh's 45°; a POI too small for the
+  height asked for gets a lower deck), rocks and pines round it.
+
+![Farmstead](docs/screenshots/poi-p5-farmstead.png)
+![The yard: barn, well, house and fences](docs/screenshots/poi-p5-farmstead-close.png)
+![Graveyard with a chapel and zombies](docs/screenshots/poi-p5-graveyard.png)
+![Among the graves](docs/screenshots/poi-p5-graveyard-close.png)
+![Wooden lookout tower](docs/screenshots/poi-p5-lookout.png)
+![Its stair and deck](docs/screenshots/poi-p5-lookout-close.png)
+![Concrete lookout tower](docs/screenshots/poi-p5-lookout-concrete.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
