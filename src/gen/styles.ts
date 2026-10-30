@@ -2,7 +2,20 @@ import type { FacadeTile } from './facade.ts';
 import type { CornerOption } from './buildingPlan.ts';
 import type { RoofKind } from './roofs.ts';
 
-const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
+/** Share of a bay each tile's window or door takes with its frame and sill, measured from the textures. */
+const OPENINGS: Record<string, number> = {
+  building_template001b: 0.6, building_template001d: 0.6, building_template002b: 0.7, building_template002c: 0.64,
+  building_template002e: 0.52, building_template002f: 0.52, building_template002o: 0.7, building_template002p: 0.38,
+  building_template003c: 0.6, building_template003d: 0.72, building_template003e: 0.6, building_template011c: 0.54,
+  building_template011g: 0.68, building_template012b: 0.6, building_template012c: 0.6, building_template012d: 0.6,
+  building_template012g: 0.6, building_template012h: 0.6, building_template013b: 0.42, building_template013f: 0.42,
+  building_template013g: 0.52, building_template014e: 0.54, building_template014i: 0.52, building_template015b: 0.42,
+  building_template015c: 0.42, building_template019c: 0.55, building_template019k: 0.55, building_template021c: 0.8,
+  courtyard_template001c: 0.4, courtyard_template001g: 0.4, courtyard_template003c: 0.4, courtyard_template003d: 0.22,
+  courtyard_template003f: 0.4, courtyard_template005c: 0.4, courtyard_template005f: 0.4, courtyard_template005g: 0.4,
+  courtyard_template006e: 0.4, courtyard_template006k: 0.4,
+};
+const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx, opening: OPENINGS[name] });
 const TRIM_WHITE = t('building_template002k', 0);
 const ARCH_DOOR = t('building_template002e', 1);
 
@@ -15,7 +28,7 @@ export const FACADE_STYLES = {
   stone: { windows: [t('building_template003e', 2), t('building_template003d', 2)], ground: [t('building_template003c', 2)], door: ARCH_DOOR, plain: t('building_template003a', 0), trim: t('building_template003a', 0) },
   brown: { windows: [t('building_template001b', 2), t('building_template019c', 2), t('building_template019k', 2)], ground: [t('building_template001d', 2)], door: ARCH_DOOR, plain: t('building_template019a', 0), trim: t('building_template001f', 0, 256) },
   brick: { windows: [t('building_template011c', 1)], ground: [t('building_template011g', 1)], door: t('building_template011g', 1), plain: t('building_template011b', 0), trim: t('building_template011b', 0) },
-  pale: { windows: [t('building_template002o', 2), t('building_template002p', 2)], ground: [t('building_template002f', 1)], door: ARCH_DOOR, plain: t('building_template004h', 0), trim: TRIM_WHITE },
+  pale: { windows: [t('building_template002o', 2), t('building_template002p', 1)], ground: [t('building_template002f', 1)], door: ARCH_DOOR, plain: t('building_template004h', 0), trim: TRIM_WHITE },
   ochre: { windows: [t('building_template012b', 2), t('building_template012c', 2), t('building_template012d', 2), t('building_template012g', 2)], ground: [t('building_template012h', 2)], door: t('building_template013g', 1), plain: t('building_template012n', 0), trim: TRIM_WHITE },
   yellow: { windows: [t('building_template014e', 1), t('building_template015b', 1), t('building_template015c', 1)], ground: [t('building_template015c', 1)], door: t('building_template014i', 1), plain: t('building_template014a', 0), trim: TRIM_WHITE },
   framed: { windows: [t('building_template013b', 1), t('building_template013f', 1)], ground: [t('building_template013f', 1)], door: t('building_template013g', 1), plain: t('building_template013a', 0), trim: t('building_template003a', 0) },

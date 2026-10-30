@@ -270,6 +270,8 @@ function partSolids(
   /** Stretches of wall i that neighbours hide between two heights. */
   const party = (i: number, zMin: number, zMax: number) => partySpans(walls[i], neighbours, zMin, zMax);
   const hidden = (i: number, from: number, to: number, zMin: number, zMax: number) => party(i, zMin, zMax).some((p) => p.from < to && p.to > from);
+  // Pilasters per wall, in the wall's plane (x along it, y height), for the street clutter to keep clear of.
+  const pilasters = poly.map((): Box2[] => []);
 
   // Base course of stone along the street; ledges, a heavier one over the ground floor and thin ones
   // between upper floors (all, or every other); the stepped cornice. All stop at party walls.
@@ -300,6 +302,7 @@ function partSolids(
         if (hidden(i, along - 10, along + 10, colMin, colTop)) continue;
         add(wallBlock(doc, a.clone().addScaledVector(walls[i].dir, along), walls[i].dir, 16, 6, colMin, colTop, s.plain));
         columns.push({ wall: i, at: along });
+        pilasters[i].push(new Box2(new Vector2(along - 8, colMin), new Vector2(along + 8, colTop)));
       }
     });
   }
@@ -377,7 +380,7 @@ function partSolids(
       }, street.rng);
       detail.push(...f.solids);
       street.entities.push(...f.entities);
-      if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors));
+      if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors, { windows, ground: groundTiles[i], taken: [...f.taken, ...pilasters[i]] }));
       // Weathering: stains running down from under the cornice and the ledges. An infodecal lands on every
       // brush face it covers, so each stays clear of the bands, the brackets and what stands on the wall
       // (oriels, balconies, columns, quoins).
