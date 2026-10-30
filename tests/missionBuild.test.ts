@@ -94,3 +94,74 @@ describe('mission build', () => {
     expect(outs(named(doc, 'medic'))).toEqual([]);
   });
 });
+
+describe('mission build: game events, counts, all-of and gates', () => {
+  const g: MissionGraph = {
+    version: 1, start: 'a',
+    stages: [{
+      id: 'a', title: 'Build up', x: 0, y: 0, objectives: [], actions: [],
+      messages: [{ speaker: 'Dispatch', text: 'Build a garrison.', hint: 'Select a stunstick unit and press B.' }, { text: '#Mission_Intro', speaker: 'Dispatch' }],
+      gates: [{ id: 'g1', op: 'lock', ability: 'build_comb_armory', owner: '2' }, { id: 'g2', op: 'hide', ability: 'build_comb_armory', owner: '2' }, { id: 'g3', op: 'unlock', ability: 'weaponsg_comb_unlock', owner: '3' }],
+      transitions: [
+        { id: 't1', condition: { kind: 'building', building: 'build_comb_garrison', owner: '2', count: 1, when: 'finished' }, to: 'victory', completes: true },
+        { id: 't2', condition: { kind: 'building', building: 'build_comb_barricade', owner: '2', count: 3, when: 'finished' }, to: 'victory', completes: true },
+        { id: 't3', condition: { kind: 'all', conditions: [
+          { kind: 'ability', ability: 'weaponsg_comb_unlock', owner: '2', count: 1 },
+          { kind: 'ability', ability: 'unit_combine', owner: '2', count: 2 },
+        ] }, to: 'victory', completes: true },
+      ],
+    }],
+  };
+
+  it('filters building events by owner and type, counting when asked', () => {
+    const doc = map();
+    buildMissionInto(doc, g, new Vector3());
+    expect(validateConnections(doc).filter((p) => p.severity === 'error')).toEqual([]);
+    expect(named(doc, 'mf_a_t0_c').classname).toBe('event_building_listener');
+    expect(outs(named(doc, 'mf_a_t0_c'))).toEqual(['OnBuildingFinished>mf_a_t0_c_own.TestActivator']);
+    expect(named(doc, 'mf_a_t0_c_own').get('ownernumber')).toBe('2');
+    expect(outs(named(doc, 'mf_a_t0_c_own'))).toEqual(['OnPass>mf_a_t0_c_type.TestActivator']);
+    expect(named(doc, 'mf_a_t0_c_type').get('unittype')).toBe('build_comb_garrison');
+    expect(outs(named(doc, 'mf_a_t0_c_type'))).toEqual(['OnPass>mf_a_t0.Trigger']);
+    // Three barricades: a counter, off until the stage starts and reset with it.
+    expect(outs(named(doc, 'mf_a_t1_c_type'))).toEqual(['OnPass>mf_a_t1_c_n.Add(1)']);
+    expect(named(doc, 'mf_a_t1_c_n').classname).toBe('math_counter');
+    expect(named(doc, 'mf_a_t1_c_n').get('max')).toBe('3');
+    expect(named(doc, 'mf_a_t1_c_n').get('StartDisabled')).toBe('1');
+    expect(outs(named(doc, 'mf_a_t1_c_n'))).toEqual(['OnHitMax>mf_a_t1.Trigger']);
+    expect(outs(named(doc, 'mf_a_enter'))).toEqual(expect.arrayContaining(['OnTrigger>mf_a_t1_c_n.SetValueNoFire(0)', 'OnTrigger>mf_a_t1_c_n.Enable']));
+    expect(outs(named(doc, 'mf_a_t0'))).toEqual(expect.arrayContaining(['OnTrigger>mf_a_t1_c_n.Disable']));
+  });
+
+  it('matches ability names with a logic_case and needs every part of an all-of', () => {
+    const doc = map();
+    buildMissionInto(doc, g, new Vector3());
+    const all = named(doc, 'mf_a_t2_all');
+    expect(all.get('max')).toBe('2');
+    expect(outs(all)).toEqual(['OnHitMax>mf_a_t2.Trigger']);
+    expect(outs(named(doc, 'mf_a_t2_s0'))).toEqual(['OnTrigger>mf_a_t2_all.Add(1)', 'OnTrigger>mf_a_t2_s0.Disable']);
+    expect(named(doc, 'mf_a_t2_s0').get('StartDisabled')).toBe('1');
+    expect(outs(named(doc, 'mf_a_t2_s0_c'))).toEqual(['AbilityCompleted>mf_a_t2_s0_c_case.InValue']);
+    expect(named(doc, 'mf_a_t2_s0_c_case').get('Case01')).toBe('weaponsg_comb_unlock');
+    expect(outs(named(doc, 'mf_a_t2_s0_c_case'))).toEqual(['OnCase01>mf_a_t2_s0_c_own.TestActivator']);
+    expect(outs(named(doc, 'mf_a_t2_s0_c_own'))).toEqual(['OnPass>mf_a_t2_s0.Trigger']);
+    // Two soldiers: the part counts to two before it counts once for the all-of.
+    expect(outs(named(doc, 'mf_a_t2_s1_c_own'))).toEqual(['OnPass>mf_a_t2_s1_c_n.Add(1)']);
+    expect(outs(named(doc, 'mf_a_t2_s1_c_n'))).toEqual(['OnHitMax>mf_a_t2_s1.Trigger']);
+    expect(outs(named(doc, 'mf_a_enter'))).toEqual(expect.arrayContaining(['OnTrigger>mf_a_t2_all.Enable', 'OnTrigger>mf_a_t2_s0.Enable', 'OnTrigger>mf_a_t2_s1.Enable', 'OnTrigger>mf_a_t2_s1_c_n.Enable']));
+  });
+
+  it('sends gates to one ability manager per player and formats speaker and hint', () => {
+    const doc = map();
+    buildMissionInto(doc, g, new Vector3());
+    expect(named(doc, 'mf_abil2').classname).toBe('wars_ability_manager');
+    expect(named(doc, 'mf_abil3').get('ownernumber')).toBe('3');
+    expect(doc.entities.filter((e) => e.get('targetname') === 'mf_abil2')).toHaveLength(1);
+    expect(outs(named(doc, 'mf_a_enter'))).toEqual(expect.arrayContaining([
+      'OnTrigger>mf_abil2.LockAbility(build_comb_armory)', 'OnTrigger>mf_abil2.HideAbilityOnUnavailabe(build_comb_armory)', 'OnTrigger>mf_abil3.UnlockAbility(weaponsg_comb_unlock)',
+    ]));
+    expect(named(doc, 'mf_a_msg0').get('Text')).toBe('<b>Dispatch:</b> Build a garrison.<br><i>Select a stunstick unit and press B.</i>');
+    // A localisation token is looked up whole, so nothing is added to it.
+    expect(named(doc, 'mf_a_msg1').get('Text')).toBe('#Mission_Intro');
+  });
+});

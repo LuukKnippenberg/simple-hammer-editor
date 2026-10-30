@@ -4,7 +4,7 @@ import { VmfDocument } from '../src/vmf/map.ts';
 import { setConnections } from '../src/vmf/io.ts';
 import { entity } from '../src/gen/layout.ts';
 import { checkMission } from '../src/lw/missionCheck.ts';
-import { simContinue, simStart, simTake, simWaiting } from '../src/lw/missionSim.ts';
+import { simContinue, simCount, simStart, simTake, simWaiting } from '../src/lw/missionSim.ts';
 import type { MissionGraph, Stage } from '../src/lw/mission.ts';
 
 function map(): VmfDocument {
@@ -87,11 +87,11 @@ describe('mission simulation', () => {
     const g = good();
     let st = simStart(g);
     expect(st.stage).toBe('a');
-    expect(st.messages).toEqual(['Hello', 'Second']);
+    expect(st.messages.map((m) => m.text)).toEqual(['Hello', 'Second']);
     expect(st.objectives.map((o) => [o.text, o.state])).toEqual([['Kill the zombies', 'active']]);
     expect(st.log.map((e) => e.kind)).toEqual(['stage', 'message', 'message', 'objective', 'action']);
     st = simContinue(st);
-    expect(st.messages).toEqual(['Second']);
+    expect(st.messages).toEqual([{ text: 'Second' }]);
     expect(simWaiting(g, st).map((t) => t.id)).toEqual(['t1', 't2']);
 
     st = simTake(g, st, 't1');
@@ -104,5 +104,51 @@ describe('mission simulation', () => {
     // The previous stage's objectives are hidden, this one's failed.
     expect(st.objectives.map((o) => [o.text, o.state])).toEqual([['Take the flag', 'failed']]);
     expect(simWaiting(g, st)).toEqual([]);
+  });
+});
+
+describe('mission check and play-through: game events', () => {
+  const g = (): MissionGraph => ({
+    version: 1, start: 'a',
+    stages: [stage('a', {
+      objectives: [{ id: 'o', text: 'Research and train' }],
+      messages: [{ text: '#Token', speaker: 'Dispatch' }],
+      gates: [{ id: 'g', op: 'lock', ability: 'build_nothing', owner: '2' }],
+      transitions: [
+        { id: 't1', condition: { kind: 'all', conditions: [
+          { kind: 'ability', ability: 'weaponsg_comb_unlock', owner: '2', count: 1 },
+          { kind: 'ability', ability: 'unit_combine', owner: '2', count: 2 },
+        ] }, to: 'victory', completes: true },
+        { id: 't2', condition: { kind: 'building', building: 'unit_combine', owner: '2', count: 0, when: 'finished' }, to: 'defeat', completes: false },
+      ],
+    })],
+  });
+
+  it('flags bad names, counts, gates and tokens with speakers', () => {
+    const texts = checkMission(g(), map()).map((i) => i.text);
+    expect(texts).toEqual(expect.arrayContaining([
+      'A: "you build Combine Soldier": "unit_combine" is a unit, not a building',
+      'A: "you build Combine Soldier": the count must be at least 1',
+      'A: the ability gate "build_nothing": the game has no ability with that name',
+      'A: the message "#Token" is a localisation token: the game looks up the whole text, so its speaker and hint are left out',
+    ]));
+    expect(texts.some((t) => t.includes('Unlock Shotgun'))).toBe(false);
+  });
+
+  it('takes an all-of transition only when every part has been met, counting repeats', () => {
+    const m = g();
+    let st = simStart(m);
+    expect(st.log.some((e) => e.kind === 'action' && e.text === 'Lock: build_nothing')).toBe(true);
+    st = simTake(m, st, 't1', 1);
+    st = simTake(m, st, 't1', 0);
+    expect(st.stage).toBe('a');
+    expect(simCount(st, 't1', 1)).toBe(1);
+    st = simTake(m, st, 't1', 1);
+    expect(st).toMatchObject({ stage: null, result: 'victory' });
+    expect(st.log.filter((e) => e.kind === 'progress').map((e) => e.text)).toEqual([
+      'you complete 2 × Combine Soldier (1 of 2): 0 of 2 parts met',
+      'you complete Unlock Shotgun: 1 of 2 parts met',
+      'you complete 2 × Combine Soldier (2 of 2): 2 of 2 parts met',
+    ]);
   });
 });

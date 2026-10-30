@@ -1,11 +1,12 @@
 import type { Editor } from '../editor.ts';
 import { OWNERS } from '../lw/kits.ts';
 import { fgdClass } from '../assets/fgd.ts';
-import { simContinue, simStart, simTake, simWaiting, type SimState } from '../lw/missionSim.ts';
+import { simContinue, simCount, simNeeds, simStart, simTake, simWaiting, type SimState } from '../lw/missionSim.ts';
 import {
-  CONDITIONS, END_NODES, defaultCondition, describeCondition, emptyMission, newId, stageById,
-  type Condition, type ConditionKind, type MissionGraph, type Stage, type Transition,
+  CONDITIONS, END_NODES, GATE_OPS, SPEAKERS, abilityLabel, asMessage, defaultCondition, describeCondition, emptyMission, newId, stageById,
+  type Condition, type ConditionKind, type GateOp, type MissionGraph, type Stage, type Transition,
 } from '../lw/mission.ts';
+import { GAME_ABILITIES, type GameAbilityKind } from '../lw/gameAbilities.ts';
 import { h } from './dom.ts';
 
 const NODE_W = 240;
@@ -191,14 +192,24 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
       });
       el.dataset.id = s.id;
       el.append(h('div.mf-title', {}, s.id === g.start ? h('span.mf-start', {}, 'START') : null, s.title || '(untitled)'));
-      if (s.messages.length) el.append(h('div.mf-msg', { title: s.messages.join('\n\n') }, `💬 ${s.messages[0].slice(0, 70)}${s.messages[0].length > 70 ? '…' : ''}${s.messages.length > 1 ? ` (+${s.messages.length - 1})` : ''}`));
+      const msgs = s.messages.map(asMessage);
+      if (msgs.length) {
+        const line = (m: (typeof msgs)[number]) => `${m.speaker ? `${m.speaker}: ` : ''}${m.text}`;
+        const first = line(msgs[0]);
+        el.append(h('div.mf-msg', { title: msgs.map((m) => `${line(m)}${m.hint ? `\n(${m.hint})` : ''}`).join('\n\n') }, `💬 ${first.slice(0, 70)}${first.length > 70 ? '…' : ''}${msgs.length > 1 ? ` (+${msgs.length - 1})` : ''}`));
+      }
       for (const o of s.objectives) el.append(h('div.mf-obj', {}, `🎯 ${o.text}`));
       for (const a of s.actions ?? []) if (a.target) el.append(h('div.mf-act', {}, `⚡ ${a.target}.${a.input}${a.delay ? ` +${a.delay}s` : ''}`));
+      for (const gt of s.gates ?? []) if (gt.ability) el.append(h('div.mf-act', {}, `${gt.op === 'unlock' || gt.op === 'show' ? '🔓' : gt.op === 'research' ? '🔬' : '🔒'} ${GATE_OPS[gt.op].label}: ${abilityLabel(gt.ability)}`));
       for (const t of s.transitions) {
         const handle = h('span.mf-handle', { title: 'Drag onto a stage to send this transition there' });
         handleEls.set(t.id, handle);
         dragHandle(handle, t);
-        el.append(h(`div.mf-tr${t.to === 'victory' ? '.win' : t.to === 'defeat' ? '.lose' : ''}` as 'div', {}, h('span', {}, `${CONDITIONS[t.condition.kind].icon} ${describeCondition(t.condition)}`), handle));
+        const c = t.condition;
+        const label = c.kind === 'all'
+          ? h('span', {}, `${CONDITIONS.all.icon} all of:`, ...c.conditions.map((x) => h('span.mf-part', {}, `${CONDITIONS[x.kind].icon} ${describeCondition(x)}`)))
+          : h('span', {}, `${CONDITIONS[c.kind].icon} ${describeCondition(c)}`);
+        el.append(h(`div.mf-tr${t.to === 'victory' ? '.win' : t.to === 'defeat' ? '.lose' : ''}${c.kind === 'all' ? '.all' : ''}` as 'div', {}, label, handle));
       }
       dragNode(el, s);
       nodeEls.set(s.id, el);
@@ -242,8 +253,25 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     return h('span.mf-target', {}, input, list);
   };
 
-  const conditionForm = (t: Transition): HTMLElement[] => {
-    const c = t.condition;
+  /** A picker for a game ability name, grouped by faction: a select for buildings, an input with suggestions otherwise. */
+  const abilityPicker = (value: string, kinds: GameAbilityKind[], onSet: (v: string) => void): HTMLElement => {
+    const list = GAME_ABILITIES.filter((a) => kinds.includes(a.kind) && !/^(overrun_|mission_)|_(destroyhq|char|overrun)$/.test(a.name));
+    const opt = (a: (typeof list)[number]) => h('option', { value: a.name }, `${a.label || a.name}${a.label ? ` · ${a.name}` : ''}`);
+    if (kinds.length === 1 && kinds[0] === 'building') {
+      const factions = [...new Set(list.map((a) => a.faction))];
+      const sel = h('select', {}, ...factions.map((f) => h('optgroup', { label: f }, ...list.filter((a) => a.faction === f).map(opt)))) as HTMLSelectElement;
+      if (value && !list.some((a) => a.name === value)) sel.prepend(h('option', { value }, value));
+      sel.value = value;
+      sel.addEventListener('change', () => onSet(sel.value));
+      return sel;
+    }
+    const dl = h('datalist', { id: newId('dl') }, ...list.map(opt));
+    const input = h('input', { value, list: dl.id, placeholder: 'ability name, e.g. weaponsg_comb_unlock' }) as HTMLInputElement;
+    input.addEventListener('change', () => onSet(input.value.trim()));
+    return h('span.mf-target', {}, input, dl);
+  };
+
+  const conditionForm = (c: Condition, nested = false): HTMLElement[] => {
     const set = (patch: Partial<Condition>) => { Object.assign(c, patch); changed(); };
     const row = (label: string, ...els: (HTMLElement | string | null)[]) => h('div.row', {}, h('label', {}, label), ...els);
     const num = (value: number, min: number, onSet: (v: number) => void) => {
@@ -271,6 +299,33 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
       }
       case 'survive': return [row('Seconds', num(c.seconds, 1, (v) => set({ seconds: v })))];
       case 'resources': return [row('Player', ownerSelect(c.owner, (v) => set({ owner: v }))), row('Amount', num(c.amount, 0, (v) => set({ amount: v })))];
+      case 'building': {
+        const when = h('select', {}, h('option', { value: 'finished' }, 'finished'), h('option', { value: 'started' }, 'started (placed)')) as HTMLSelectElement;
+        when.value = c.when;
+        when.addEventListener('change', () => set({ when: when.value as 'finished' | 'started' }));
+        return [
+          row('Building', abilityPicker(c.building, ['building'], (v) => set({ building: v }))),
+          row('Who', ownerSelect(c.owner, (v) => set({ owner: v }))),
+          row('How many', num(c.count, 1, (v) => set({ count: v })), when),
+        ];
+      }
+      case 'ability': return [
+        row('Ability', abilityPicker(c.ability, ['research', 'unit', 'ability', 'building'], (v) => set({ ability: v }))),
+        row('Who', ownerSelect(c.owner, (v) => set({ owner: v }))),
+        row('How many', num(c.count, 1, (v) => set({ count: v })), h('span.hint', {}, 'times')),
+      ];
+      case 'all': {
+        if (nested) return [h('div.hint', {}, '"All of" can\'t be nested.')];
+        const parts = c.conditions.map((sub, k) => {
+          const kind = h('select', {}, ...Object.entries(CONDITIONS).filter(([x]) => x !== 'all').map(([x, d]) => h('option', { value: x }, `${d.icon} ${d.label}`))) as HTMLSelectElement;
+          kind.value = sub.kind;
+          kind.addEventListener('change', () => { c.conditions[k] = defaultCondition(kind.value as ConditionKind); changed(); });
+          return h('div.mf-part-form', {},
+            h('div.row', {}, kind, h('button', { title: 'Remove', onclick: () => { c.conditions.splice(k, 1); changed(); } }, '×')),
+            ...conditionForm(sub, true));
+        });
+        return [...parts, h('button', { onclick: () => { c.conditions.push(defaultCondition('building')); changed(); } }, '+ Condition')];
+      }
     }
   };
 
@@ -291,9 +346,12 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     if (st.result) els.push(h(`div.mf-sim-end.${st.result}` as 'div', {}, END_LABEL[st.result]));
     else if (s) els.push(h('div.mf-sim-stage', {}, h('span.hint', {}, 'Stage '), s.title));
     if (s && st.messages.length) {
-      const total = s.messages.filter((m) => m.trim()).length;
+      const total = s.messages.map(asMessage).filter((m) => m.text.trim()).length;
+      const m = st.messages[0];
       els.push(h('div.mf-sim-msg', {},
-        h('div', {}, st.messages[0]),
+        m.speaker ? h('b', {}, `${m.speaker}:`) : null,
+        h('div', {}, m.text),
+        m.hint ? h('div.hint', {}, h('i', {}, m.hint)) : null,
         h('div.row', {}, h('span.hint', {}, `${total - st.messages.length + 1} of ${total}`), h('button.primary', { onclick: () => { sim = simContinue(st); render(); } }, 'Continue'))));
     }
     if (st.objectives.length) {
@@ -303,16 +361,29 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     const waiting = simWaiting(g, st);
     if (waiting.length) {
       els.push(h('h3', {}, 'Waiting for', h('span.hint', {}, ' click the one that happens')));
+      const cls = (t: Transition) => `button.mf-sim-tr${t.to === 'victory' ? '.win' : t.to === 'defeat' ? '.lose' : ''}`;
+      const count = (n: number, of: number) => (of > 1 ? h('span.hint', {}, ` ${n} of ${of}`) : null);
       for (const t of waiting) {
-        els.push(h(`button.mf-sim-tr${t.to === 'victory' ? '.win' : t.to === 'defeat' ? '.lose' : ''}` as 'button', { onclick: () => { sim = simTake(g, st, t.id); render(); } },
-          `${CONDITIONS[t.condition.kind].icon} ${describeCondition(t.condition)}`, h('span.hint', {}, ` → ${titleOf(t.to)}`)));
+        const c = t.condition;
+        if (c.kind !== 'all') {
+          els.push(h(cls(t) as 'button', { onclick: () => { sim = simTake(g, st, t.id); render(); } },
+            `${CONDITIONS[c.kind].icon} ${describeCondition(c)}`, count(simCount(st, t.id), simNeeds(c)), h('span.hint', {}, ` → ${titleOf(t.to)}`)));
+          continue;
+        }
+        // Each part on its own: the transition is taken once all are met.
+        els.push(h('div.mf-sim-all', {}, h('div.hint', {}, `${CONDITIONS.all.icon} All of these → ${titleOf(t.to)}`),
+          ...c.conditions.map((sub, k) => {
+            const met = simCount(st, t.id, k) >= simNeeds(sub);
+            return h(`${cls(t)}${met ? '.met' : ''}` as 'button', { disabled: met, onclick: () => { sim = simTake(g, st, t.id, k); render(); } },
+              `${met ? '✓' : CONDITIONS[sub.kind].icon} ${describeCondition(sub)}`, count(simCount(st, t.id, k), simNeeds(sub)));
+          })));
       }
     }
     els.push(h('div.row', {},
       h('button', { onclick: () => { sim = simStart(g); render(); } }, st.result ? 'Play again' : 'Restart'),
       h('button', { onclick: () => { sim = null; render(); } }, 'Stop')));
     els.push(h('h3', {}, 'What happened'));
-    const icon: Record<string, string> = { stage: '▶', message: '💬', objective: '🎯', action: '⚡', timer: '⏱', transition: '✔', end: '■' };
+    const icon: Record<string, string> = { stage: '▶', message: '💬', objective: '🎯', action: '⚡', timer: '⏱', progress: '…', transition: '✔', end: '■' };
     const line = (kind: string, text: string) => h(`div.${kind}` as 'div', {}, `${icon[kind]} ${kind === 'message' ? `“${text.slice(0, 90)}${text.length > 90 ? '…' : ''}”` : text}`);
     els.push(h('div.mf-sim-log', {}, ...st.log.map((e) => line(e.kind, e.text))));
     side.replaceChildren(...els);
@@ -335,11 +406,26 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
     }
     const title = h('input', { value: s.title }) as HTMLInputElement;
     title.addEventListener('change', () => { s.title = title.value; changed(); });
-    const messages = s.messages.map((m, i) => {
-      const ta = h('textarea', { rows: 3 }) as HTMLTextAreaElement;
-      ta.value = m;
-      ta.addEventListener('change', () => { s.messages[i] = ta.value; changed(); });
-      return h('div.mf-item', {}, ta, h('button', { title: 'Remove', onclick: () => { s.messages.splice(i, 1); changed(); } }, '×'));
+    const speakers = h('datalist', { id: newId('dl') }, ...SPEAKERS.map((n) => h('option', { value: n })));
+    const messages = s.messages.map((raw, i) => {
+      const m = (s.messages[i] = asMessage(raw));
+      const speaker = h('input', { value: m.speaker ?? '', list: speakers.id, placeholder: 'speaker (optional)' }) as HTMLInputElement;
+      speaker.addEventListener('change', () => { m.speaker = speaker.value.trim() || undefined; changed(); });
+      const ta = h('textarea', { rows: 3, placeholder: 'text, or #token for a localised string' }) as HTMLTextAreaElement;
+      ta.value = m.text;
+      ta.addEventListener('change', () => { m.text = ta.value; changed(); });
+      const hint = h('input', { value: m.hint ?? '', placeholder: 'hint line (optional), shown in italics' }) as HTMLInputElement;
+      hint.addEventListener('change', () => { m.hint = hint.value.trim() || undefined; changed(); });
+      return h('div.mf-item.mf-message', {}, h('div.mf-message-fields', {}, speaker, ta, hint), h('button', { title: 'Remove', onclick: () => { s.messages.splice(i, 1); changed(); } }, '×'));
+    });
+    const gates = (s.gates ??= []).map((gt, i) => {
+      const op = h('select', {}, ...Object.entries(GATE_OPS).map(([k, d]) => h('option', { value: k }, d.label))) as HTMLSelectElement;
+      op.value = gt.op;
+      op.addEventListener('change', () => { gt.op = op.value as GateOp; changed(); });
+      return h('div.mf-transition', {},
+        h('div.row', {}, op, h('button', { title: 'Remove', onclick: () => { s.gates!.splice(i, 1); changed(); } }, '×')),
+        h('div.row', {}, h('label', {}, 'Ability'), abilityPicker(gt.ability, ['building', 'research', 'unit', 'ability'], (v) => { gt.ability = v; changed(); })),
+        h('div.row', {}, h('label', {}, 'For'), ownerSelect(gt.owner, (v) => { gt.owner = v; changed(); })));
     });
     const objectives = s.objectives.map((o, i) => {
       const input = h('input', { value: o.text }) as HTMLInputElement;
@@ -375,7 +461,7 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
       return h('div.mf-transition', {},
         h('div.row', {}, kind, h('button', { title: 'Remove', onclick: () => { s.transitions.splice(i, 1); changed(); } }, '×')),
         h('div.hint', {}, CONDITIONS[t.condition.kind].hint),
-        ...conditionForm(t),
+        ...conditionForm(t.condition),
         h('div.row', {}, h('label', {}, 'Then go to'), to),
         h('div.row', {}, h('label', {}, 'Objectives'), done, h('span.hint', {}, t.completes ? 'completed' : 'failed')));
     });
@@ -388,13 +474,17 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
         h('button', { onclick: () => { g.stages = g.stages.filter((x) => x !== s); for (const x of g.stages) x.transitions = x.transitions.filter((t) => t.to !== s.id); if (g.start === s.id) g.start = g.stages[0]?.id ?? ''; selected = null; changed(); } }, 'Delete stage')),
       h('h3', {}, 'Messages', h('span.hint', {}, ' shown when the stage starts')),
       ...messages,
-      h('button', { onclick: () => { s.messages.push(''); changed(); } }, '+ Message'),
+      speakers,
+      h('button', { onclick: () => { s.messages.push({ text: '' }); changed(); } }, '+ Message'),
       h('h3', {}, 'Objectives', h('span.hint', {}, ' shown while the stage runs')),
       ...objectives,
       h('button', { onclick: () => { s.objectives.push({ id: newId('o'), text: 'New objective' }); changed(); } }, '+ Objective'),
       h('h3', {}, 'Actions', h('span.hint', {}, ' fired when the stage starts: enable a wave, open a gate')),
       ...actions,
       h('button', { onclick: () => { s.actions.push({ id: newId('a'), target: '', input: 'Enable', param: '', delay: 0 }); changed(); } }, '+ Action'),
+      h('h3', {}, 'Abilities', h('span.hint', {}, ' lock, unlock or hide build-menu entries and research as the stage starts')),
+      ...gates,
+      h('button', { onclick: () => { s.gates!.push({ id: newId('g'), op: 'lock', ability: 'build_comb_armory', owner: '2' }); changed(); } }, '+ Ability gate'),
       h('h3', {}, 'Transitions', h('span.hint', {}, ' the first condition met wins')),
       ...transitions,
       h('button', { onclick: () => { s.transitions.push({ id: newId('t'), condition: defaultCondition('reach'), to: 'victory', completes: true }); changed(); } }, '+ Transition'),
@@ -412,7 +502,7 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
   const addStage = () => {
     const g = graph();
     const last = g.stages[g.stages.length - 1];
-    const s: Stage = { id: newId('s'), title: `Stage ${g.stages.length + 1}`, x: (last?.x ?? 0) + NODE_W + 80, y: last?.y ?? 120, messages: [], objectives: [], actions: [], transitions: [] };
+    const s: Stage = { id: newId('s'), title: `Stage ${g.stages.length + 1}`, x: (last?.x ?? 0) + NODE_W + 80, y: last?.y ?? 120, messages: [], objectives: [], actions: [], gates: [], transitions: [] };
     g.stages.push(s);
     if (!g.start) g.start = s.id;
     selected = s.id;

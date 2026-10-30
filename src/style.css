@@ -253,6 +253,9 @@ input.switch:checked::before { transform: translateX(14px); background: #fff; }
   border-left: 2px solid #8fb3d9; background: #20262d; border-radius: 3px 0 0 3px; }
 .mf-tr.win { border-left-color: #6fd08c; }
 .mf-tr.lose { border-left-color: #e06c6c; }
+.mf-tr.all > span { display: flex; flex-direction: column; }
+.mf-part { padding-left: 12px; color: var(--muted); }
+.mf-part::before { content: "+ "; }
 .mf-handle { width: 12px; height: 12px; border-radius: 50%; background: #8fb3d9; flex: none; margin-right: -6px; cursor: crosshair; border: 2px solid #1d2126; }
 .mf-tr.win .mf-handle { background: #6fd08c; }
 .mf-tr.lose .mf-handle { background: #e06c6c; }
@@ -266,6 +269,8 @@ input.switch:checked::before { transform: translateX(14px); background: #fff; }
 .mf-item textarea, .mf-item input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; resize: vertical; }
 .mf-transition { border: 1px solid var(--border); border-radius: 6px; padding: 6px; margin-bottom: 6px; background: #1a1d21; }
 .mf-transition .row select:first-child { flex: 1; }
+.mf-part-form { border-left: 2px solid #8fb3d9; padding-left: 6px; margin: 6px 0; }
+.mf-message-fields { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .mf-target { display: flex; flex: 1; min-width: 0; }
 .mf-target input { flex: 1; min-width: 0; }
 .mf-act { margin: 2px 0; color: #d9c48f; }
@@ -288,6 +293,8 @@ input.switch:checked::before { transform: translateX(14px); background: #fff; }
 .mf-sim-tr { display: block; width: 100%; text-align: left; margin-bottom: 4px; border-left: 3px solid #8fb3d9; }
 .mf-sim-tr.win { border-left-color: #6fd08c; }
 .mf-sim-tr.lose { border-left-color: #e06c6c; }
+.mf-sim-tr.met { opacity: .6; border-left-color: #6fd08c; }
+.mf-sim-all { border: 1px dashed var(--border); border-radius: 6px; padding: 4px 6px; margin-bottom: 6px; }
 .mf-sim-log { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .mf-sim-log .stage, .mf-sim-log .end { color: var(--text); font-weight: 600; margin-top: 4px; }
 

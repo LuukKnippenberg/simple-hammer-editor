@@ -1094,6 +1094,67 @@ It follows the flowchart only; it does not run the game.
 ![Playing it through: the assault on the Largo](docs/screenshots/mission-sim-assault.png)
 ![Playing it through: victory and the log](docs/screenshots/mission-sim-victory.png)
 
+### Mission flow: game events, counts, "all of", ability gates and speakers
+
+For missions that teach the player to build and research (the Combine tutorial "Civil Protection"), the
+flowchart can react to the game's own events instead of hand-wired I/O.
+
+- **🏗 Build a building**: a player finishes (or starts placing) N buildings of a type. The type is a
+  drop-down of the game's buildings by faction. Its values are the unit info names the build menu uses
+  (`build_comb_garrison`, `build_comb_powergenerator_scrap`, ...), not FGD classes: several buildings spawn
+  another class than their name (the armory is `build_comb_armory_powered`, the scrap generator
+  `build_comb_powergen_scrap`), so filtering on the class would miss them.
+- **🔬 Research or train**: a player completes an ability N times. The game reports every completed ability by
+  name: a research (`weaponsg_comb_unlock`), a trained unit (`unit_combine`), a placed building (at placement,
+  not when it's finished) or a cast ability (`grenade_combine`).
+- **How many**: both conditions count. "3 barricades" or "2 soldiers trained" counts only while the stage runs.
+- **∧ All of several**: the transition fires once every part has been met, in any order (objective 17: one
+  upgrade researched and two soldiers trained). Each part can be any condition except another "all of".
+- **Abilities** (stage section): lock, unlock, hide or show while unavailable, or research instantly, any
+  ability or build-menu entry for a player as the stage starts. Locks last until a later stage unlocks them.
+- **Messages** get an optional speaker (Dispatch, Supervisor, Ringleader, ... or any name) and a hint line.
+
+How they are built (`src/lw/missionBuild.ts`), from what the game's Python does:
+
+| Piece | Entities | Game source |
+|---|---|---|
+| 🏗 building | `event_building_listener` → `filter_owner`.TestActivator → `filter_unittype`.TestActivator → transition | the listener passes an empty string with the **building as activator** and fires for every player (`core/ents/event_building_listener.py`); `filter_unittype` compares `unitinfo.name` (`core/ents/filters.py`) |
+| 🔬 ability | `wars_ability_manager`.AbilityCompleted → `logic_case` (Case01 = name, case-insensitive) → `filter_owner`.TestActivator → transition | AbilityCompleted passes `ability.name` with the unit or building that did it as activator, else the manager itself (`core/ents/abilities.py`), so the manager gets the condition's owner |
+| N of X | a `math_counter` (max N, starts disabled), reset and enabled when the stage starts, disabled when it ends | `math_counter` ignores Add while disabled |
+| ∧ all of | each part feeds a disabled relay `…_sK` that adds 1 to `…_all` and disables itself; `…_all` reaching the number of parts fires the transition | |
+| ability gate | one `wars_ability_manager` per player (`mf_abil<owner>`): `LockAbility`, `UnlockAbility`, `HideAbilityOnUnavailabe` (the game's spelling), `ShowAbilityOnUnavailabe`, `ResearchAbility` with the ability name | the inputs act on the manager's own owner |
+| speaker, hint | the `wars_messagebox` Text becomes `<b>Speaker:</b> text<br><i>hint</i>` | the box sets its text with `innerHTML` (`ui/viewport/src/viewport/hud/wars/MessageBox.js`) and inserts its own `<br>` at character 200; a tag that would straddle it is moved past it |
+
+What the game's HUD can't do: the message box has no speaker field, portrait or separate hint area, so the
+speaker and hint are markup inside the one text. A text starting with `#` is a localisation token the client
+looks up as a whole (`core/ents/messagebox.py`), so a speaker or hint can't be added to it (the check warns).
+
+Ability and building names come from `src/lw/gameAbilities.ts`, generated from the game's Python by
+`node scripts/extract-abilities.mjs [<game>/lambdawars]` (540 names with their English display names). The
+check flags an unknown name, a building condition on something that isn't a building, a count below 1,
+an "all of" with fewer than two parts, a gate without an ability, and a token with a speaker or hint.
+**▶ Play through** counts events (one click each, "2 of 3") and shows an "all of" as its parts, ticked off
+as they are met.
+
+Test map: `scripts/mission-events-test.mjs` writes `maps/sp_mission_events.vmf` and its flowchart (a garrison,
+three barricades, a research plus two AR2 unlocks, then the armory locked and hidden); a `logic_auto` plays it
+through `point_broadcastclientcommand` (`unit_create`, `wars_abi`) and each stage echoes into `console.log`.
+`scripts/mission-conditions-demo.mjs` takes the screenshots below.
+
+Verified in game (Steam install, `-condebug`, 2026-10-30): every transition fired in order (`SHE_STAGE_A` →
+`B` → `C` → `D` → `EndGame: Winners`). Stage B's counter ignored a barricade built before the stage
+("ignoring ADD because it is disabled"), an enemy barricade didn't count, the "all of" waited for the second AR2
+unlock, `GetTechNode('build_comb_armory', 2)` was locked with `showonunavailable` off, and the message box's
+Text arrived intact with its markup. Not seen: the message box and objective HUD themselves (CEF doesn't start
+on the test machine), and an ability completed by a real building: `wars_abi` cheats have no unit, so the
+manager was the activator (a real research or training has the building as activator, per the Python).
+`unit_create` can't place a second garrison next to the first at the cursor, so the test uses one.
+
+![The test mission with the new conditions](docs/screenshots/mission-conditions-flow.png)
+![Editing an "all of" transition](docs/screenshots/mission-conditions-allof.png)
+![Ability gates](docs/screenshots/mission-conditions-gates.png)
+![Playing it through: the "all of" waits for its second part](docs/screenshots/mission-conditions-sim-allof.png)
+
 ## Points of interest
 
 The **POI tool** (P) fills a rectangle with a finished area: a square, a parking lot, a Combine checkpoint,

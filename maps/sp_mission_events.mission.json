@@ -1,0 +1,219 @@
+{
+  "version": 1,
+  "start": "a",
+  "stages": [
+    {
+      "id": "a",
+      "title": "Build a garrison",
+      "x": 40,
+      "y": 80,
+      "messages": [
+        {
+          "speaker": "Dispatch",
+          "text": "Build a garrison to house your units.",
+          "hint": "Open the build menu with a stunstick unit selected."
+        }
+      ],
+      "objectives": [
+        {
+          "id": "o1",
+          "text": "Build a garrison"
+        }
+      ],
+      "actions": [
+        {
+          "id": "eSHE_STAGE_A",
+          "target": "she_cmd",
+          "input": "Command",
+          "param": "echo SHE_STAGE_A",
+          "delay": 0
+        }
+      ],
+      "transitions": [
+        {
+          "id": "ta",
+          "condition": {
+            "kind": "building",
+            "building": "build_comb_garrison",
+            "owner": "2",
+            "count": 1,
+            "when": "finished"
+          },
+          "to": "b",
+          "completes": true
+        },
+        {
+          "id": "tl",
+          "condition": {
+            "kind": "destroy_faction",
+            "owner": "2"
+          },
+          "to": "defeat",
+          "completes": false
+        }
+      ]
+    },
+    {
+      "id": "b",
+      "title": "Barricades",
+      "x": 340,
+      "y": 80,
+      "messages": [
+        {
+          "speaker": "Supervisor",
+          "text": "Block the street with three barricades."
+        }
+      ],
+      "objectives": [
+        {
+          "id": "o2",
+          "text": "Build 3 barricades"
+        }
+      ],
+      "actions": [
+        {
+          "id": "eSHE_STAGE_B",
+          "target": "she_cmd",
+          "input": "Command",
+          "param": "echo SHE_STAGE_B",
+          "delay": 0
+        }
+      ],
+      "transitions": [
+        {
+          "id": "tb",
+          "condition": {
+            "kind": "building",
+            "building": "build_comb_barricade",
+            "owner": "2",
+            "count": 3,
+            "when": "finished"
+          },
+          "to": "c",
+          "completes": true
+        }
+      ]
+    },
+    {
+      "id": "c",
+      "title": "Research and arm",
+      "x": 640,
+      "y": 80,
+      "messages": [
+        {
+          "text": "Research the shotgun and arm two squads with AR2s.",
+          "hint": "Both can be done in any order."
+        }
+      ],
+      "objectives": [
+        {
+          "id": "o3",
+          "text": "Research the shotgun"
+        },
+        {
+          "id": "o4",
+          "text": "Unlock the AR2 twice"
+        }
+      ],
+      "actions": [
+        {
+          "id": "eSHE_STAGE_C",
+          "target": "she_cmd",
+          "input": "Command",
+          "param": "echo SHE_STAGE_C",
+          "delay": 0
+        }
+      ],
+      "transitions": [
+        {
+          "id": "tc",
+          "to": "d",
+          "completes": true,
+          "condition": {
+            "kind": "all",
+            "conditions": [
+              {
+                "kind": "ability",
+                "ability": "weaponsg_comb_unlock",
+                "owner": "2",
+                "count": 1
+              },
+              {
+                "kind": "ability",
+                "ability": "weaponar2_comb_unlock",
+                "owner": "2",
+                "count": 2
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "d",
+      "title": "Armory locked",
+      "x": 940,
+      "y": 80,
+      "messages": [
+        {
+          "speaker": "Dispatch",
+          "text": "The armory is off limits for now."
+        }
+      ],
+      "objectives": [
+        {
+          "id": "o5",
+          "text": "Hold for 3 seconds"
+        }
+      ],
+      "gates": [
+        {
+          "id": "g1",
+          "op": "lock",
+          "ability": "build_comb_armory",
+          "owner": "2"
+        },
+        {
+          "id": "g2",
+          "op": "hide",
+          "ability": "build_comb_armory",
+          "owner": "2"
+        }
+      ],
+      "actions": [
+        {
+          "id": "eSHE_STAGE_D",
+          "target": "she_cmd",
+          "input": "Command",
+          "param": "echo SHE_STAGE_D",
+          "delay": 0
+        },
+        {
+          "id": "p1",
+          "target": "she_cmd",
+          "input": "Command",
+          "param": "spy print('SHE_LOCKED', __import__('core.abilities',fromlist=['x']).GetTechNode('build_comb_armory',2).locked, __import__('core.abilities',fromlist=['x']).GetTechNode('build_comb_armory',2).showonunavailable)",
+          "delay": 1
+        },
+        {
+          "id": "p1.5",
+          "target": "she_cmd",
+          "input": "Command",
+          "param": "spy print('SHE_MSG', __import__('entities').gEntList.FindEntityByName(None,'mf_a_msg0').description)",
+          "delay": 1.5
+        }
+      ],
+      "transitions": [
+        {
+          "id": "td",
+          "condition": {
+            "kind": "survive",
+            "seconds": 3
+          },
+          "to": "victory",
+          "completes": true
+        }
+      ]
+    }
+  ]
+}
