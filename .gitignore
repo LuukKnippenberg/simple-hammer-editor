@@ -6,3 +6,5 @@ editor.config.json
 # Compile workspace (VMF copies, logs, BSPs produced by the compile pipeline)
 .compile/
 *.log
+# Screenshots from the demo scripts (regenerated locally, referenced by the README)
+docs/screenshots/
