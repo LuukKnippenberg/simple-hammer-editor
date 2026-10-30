@@ -34,6 +34,8 @@ import { mountSketchDialog } from './ui/sketchDialog.ts';
 import { mountInstallPicker } from './ui/installPicker.ts';
 import { mountMapSettingsPanel } from './ui/mapSettingsPanel.ts';
 import { mountPoiPanel } from './ui/poiPanel.ts';
+import { mountCinemaPanel } from './ui/cinemaPanel.ts';
+import { CinematicsRenderer } from './render/cinematicsRenderer.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -87,6 +89,7 @@ const missionFlow = mountMissionFlow(editor, {
 });
 tabs.add('Mission', mountMissionPanel(editor, () => missionFlow.open()));
 tabs.add('POI', mountPoiPanel(editor, () => tabs.show('POI')));
+tabs.add('Cinema', mountCinemaPanel(editor));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[title^="Entity"]')?.click()));
 const mapPanel = h('div');
 mountDocumentPanel(editor, mapPanel);
@@ -111,6 +114,7 @@ sounds.localRanges = () => localSounds.sounds.map((s) => ({ entity: s.entity, ra
 sounds.update();
 editor.on('soundscape', () => sounds.update(soundscapes.active?.entity ?? null));
 new GameplayOverlay(editor);
+new CinematicsRenderer(editor);
 editor.on('selection', () => {
   if (!editor.selection.isEmpty && editor.tools.current.name === 'select') tabs.show('Selection');
 });

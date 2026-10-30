@@ -119,6 +119,8 @@ export const SETTING_GROUPS: SettingGroup[] = [
     id: 'cc', title: 'Colour correction', classname: 'color_correction',
     description: 'A colour grading lookup table for the whole map.',
     base: { targetname: 'cc_global', minfalloff: '-1', maxfalloff: '-1', StartDisabled: '0', fadeOutDuration: '0' },
+    // Atmosphere presets bring their own colour correction (src/lw/cinematics.ts).
+    match: (e) => !e.get('she_cine'),
     fields: [
       {
         kind: 'file', key: 'filename', label: 'Lookup table', default: '', folder: 'scripts/colorcorrection', ext: '.raw',
