@@ -17,14 +17,14 @@ export interface CompileResult {
   seconds: number;
 }
 
-type Log = (kind: 'step' | 'out' | 'warn' | 'error' | 'done', text: string) => void;
+export type Log = (kind: 'step' | 'out' | 'warn' | 'error' | 'done', text: string) => void;
 
 /** Map names become file names in the game folder: keep them simple. */
 export function safeMapName(name: string): string {
   return name.toLowerCase().replace(/\.vmf$/, '').replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48) || 'untitled';
 }
 
-function run(exe: string, args: string[], cwd: string, log: Log, onLine?: (l: string) => void): Promise<number> {
+export function run(exe: string, args: string[], cwd: string, log: Log, onLine?: (l: string) => void): Promise<number> {
   return new Promise((resolve) => {
     const p = spawn(exe, args, { cwd, windowsHide: true });
     let buf = '';
@@ -70,7 +70,7 @@ export function editorContent(cfg: EditorConfig, vmf: string): string[] {
  * Copies editor content into the mod folder for the compile tools. Returns what it created, files first and
  * then folders deepest first, so removing them in order leaves the game folder as it was.
  */
-function stageContent(cfg: EditorConfig, files: string[], mod: string, log: Log): string[] {
+export function stageContent(cfg: EditorConfig, files: string[], mod: string, log: Log): string[] {
   const created: string[] = [], dirs: string[] = [];
   for (const rel of files) {
     const dest = join(mod, rel);
