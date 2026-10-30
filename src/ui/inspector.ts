@@ -23,6 +23,7 @@ import { presetsFor } from '../lw/soundPresets.ts';
 import { addPreset } from '../edit/presetAction.ts';
 import { poiEditor, selectedPoi } from './poiPanel.ts';
 import { duplicatePoi, selectedPois } from '../gen/poi/action.ts';
+import { cinemaInspector } from './cinemaPanel.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -105,6 +106,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     }
     const line = ents.length === 1 ? powerlineOf(editor.doc.entities, ents[0]) : null;
     if (line) panel.append(powerlinePanel(editor, ents[0], line.spec, line.members.length));
+    panel.append(...cinemaInspector(editor, ents));
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
     if (solids.length) panel.append(brushEditor(editor));
     if (looseWorld.length && !partOf.size) panel.append(buildingPanel(editor));

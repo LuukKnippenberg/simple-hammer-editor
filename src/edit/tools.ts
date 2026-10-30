@@ -15,6 +15,7 @@ import { GroundTool } from './groundTool.ts';
 import { PowerlineTool } from './powerlineTool.ts';
 import { SoundTool } from './soundTool.ts';
 import { PoiTool } from './poiTool.ts';
+import { CinemaTool } from './cinemaTool.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { handleDragged } from '../gen/poi/action.ts';
 import { handleOf } from '../gen/poi/handle.ts';
@@ -23,7 +24,7 @@ import { blockHandleDragged } from '../gen/buildingAction.ts';
 import { blockOfSolid, blockOwner } from '../gen/buildingStore.ts';
 import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE } from '../gen/handle.ts';
 
-export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi';
+export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema';
 
 export interface Tool {
   name: ToolName;
@@ -480,7 +481,7 @@ export class ToolManager {
     this.select = new SelectTool(editor);
     this.tools = {
       select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor),
-      kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor), ground: new GroundTool(editor), powerline: new PowerlineTool(editor), sound: new SoundTool(editor), poi: new PoiTool(editor),
+      kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor), ground: new GroundTool(editor), powerline: new PowerlineTool(editor), sound: new SoundTool(editor), poi: new PoiTool(editor), cinema: new CinemaTool(editor),
     };
     this.current = this.select;
     const dom = editor.renderer.domElement;

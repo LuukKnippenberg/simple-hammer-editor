@@ -8,13 +8,14 @@ import type { SoundTool, SoundToolMode } from '../edit/soundTool.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 import { soundBrowser } from './soundBrowser.ts';
 import { SOUND_PRESETS } from '../lw/soundPresets.ts';
+import { cinemaToolOptions } from './cinemaPanel.ts';
 import { POLE_TYPES, type PoleType } from '../gen/powerlines.ts';
 import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
 import { multiblendRows, multiblendSets } from './blendUi.ts';
 import { h, toast } from './dom.ts';
 
-const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest' } as const;
+const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema' } as const;
 const HINTS = {
   select: 'Click to select · Shift adds · drag the gizmo · M move / R resize',
   block: 'Drag on a surface to draw a block',
@@ -27,6 +28,7 @@ const HINTS = {
   powerline: 'Click points along the route · Enter or double-click places poles and wires',
   sound: 'Click to place · turn on Audio in the top bar to hear the map',
   poi: 'Drag a rectangle (or click) to place · pick the type and settings in the POI tab',
+  cinema: 'Click to place · a selected path end keeps extending its path · Esc starts a new path',
 } as const;
 
 /** Small panel in the viewport corner with the active tool's settings. */
@@ -182,6 +184,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
         }
       }
     }
+    if (name === 'cinema') rows.push(...cinemaToolOptions(editor, render));
     if (name === 'kit') {
       const kit = (editor.tools.tools.kit as KitTool).kit;
       rows.push(h('div', {}, kit.icon, ' ', kit.label));

@@ -246,7 +246,8 @@ export function launchGame(cfg: EditorConfig, name: string): boolean {
     mkdirSync(cfgDir, { recursive: true });
     // Reset the config first: installing new gamerules runs the listen server config again.
     writeFileSync(join(cfgDir, 'she_mission.cfg'), 'lservercfgfile listenserver.cfg\nwars_setgamerules mission\n');
-    extra.push('+sv_cheats', '1', '+lservercfgfile', 'she_mission.cfg');
+    // One player slot, as missions run: point_viewcontrol (cutscenes) only finds the player then.
+    extra.push('+sv_cheats', '1', '+maxplayers', '1', '+lservercfgfile', 'she_mission.cfg');
   }
   const p = spawn(exe, ['-game', cfg.mod, '-windowed', '-noborder', '-w', '1600', '-h', '900', '-novid', '-dev', ...extra, '+map', name], {
     cwd: cfg.runGameDir, detached: true, stdio: 'ignore',

@@ -1605,6 +1605,99 @@ so it shows beside the walls (`she_building_handle`).
 selects one by a wall, moves and resizes it, regenerates it as another architecture, undoes, duplicates,
 deletes and picks a single brush with the handles hidden, all with the mouse and keyboard.
 
+## Cinematics and atmosphere
+
+Tools for scripted scenes, such as the cutscenes of the Civil Protection tutorial: the **Cinema** tab and
+the **Cinema tool** (C, 🎬). Everything is built from stock entities the game already has, the way the
+shipped missions (`sp_valley`, `sp_radio_tower`) do their cutscenes, so no game code is needed. Each piece
+is triggered by one input, which a mission stage action or any output can fire:
+
+| Piece | Built from | Trigger |
+|---|---|---|
+| 🎬 Camera shot | `point_viewcontrol` looking at an `info_target`, moving to a `path_corner` | `<shot> → Enable` |
+| 🛤 Unit route | `path_track` nodes, a `<path>_go` relay with `Order` / `QueueOrder` | `<path>_go → Trigger` |
+| ✈ Flyby | `func_tracktrain` on the path carrying a dropship or gunship model | `<path>_flyby → StartForward` |
+| 🎥 Follow the flyby (untested) | `wars_player_follow_entity` + relay (start, follow, release on arrival) | `<path>_flyby_go → Trigger` |
+| ✦ Particles | `info_particle_system` | `Start`, `Stop`, `DestroyImmediately`, `Kill` |
+| 📺 Screen to static | two `func_brush` panels | `<screen>_static → Enable` / `Disable` |
+| 🌫 Atmosphere | a relay driving `env_fog_controller` and a `color_correction` | `<preset> → Trigger` |
+
+- **Camera shots**: frame the shot in the viewport and click **+ Shot from current view**: the camera goes
+  where the editor camera is and looks at the middle of the screen. **End = view** turns it into a move
+  (the camera flies to the second position), **Look at screen centre** and **Length** change it.
+  **▶ Preview** plays it in the viewport between letterbox bars, moving the way the engine moves a
+  `point_viewcontrol` (speed ramp and smoothing from `CTriggerCamera::Move`, so the preview ends where the
+  game does). The shot freezes the player (needed for the camera to move) and hands the view back after
+  its length. The orange frustum and line show each shot in the viewport.
+- **One player slot**: `point_viewcontrol` takes the player from the input's activator, or else asks
+  `UTIL_GetLocalPlayer()`, which returns nothing on a server with more than one slot. Stage actions,
+  `logic_auto`, timers and relays fire without a player, so their shots only work with `maxplayers 1`.
+  The shipped missions fire their cameras from `logic_auto` too, so missions run that way. **Compile &
+  test** now launches `sp_` maps with `+maxplayers 1`; with the default 32 slots nothing happens.
+- **Paths**: with the Cinema tool in *Path* mode, click to add nodes at a height above the clicked surface;
+  a selected end node keeps extending its path, Esc starts a new one. Paths are drawn as lines with
+  arrows and drop lines to the ground. Selecting a node offers: height above ground for the node or the
+  whole path, remove a node and keep the path joined, close or open a loop.
+- **Units along a path**: units have no path following, but they take orders, so `<path>_go` gives the
+  named unit `Order` to the first node and `QueueOrder` to the rest. **Can't be hurt** adds
+  `MakeImmortal`, **AI-controlled** adds `MakeUncontrollable` (both are inputs on every unit; there is no
+  spawn key for immortality). Units walk or fly at their own height, so node heights only matter for
+  flybys; ground routes need nodes on the navmesh.
+- **Flybys**: a `func_tracktrain` (a small nodraw brush) follows the nodes at their exact heights and turns
+  with the path, carrying `models/combine_dropship.mdl`, the dropship with its container, the gunship or
+  the helicopter. It's a model, not a unit: no AI, can't be hurt, no troops. Real reinforcements are
+  spawned where it lands (a `unit_maker`). **Camera follows it (untested)** builds a relay that starts the
+  flyby and calls `CamFollowEntity` on a `wars_player_follow_entity`; in the test the inputs fired but
+  the RTS camera snapped once and did not track the model. Use a camera shot looking at the route instead.
+- **Particles**: the picker lists every effect in the PCF files `particles_manifest.txt` loads (1,906 in 100
+  files; `src/assets/pcf.ts` reads the effect names from the binary DMX), with favourites for the
+  tutorial: smoke column, skyline smoke, burning car, fires, embers, sparks. The viewport draws each
+  `info_particle_system` as a puff sized and coloured by a guess from the effect name (smoke, fire,
+  sparks, explosion, steam, ...) with its name as a label. There is no PCF renderer.
+- **Screens**: *Screen* mode puts a picture panel (Breen's poster, a TV picture, a screen glow) on the
+  clicked wall with the texture fitted once across, and a static panel (the scrolling noise of
+  `effects/screen_monitor_blank`) a unit in front of it that starts disabled. `env_texturetoggle` and
+  `material_modify_control` exist in the game but need a material with a `ToggleTexture` /
+  `MaterialModify` proxy, and none of the game's 5,200 materials has one (the only multi-frame screen,
+  `models/props_lab/security_screens2`, is a model material), and the game has no Breencast materials at
+  all. Render-target monitors (`_rt_Camera`) are probably compiled out of the client.
+- **Atmosphere**: presets the mission blends between, each a `logic_relay` that sets the fog's lerp
+  targets (colour, start, end), its lerp time (`AddOutput foglerptime`) and starts the transition, and
+  fades its own `color_correction` in while the other presets' fade out. Three presets follow the
+  tutorial's lighting arc: grey daylight, dusk with fires (orange fog, `cc_thunder`), Citadel glow (blue
+  fog, `ep2_outland_01_blue`). Edit a preset in the inspector; **👁 Preview** shows the fog and an
+  approximation of the colour table (its effect on mid grey, as a tint) in the viewport.
+- **What can't change at runtime**: the sun and ambient light. Lightmaps are baked by vrad;
+  `light_environment` is turned into a `light_deferred_global` at map start, and that entity has no
+  inputs (its colours are keys only). So a lighting arc is fog, colour correction, particles (fires) and
+  sounds; the baked light stays the same. Named lights with switchable styles are untested in Lambda Wars.
+
+Test map: `maps/sp_cine_test.vmf` (the arena with a camera move, a dropship flyby, smoke and a burning car,
+a screen and two atmosphere presets, all fired from `logic_auto`). `scripts/cinematics-demo.mjs` takes the
+editor screenshots.
+
+Checked in game (`+maxplayers 1 +developer 2`, the I/O log and window captures): every input fired on time;
+the camera move played (the view moved from 260 to 760 units high, looking at its target); the dropship
+flew the path, seen through a second shot aimed at the route; the smoke column rose; the screen showed the
+picture and then static after `Enable`; the fog lerp and colour correction ran (the view turned a warm
+pink-orange, though the change is subtle in captures). Not working or not checked: the follow camera
+(above); the dropship model renders flat white in this map, still and flying (likely the missing
+cubemaps, not checked); the burning car wasn't in any captured view; the Breen poster on a brush shows
+only its opaque middle (so the TV picture is the default); fog colour is hard to judge because the sky is
+a skybox and stays grey.
+
+![The pieces in the arena: the flight path with the dropship, the camera shot's frustum and route](docs/screenshots/cine-overview.png)
+![A path node: heights, a unit route and the flyby](docs/screenshots/cine-path-node.png)
+![Previewing the camera shot](docs/screenshots/cine-shot-preview.png)
+![The particle picker](docs/screenshots/cine-particles.png)
+![A screen on a wall](docs/screenshots/cine-screen.png)
+![Previewing the dusk preset](docs/screenshots/cine-atmosphere-dusk.png)
+![In game: the camera move](docs/screenshots/cine-game-shot.png)
+![In game: the dropship flyby, through a shot aimed at the route](docs/screenshots/cine-game-flyby.png)
+![In game: the screen before](docs/screenshots/cine-game-screen-before.png)
+![In game: the screen after Enable on screen_static](docs/screenshots/cine-game-screen-static.png)
+![In game: the smoke column](docs/screenshots/cine-game-smoke.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
