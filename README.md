@@ -403,6 +403,36 @@ the level never changes the layout or textures.
 ![Street level at High](docs/screenshots/buildings-p2-facade-level3.png)
 ![The demo blocks at Medium with the lighting preview](docs/screenshots/buildings-p2-overview.png)
 
+### Building phase 3: roofs
+
+`src/gen/roofs.ts` builds roofs from planes: over a convex footprint a hipped roof is the intersection of
+one rising plane per wall, so each roof tier is a **single convex brush**, also over cut and rounded
+corners (a rounded corner gets a conical roof). Planes that end up without a face are dropped, so the
+compiler never sees a redundant side.
+
+| Roof | Shape | Covering |
+|---|---|---|
+| Hipped | one tier, 37° | terracotta tiles, slate or metal |
+| Mansard | a steep attic storey (76°) with **dormers** at every second bay, then a low cap | slate, copper or metal |
+| Gabled | two slopes, gable walls in the facade's plain material (rectangular buildings) | tiles, slate or metal |
+| Curved | three tiers (72°, 52°, 19°): the bell-shaped copper roofs | copper or slate |
+| Flat | the parapet roof with rooftop props | concrete |
+
+- Dormers have a window from the building's own facade texture and a small gabled cap; chimneys (brick
+  with a cap) stand on the roof at random spots, from 1 to 3 per building.
+- Sheds get a low metal roof half of the time. Roofs, dormers and chimneys are func_detail.
+- Roof choice draws from its own random sequence, so roofs don't change the layout or facades.
+- Building panel: **Roofs** (mixed, or one kind for all). Six blocks with every kind at High detail
+  (34 buildings, about 1,700 brushes) compile through vbsp, vvis and vrad in 10 seconds.
+
+![Mixed roofs: copper and slate mansards, terracotta hips, gables, chimneys](docs/screenshots/buildings-p3-mixed.png)
+![Closer: copper mansard with dormers over a cut corner](docs/screenshots/buildings-p3-mixed-close.png)
+![A conical roof over a rounded corner](docs/screenshots/buildings-p3-mixed-east.png)
+![All mansard](docs/screenshots/buildings-p3-mansard.png)
+![All curved](docs/screenshots/buildings-p3-curved.png)
+![All gabled](docs/screenshots/buildings-p3-gable.png)
+![All hipped](docs/screenshots/buildings-p3-hip.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's

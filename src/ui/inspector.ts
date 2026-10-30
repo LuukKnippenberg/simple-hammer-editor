@@ -8,6 +8,7 @@ import { h, toast } from './dom.ts';
 import { buildingsFromSelection } from '../gen/buildingAction.ts';
 import { FACADE_STYLES, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
 import type { CornerOption } from '../gen/buildingPlan.ts';
+import type { RoofOption } from '../gen/roofs.ts';
 import { ioSection } from './ioEditor.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
@@ -143,6 +144,10 @@ function buildingPanel(editor: Editor): HTMLElement {
   const detail = h('select', { title: 'Facade decoration, built as func_detail' },
     h('option', { value: '0' }, 'None'), h('option', { value: '1' }, 'Low: base and cornice'),
     h('option', { value: '2', selected: true }, 'Medium: + ledges, columns'), h('option', { value: '3' }, 'High: + brackets')) as HTMLSelectElement;
+  const roofs = h('select', {},
+    h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'mansard' }, 'Mansard with dormers'),
+    h('option', { value: 'hip' }, 'Hipped'), h('option', { value: 'gable' }, 'Gabled'),
+    h('option', { value: 'curved' }, 'Curved (bell)'), h('option', { value: 'flat' }, 'Flat with parapet')) as HTMLSelectElement;
   const courtyards = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const annexes = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const go = () => {
@@ -151,7 +156,7 @@ function buildingPanel(editor: Editor): HTMLElement {
       minFloors: lo, maxFloors: Math.max(lo, parseInt(maxF.value, 10) || lo),
       alleys: alleys.checked, roofProps: props.checked, style: (style.value || undefined) as FacadeStyle | undefined,
       corners: corners.value as CornerOption, courtyards: courtyards.checked, annexes: annexes.checked,
-      detail: Number(detail.value) as DetailLevel,
+      detail: Number(detail.value) as DetailLevel, roofs: roofs.value as RoofOption,
     });
     toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''}` : 'Selection is too small for a building (min 128×128)');
   };
@@ -161,6 +166,7 @@ function buildingPanel(editor: Editor): HTMLElement {
     h('div.row', {}, h('label', {}, 'Floors'), minF, h('span.muted', {}, 'to'), maxF),
     h('div.row', {}, h('label', {}, 'Facade'), style),
     h('div.row', {}, h('label', {}, 'Corners'), corners),
+    h('div.row', {}, h('label', {}, 'Roofs'), roofs),
     h('div.row', {}, h('label', {}, 'Detail'), detail),
     h('div.row', {}, h('label', {}, 'Courtyards'), courtyards, h('span.hint', {}, 'blocks of 896+ units')),
     h('div.row', {}, h('label', {}, 'Annexes'), annexes, h('span.hint', {}, 'sheds in yards')),

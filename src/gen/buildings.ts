@@ -5,6 +5,7 @@ import { solidNode } from '../edit/brushes.ts';
 import { Rng } from './rng.ts';
 import { FLOOR, bayCount, cleanPolygon, convexHull, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
 import { planBlock, type CornerOption, type Part, type WallPlan } from './buildingPlan.ts';
+import { chooseRoof, roofSolids, type RoofKind, type RoofOption } from './roofs.ts';
 
 const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
 
@@ -46,6 +47,8 @@ export interface BuildingOptions {
   annexes?: boolean;
   /** Facade decoration (default 2: base course, ledges, columns, stepped cornice). */
   detail?: DetailLevel;
+  /** Roof shape: one kind for every building, or a mix (default). */
+  roofs?: RoofOption;
 }
 
 export interface GeneratedBuildings {
@@ -99,7 +102,9 @@ function cornerBlock(doc: VmfDocument, poly: Vector2[], i: number, width: number
  * Brushes of one wing. The shell (ground floor, upper floors) is world geometry for visibility; the
  * decoration (base course, ledges, columns, cornice, brackets, parapet) goes to `detail` for func_detail.
  */
-function partSolids(doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel): { world: KVNode[]; detail: KVNode[] } {
+function partSolids(
+  doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel, roof: { kind: RoofKind; material: string },
+): { world: KVNode[]; detail: KVNode[] } {
   const world: KVNode[] = [], detail: KVNode[] = [];
   const add = (n: KVNode | null) => { if (n) detail.push(n); };
   const poly = part.poly;
@@ -107,9 +112,11 @@ function partSolids(doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng
   const ground = rng.pick(s.ground);
   const windows = rng.pick(s.windows);
   const groundTiles = poly.map((_, i) => (part.cornerEdges.includes(i) ? s.door : ground));
+  const pitched = roof.kind !== 'flat';
+  const roofTop = pitched ? NODRAW : ROOF;
   // Ground floor, sunk a little so the building sits on uneven ground.
-  world.push(solidNode(doc, facadePrism(poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : ROOF, z0)));
-  if (part.floors > 1) world.push(solidNode(doc, facadePrism(poly, z0 + FLOOR, top, windows, ROOF, z0)));
+  world.push(solidNode(doc, facadePrism(poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : roofTop, z0)));
+  if (part.floors > 1) world.push(solidNode(doc, facadePrism(poly, z0 + FLOOR, top, windows, roofTop, z0)));
   const main = part.kind === 'main';
 
   // Base course of stone along the street.
@@ -158,7 +165,12 @@ function partSolids(doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng
       }
     });
   }
-  if (main) {
+  if (pitched) {
+    detail.push(...roofSolids(doc, poly, top, {
+      kind: roof.kind, material: roof.material, wall: s.plain, window: windows, overhang,
+      dormers: main && level >= 1, chimneys: main && level >= 1,
+    }, deco).solids);
+  } else if (main) {
     // Parapet: one brush per edge between the cornice line and 4 units inside the wall.
     const outer = cleanPolygon(offsetPolygon(poly, overhang));
     const inner = cleanPolygon(offsetPolygon(poly, -4));
@@ -219,6 +231,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   const level = opts.detail ?? 2;
   // Decoration draws from its own sequence, so the layout and textures don't change with the detail level.
   const deco = new Rng(opts.seed * 31 + 7);
+  const roofRng = new Rng(opts.seed * 17 + 3);
   const plan = planBlock(area, rng, {
     minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
     corners: opts.corners ?? 'mixed', courtyards: opts.courtyards ?? true, annexes: opts.annexes ?? true,
@@ -229,14 +242,18 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
 
   for (const b of plan.buildings) {
     const s = styleOf(b.styleSlot);
+    const main = b.parts[0];
+    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', main.poly.length === 4);
+    // Sheds get a low metal roof half of the time.
+    const shedRoof = roofRng.chance(0.5) ? { kind: 'hip' as const, material: 'METAL/METALROOF005A' } : { kind: 'flat' as const, material: ROOF };
     for (const part of b.parts) {
-      const r = partSolids(doc, part, s, z0, rng, deco, level);
+      const partRoof = part.kind === 'annex' ? shedRoof : roof.kind === 'gable' && part.poly.length !== 4 ? { ...roof, kind: 'hip' as const } : roof;
+      const r = partSolids(doc, part, s, z0, rng, deco, level, partRoof);
       out.solids.push(...r.world);
       out.detail.push(...r.detail);
     }
-    const main = b.parts[0];
     if (main.kind === 'main') out.buildings++;
-    if (opts.roofProps && main.kind === 'main') {
+    if (opts.roofProps && main.kind === 'main' && roof.kind === 'flat') {
       const box = new Box2().setFromPoints(main.poly);
       const size = box.getSize(new Vector2());
       const n = Math.min(3, Math.floor((size.x * size.y) / (256 * 256)));
