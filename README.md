@@ -316,6 +316,58 @@ a map can be redrawn and regenerated. The example below compiles sealed with a n
   at the right height (shipped maps do the same).
 - Decals can be placed along a world-space ray (`placeDecalRay`) for scripted map building.
 
+## Example: "Sofia: Battle for the Largo" (singleplayer)
+
+A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
+tools by `scripts/build-sofia.mjs` (map logic and landmarks in `src/examples/sofia.ts`). It is saved as
+`maps/sp_sofia.vmf` with its sketch `maps/sp_sofia.sketch.json`, so it opens and edits like any map.
+
+**Layout** (64×64 cells, 8192 units square), drawn with the map sketch:
+
+- **Old town** (south, ground level): 16 dense blocks of 2–4 storey buildings with cobbled alleys and
+  rubble courtyards, littered with debris, dumpsters, crates and drums. 15 groups of zombies (classic,
+  fast, poison and zombines, 59 in total) wait in the courtyards and alley junctions.
+- **Tram line** (one level up, reached by stairs/ramps): a wide street with two tram tracks, trams,
+  parked cars and street lamps (reference images 3 and 4).
+- **The Largo** (north): a paved square with ochre inlays, tree planters, benches and a glass dome over
+  the ruins, flanked by long pale government blocks and closed off by the Party House with its colonnade
+  and spire (image 2). The ochre corner tower with its dark dome stands on the square's corner (image 1),
+  and the gold-domed Alexander Nevsky Cathedral rises on a terrace to the east (image 5).
+- **Combine garrison** on the Largo: soldiers, shotgunners, elites and Metropolice (27) behind barricades,
+  bunkers and a fence, plus two reinforcement waves.
+
+**Mission script** (wired with the kits and the outputs editor; 15 connections, see the logic graph):
+
+1. At map start: player relations apply and the intro message tells the player to push north. Objective
+   *"Fight through the old town to the tram line"* is shown.
+2. Reaching the tram line (`trigger_once` filtered to the player's units) completes it, shows the next
+   message, reveals *"Take the Largo"* and brings 4 rebel reinforcements up the tram line.
+3. Entering the Largo shows the alarm message and enables the Party House wave; the cathedral wave
+   follows 25 seconds later. Both waves are ordered to the flag.
+4. Capturing the flag (`OnCaptured_Player0`) completes the objective, which ends the mission in victory.
+
+The map compiles sealed (vbsp, vvis, vrad -hdr) with a navmesh in about 30 seconds, and a dedicated server
+loads it with the mission gamerules without script errors. Because it starts with `sp_` and has a
+`maps/sp_sofia.res`, it is listed under Missions in the game.
+
+![Sketch: height levels](docs/screenshots/sofia-01-sketch-height.png)
+![Sketch: layout and markers](docs/screenshots/sofia-02-sketch-layout.png)
+![Top view](docs/screenshots/sofia-03-top-view.png)
+![Overview](docs/screenshots/sofia-04-overview.png)
+![Old town alleys with zombies](docs/screenshots/sofia-05-old-town-alleys.png)
+![Rooftops over a courtyard](docs/screenshots/sofia-06-courtyard.png)
+![The tram line](docs/screenshots/sofia-07-tram-line.png)
+![The Largo and the Party House](docs/screenshots/sofia-08-largo.png)
+![Party House](docs/screenshots/sofia-09-party-house.png)
+![Alexander Nevsky Cathedral](docs/screenshots/sofia-10-cathedral.png)
+![The corner tower on the tram line](docs/screenshots/sofia-11-corner-tower.png)
+![Lighting preview](docs/screenshots/sofia-12-lit-overview.png)
+![The Largo with the lighting preview](docs/screenshots/sofia-13-lit-largo.png)
+![Mission logic graph](docs/screenshots/sofia-14-logic-graph.png)
+![Mission summary](docs/screenshots/sofia-15-mission-summary.png)
+![Compile checks](docs/screenshots/sofia-16-compile-checks.png)
+![Compiled with the navmesh](docs/screenshots/sofia-17-compiled.png)
+
 ## Development
 
 ```bash
@@ -325,5 +377,6 @@ npm run screenshot -- scripts/shots/phase0.json   # needs the dev server running
 node scripts/phase3-demo.mjs                      # scripted editing session with screenshots
 node scripts/phase4-demo.mjs [map] [prefix]        # compile checks + compile through the dialog
 node scripts/phase5-demo.mjs                      # map and building generators
+node scripts/build-sofia.mjs                      # builds and compiles maps/sp_sofia.vmf
 powershell -File scripts/capture-window.ps1 -Out shot.png   # in-game screenshot of the game window
 ```
