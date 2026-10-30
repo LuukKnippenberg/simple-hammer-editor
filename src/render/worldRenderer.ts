@@ -1,9 +1,12 @@
-import { BufferAttribute, BufferGeometry, Group, Mesh, Vector3, Box3, Raycaster, type Intersection } from 'three';
+import { BufferAttribute, BufferGeometry, Group, Mesh, MeshDepthMaterial, type Material, Vector3, Box3, Raycaster, type Intersection } from 'three';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import type { MapSolid, MapSide, VmfDocument } from '../vmf/map.ts';
 import { buildBrushFaces, texelUV } from '../geom/brush.ts';
 import { buildDisplacement } from '../geom/displacement.ts';
 import type { MaterialLibrary, MaterialKind } from './materials.ts';
+
+/** Invisible in game and not solid, but casts lightmap shadows (batch keys are normalized material names). */
+const BLOCKLIGHT = 'tools/toolsblocklight';
 
 BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
@@ -144,8 +147,16 @@ export class WorldRenderer {
 
   private shadowFlags(mesh: Mesh, kind: MaterialKind): void {
     const solid = kind === 'opaque' || kind === 'blend';
-    mesh.castShadow = this.shadows && solid;
+    // Light blockers draw nothing unless tool brushes are shown, but cast shadows as they do in vrad.
+    const blocker = mesh.name === BLOCKLIGHT;
+    mesh.castShadow = this.shadows && (solid || blocker);
     mesh.receiveShadow = this.shadows && kind !== 'tool' && kind !== 'sky' && kind !== 'handle';
+    if (blocker) {
+      mesh.visible = this.visibleKinds.tool || this.shadows;
+      (mesh.material as Material).opacity = this.visibleKinds.tool ? 0.3 : 0;
+      // Shadows of transparent meshes fade with their opacity; an opaque depth material casts them in full.
+      mesh.customDepthMaterial ??= new MeshDepthMaterial();
+    }
   }
 
   constructor(materials: MaterialLibrary) {
@@ -261,7 +272,8 @@ export class WorldRenderer {
 
   /** Nearest brush hit. POI handles only count with `handles` (the Select tool); other tools reach what's inside. */
   raycast(ray: Raycaster, opts: { handles?: boolean } = {}): BrushHit | null {
-    const meshes = [...this.batches.values()].filter((b) => b.mesh.visible && (opts.handles || b.kind !== 'handle')).map((b) => b.mesh);
+    const meshes = [...this.batches.values()].filter((b) => b.mesh.visible && (opts.handles || b.kind !== 'handle')
+      && (b.mesh.name !== BLOCKLIGHT || this.visibleKinds.tool)).map((b) => b.mesh);
     for (const m of meshes) if (!m.geometry.boundsTree) m.geometry.computeBoundsTree();
     ray.firstHitOnly = true;
     const hits: Intersection[] = ray.intersectObjects(meshes, false);
