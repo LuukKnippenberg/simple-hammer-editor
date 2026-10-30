@@ -6,7 +6,8 @@ import { remapSolid } from '../edit/brushes.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
 import { buildingsFromSelection } from '../gen/buildingAction.ts';
-import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
+import { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type BuildingOptions, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
+import { INTERIOR_STYLES, type InteriorStyleName } from '../gen/styles.ts';
 import type { CornerOption } from '../gen/buildingPlan.ts';
 import type { RoofOption } from '../gen/roofs.ts';
 import { ioSection } from './ioEditor.ts';
@@ -268,6 +269,15 @@ function buildingPanel(editor: Editor): HTMLElement {
     h('option', { value: 'hip' }, 'Hipped'), h('option', { value: 'gable' }, 'Gabled'),
     h('option', { value: 'curved' }, 'Curved (bell)'), h('option', { value: 'flat' }, 'Flat with parapet')) as HTMLSelectElement;
   const towers = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
+  // Enterable open-top houses on small lots and sheds.
+  const interiors = h('select', { title: 'Enterable open-top houses on small lots and sheds of 1–2 floors (rooms, doors, furniture)' },
+    h('option', { value: '' }, 'From architecture'), h('option', { value: 'none' }, 'None'), h('option', { value: 'some' }, 'Some'), h('option', { value: 'all' }, 'All')) as HTMLSelectElement;
+  const interiorStyle = h('select', {}, h('option', { value: '' }, 'From architecture'),
+    ...Object.entries(INTERIOR_STYLES).map(([k, st]) => h('option', { value: k }, st.label))) as HTMLSelectElement;
+  const cut = h('input', { type: 'number', value: '112', min: '96', max: '128', step: '8', title: 'Height the walls are cut off at; the RTS camera sees more floor when lower' }) as HTMLInputElement;
+  const furnish = h('select', {}, h('option', { value: 'full' }, 'Full'), h('option', { value: 'sparse' }, 'Sparse'), h('option', { value: 'none' }, 'None')) as HTMLSelectElement;
+  const lights = h('input', { type: 'checkbox', checked: true, title: 'Wall lamps with lights in most rooms' }) as HTMLInputElement;
+  const wideDoors = h('input', { type: 'checkbox', checked: false, title: '128-wide doorways so the antlion guard fits through' }) as HTMLInputElement;
   const courtyards = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const annexes = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const go = () => {
@@ -279,6 +289,9 @@ function buildingPanel(editor: Editor): HTMLElement {
       architecture: arch.value as ArchitectureName, weathering: parseFloat(weathering.value),
       corners: (corners.value || undefined) as CornerOption | undefined, courtyards: courtyards.checked, annexes: annexes.checked,
       detail: Number(detail.value) as DetailLevel, roofs: roofs.value as RoofOption, towers: towers.checked,
+      interiors: (interiors.value || undefined) as BuildingOptions['interiors'], interiorStyle: (interiorStyle.value || undefined) as InteriorStyleName | undefined,
+      cutHeight: Math.max(96, Math.min(128, parseInt(cut.value, 10) || 112)), furnish: furnish.value as BuildingOptions['furnish'],
+      interiorLights: lights.checked, wideDoors: wideDoors.checked,
     });
     toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''} (seed ${seed.value})` : 'Selection is too small for a building (min 128×128)');
   };
@@ -297,6 +310,12 @@ function buildingPanel(editor: Editor): HTMLElement {
     h('div.row', {}, h('label', {}, 'Alleys'), alleys, h('span.hint', {}, 'with sky bridges')),
     h('div.row', {}, h('label', {}, 'Roof props'), props),
     h('div.row', {}, h('label', {}, 'Weathering'), weathering),
+    h('div.row', {}, h('label', {}, 'Interiors'), interiors),
+    h('div.row', {}, h('label', {}, 'Interior style'), interiorStyle),
+    h('div.row', {}, h('label', {}, 'Cut height'), cut),
+    h('div.row', {}, h('label', {}, 'Furnish'), furnish),
+    h('div.row', {}, h('label', {}, 'Lights'), lights),
+    h('div.row', {}, h('label', {}, 'Wide doors'), wideDoors, h('span.hint', {}, 'for large units')),
     h('div.row', {}, h('label', {}, 'Seed'), seed, reroll),
     h('button.primary', { onclick: go }, '🏢 Generate buildings'));
 }

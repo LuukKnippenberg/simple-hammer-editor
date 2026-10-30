@@ -15,6 +15,8 @@ export interface BlockDressing {
   yards: Box2[];
   /** Sheds standing in the yards (trees keep clear of them). */
   obstacles: Box2[];
+  /** The ground in front of the doors of enterable houses: no lamps or trees there. */
+  doors?: Box2[];
 }
 
 /** Leafless street trees (tree_dead01/02 are dead pines with needles, so they're left out). */
@@ -129,6 +131,7 @@ export function streetDressing(blocks: BlockDressing[], rng: Rng, opts: { cables
       for (let k = 0; k <= count; k++) {
         const along = 96 + ((len - 192) * (k + 0.5)) / (count + 1);
         const p = s.a.clone().addScaledVector(dir, along);
+        if (blocks.some((X) => X.doors?.some((d) => d.clone().expandByScalar(160).containsPoint(p)))) continue;
         // Wide streets alternate lamps and trees; narrower ones get lamps only.
         if ((opts.trees ?? true) && gap >= 448 && k % 2 === 1) {
           const t = p.clone().addScaledVector(s.out, 120);
@@ -148,6 +151,7 @@ export function streetDressing(blocks: BlockDressing[], rng: Rng, opts: { cables
         for (let k = 0; k < n; k++) {
           const p = new Vector2(rng.range(y.min.x + 80, y.max.x - 80), rng.range(y.min.y + 80, y.max.y - 80));
           if (B.obstacles.some((o) => o.clone().expandByScalar(48).containsPoint(p))) continue;
+          if (B.doors?.some((d) => d.clone().expandByScalar(48).containsPoint(p))) continue;
           out.push(prop(rng.pick(BARE_TREES), new Vector3(p.x, p.y, B.z0 - 4), rng.int(0, 359)));
         }
       }

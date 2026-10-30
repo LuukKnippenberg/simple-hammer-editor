@@ -43,6 +43,8 @@ export interface ShellBrushes {
   upper: KVNode[];
   /** An NPC clip ramp over the steps, so the navmesh gets a smooth slope (world brush). */
   clip: KVNode[];
+  /** Stubs of the cut-away eaves: a band just under the cap around the outside. */
+  eaves: KVNode[];
 }
 
 /** Picks the materials for a house: one outside finish, one inside finish and floor per room. */
@@ -88,8 +90,8 @@ export function pickedBox(doc: VmfDocument, min: Vector3, max: Vector3, pick: (n
  * Brushes for a planned house standing at `z0`: walls split around their openings into piers, sills and
  * lintels (all cut at the plan's heights, capped on top), floor slabs per room, window fills and the porch.
  */
-export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, m: ShellMaterials, rng: Rng, stairMaterial = 'WOOD/WOODSTAIR002A'): ShellBrushes {
-  const out: ShellBrushes = { floors: [], walls: [], fills: [], porch: [], upper: [], clip: [] };
+export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, m: ShellMaterials, rng: Rng, stairMaterial = 'WOOD/WOODSTAIR002A', eaves = false): ShellBrushes {
+  const out: ShellBrushes = { floors: [], walls: [], fills: [], porch: [], upper: [], clip: [], eaves: [] };
   const roomAt = (p: Vector2 | Vector3, storey: number) => plan.rooms.findIndex((r) => r.storey === storey
     && p.x >= r.box.min.x - 0.01 && p.x <= r.box.max.x + 0.01 && p.y >= r.box.min.y - 0.01 && p.y <= r.box.max.y + 0.01);
   const innerAt = (p: Vector3, storey: number) => { const r = roomAt(p, storey); return r < 0 ? m.outer : m.inner[r]; };
@@ -132,6 +134,22 @@ export function interiorShell(doc: VmfDocument, plan: InteriorPlan, z0: number, 
   });
 
   if (plan.upperFloor && plan.stairs) upperFloor(doc, plan, z0, m, stairMaterial, out);
+
+  // Eave stubs: 8 out from the outer face, just under the cap, on the walls that reach the cut. They
+  // hang in front of doorways, so only where that leaves 88 clear for the medium hull.
+  if (eaves) {
+    for (const w of plan.walls) {
+      if (!w.exterior || w.top < STOREY && w.top - 10 - FLOOR_TOP < 88) continue;
+      if (w.storey === 1 && w.top >= STOREY && plan.upperFloor) continue;
+      const wb = wallBox(w), ax = w.axis, oa = ax === 'x' ? 'y' : 'x';
+      const out1 = w.left === -1 ? (ax === 'x' ? 1 : -1) : (ax === 'x' ? -1 : 1);
+      const face = out1 > 0 ? wb.max[oa] : wb.min[oa];
+      const b = wb.clone();
+      b.min[oa] = Math.min(face, face + out1 * 8); b.max[oa] = Math.max(face, face + out1 * 8);
+      b.min[ax] -= 8; b.max[ax] += 8;
+      out.eaves.push(pickedBox(doc, new Vector3(b.min.x, b.min.y, z0 + w.top - 10), new Vector3(b.max.x, b.max.y, z0 + w.top - 2), () => m.cap, z0));
+    }
+  }
 
   // Porch: a plank deck at floor height, with railings on its ends half of the time.
   if (plan.porch) {

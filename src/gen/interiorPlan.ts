@@ -117,6 +117,8 @@ export interface InteriorPlanOptions {
   porch?: boolean;
   /** Room types: a dwelling, or workshop and storage rooms (default house). */
   use?: 'house' | 'workshop';
+  /** Areas next to the house where no entrance may open (neighbouring buildings). */
+  noEntrance?: Box2[];
 }
 
 type Axis = 'x' | 'y';
@@ -314,6 +316,42 @@ export function wallDirs(w: PlanWall): { dir: Vector2; left: Vector2 } {
 /** Point at distance `t` along the wall's centre line. */
 export function wallPoint(w: PlanWall, t: number): Vector2 {
   return w.a.clone().addScaledVector(wallDirs(w).dir, t);
+}
+
+/**
+ * The outline of a union of axis-aligned rectangles that share edges (an L-shaped lot of two wings), counter-
+ * clockwise.
+ */
+export function outlineOf(rects: Box2[]): Vector2[] {
+  const xs = [...new Set(rects.flatMap((r) => [r.min.x, r.max.x]))].sort((a, b) => a - b);
+  const ys = [...new Set(rects.flatMap((r) => [r.min.y, r.max.y]))].sort((a, b) => a - b);
+  const inside = (i: number, j: number) => i >= 0 && j >= 0 && i + 1 < xs.length && j + 1 < ys.length
+    && rects.some((r) => r.containsPoint(new Vector2((xs[i] + xs[i + 1]) / 2, (ys[j] + ys[j + 1]) / 2)));
+  // Boundary edges with the inside on their left, keyed by their start.
+  const next = new Map<string, Vector2>();
+  const key = (p: Vector2) => `${p.x},${p.y}`;
+  for (let j = 0; j + 1 < ys.length; j++) for (let i = 0; i + 1 < xs.length; i++) {
+    if (!inside(i, j)) continue;
+    const [x0, x1, y0, y1] = [xs[i], xs[i + 1], ys[j], ys[j + 1]];
+    if (!inside(i, j - 1)) next.set(key(new Vector2(x0, y0)), new Vector2(x1, y0));
+    if (!inside(i + 1, j)) next.set(key(new Vector2(x1, y0)), new Vector2(x1, y1));
+    if (!inside(i, j + 1)) next.set(key(new Vector2(x1, y1)), new Vector2(x0, y1));
+    if (!inside(i - 1, j)) next.set(key(new Vector2(x0, y1)), new Vector2(x0, y0));
+  }
+  const start = [...next.keys()][0];
+  const out: Vector2[] = [];
+  let at = start;
+  for (let guard = 0; guard <= next.size; guard++) {
+    const [x, y] = at.split(',').map(Number);
+    out.push(new Vector2(x, y));
+    at = key(next.get(at)!);
+    if (at === start) break;
+  }
+  // Drop the corners in the middle of straight runs.
+  return out.filter((p, i) => {
+    const a = out[(i + out.length - 1) % out.length], b = out[(i + 1) % out.length];
+    return (p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x) !== 0;
+  });
 }
 
 /** Rooms that share a wall with an opening of kind door or gap between them. */
@@ -601,7 +639,7 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
     from = Math.min(e - width, Math.max(s, snap8(from)));
     const op: Opening = kind === 'window'
       ? { from, to: from + width, kind, sill: storeyBase(w) + 40, lintel: storeyBase(w) + 96 }
-      : { from, to: from + width, kind, sill: w.bottom, lintel: Math.min(w.top, w.bottom + 96) };
+      : { from, to: from + width, kind, sill: w.bottom, lintel: Math.min(w.top, w.bottom + (o.wideDoors ? 112 : 96)) };
     if (kind === 'gap' || op.lintel > w.top - 8) op.lintel = w.top;
     w.openings.push(op);
     w.openings.sort((p, q) => p.from - q.from);
@@ -612,8 +650,16 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
   // Entrances: the requested edges, or one door (two on long houses) on different sides.
   const entrances: Entrance[] = [];
   const ground = walls.filter((w) => w.storey === 1);
-  const outside = ground.filter((w) => w.exterior);
   const outNormal = (w: PlanWall) => { const { left } = wallDirs(w); return w.left === -1 ? left : left.clone().negate(); };
+  // Doors open away from neighbouring buildings, unless that leaves no way in.
+  const minDoor = o.wideDoors ? 128 : 64;
+  const facesNeighbour = (w: PlanWall) => {
+    const face = wallBox(w).translate(outNormal(w).multiplyScalar(w.thickness / 2 + 1));
+    return (o.noEntrance ?? []).some((b) => Math.min(b.max.x, face.max.x) - Math.max(b.min.x, face.min.x) > 0 && Math.min(b.max.y, face.max.y) - Math.max(b.min.y, face.min.y) > 0);
+  };
+  const allOutside = ground.filter((w) => w.exterior);
+  const facingOut = allOutside.filter((w) => !facesNeighbour(w));
+  const outside = facingOut.some((w) => fits(w, minDoor)) ? facingOut : allOutside;
   const onEdge = (w: PlanWall, e: number) => {
     const p = footprint[e], q = footprint[(e + 1) % footprint.length];
     const n = outNormal(w), mid = w.a.clone().add(w.b).multiplyScalar(0.5).addScaledVector(n, w.thickness / 2);
@@ -635,7 +681,6 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
     return true;
   };
   const usable = (list: PlanWall[], width: number) => list.filter((w) => fits(w, width));
-  const minDoor = o.wideDoors ? 128 : 64;
   if (o.entranceEdges?.length) {
     for (const e of o.entranceEdges) {
       const c = usable(outside.filter((w) => onEdge(w, e)), minDoor);

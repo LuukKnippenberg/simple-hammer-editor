@@ -49,6 +49,8 @@ export interface BlockPlan {
   /** Open courtyards and back yards, and the sheds standing in them. */
   yards: Box2[];
   sheds: Box2[];
+  /** A perimeter block: a ring of buildings around a courtyard. */
+  ring?: boolean;
 }
 
 export interface PlanOptions {
@@ -164,6 +166,7 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
       new Box2(inner.max.clone(), area.max.clone()),
       new Box2(new Vector2(area.min.x, inner.max.y), new Vector2(inner.min.x, area.max.y)),
     ];
+    out.ring = true;
     for (const c of corners) addLot(c, floorsFor(true));
     out.yards.push(inner.clone());
     const sides: Box2[][] = [

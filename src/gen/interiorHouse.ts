@@ -1,4 +1,4 @@
-import type { Vector2 } from 'three';
+import type { Box2, Vector2 } from 'three';
 import type { KVNode } from '../vmf/keyvalues.ts';
 import type { VmfDocument } from '../vmf/map.ts';
 import { Rng } from './rng.ts';
@@ -31,6 +31,10 @@ export interface InteriorHouseOptions {
   entranceEdges?: number[];
   /** A porch deck in front of the main door (default: half of the houses). */
   porch?: boolean;
+  /** Areas next to the house where no entrance may open, such as neighbouring buildings. */
+  noEntrance?: Box2[];
+  /** Stubs of the cut-away eaves under the cap (default off). */
+  eaves?: boolean;
 }
 
 /**
@@ -42,12 +46,12 @@ export function interiorHouse(doc: VmfDocument, footprint: Vector2[], z0: number
   const style = INTERIOR_STYLES[(opts.style ?? 'farmhouse') as InteriorStyleName] ?? INTERIOR_STYLES.farmhouse;
   const plan = planInterior(footprint, new Rng(opts.seed), {
     storeys: opts.storeys ?? 1, cut: opts.cutHeight ?? 112, wideDoors: opts.wideDoors, entranceEdges: opts.entranceEdges, porch: opts.porch,
-    use: opts.style === 'outbuilding' ? 'workshop' : 'house',
+    use: opts.style === 'outbuilding' ? 'workshop' : 'house', noEntrance: opts.noEntrance,
   });
   // Materials and window fills draw from their own sequence, so they never change the floor plan.
   const rng = new Rng(opts.seed * 29 + 1);
-  const shell = interiorShell(doc, plan, z0, shellMaterials(plan, style, rng), rng, style.stair);
+  const shell = interiorShell(doc, plan, z0, shellMaterials(plan, style, rng), rng, style.stair, opts.eaves && !opts.wideDoors);
   // Furniture, lamps and grime draw from a third sequence.
   const dressing = dressInterior(plan, z0, new Rng(opts.seed * 23 + 13), { furnish: opts.furnish, lights: opts.lights, weathering: opts.weathering });
-  return { world: [...shell.floors, ...shell.clip], detail: [...shell.walls, ...shell.fills, ...shell.porch, ...shell.upper], entities: dressing.entities, plan };
+  return { world: [...shell.floors, ...shell.clip], detail: [...shell.walls, ...shell.fills, ...shell.porch, ...shell.upper, ...shell.eaves], entities: dressing.entities, plan };
 }

@@ -43,28 +43,47 @@ export interface Architecture {
   roofHuts: boolean;
   /** Floor range used when the caller doesn't give one. */
   floors: [number, number];
+  /** Enterable open-top houses on small lots: none, some (`interiorShare` of the eligible lots) or all. */
+  interiors: 'none' | 'some' | 'all';
+  interiorShare: number;
+  interiorStyles: readonly InteriorStyleName[];
 }
 
 export const ARCHITECTURES = {
   mixed: {
     label: 'Mixed', facades: ['stucco', 'stone', 'brown', 'brick', 'pale', 'ochre', 'yellow', 'framed', 'cream', 'blue', 'rose', 'sand'],
     roofs: { flat: 1, hip: 2, mansard: 2, gable: 1, curved: 1 }, corners: 'mixed', towers: 0.35, oriels: true, balconies: true, roofHuts: true, floors: [3, 6],
+    interiors: 'none', interiorShare: 0.4, interiorStyles: ['farmhouse', 'brick'],
   },
   tenement: {
     label: 'Pre-war tenements', facades: ['ochre', 'yellow', 'cream', 'framed', 'stucco', 'pale', 'rose', 'sand', 'blue'],
     roofs: { mansard: 3, curved: 2, hip: 2, gable: 1 }, corners: 'mixed', towers: 0.4, oriels: true, balconies: true, roofHuts: false, floors: [3, 6],
+    interiors: 'none', interiorShare: 0.4, interiorStyles: ['farmhouse', 'brick'],
   },
   soviet: {
     label: 'Soviet blocks', facades: ['soviet', 'stone', 'pale'],
     roofs: { flat: 1 }, corners: 'square', towers: 0, oriels: false, balconies: true, roofHuts: true, floors: [5, 9],
+    interiors: 'none', interiorShare: 0.4, interiorStyles: ['outbuilding'],
   },
   brick: {
     label: 'Brick houses', facades: ['brick', 'brown', 'rose'],
     roofs: { gable: 3, hip: 2, mansard: 1 }, corners: 'chamfer', towers: 0.4, oriels: true, balconies: false, roofHuts: false, floors: [2, 4],
+    interiors: 'none', interiorShare: 0.4, interiorStyles: ['brick'],
   },
   sheds: {
     label: 'Sheds and workshops', facades: ['brick', 'brown', 'stone'],
     roofs: { gable: 2, flat: 1, hip: 1 }, corners: 'square', towers: 0, oriels: false, balconies: false, roofHuts: false, floors: [1, 2],
+    interiors: 'none', interiorShare: 0.4, interiorStyles: ['outbuilding', 'shack'],
+  },
+  village: {
+    label: 'Village houses', facades: ['cream', 'sand', 'rose', 'stucco', 'pale', 'brick'],
+    roofs: { gable: 3, hip: 2 }, corners: 'square', towers: 0, oriels: false, balconies: false, roofHuts: false, floors: [1, 2],
+    interiors: 'some', interiorShare: 0.7, interiorStyles: ['farmhouse', 'brick', 'shack'],
+  },
+  slum: {
+    label: 'Slum shacks', facades: ['brown', 'brick', 'stone'],
+    roofs: { flat: 1, gable: 1 }, corners: 'square', towers: 0, oriels: false, balconies: false, roofHuts: false, floors: [1, 1],
+    interiors: 'all', interiorShare: 1, interiorStyles: ['slum', 'shack'],
   },
 } as const satisfies Record<string, Architecture>;
 export type ArchitectureName = keyof typeof ARCHITECTURES;

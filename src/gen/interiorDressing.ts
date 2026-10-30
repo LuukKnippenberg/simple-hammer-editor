@@ -71,6 +71,7 @@ const ROOM_SETS: Record<RoomType, { wall: Key[][]; free?: Key[][] }> = {
 };
 
 const WALL_DECALS = ['decals/decalstain001a', 'decals/decalstain002a', 'decals/decalstain005a', 'decals/decalstain008a', 'decals/wallstain01a', 'decals/paperposter001b', 'decals/paperposter003a', 'decals/decalgraffiti001a', 'decals/decalgraffiti010a'];
+const OUTER_STAINS = ['decals/decalstain001a', 'decals/decalstain002a', 'decals/decalstain005a', 'decals/decalstain008a', 'decals/decalstain010a', 'decals/decalstain012a', 'decals/wallstain01a'];
 const FLOOR_DECALS = ['decals/bloodstain_001', 'decals/bloodstain_002', 'decals/bloodstain_003', 'decals/debris_concrete001a', 'decals/rubble01a', 'decals/decalstain010a', 'decals/decalstain012a', 'decals/burn01a'];
 
 export interface DressingOptions {
@@ -254,6 +255,20 @@ export function dressInterior(plan: InteriorPlan, z0: number, rng: Rng, o: Dress
     }
     if (weathering > 0.4 && furnish !== 'none' && rng.chance(weathering * 0.4)) placeFree(FURNITURE.debris);
   });
+  // Weathering outside: water stains and dirt down the outer faces.
+  for (const w of plan.walls) {
+    if (!w.exterior) continue;
+    const wb = wallBox(w), ax = w.axis, oa = ax === 'x' ? 'y' : 'x';
+    const len = wb.max[ax] - wb.min[ax];
+    const out1 = w.left === -1 ? (ax === 'x' ? 1 : -1) : (ax === 'x' ? -1 : 1);
+    const stains = Math.round((len / 256) * weathering * 2 * rng.next());
+    for (let k = 0; k < stains && len > 64; k++) {
+      const p = new Vector2();
+      p[ax] = wb.min[ax] + rng.range(32, len - 32);
+      p[oa] = (out1 > 0 ? wb.max[oa] : wb.min[oa]) + out1 * 2;
+      out.entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), z0 + rng.int(w.bottom + 16, w.top - 24)), keys: { texture: rng.pick(OUTER_STAINS) } });
+    }
+  }
   return out;
 }
 

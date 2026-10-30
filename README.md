@@ -708,6 +708,49 @@ sparse, full), **Lights** and **Weathering** options.
 ![The flight up to the mezzanine, the railing open at its head](docs/screenshots/interiors-p4-stairs.png)
 ![The mezzanine from above](docs/screenshots/interiors-p4-mezzanine.png)
 
+### Interior phase 5: integration and the panel
+
+Enterable houses now come out of the building generator, next to solid ones.
+
+- **`BuildingOptions.interiors`** (none, some, all; default from the architecture, which is none for the
+  city architectures, so existing maps and seeds are unchanged), plus **interiorStyle**, **cutHeight**,
+  **furnish**, **interiorLights** and **wideDoors**. The choice draws from its own random sequence.
+- **Which buildings**: lots of 1–2 floors whose wings are axis-aligned rectangles, and the sheds in yards
+  and courtyards. Ring buildings around courtyards and anything taller stay solid. The two wings of an
+  L-shaped lot become one L-shaped house (`outlineOf` traces the outline) when it fits in 640 × 640,
+  otherwise a house per wing. A single lot longer than 640 gets a 384–576 house at the street and the
+  rest becomes its yard (with trees). With "some", the architecture's share of the eligible lots.
+- An enterable house skips the roof, tower, cornice, oriels, balconies, awnings, wall clutter and roof
+  props. It keeps the weathering (stains down its outer walls) and gets **eave stubs**, a band in the cap
+  material just under the cap, at Medium detail and up (not with wide doors, and only where 88 stays
+  clear in the doorways). The stone base course is left out: it rises 20 above the ground, over the
+  18-unit climb, and would close the doorways.
+- **Doors face away from neighbours**: walls against another building or a courtyard wall get no
+  entrance (`noEntrance`, also an `interiorHouse()` option). The street pass keeps lamp posts and trees
+  off the ground in front of every door (`BlockDressing.doors`).
+- **New architectures**: **Village houses** (cream, sand, rose and brick plaster, gables and hips, 1–2
+  floors, 70% enterable as farmhouses, brick cottages and shacks) and **Slum shacks** (1 floor, all
+  enterable, corrugated metal and wood).
+- **Building panel**: Interiors (from architecture, none, some, all), Interior style, Cut height, Furnish,
+  Lights, Wide doors. **Generate map**: an Interiors setting and a new **Houses (enterable)** cell kind in
+  the layout painter: village houses in the countryside, slum shacks in the city, always enterable.
+  Random rural layouts get a few hamlets of houses (from their own random sequence), and buildings on
+  rural blocks default to some interiors. **Sketch**: an Interiors setting.
+- One undo step still reverts a whole generation.
+- Tests (`tests/interiorBuildings.test.ts`): without interiors the output is byte-identical to before
+  (hashes recorded before this phase, for three architectures); all interiors on a small block gives
+  only enterable houses with nothing above the cut; slum and village defaults; no lamp or tree in front
+  of a door; the L outline.
+
+![Four blocks: village houses, slum shacks, sheds and brick houses with some interiors](docs/screenshots/interiors-p5-overview.png)
+![Village houses: solid gabled houses next to enterable ones, a shed with its own roof in the yard](docs/screenshots/interiors-p5-village.png)
+![Slum shacks: every lot enterable, each wing of an L its own shack](docs/screenshots/interiors-p5-slum.png)
+![Sheds and workshops with some interiors](docs/screenshots/interiors-p5-sheds.png)
+![Brick houses with some interiors](docs/screenshots/interiors-p5-brick.png)
+![The Building panel's interior settings](docs/screenshots/interiors-p5-panel.png)
+![A generated rural map with hamlets of village houses](docs/screenshots/interiors-p5-rural-map.png)
+![A hamlet in the woods](docs/screenshots/interiors-p5-rural-hamlet.png)
+
 ## Roads, powerlines, audio and mission flow
 
 ### Roads
