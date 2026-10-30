@@ -2,6 +2,8 @@ import type { Editor } from '../editor.ts';
 import { convertToDynamic, nonStaticProps, runChecks, type Check } from '../edit/preflight.ts';
 import { h, toast } from './dom.ts';
 import { missionRes } from './missionPanel.ts';
+import { VmfDocument } from '../vmf/map.ts';
+import { applyMapSettings } from '../lw/mapSettings.ts';
 
 export interface CompileOutcome {
   ok: boolean;
@@ -20,8 +22,12 @@ export async function compileCurrent(
     await fetch(`/api/mapres?name=${encodeURIComponent(opts.name)}`, { method: 'POST', body: missionRes(editor, opts.name.toLowerCase()) });
     onLine('step', `Wrote maps/${opts.name.toLowerCase()}.res (mission list entry)`);
   }
+  // Map settings the map lacks are added to the compiled copy only.
+  const copy = VmfDocument.parse(editor.doc.serialize());
+  const added = applyMapSettings(copy);
+  if (added.length) onLine('step', `Map settings added with default values: ${added.join(', ')}`);
   const q = new URLSearchParams({ name: opts.name, quality: opts.quality, navmesh: opts.navmesh ? '1' : '0' });
-  const res = await fetch(`/api/compile?${q}`, { method: 'POST', body: editor.doc.serialize() });
+  const res = await fetch(`/api/compile?${q}`, { method: 'POST', body: copy.serialize() });
   if (!res.ok || !res.body) {
     onLine('error', (await res.json().catch(() => ({ error: res.statusText }))).error);
     return null;

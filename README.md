@@ -256,8 +256,8 @@ compiled result:
   props, and its `_ambient` as the sky fill.
 - `light`, `light_spot` and Lambda Wars' `light_deferred` entities as point and spot lights. A fixed pool
   (24 point, 8 spot) is assigned to the lights nearest the camera, so moving never triggers shader rebuilds.
-- Sun height, direction, colour and ambient sliders in the Map tab edit `light_environment` live
-  (one undo step per drag). Point, spot and dynamic lights are in the Entities palette.
+- Sun height, direction, colour and ambient sliders edit `light_environment` live (one undo step per
+  drag; now in the Settings tab, see below). Point, spot and dynamic lights are in the Entities palette.
 - City16 with sun shadows runs at about 180 FPS.
 
 ![Editor lighting](docs/screenshots/phase9-editor-lighting.png)
@@ -320,6 +320,36 @@ a map can be redrawn and regenerated. The example below compiles sealed with a n
   blocks over raised levels. The game's spawn camera traces down to playerclip, so this keeps the camera
   at the right height (shipped maps do the same).
 - Decals can be placed along a world-space ray (`placeDecalRay`) for scripted map building.
+
+### Map settings
+
+The **Settings** tab gathers the map-wide setting entities into cards with sliders, colour pickers and
+file pickers:
+
+| Card | Entity | Added when compiling |
+|---|---|---|
+| Sky | worldspawn `skyname` | always set |
+| Sun & ambient light | `light_environment` | yes |
+| Dynamic shadows | `shadow_control` | yes |
+| Fog | `env_fog_controller` (master) | yes |
+| Exposure & bloom | `env_tonemap_controller` + `logic_auto` | yes |
+| Colour correction | `color_correction` (global, lookup table picker) | |
+| Post-processing | `postprocess_controller` (master) | |
+| Dynamic sun (deferred) | `light_deferred_global` | |
+| Wind, Detail props, Water quality, Music | `env_wind`, `env_detail_controller`, `water_lod_control`, `wars_music_controller` | |
+
+- Settings are stored as the standard entities, so Hammer and existing maps work as before; City16's
+  own fog, tonemap and colour correction show up in the cards. Their markers are not drawn in the viewport.
+- A card marked **Default** isn't in the map yet: compiling adds it with defaults taken from the shipped
+  maps (to the compiled copy only). Changing a value stores it in the map; the switch turns a setting
+  off, and a default one then stays out of the compile (`she_settings_off` on worldspawn).
+- Exposure and bloom have no entity keys: like the shipped maps, a `logic_auto` sends
+  `SetAutoExposureMin/Max`, `SetBloomScale` and `SetTonemapRate` to the controller on map spawn. The card
+  reads and edits that wiring, including maps that use `OnNewGame`.
+- The lighting preview (L) also shows the fog.
+
+![Map settings on the Sofia map, with fog in the lighting preview](docs/screenshots/settings-sofia.png)
+![A new map: four settings marked Default, added when compiling](docs/screenshots/settings-new-map.png)
 
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 

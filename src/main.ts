@@ -21,6 +21,7 @@ import { LightingPreview } from './render/lightingPreview.ts';
 import { mountLightingPanel } from './ui/lightingPanel.ts';
 import { mountSketchDialog } from './ui/sketchDialog.ts';
 import { mountInstallPicker } from './ui/installPicker.ts';
+import { mountMapSettingsPanel } from './ui/mapSettingsPanel.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -59,6 +60,7 @@ window.addEventListener('keydown', (e) => {
   editor.emit('lighting');
 });
 tabs.add('Map', mapPanel);
+tabs.add('Settings', mountMapSettingsPanel(editor, lighting));
 const logic = mountLogicPanel(editor);
 tabs.add('Logic', logic.panel);
 new IoLines(editor);

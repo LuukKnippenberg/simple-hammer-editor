@@ -17,10 +17,10 @@ await d.key('l');
 await d.settle(800);
 await d.shot('phase9-preview-lighting');
 
-// Late afternoon: lower the sun and turn it, with the sliders in the Map tab.
-await page.click('.tabs button:text("Map")');
+// Late afternoon: lower the sun and turn it, with the sliders in the Settings tab.
+await page.click('.tabs button:text("Settings")');
 const setRange = async (label, value) => {
-  const input = page.locator(`.tab-body > div:not([hidden]) .row:has(label:text-is("${label}")) input[type=range]`);
+  const input = page.locator(`.tab-body > div:not([hidden]) .row:has(label:text-is("${label}")) input[type=range]`).first();
   await input.evaluate((el, v) => {
     el.value = String(v);
     el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -36,10 +36,10 @@ await page.keyboard.press('Control+z');
 // Night in the arena: dim sun and ambient, then light it with placed lights.
 await d.open('repo:phase3_arena.vmf');
 await d.key('l');
-await page.click('.tabs button:text("Map")');
+await page.click('.tabs button:text("Settings")');
 await setRange('Sun height', 8);
 const setColor = async (label, color, bright) => {
-  const row = page.locator(`.tab-body > div:not([hidden]) .row:has(label:text-is("${label}"))`);
+  const row = page.locator(`.tab-body > div:not([hidden]) .row:has(label:text-is("${label}"))`).first();
   await row.locator('input[type=color]').evaluate((el, c) => {
     el.value = c;
     el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -49,7 +49,7 @@ const setColor = async (label, color, bright) => {
   await row.locator('input[type=number]').press('Enter');
 };
 await setColor('Sun colour', '#5a6a9a', 40);
-await setColor('Ambient', '#202838', 20);
+await setColor('Sky ambient', '#202838', 20);
 await d.view([-1100, -1150, 700], [-100, -100, 0]);
 await page.click('.tabs button:text("Entities")');
 const place = async (label, at, keys) => {

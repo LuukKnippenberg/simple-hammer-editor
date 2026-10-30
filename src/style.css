@@ -199,6 +199,33 @@ kbd { font: 12px Consolas, monospace; background: var(--panel-2); border: 1px so
 .tabs button { font-size: 12px; padding: 7px 1px; }
 label.check { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; }
 .row input[type='range'] { flex: 1; }
+
+/* Map settings cards */
+.set-card { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; background: #1a1d21; }
+.set-card.off .set-head b { color: var(--muted); font-weight: 500; }
+.set-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; cursor: pointer; user-select: none; }
+.set-head:hover { background: #20242a; border-radius: 6px; }
+.set-head .chev { width: 10px; color: var(--muted); font-size: 11px; }
+.set-body { padding: 0 8px 6px; }
+.set-body .hint { margin-top: 0; }
+.set-body .cls { font: 11px Consolas, monospace; opacity: 0.7; }
+.set-body .row label { flex-basis: 88px; }
+.set-body .row input[type='range'] { min-width: 60px; }
+.row input.num { flex: 0 0 64px; padding: 3px 4px; }
+.row .unit { color: var(--muted); font-size: 11px; flex: none; }
+.badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.badge.set { color: var(--ok); border-color: #2f5a3a; }
+.badge.auto { color: var(--accent-2); border-color: #2b4a63; }
+input.switch {
+  appearance: none; flex: none; width: 30px; height: 16px; margin: 0; border-radius: 8px; position: relative;
+  background: #3a3f46; cursor: pointer; transition: background 0.15s;
+}
+input.switch::before {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+  background: #c9ced4; transition: transform 0.15s;
+}
+input.switch:checked { background: var(--accent); }
+input.switch:checked::before { transform: translateX(14px); background: #fff; }
 .row input[type='color'] { flex: 0 0 44px; padding: 0 2px; height: 26px; }
 
 .modal.sketch { width: 96vw; max-width: none; height: 92vh; display: flex; flex-direction: column; }

@@ -5,6 +5,7 @@ import type { MapEntity, MapSolid } from '../vmf/map.ts';
 import { boxSolid, solidBounds } from './brushes.ts';
 import { editorBlock, entityNode } from './actions.ts';
 import { loadModel } from '../assets/mdl.ts';
+import { SETTING_GROUPS, groupState } from '../lw/mapSettings.ts';
 
 export interface Check {
   id: string;
@@ -123,9 +124,11 @@ export function runChecks(editor: Editor): Check[] {
   });
 
   const sun = count('light_environment');
+  const sunAuto = sun === 0 && groupState(doc, SETTING_GROUPS.find((g) => g.id === 'sun')!) === 'auto';
   checks.push({
-    id: 'sun', label: 'Sun light (light_environment)', severity: 'warning', ok: sun === 1,
-    detail: sun === 0 ? 'Without it outdoor areas are pitch black.' : sun > 1 ? `${sun} found; only one is used.` : 'Present.',
+    id: 'sun', label: 'Sun light (light_environment)', severity: 'warning', ok: sun === 1 || sunAuto,
+    detail: sunAuto ? 'Added with default values when compiling (Settings tab).'
+      : sun === 0 ? 'Without it outdoor areas are pitch black.' : sun > 1 ? `${sun} found; only one is used.` : 'Present.',
     fixLabel: 'Add sun',
     fix: sun === 0 ? fixed('Add sun', () => {
       const c = content.getCenter(new Vector3());

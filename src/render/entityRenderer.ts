@@ -6,6 +6,7 @@ import type { MapEntity, VmfDocument } from '../vmf/map.ts';
 import { loadModel, type SourceModel } from '../assets/mdl.ts';
 import type { MaterialLibrary } from './materials.ts';
 import { fgdClass } from '../assets/fgd.ts';
+import { SETTING_CLASSES } from '../lw/mapSettings.ts';
 
 /** Source angles (pitch yaw roll, degrees) to a rotation: yaw about Z, then pitch about Y, then roll about X. */
 export function sourceRotation(angles: Vector3): Quaternion {
@@ -84,7 +85,8 @@ export class EntityRenderer {
     const wanted = new Map<string, MapEntity[]>();
     const markers: MapEntity[] = [];
     for (const e of doc.entities) {
-      if (e.solids.length || !e.origin || this.hidden.has(e)) continue;
+      // Map settings (fog, tonemap, ...) are edited in the Settings tab and have no place in the world.
+      if (e.solids.length || !e.origin || this.hidden.has(e) || SETTING_CLASSES.has(e.classname)) continue;
       const model = entityModel(e);
       if (model && this.models.get(model) !== null) {
         const key = `${model}|${parseInt(e.get('skin') ?? '0', 10) || 0}`;
