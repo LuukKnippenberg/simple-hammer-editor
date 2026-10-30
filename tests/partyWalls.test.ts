@@ -4,7 +4,7 @@ import { band, generateBuildings, STAINS, type Neighbour } from '../src/gen/buil
 import { rectPoly } from '../src/gen/buildingPlan.ts';
 import { VmfDocument } from '../src/vmf/map.ts';
 import type { KVNode } from '../src/vmf/keyvalues.ts';
-import { intersection, scanBrushes, type ScanBrush } from './overlaps.ts';
+import { boxPairs, coplanarOverlaps, intersection, scanBrushes, type ScanBrush } from './overlaps.ts';
 
 const tile = { material: 'TRIM', bays: 0 };
 const rect = (x0: number, y0: number, x1: number, y1: number) => rectPoly(new Box2(new Vector2(x0, y0), new Vector2(x1, y1)));
@@ -72,6 +72,17 @@ describe('generated blocks', () => {
         const wings = new Set(shells.filter((s) => intersection(d, s)).map(wing));
         expect(wings.size, `detail brush ${d.box.min.toArray()}..${d.box.max.toArray()}`).toBeLessThanOrEqual(1);
       }
+    }
+  });
+
+  it('no two decoration brushes show faces on the same plane', () => {
+    for (const r of blocks) {
+      const all = scanBrushes([...r.solids, ...r.detail]);
+      const detail = scanBrushes(r.detail);
+      // Faces buried in another brush, or under the ground, don't show.
+      const buried = (p: Vector3, a: ScanBrush, b: ScanBrush) => p.z < 0 || all.some((s) => s.box.containsPoint(p) && s.faces.every((f) => f.plane.normal.dot(p) - f.plane.dist < -0.05) && s !== a && s !== b);
+      const fights = boxPairs(detail).flatMap(([a, b]) => coplanarOverlaps(a, b).filter((c) => !buried(c.at.clone().addScaledVector(c.normal, 0.1), a, b)));
+      expect(fights.map((c) => c.at.toArray())).toEqual([]);
     }
   });
 

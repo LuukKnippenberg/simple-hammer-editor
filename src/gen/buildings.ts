@@ -278,6 +278,7 @@ function partSolids(
   for (const b of bands) detail.push(...band(doc, poly, b.out, b.zMin, b.zMax, b.base ? BASE : s.trim, neighbours));
   const overhang = main && level >= 1 ? 14 : 8;
 
+  // Columns and quoins stand 6 out, clear of the thin ledges' faces (4 out) they cross.
   const columns: { wall: number; at: number }[] = [];
   const colMin = z0 + FLOOR + 6, colTop = level >= 3 ? top - 36 : top - 24;
   if (level >= 2 && main && part.floors > 1) {
@@ -286,7 +287,7 @@ function partSolids(
       const n = poly.length, prev = (i + n - 1) % n;
       const dIn = new Vector2().subVectors(v, poly[prev]).normalize(), dOut = new Vector2().subVectors(poly[(i + 1) % n], v).normalize();
       const free = !hidden(prev, walls[prev].len - 24, walls[prev].len, colMin, colTop) && !hidden(i, 0, 24, colMin, colTop);
-      if (dIn.dot(dOut) < Math.cos((40 * Math.PI) / 180) && free) add(cornerBlock(doc, poly, i, 16, 4, colMin, colTop, s.plain));
+      if (dIn.dot(dOut) < Math.cos((40 * Math.PI) / 180) && free) add(cornerBlock(doc, poly, i, 16, 6, colMin, colTop, s.plain));
     });
     // Columns between window bays on long walls: every second or third bay.
     const step = deco.pick([2, 3]);
@@ -297,7 +298,7 @@ function partSolids(
       for (let k = step; k <= bays - step; k += step) {
         const along = (k * len) / bays;
         if (hidden(i, along - 10, along + 10, colMin, colTop)) continue;
-        add(wallBlock(doc, a.clone().addScaledVector(walls[i].dir, along), walls[i].dir, 16, 4, colMin, colTop, s.plain));
+        add(wallBlock(doc, a.clone().addScaledVector(walls[i].dir, along), walls[i].dir, 16, 6, colMin, colTop, s.plain));
         columns.push({ wall: i, at: along });
       }
     });
@@ -433,7 +434,7 @@ function cornerTower(doc: VmfDocument, part: Part, s: Style, windows: FacadeTile
   const { cap, material } = chooseCap(rng);
   return towerSolids(doc, {
     centre: new Vector2(Math.round(centre.x), Math.round(centre.y)), radius, sides: towerSides(radius),
-    z0: top - 24, z1, windows, trim: s.trim, plain: s.plain, cap, capMaterial: material,
+    z0: top - 16, z1, windows, trim: s.trim, plain: s.plain, cap, capMaterial: material,
   }).solids;
 }
 
