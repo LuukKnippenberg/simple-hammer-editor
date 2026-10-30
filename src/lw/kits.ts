@@ -5,6 +5,7 @@ import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import { boxSolid } from '../edit/brushes.ts';
 import { editorBlock, entityNode } from '../edit/actions.ts';
 import { getConnections, setConnections, type Connection } from '../vmf/io.ts';
+import { UNITS, findUnit, hullSpacing, parseSquad, type UnitType } from './units.ts';
 
 /** Lambda Wars owner numbers: 0 neutral, 1 enemy, 2.. players (Player_0 is the human in missions). */
 export const OWNERS: { value: string; label: string }[] = [
@@ -12,29 +13,14 @@ export const OWNERS: { value: string; label: string }[] = [
   ...Array.from({ length: 8 }, (_, i) => ({ value: String(i + 2), label: `Player ${i}${i === 0 ? ' (you)' : ''}` })),
 ];
 
-/** Unit presets: entity class plus `unittype` (empty keeps the class default). */
-export const UNITS: { id: string; label: string; cls: string; unittype: string; faction: 'zombies' | 'combine' | 'rebels' }[] = [
-  { id: 'zombie', label: 'Zombie', cls: 'unit_zombie', unittype: 'unit_zombie', faction: 'zombies' },
-  { id: 'fastzombie', label: 'Fast zombie', cls: 'unit_fastzombie', unittype: '', faction: 'zombies' },
-  { id: 'poisonzombie', label: 'Poison zombie', cls: 'unit_poisonzombie', unittype: '', faction: 'zombies' },
-  { id: 'zombine', label: 'Zombine', cls: 'unit_zombine', unittype: '', faction: 'zombies' },
-  { id: 'headcrab', label: 'Headcrab', cls: 'unit_headcrab', unittype: '', faction: 'zombies' },
-  { id: 'combine', label: 'Combine soldier', cls: 'unit_combine', unittype: 'unit_combine', faction: 'combine' },
-  { id: 'combine_sg', label: 'Combine shotgunner', cls: 'unit_combine', unittype: 'unit_combine_sg', faction: 'combine' },
-  { id: 'combine_elite', label: 'Combine elite', cls: 'unit_combine', unittype: 'unit_combine_elite', faction: 'combine' },
-  { id: 'metropolice', label: 'Metropolice', cls: 'unit_metropolice', unittype: 'unit_metropolice_smg1', faction: 'combine' },
-  { id: 'rebel', label: 'Rebel', cls: 'unit_rebel', unittype: 'unit_rebel', faction: 'rebels' },
-  { id: 'rebel_sg', label: 'Rebel shotgunner', cls: 'unit_rebel', unittype: 'unit_rebel_sg', faction: 'rebels' },
-  { id: 'rebel_ar2', label: 'Rebel AR2', cls: 'unit_rebel', unittype: 'unit_rebel_ar2', faction: 'rebels' },
-  { id: 'rebel_medic', label: 'Rebel medic', cls: 'unit_rebel', unittype: 'unit_rebel_medic', faction: 'rebels' },
-  { id: 'rebel_rpg', label: 'Rebel RPG', cls: 'unit_rebel', unittype: 'unit_rebel_rpg', faction: 'rebels' },
-];
+export { UNITS } from './units.ts';
 
 export type ParamValue = string | number | boolean;
 export interface KitParam {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'select' | 'check';
+  /** `unit`: a unit type id (searchable picker); `squad`: a mixed squad string (see parseSquad). */
+  type: 'text' | 'number' | 'select' | 'check' | 'unit' | 'squad';
   default: ParamValue;
   options?: { value: string; label: string }[];
   hint?: string;
@@ -100,14 +86,26 @@ export function spread(at: Vector3, n: number, spacing: number): Vector3[] {
   return out;
 }
 
-export function placeUnits(editor: Editor, unitId: string, points: Vector3[], owner: string, name: string, yaw = 0): MapEntity[] {
-  const u = UNITS.find((x) => x.id === unitId) ?? UNITS[0];
-  return points.map((p) => add(editor, u.cls, p, {
-    targetname: name, ownernumber: owner, angles: `0 ${Math.round(yaw)} 0`, ...(u.unittype ? { unittype: u.unittype } : {}),
+/**
+ * Units of one type at the given ground points. Air units (dropship, gunship, scanners, manhacks) are put
+ * at the height their locomotion keeps above the ground, so they start flying instead of sitting on the
+ * floor; ground units stand on the point. `customType` replaces the unittype key (mission-only variants).
+ */
+export function placeUnits(editor: Editor, unitId: string, points: Vector3[], owner: string, name: string, yaw = 0, customType = ''): MapEntity[] {
+  const u = findUnit(unitId) ?? UNITS[0];
+  const unittype = customType.trim() || u.unittype;
+  return points.map((p) => add(editor, u.cls, u.air ? v(p.x, p.y, p.z - 4 + u.air) : p, {
+    targetname: name, ownernumber: owner, angles: `0 ${Math.round(yaw)} 0`, unittype,
   }));
 }
 
-const unitOptions = UNITS.map((u) => ({ value: u.id, label: u.label }));
+/** Spacing for a group: what the kit asks for, or more for units with a big hull. */
+const groupSpacing = (units: UnitType[], asked: number) => Math.max(asked, ...units.map(hullSpacing));
+
+const customTypeParam: KitParam = {
+  key: 'unittype', label: 'Custom unittype', type: 'text', default: '',
+  hint: 'Optional: a mission-only unittype (e.g. sp_tutorial_unit_metropolice_baton). The entity class stays that of the unit above.',
+};
 
 export const KITS: Kit[] = [
   {
@@ -152,11 +150,10 @@ export const KITS: Kit[] = [
   },
   {
     id: 'sp_start', label: 'Mission player start', icon: '🎥',
-    hint: 'Singleplayer start: the player camera, the faction setup and an optional starting squad.',
+    hint: 'Singleplayer start: the player camera, the faction setup and an optional starting squad of mixed units.',
     params: [
       { key: 'faction', label: 'Faction', type: 'select', default: 'rebels', options: [{ value: 'rebels', label: 'Rebels' }, { value: 'combine', label: 'Combine' }] },
-      { key: 'squad', label: 'Squad unit', type: 'select', default: 'rebel', options: unitOptions },
-      { key: 'count', label: 'Squad size', type: 'number', default: 6 },
+      { key: 'squad', label: 'Squad', type: 'squad', default: 'rebel:6', hint: 'Units that start with you, all named player_squad' },
       { key: 'yaw', label: 'Facing (°)', type: 'number', default: 0 },
     ],
     place(editor, at, p) {
@@ -168,16 +165,25 @@ export const KITS: Kit[] = [
           Color: p.faction === 'combine' ? '40 120 200 255' : '200 120 20 255',
         }),
       ];
-      const n = Math.max(0, Math.min(24, Number(p.count) || 0));
-      if (n) out.push(...placeUnits(editor, String(p.squad), spread(at, n, 56), '2', 'player_squad', yaw));
+      // One grid for the whole squad, in the order of the entries; at most 24 units.
+      const entries = parseSquad(String(p.squad)).filter((e) => findUnit(e.unit) && e.count > 0);
+      const total = Math.min(24, entries.reduce((n, e) => n + e.count, 0));
+      const points = spread(at, total, groupSpacing(entries.map((e) => findUnit(e.unit)!), 56));
+      let i = 0;
+      for (const e of entries) {
+        const take = points.slice(i, i + e.count);
+        i += take.length;
+        if (take.length) out.push(...placeUnits(editor, e.unit, take, '2', 'player_squad', yaw, e.unittype));
+      }
       return out;
     },
   },
   {
     id: 'unit_group', label: 'Unit group', icon: '☠',
-    hint: 'A group of units placed in the map. Enemy units attack what they see.',
+    hint: 'A group of units placed in the map. Enemy units attack what they see. Air units are placed at their flying height.',
     params: [
-      { key: 'unit', label: 'Unit', type: 'select', default: 'zombie', options: unitOptions },
+      { key: 'unit', label: 'Unit', type: 'unit', default: 'zombie' },
+      customTypeParam,
       { key: 'count', label: 'Count', type: 'number', default: 5 },
       { key: 'owner', label: 'Owner', type: 'select', default: '1', options: OWNERS },
       { key: 'spacing', label: 'Spacing', type: 'number', default: 64 },
@@ -186,15 +192,17 @@ export const KITS: Kit[] = [
     place(editor, at, p) {
       const n = Math.max(1, Math.min(40, Number(p.count) || 1));
       const name = p.name ? uniqueName(editor, String(p.name)) : '';
-      return placeUnits(editor, String(p.unit), spread(at, n, Number(p.spacing) || 64), String(p.owner), name, Math.random() * 360);
+      const u = findUnit(String(p.unit)) ?? UNITS[0];
+      return placeUnits(editor, u.id, spread(at, n, groupSpacing([u], Number(p.spacing) || 64)), String(p.owner), name, Math.random() * 360, String(p.unittype ?? ''));
     },
   },
   {
     id: 'wave', label: 'Attack wave', icon: '🌊',
-    hint: 'unit_maker that spawns units when enabled and sends them to a goal (info_target) with wars_give_order.',
+    hint: 'unit_maker that spawns units when enabled and sends them to a goal (info_target) with wars_give_order. Air units spawn on the floor and climb to their flying height.',
     params: [
       { key: 'name', label: 'Name', type: 'text', default: 'wave' },
-      { key: 'unit', label: 'Unit', type: 'select', default: 'combine', options: unitOptions },
+      { key: 'unit', label: 'Unit', type: 'unit', default: 'combine' },
+      customTypeParam,
       { key: 'count', label: 'Total units', type: 'number', default: 8 },
       { key: 'live', label: 'Alive at once', type: 'number', default: 4 },
       { key: 'freq', label: 'Seconds between', type: 'number', default: 2 },
@@ -204,13 +212,13 @@ export const KITS: Kit[] = [
     ],
     place(editor, at, p) {
       const name = uniqueName(editor, String(p.name || 'wave'));
-      const u = UNITS.find((x) => x.id === p.unit) ?? UNITS[0];
+      const u = findUnit(String(p.unit)) ?? UNITS[0];
       const goal = add(editor, 'info_target', v(at.x + (Number(p.goal) || 0), at.y, at.z + 16), { targetname: `${name}_goal` });
       const order = add(editor, 'wars_give_order', v(at.x, at.y + 40, at.z + 32), {
         targetname: `${name}_order`, targetordername: `${name}_goal`, unitname: `${name}_unit`, overwriteexistingorders: '1',
       });
       const maker = add(editor, 'unit_maker', v(at.x, at.y, at.z + 16), {
-        targetname: name, NPCType: u.unittype || u.cls, NPCTargetname: `${name}_unit`, ownernumber: String(p.owner),
+        targetname: name, NPCType: String(p.unittype ?? '').trim() || u.unittype, NPCTargetname: `${name}_unit`, ownernumber: String(p.owner),
         MaxNPCCount: String(p.count), MaxLiveChildren: String(p.live), SpawnFrequency: String(p.freq),
         StartDisabled: p.disabled ? '1' : '0', spawnflags: '0',
       });

@@ -7,6 +7,7 @@ import { loadModel, type SourceModel } from '../assets/mdl.ts';
 import type { MaterialLibrary } from './materials.ts';
 import { fgdClass } from '../assets/fgd.ts';
 import { isSettingsEntity } from '../lw/mapSettings.ts';
+import { unitForEntity } from '../lw/units.ts';
 
 /** Source angles (pitch yaw roll, degrees) to a rotation: yaw about Z, then pitch about Y, then roll about X. */
 export function sourceRotation(angles: Vector3): Quaternion {
@@ -15,14 +16,18 @@ export function sourceRotation(angles: Vector3): Quaternion {
 }
 
 export function entityMatrix(e: MapEntity): Matrix4 {
-  const scale = parseFloat(e.get('modelscale') ?? '1') || 1;
+  // Units are drawn at their unit info's scale (the dropship and gunship fly at 0.75).
+  const scale = parseFloat(e.get('modelscale') ?? '') || unitForEntity(e)?.scale || 1;
   return new Matrix4().compose(e.origin ?? new Vector3(), sourceRotation(e.angles), new Vector3(scale, scale, scale));
 }
 
-/** The model an entity shows: its `model` key, or the FGD studio() model of its class. */
+/**
+ * The model an entity shows: its `model` key; for units the model of their unittype (riot police use
+ * police_extended.mdl, not the class's police.mdl); else the FGD studio() model of its class.
+ */
 export function entityModel(e: MapEntity): string | null {
   if (e.solids.length) return null;
-  const m = e.get('model') ?? fgdClass(e.classname)?.studio;
+  const m = e.get('model') ?? unitForEntity(e)?.model ?? fgdClass(e.classname)?.studio;
   return m && m.toLowerCase().endsWith('.mdl') ? m.toLowerCase().replace(/\\/g, '/') : null;
 }
 
