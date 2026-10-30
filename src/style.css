@@ -105,6 +105,7 @@ input[type='number'] { width: 70px; }
   background: rgba(15, 17, 20, 0.72); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
 }
 .overlay.tl { top: 10px; left: 10px; }
+.marquee { position: absolute; border: 1px dashed var(--accent); background: rgba(232, 163, 61, 0.12); pointer-events: none; z-index: 4; }
 .tool-options { pointer-events: auto; min-width: 200px; max-width: 280px; }
 .tool-options .hint { margin: 2px 0 6px; }
 .tool-options .row label { flex: 0 0 50px; }
@@ -155,3 +156,13 @@ button.big { width: 100%; padding: 9px; margin-top: 10px; font-size: 14px; }
   background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px;
   z-index: 6; transition: opacity 0.3s;
 }
+
+.outliner { margin-top: 6px; max-height: 360px; overflow-y: auto; }
+.out-class { display: flex; justify-content: space-between; padding: 3px 4px; cursor: pointer; border-radius: 3px; }
+.out-class:hover, .out-ent:hover { background: var(--panel-2); }
+.out-ent { padding: 2px 4px 2px 22px; cursor: pointer; color: var(--muted); border-radius: 3px; }
+.out-ent.active { color: #ffd28a; background: #3a3222; }
+table.keys { width: 100%; border-collapse: collapse; }
+table.keys td { padding: 5px 6px; border-bottom: 1px solid #2b3036; }
+kbd { font: 12px Consolas, monospace; background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
+.hover-label { color: #bfe3ff !important; }

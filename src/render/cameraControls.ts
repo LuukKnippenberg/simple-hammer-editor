@@ -9,6 +9,7 @@ import { PerspectiveCamera, Vector3, Raycaster, Vector2, Box3 } from 'three';
 export class CameraControls {
   readonly camera: PerspectiveCamera;
   private dom: HTMLElement;
+  enabled = true;
   yaw = 0;
   pitch = -0.6;
   speed = 900;
@@ -77,6 +78,7 @@ export class CameraControls {
   }
 
   private onDown = (e: PointerEvent) => {
+    if (!this.enabled) return;
     if (e.button === 2) this.mode = 'look';
     else if (e.button === 1) this.mode = 'pan';
     else if (e.button === 0 && e.altKey) {
@@ -115,6 +117,7 @@ export class CameraControls {
   };
 
   private onWheel = (e: WheelEvent) => {
+    if (!this.enabled) return;
     e.preventDefault();
     const ndc = this.ndc(e);
     const ray = new Raycaster();
@@ -128,6 +131,7 @@ export class CameraControls {
 
   /** Advances keyboard fly movement; returns true if the camera moved. */
   update(dt: number): boolean {
+    if (!this.enabled) return false;
     const k = this.keys;
     const f = this.forward();
     const right = new Vector3().crossVectors(f, this.camera.up).normalize();

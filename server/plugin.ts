@@ -15,7 +15,7 @@ export interface MapLocation {
 
 /** Folders VMFs are listed from: the repo's `maps/` and each game root's `mapsrc/`. */
 export function mapFolders(cfg: EditorConfig): { prefix: string; dir: string }[] {
-  const out = [{ prefix: 'repo', dir: join(cfg.rootDir, 'maps') }];
+  const out = [{ prefix: 'repo', dir: join(cfg.rootDir, 'maps') }, { prefix: 'autosave', dir: join(cfg.rootDir, '.autosave') }];
   cfg.gameDirs.forEach((g, i) => out.push({ prefix: `game${i}`, dir: join(g, cfg.mod, 'mapsrc') }));
   return out.filter((f) => existsSync(f.dir));
 }
@@ -89,6 +89,17 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           const file = resolveMap(cfg, url.searchParams.get('id') ?? '');
           if (!file || !existsSync(file)) return send(res, 404, JSON.stringify({ error: 'map not found' }));
           send(res, 200, readFileSync(file), 'text/plain; charset=utf-8');
+        },
+
+        // Autosaves of unsaved work, listed in the map picker under "Autosaves".
+        '/api/autosave': async (req, res, url) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          const name = (url.searchParams.get('name') ?? '').trim();
+          if (!/^[\w\- .]+\.vmf$/i.test(name)) return send(res, 400, JSON.stringify({ error: 'invalid file name' }));
+          const dir = join(cfg.rootDir, '.autosave');
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, name), await readBody(req));
+          send(res, 200, JSON.stringify({ id: `autosave:${name}` }));
         },
 
         // Saves always go to this repo's maps/ folder, so editing a game map never overwrites the game's copy.

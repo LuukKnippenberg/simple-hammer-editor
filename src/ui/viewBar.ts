@@ -77,6 +77,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     const b = h('button', { title }, label);
     const sync = () => b.classList.toggle('active', get());
     b.addEventListener('click', () => { set(!get()); sync(); });
+    editor.on('view', sync);
     sync();
     return b;
   };
@@ -92,6 +93,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     h('button', { onclick: () => saveAs(), title: 'Save under a new name in maps/' }, 'Save as…'),
     h('button', { onclick: () => download(), title: 'Download the .vmf' }, 'Download'),
     h('div.spacer'),
+    toggle('Top view', 'Orthographic top-down view (T)', () => editor.view === 'top', (v) => editor.setView3dOrTop(v ? 'top' : '3d')),
     toggle('Tool brushes', 'Show clip, trigger, nodraw and other tool brushes', () => wr.visibleKinds.tool, (v) => { wr.visibleKinds.tool = v; wr.applyVisibility(); }),
     toggle('Sky brushes', 'Show skybox brushes', () => wr.visibleKinds.sky, (v) => { wr.visibleKinds.sky = v; wr.applyVisibility(); }),
     toggle('Props', 'Show prop models', () => editor.entities.showProps, (v) => editor.entities.setVisibility(v, editor.entities.showMarkers)),
@@ -109,7 +111,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     for (const m of maps) {
       const prefix = m.id.split(':')[0];
       if (!groups.has(prefix)) {
-        const g = h('optgroup', { label: prefix === 'repo' ? 'Editor maps/' : 'Game mapsrc/' }) as HTMLOptGroupElement;
+        const g = h('optgroup', { label: prefix === 'repo' ? 'Editor maps/' : prefix === 'autosave' ? 'Autosaves' : 'Game mapsrc/' }) as HTMLOptGroupElement;
         groups.set(prefix, g);
         select.append(g);
       }

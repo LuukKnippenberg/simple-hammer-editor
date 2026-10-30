@@ -131,6 +131,8 @@ export class WorldRenderer {
   private geoms = new Map<MapSolid, SolidGeom>();
   private batches = new Map<string, Batch>();
   private materials: MaterialLibrary;
+  /** Objects hidden in the editor; shared with the editor. */
+  hidden: Set<object> = new Set();
   visibleKinds: Record<MaterialKind, boolean> = { opaque: true, blend: true, translucent: true, tool: false, sky: false };
   stats = { brushes: 0, faces: 0, triangles: 0, batches: 0, buildMs: 0 };
 
@@ -142,7 +144,7 @@ export class WorldRenderer {
   /** Brings the batches in line with the document. Cheap when nothing changed. */
   sync(doc: VmfDocument): void {
     const t0 = performance.now();
-    const solids = doc.allSolids();
+    const solids = doc.allSolids().filter((s) => !this.hidden.has(s) && !(s.entity && this.hidden.has(s.entity)));
     const alive = new Set(solids);
     const dirty = new Set<string>();
     for (const [s, g] of this.geoms) {
@@ -226,6 +228,17 @@ export class WorldRenderer {
     const box = new Box3();
     for (const g of this.geoms.values()) if (!g.bounds.isEmpty()) box.union(g.bounds);
     return box;
+  }
+
+  /** Brushes that currently draw something (not hidden, not only invisible tool faces), with their bounds. */
+  visibleSolids(): [MapSolid, Box3][] {
+    const out: [MapSolid, Box3][] = [];
+    for (const [s, g] of this.geoms) {
+      for (const k of g.chunks.keys()) {
+        if (this.visibleKinds[this.materials.get(k).kind]) { out.push([s, g.bounds]); break; }
+      }
+    }
+    return out;
   }
 
   solidBounds(s: MapSolid): Box3 | null {

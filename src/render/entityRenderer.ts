@@ -62,6 +62,8 @@ export class EntityRenderer {
   private markerEntities: MapEntity[] = [];
   private markerVersions: number[] = [];
   private doc: VmfDocument | null = null;
+  /** Objects hidden in the editor; shared with the editor. */
+  hidden: Set<object> = new Set();
   showMarkers = true;
   showProps = true;
   stats = { props: 0, markers: 0, models: 0 };
@@ -76,7 +78,7 @@ export class EntityRenderer {
     const wanted = new Map<string, MapEntity[]>();
     const markers: MapEntity[] = [];
     for (const e of doc.entities) {
-      if (e.solids.length || !e.origin) continue;
+      if (e.solids.length || !e.origin || this.hidden.has(e)) continue;
       const model = entityModel(e);
       if (model && this.models.get(model) !== null) {
         const key = `${model}|${parseInt(e.get('skin') ?? '0', 10) || 0}`;

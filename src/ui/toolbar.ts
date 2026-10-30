@@ -1,6 +1,6 @@
 import type { Editor } from '../editor.ts';
 import type { ToolName } from '../edit/tools.ts';
-import { deleteSelection, duplicateSelection, rotateEntities } from '../edit/actions.ts';
+import { copySelection, deleteSelection, duplicateSelection, pasteClipboard, rotateEntities } from '../edit/actions.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { h, toast } from './dom.ts';
 
@@ -13,7 +13,7 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
 const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
 
 /** Left tool palette, grid size, undo/redo, and the global keyboard shortcuts. */
-export function mountToolbar(editor: Editor, bar: HTMLElement): void {
+export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoint: () => import('three').Vector3 | null; help: () => void }): void {
   const buttons = new Map<ToolName, HTMLButtonElement>();
   const setTool = (name: ToolName) => {
     editor.tools.set(name);
@@ -61,7 +61,8 @@ export function mountToolbar(editor: Editor, bar: HTMLElement): void {
   editor.on('document', syncHistory);
   syncHistory();
 
-  bar.append(h('div', { style: { height: '10px' } }), move, resize, h('div', { style: { flex: '1' } }), grid, undo, redo);
+  const helpBtn = h('button', { title: 'Keyboard shortcuts (?)', onclick: () => hooks.help() }, '?');
+  bar.append(h('div', { style: { height: '10px' } }), move, resize, h('div', { style: { flex: '1' } }), grid, undo, redo, helpBtn);
 
   const focus = () => {
     const b = editor.selection.isEmpty ? editor.world.bounds() : editor.selection.bounds();
@@ -75,12 +76,18 @@ export function mountToolbar(editor: Editor, bar: HTMLElement): void {
     if (ctrl && k === 'z' && !e.shiftKey) editor.undo();
     else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) editor.redo();
     else if (ctrl && k === 'd') duplicateSelection(editor);
+    else if (ctrl && k === 'c') { const n = copySelection(editor); if (n) toast(editor.container, `Copied ${n} object${n > 1 ? 's' : ''}`, 1200); }
+    else if (ctrl && k === 'v') pasteClipboard(editor, hooks.hoverPoint());
     else if (ctrl) return;
     else if (k === 'delete' || k === 'backspace') deleteSelection(editor);
     else if (k === 'escape') editor.selection.clear();
     else if (k === 'm') sel.setMode('translate');
     else if (k === 'r') sel.setMode('scale');
     else if (k === 'f') focus();
+    else if (k === 't') editor.setView3dOrTop(editor.view === 'top' ? '3d' : 'top');
+    else if (k === 'h') editor.hideSelection();
+    else if (k === 'u') editor.unhideAll();
+    else if (e.key === '?') hooks.help();
     else if (k === '[') stepGrid(-1);
     else if (k === ']') stepGrid(1);
     else if (k === ',') rotateEntities(editor, e.shiftKey ? 90 : 15);

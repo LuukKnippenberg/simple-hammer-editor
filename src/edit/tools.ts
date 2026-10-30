@@ -100,15 +100,59 @@ export class SelectTool implements Tool {
     this.proxy.updateMatrixWorld();
   }
 
+  cancelMarquee(): void {
+    this.marquee?.remove();
+    this.marquee = null;
+  }
+
   get busy(): boolean {
     return this.gizmo.dragging || this.gizmo.axis !== null;
   }
 
+  private marquee: HTMLDivElement | null = null;
+
   down(e: PointerEvent): void {
     this.downAt.set(e.clientX, e.clientY);
   }
-  move(): void {}
+
+  /** Dragging on empty space draws a selection rectangle. */
+  move(e: PointerEvent): void {
+    if (this.gizmo.dragging || this.downAt.distanceTo(new Vector2(e.clientX, e.clientY)) < 6) return;
+    if (!this.marquee) {
+      this.marquee = document.createElement('div');
+      this.marquee.className = 'marquee';
+      this.editor.container.append(this.marquee);
+    }
+    const r = this.editor.container.getBoundingClientRect();
+    const x0 = Math.min(this.downAt.x, e.clientX) - r.left, y0 = Math.min(this.downAt.y, e.clientY) - r.top;
+    Object.assign(this.marquee.style, {
+      left: `${x0}px`, top: `${y0}px`,
+      width: `${Math.abs(e.clientX - this.downAt.x)}px`, height: `${Math.abs(e.clientY - this.downAt.y)}px`,
+    });
+  }
+
+  private finishMarquee(e: PointerEvent): void {
+    this.marquee?.remove();
+    this.marquee = null;
+    const ed = this.editor;
+    const a = ed.ndcFromEvent({ clientX: this.downAt.x, clientY: this.downAt.y }), b = ed.ndcFromEvent(e);
+    const min = new Vector2(Math.min(a.x, b.x), Math.min(a.y, b.y)), max = new Vector2(Math.max(a.x, b.x), Math.max(a.y, b.y));
+    const cam = ed.activeCamera;
+    const inside = (p: Vector3) => {
+      const v = p.clone().project(cam);
+      return v.z < 1 && v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.y;
+    };
+    const solids = ed.world.visibleSolids().filter(([, box]) => inside(box.getCenter(new Vector3()))).map(([s]) => s);
+    const ents = ed.doc.entities.filter((en) => !en.solids.length && en.origin && !ed.hidden.has(en) && ed.entities.showMarkers && inside(en.origin));
+    if (e.shiftKey) {
+      ed.selection.set([...ed.selection.solids, ...solids], [...ed.selection.entities, ...ents]);
+    } else {
+      ed.selection.set(solids, ents);
+    }
+  }
+
   up(e: PointerEvent, ndc: Vector2): void {
+    if (this.marquee) return this.finishMarquee(e);
     if (this.downAt.distanceTo(new Vector2(e.clientX, e.clientY)) > 4 || this.gizmo.dragging) return;
     const hit = pickObject(this.editor, ndc);
     const sel = this.editor.selection;
@@ -349,6 +393,7 @@ export class ToolManager {
 
   set(name: ToolName): void {
     if (this.current.name === name) return;
+    this.select.cancelMarquee();
     this.current.deactivate();
     this.current = this.tools[name];
     this.current.activate();

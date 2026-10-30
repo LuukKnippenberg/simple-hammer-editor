@@ -2,6 +2,7 @@ node_modules/
 dist/
 .claude/
 editor.config.json
+.autosave/
 # Compile workspace (VMF copies, logs, BSPs produced by the compile pipeline)
 .compile/
 *.log

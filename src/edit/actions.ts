@@ -127,3 +127,48 @@ export function rotateEntities(editor: Editor, degrees: number): void {
   end();
   editor.changed();
 }
+
+/** Copied objects (as KeyValues, so pasting works across maps). */
+let clipboard: { solids: KVNode[]; entities: KVNode[]; min: Vector3 } | null = null;
+
+export function copySelection(editor: Editor): number {
+  const sel = editor.selection;
+  if (sel.isEmpty) return 0;
+  const loose = [...sel.solids].filter((s) => !s.entity || !sel.entities.has(s.entity));
+  clipboard = {
+    solids: loose.map((s) => s.node.clone()),
+    entities: [...sel.entities].map((e) => e.node.clone()),
+    min: sel.bounds().min.clone(),
+  };
+  return loose.length + sel.entities.size;
+}
+
+/** Pastes so the copied group's lower corner lands on the grid point under the cursor. */
+export function pasteClipboard(editor: Editor, at: Vector3 | null): number {
+  if (!clipboard) return 0;
+  const doc = editor.doc, g = editor.grid;
+  const target = at ?? clipboard.min.clone().add(new Vector3(g * 4, g * 4, 0));
+  const d = new Vector3(Math.round(target.x / g) * g, Math.round(target.y / g) * g, Math.round(target.z)).sub(clipboard.min);
+  d.set(Math.round(d.x / g) * g, Math.round(d.y / g) * g, Math.round(d.z));
+  const solids: MapSolid[] = [];
+  const ents: MapEntity[] = [];
+  for (const n of clipboard.solids) {
+    const node = n.clone();
+    doc.assignIds(node);
+    const s = doc.addSolid(node);
+    translateSolid(s, d);
+    solids.push(s);
+  }
+  for (const n of clipboard.entities) {
+    const node = n.clone();
+    doc.assignIds(node);
+    const e = doc.addEntity(node);
+    if (e.origin) e.origin = e.origin.add(d);
+    for (const s of e.solids) translateSolid(s, d);
+    ents.push(e);
+  }
+  editor.history.added('Paste', solids, ents);
+  editor.selection.set(solids, ents);
+  editor.changed();
+  return solids.length + ents.length;
+}

@@ -2,7 +2,7 @@ import type { Editor } from '../editor.ts';
 import { h } from './dom.ts';
 
 /** Performance overlay in the viewport plus the status bar text. */
-export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLElement): void {
+export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLElement, hoverLabel: () => string = () => ''): void {
   const overlay = h('div.overlay.tr');
   viewport.append(overlay);
   let last = 0;
@@ -24,9 +24,13 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
       `<span><b>${editor.mapName}</b></span>` +
       `<span>camera <b>${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}</b></span>` +
       `<span>entities <b>${editor.doc.entities.length}</b></span>` +
+      `<span>${editor.view === 'top' ? 'top view' : '3D view'}</span>` +
       `<span>grid <b>${editor.grid}</b></span>` +
+      (editor.hidden.size ? `<span>hidden <b>${editor.hidden.size}</b></span>` : '') +
+      (editor.lastAutosave ? `<span>autosaved <b>${editor.lastAutosave.toLocaleTimeString()}</b></span>` : '') +
+      (hoverLabel() ? `<span class="hover-label">${hoverLabel()}</span>` : '') +
       (editor.status ? `<span><b style="color:var(--accent)">${editor.status}</b></span>` : '') +
       `<span>geometry build <b>${w.buildMs} ms</b></span>` +
-      `<span style="margin-left:auto">RMB look · WASD fly · MMB pan · Alt+LMB orbit · wheel zoom</span>`;
+      `<span style="margin-left:auto">Press <b>?</b> for shortcuts</span>`;
   });
 }

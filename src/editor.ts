@@ -1,11 +1,12 @@
 import {
-  WebGLRenderer, Scene, PerspectiveCamera, Color, HemisphereLight, DirectionalLight, GridHelper,
+  WebGLRenderer, Scene, PerspectiveCamera, OrthographicCamera, Color, HemisphereLight, DirectionalLight, GridHelper,
   Raycaster, Vector2, Vector3, Box3, SRGBColorSpace, ACESFilmicToneMapping,
 } from 'three';
 import { VmfDocument } from './vmf/map.ts';
 import { WorldRenderer, type BrushHit } from './render/worldRenderer.ts';
 import { MaterialLibrary } from './render/materials.ts';
 import { CameraControls } from './render/cameraControls.ts';
+import { TopView } from './render/topView.ts';
 import { EntityRenderer } from './render/entityRenderer.ts';
 import { textureSupport } from './assets/textures.ts';
 import { pendingRequests } from './assets/fetch.ts';
@@ -27,6 +28,11 @@ export class Editor {
   readonly scene = new Scene();
   readonly camera: PerspectiveCamera;
   readonly controls: CameraControls;
+  readonly topView: TopView;
+  /** '3d' perspective editing or the orthographic 'top' view. */
+  view: '3d' | 'top' = '3d';
+  /** Objects hidden in the editor (H). Hidden objects are still saved and compiled. */
+  readonly hidden = new Set<object>();
   readonly materials = new MaterialLibrary();
   readonly world: WorldRenderer;
   readonly entities: EntityRenderer;
@@ -48,6 +54,7 @@ export class Editor {
   currentMaterial = 'CONCRETE/CONCRETEFLOOR001A';
   entityClass = 'info_start_wars';
   entityModel = 'models/props_c17/oildrum001.mdl';
+  lastAutosave: Date | null = null;
   /** Transient status text (e.g. block dimensions while dragging). */
   status = '';
   private listeners = new Map<string, Set<() => void>>();
@@ -72,6 +79,7 @@ export class Editor {
     this.camera.position.set(-1500, -1500, 1500);
     this.controls = new CameraControls(this.camera, this.renderer.domElement);
     this.controls.pick = (ndc) => this.pickBrush(ndc)?.point ?? null;
+    this.topView = new TopView(this.renderer.domElement);
 
     this.scene.background = new Color(0x2a3038);
     this.scene.add(this.hemi);
@@ -86,6 +94,7 @@ export class Editor {
     this.scene.add(this.world.group);
     this.entities = new EntityRenderer(this.materials);
     this.scene.add(this.entities.group);
+    this.world.hidden = this.entities.hidden = this.hidden;
     this.materials.onKindChange = () => this.world.applyVisibility();
     this.selection = new Selection(this.entities);
     this.scene.add(this.selection.group);
@@ -114,15 +123,43 @@ export class Editor {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.topView.setAspect(w / h);
+  }
+
+  get activeCamera(): PerspectiveCamera | OrthographicCamera {
+    return this.view === 'top' ? this.topView.camera : this.camera;
+  }
+
+  /** Switches between the 3D view and the orthographic top view, keeping the same spot in view. */
+  setView3dOrTop(mode: '3d' | 'top'): void {
+    if (mode === this.view) return;
+    this.view = mode;
+    this.controls.enabled = mode === '3d';
+    this.topView.enabled = mode === 'top';
+    if (mode === 'top') {
+      const f = this.controls.forward();
+      const p = this.camera.position;
+      const t = f.z < -0.05 ? -p.z / f.z : 2000;
+      this.topView.center.set(p.x + f.x * t, p.y + f.y * t);
+      this.topView.zoom = Math.max(512, Math.min(16000, Math.abs(p.z) * 0.9));
+      this.topView.apply();
+    } else {
+      const c = this.topView.center;
+      this.camera.position.set(c.x - this.topView.zoom * 0.5, c.y - this.topView.zoom * 0.7, this.topView.zoom * 0.9);
+      this.controls.lookAt(new Vector3(c.x, c.y, 0));
+    }
+    this.tools.select.gizmo.camera = this.activeCamera;
+    this.emit('view');
   }
 
   private tick = () => {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
-    this.controls.update(dt);
+    if (this.view === 'top') this.topView.update(dt);
+    else this.controls.update(dt);
     this.emit('frame');
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene, this.activeCamera);
 
     this.frameTimes.push(now);
     while (this.frameTimes.length && this.frameTimes[0] < now - 1000) this.frameTimes.shift();
@@ -141,6 +178,7 @@ export class Editor {
     this.sourceText = sourceText;
     this.dirty = false;
     this.history.clear();
+    this.hidden.clear();
     this.selection.clear();
     const t0 = performance.now();
     this.world.sync(doc);
@@ -177,6 +215,26 @@ export class Editor {
     this.selection.prune(this.doc);
     this.dirty = true;
     if (!live) this.emit('change');
+  }
+
+  /** Hides the selection in the editor (not in game). */
+  hideSelection(): void {
+    const sel = this.selection;
+    if (sel.isEmpty) return;
+    for (const s of sel.solids) this.hidden.add(s);
+    for (const e of sel.entities) this.hidden.add(e);
+    sel.clear();
+    this.world.sync(this.doc);
+    this.entities.sync(this.doc);
+    this.emit('hidden');
+  }
+
+  unhideAll(): void {
+    if (!this.hidden.size) return;
+    this.hidden.clear();
+    this.world.sync(this.doc);
+    this.entities.sync(this.doc);
+    this.emit('hidden');
   }
 
   undo(): void {
@@ -261,7 +319,8 @@ export class Editor {
   }
 
   frameBox(box: Box3): void {
-    this.controls.frame(box);
+    if (this.view === 'top') this.topView.frame(box);
+    else this.controls.frame(box);
   }
 
   ndcFromEvent(e: { clientX: number; clientY: number }): Vector2 {
@@ -271,7 +330,7 @@ export class Editor {
 
   raycaster(ndc: Vector2): Raycaster {
     const ray = new Raycaster();
-    ray.setFromCamera(ndc, this.camera);
+    ray.setFromCamera(ndc, this.activeCamera);
     return ray;
   }
 

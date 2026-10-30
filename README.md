@@ -170,6 +170,26 @@ loads in Lambda Wars (last screenshot; the HUD is stuck on the CEF issue describ
 ![Generated city compiled, all checks green](docs/screenshots/phase5-city-compiled.png)
 ![Generated city running in Lambda Wars](docs/screenshots/phase5-city-ingame.png)
 
+### Phase 6: UI/UX improvements
+
+- **Top view** (T): orthographic, north up, right drag pans and the wheel zooms to the cursor. All tools work in it.
+- **Box selection**: drag on empty space with the Select tool (Shift adds), in the 3D and top view.
+- **Hover feedback**: the object under the cursor gets an outline, and the status bar names it (class,
+  targetname, material, owning brush entity).
+- **Copy and paste at the cursor** (Ctrl+C / Ctrl+V), also between maps.
+- **Hide / unhide** (H / U) for editing only; hidden objects are still saved and compiled.
+- **Outliner** in the Map tab: entities grouped by class, searchable, click to select and frame.
+- **Autosave** every minute while there are unsaved changes, to `.autosave/` ("Autosaves" in the map picker).
+- Shortcut overlay (?), view and status details in the status bar.
+
+![Top view with hover](docs/screenshots/phase6-top-view-hover.png)
+![Box selection in progress](docs/screenshots/phase6-box-select-dragging.png)
+![Box selection result](docs/screenshots/phase6-box-selected.png)
+![The selection hidden in the 3D view](docs/screenshots/phase6-hidden-selection.png)
+![Paste at the cursor](docs/screenshots/phase6-copy-paste-at-cursor.png)
+![Outliner](docs/screenshots/phase6-outliner.png)
+![Shortcut overlay](docs/screenshots/phase6-shortcuts.png)
+
 ## Development
 
 ```bash
