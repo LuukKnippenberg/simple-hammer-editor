@@ -21,7 +21,7 @@ export class CinemaTool implements Tool {
   height = 512;
   effect = 'smoke_large_01';
   startActive = false;
-  screenMaterial = 'DECALS/DECAL_POSTERBREEN';
+  screenMaterial = 'PROPS/TVSCREEN001A';
   screenW = 128;
   screenH = 96;
 

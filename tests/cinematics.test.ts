@@ -107,7 +107,7 @@ describe('follow camera', () => {
     expect(f.follow.keys.allplayers).toBe('1');
     expect(f.relay.keys.targetname).toBe('route_flyby_go');
     expect(f.connections.map((c) => `${c.target}.${c.input}(${c.param})+${c.delay}`)).toEqual([
-      'route_flyby.StartForward()+0', 'route_flyby_cam.CamFollowEntity(route_flyby)+0', 'route_flyby_cam.CamReleaseFollowEntity()+8.4',
+      'route_flyby.StartForward()+0', 'route_flyby_cam.CamFollowEntity(route_flyby_model)+0', 'route_flyby_cam.CamReleaseFollowEntity()+8.4',
     ]);
   });
 });

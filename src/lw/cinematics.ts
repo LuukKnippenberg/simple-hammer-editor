@@ -251,7 +251,8 @@ export const FLYBY_TRAIN_FLAGS = 2 | 8 | 512;
 
 /**
  * A flyby: a func_tracktrain (a small nodraw brush, built by the caller around `origin`) starting at the
- * path's first node, and the aircraft model parented to it. `StartForward` on the train starts it; the
+ * path's first node, and the aircraft model parented to it. The train must stay renderable (no
+ * rendermode 10): an entity that doesn't draw isn't sent to clients, and the model would lose its parent. `StartForward` on the train starts it; the
  * train follows the nodes' exact heights and turns with the path.
  */
 export function flybyEntities(name: string, firstNode: string, at: Vector3, modelId: string, speed: number): EntitySpec[] {
@@ -261,7 +262,7 @@ export function flybyEntities(name: string, firstNode: string, at: Vector3, mode
       classname: 'func_tracktrain', origin: at.clone(),
       keys: {
         targetname: name, target: firstNode, startspeed: String(Math.round(speed || m.speed)), speed: '0', spawnflags: String(FLYBY_TRAIN_FLAGS),
-        orientationtype: '2', velocitytype: '1', height: '0', wheels: '256', bank: '0', dmg: '0', rendermode: '10', [CINE_KEY]: name,
+        orientationtype: '2', velocitytype: '1', height: '0', wheels: '256', bank: '0', dmg: '0', [CINE_KEY]: name,
       },
     },
     {
@@ -277,8 +278,9 @@ export function flybyEntities(name: string, firstNode: string, at: Vector3, mode
  * Both are func_brush, so it works with any material (no ToggleTexture proxy needed).
  */
 export const SCREEN_MATERIALS: { material: string; label: string }[] = [
-  { material: 'DECALS/DECAL_POSTERBREEN', label: 'Breen (poster)' },
   { material: 'PROPS/TVSCREEN001A', label: 'TV picture' },
+  // A decal material: on a brush only its opaque middle shows.
+  { material: 'DECALS/DECAL_POSTERBREEN', label: 'Breen (poster, see-through edges)' },
   { material: 'PROPS/SCREEN01', label: 'Screen glow' },
   { material: 'EFFECTS/SCREEN_MONITOR_BLANK', label: 'Static (scrolling noise)' },
 ];
@@ -363,6 +365,6 @@ export function followFlybyEntities(train: string, seconds: number, at: Vector3)
   return {
     follow: { classname: 'wars_player_follow_entity', origin: at.clone(), keys: { targetname: cam, allplayers: '1', forced: '1', enabled: '1', triggeronce: '0', spawnflags: '1', ownernumber: '2', [CINE_KEY]: train } },
     relay: { classname: 'logic_relay', origin: at.clone().add(new Vector3(32, 0, 0)), keys: { targetname: `${train}_go`, spawnflags: '0', [CINE_KEY]: train } },
-    connections: [c(train, 'StartForward'), c(cam, 'CamFollowEntity', train), c(cam, 'CamReleaseFollowEntity', '', Math.round(seconds * 10) / 10)],
+    connections: [c(train, 'StartForward'), c(cam, 'CamFollowEntity', `${train}_model`), c(cam, 'CamReleaseFollowEntity', '', Math.round(seconds * 10) / 10)],
   };
 }
