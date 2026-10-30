@@ -24,6 +24,8 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
   select.addEventListener('change', () => {
     const id = select.value;
     if (!id) return;
+    // Hand the keyboard back to the viewport: a focused picker swallows W A S D (and W picks another map).
+    select.blur();
     const url = new URL(location.href);
     url.searchParams.set('map', id);
     history.replaceState(null, '', url);

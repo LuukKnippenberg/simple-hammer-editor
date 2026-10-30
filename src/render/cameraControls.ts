@@ -81,6 +81,10 @@ export class CameraControls {
 
   private onDown = (e: PointerEvent) => {
     if (!this.enabled) return;
+    // The preventDefault below keeps focus where it was, so a form field used last would keep the keyboard
+    // and the fly keys would be ignored until a left click.
+    const focused = document.activeElement as HTMLElement | null;
+    if (focused && isTextField(focused)) focused.blur();
     if (e.button === 2) this.mode = 'look';
     else if (e.button === 1) this.mode = 'pan';
     else if (e.button === 0 && e.altKey) {
@@ -188,5 +192,10 @@ export function dragDelta(dom: HTMLElement, e: PointerEvent, last: Vector2): Vec
 
 export function isTyping(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
-  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+  return !!t && isTextField(t);
+}
+
+/** Form fields that take keys (the fly keys are ignored while one has focus). */
+export function isTextField(t: HTMLElement): boolean {
+  return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable;
 }
