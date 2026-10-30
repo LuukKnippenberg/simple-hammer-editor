@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Box2, Box3, Vector2, Vector3 } from 'three';
-import { band, generateBuildings, type Neighbour } from '../src/gen/buildings.ts';
+import { band, generateBuildings, STAINS, type Neighbour } from '../src/gen/buildings.ts';
 import { rectPoly } from '../src/gen/buildingPlan.ts';
 import { VmfDocument } from '../src/vmf/map.ts';
 import type { KVNode } from '../src/vmf/keyvalues.ts';
@@ -73,5 +73,23 @@ describe('generated blocks', () => {
         expect(wings.size, `detail brush ${d.box.min.toArray()}..${d.box.max.toArray()}`).toBeLessThanOrEqual(1);
       }
     }
+  });
+
+  it('stains stay clear of ledges, cornices and the other decoration', () => {
+    let stains = 0;
+    for (const r of blocks) {
+      const detail = scanBrushes(r.detail);
+      for (const e of r.entities.filter((x) => x.classname === 'infodecal' && /stain/.test(x.keys.texture))) {
+        stains++;
+        const size = STAINS.find((s) => s.texture === e.keys.texture)!;
+        const o = e.origin;
+        // Street walls are on the block's outline; the stain hangs 2 units in front of one.
+        const alongY = o.x < block.min.x || o.x > block.max.x;
+        const half = new Vector3(alongY ? 4 : size.w / 2, alongY ? size.w / 2 : 4, size.h / 2);
+        const box = new Box3(o.clone().sub(half), o.clone().add(half));
+        expect(detail.filter((d) => d.box.intersectsBox(box) && d.box.clone().intersect(box).getSize(new Vector3()).toArray().every((v) => v > 0)).map((d) => d.box.min.toArray())).toEqual([]);
+      }
+    }
+    expect(stains).toBeGreaterThan(10);
   });
 });

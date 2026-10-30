@@ -1,7 +1,7 @@
 import { Box2, Box3, Vector2, Vector3 } from 'three';
 import { KVNode, KVPair } from '../vmf/keyvalues.ts';
-import type { VmfDocument } from '../vmf/map.ts';
-import { solidNode } from '../edit/brushes.ts';
+import { MapSolid, type VmfDocument } from '../vmf/map.ts';
+import { solidBounds, solidNode } from '../edit/brushes.ts';
 import { Rng } from './rng.ts';
 import { FLOOR, bayCount, ccw, cleanPolygon, convexHull, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
 import { planBlock, type CornerOption, type Part, type WallPlan } from './buildingPlan.ts';
@@ -14,8 +14,13 @@ import { wallClutter, type Anchor, type BlockDressing } from './streets.ts';
 export { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle };
 
 const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
-/** Weathering on street walls: water stains and dirt. */
-const STAINS = ['decals/decalstain001a', 'decals/decalstain002a', 'decals/decalstain005a', 'decals/decalstain008a', 'decals/decalstain010a', 'decals/decalstain012a', 'decals/wallstain01a'];
+/** Weathering on street walls: water stains and dirt, with their size on the wall (texture × $decalscale). */
+export const STAINS = [
+  { texture: 'decals/decalstain001a', w: 128, h: 128 }, { texture: 'decals/decalstain002a', w: 128, h: 128 },
+  { texture: 'decals/decalstain005a', w: 64, h: 64 }, { texture: 'decals/decalstain008a', w: 32, h: 32 },
+  { texture: 'decals/decalstain010a', w: 64, h: 64 }, { texture: 'decals/decalstain012a', w: 128, h: 128 },
+  { texture: 'decals/wallstain01a', w: 64, h: 128 },
+];
 
 const ROOF = 'CONCRETE/CONCRETEFLOOR028C';
 const NODRAW = 'TOOLS/TOOLSNODRAW';
@@ -273,6 +278,7 @@ function partSolids(
   for (const b of bands) detail.push(...band(doc, poly, b.out, b.zMin, b.zMax, b.base ? BASE : s.trim, neighbours));
   const overhang = main && level >= 1 ? 14 : 8;
 
+  const columns: { wall: number; at: number }[] = [];
   const colMin = z0 + FLOOR + 6, colTop = level >= 3 ? top - 36 : top - 24;
   if (level >= 2 && main && part.floors > 1) {
     // Quoins on the outer corners (not between the segments of a rounded corner, nor at party walls).
@@ -292,6 +298,7 @@ function partSolids(
         const along = (k * len) / bays;
         if (hidden(i, along - 10, along + 10, colMin, colTop)) continue;
         add(wallBlock(doc, a.clone().addScaledVector(walls[i].dir, along), walls[i].dir, 16, 4, colMin, colTop, s.plain));
+        columns.push({ wall: i, at: along });
       }
     });
   }
@@ -370,12 +377,30 @@ function partSolids(
       detail.push(...f.solids);
       street.entities.push(...f.entities);
       if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors));
-      // Weathering: stains running down from under the cornice and from window sills.
+      // Weathering: stains running down from under the cornice and the ledges. An infodecal lands on every
+      // brush face it covers, so each stays clear of the bands, the brackets and what stands on the wall
+      // (oriels, balconies, columns, quoins).
+      const zones = bands.map((b) => [b.zMin, b.zMax]);
+      if (level >= 3 && main && part.floors > 1) zones.push([top - 36, top - 24]);
+      const busy = f.solids.map((n) => {
+        const box = solidBounds(new MapSolid(n, null));
+        const along = [box.min, box.max].flatMap((p) => [box.min, box.max].map((q) => new Vector2(p.x, q.y).sub(a).dot(w.dir)));
+        return { from: Math.min(...along), to: Math.max(...along), zMin: box.min.z, zMax: box.max.z };
+      });
+      busy.push(...columns.filter((c) => c.wall === i).map((c) => ({ from: c.at - 8, to: c.at + 8, zMin: colMin, zMax: colTop })));
+      const drips = zones.map(([zMin]) => zMin).filter((z) => z > z0 + 20);
       const stains = Math.round((w.len / 256) * street.weathering * 2 * street.rng.next());
-      for (let k = 0; k < stains; k++) {
-        const p = a.clone().addScaledVector(w.dir, street.rng.range(32, w.len - 32)).addScaledVector(w.out, 2);
-        const z = street.rng.chance(0.5) ? top - 64 - street.rng.int(0, 48) : z0 + street.rng.int(1, part.floors - 1) * FLOOR + 8;
-        street.entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), Math.round(z)), keys: { texture: street.rng.pick(STAINS) } });
+      // A few tries per stain to find a free spot.
+      for (let k = 0, tries = 0; k < stains && drips.length && tries < stains * 6; tries++) {
+        const stain = street.rng.pick(STAINS);
+        const along = street.rng.range(16 + stain.w / 2, w.len - 16 - stain.w / 2);
+        const z = street.rng.pick(drips) - 2 - stain.h / 2;
+        const z1 = z - stain.h / 2, z2 = z + stain.h / 2, u1 = along - stain.w / 2, u2 = along + stain.w / 2;
+        if (w.len < 32 + stain.w || z1 < z0 + 22 || zones.some(([zMin, zMax]) => zMin < z2 + 2 && zMax > z1 - 2)) continue;
+        if (busy.some((b) => b.from < u2 + 2 && b.to > u1 - 2 && b.zMin < z2 + 2 && b.zMax > z1 - 2)) continue;
+        const p = a.clone().addScaledVector(w.dir, along).addScaledVector(w.out, 2);
+        street.entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), Math.round(z)), keys: { texture: stain.texture } });
+        k++;
       }
     });
     if (level >= 1 && part.cornerEdges.length === 1) {
