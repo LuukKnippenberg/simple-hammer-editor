@@ -98,6 +98,7 @@ input[type='number'] { width: 70px; }
 .row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .row label { flex: 0 0 90px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .row input, .row select { flex: 1; min-width: 0; }
+.row input[type='checkbox'] { flex: none; }
 
 .overlay {
   position: absolute; pointer-events: none; font-size: 12px; line-height: 1.5;
@@ -108,6 +109,29 @@ input[type='number'] { width: 70px; }
 .tool-options .hint { margin: 2px 0 6px; }
 .tool-options .row label { flex: 0 0 50px; }
 .current-mat.small img { width: 28px; height: 28px; }
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; z-index: 20; }
+.modal-backdrop[hidden] { display: none; }
+.modal {
+  width: min(760px, 94vw); max-height: 90vh; overflow: auto; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 15px; }
+.check { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px solid #2b3036; }
+.check .icon { width: 18px; text-align: center; font-weight: 700; }
+.check.ok .icon { color: var(--ok); }
+.check.warn .icon { color: var(--accent); }
+.check.err .icon { color: var(--danger); }
+.compile-status { color: var(--muted); margin-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compile-log {
+  height: 240px; overflow: auto; background: #0e1012; border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px 8px; font: 11px/1.45 Consolas, monospace; margin: 8px 0 0; white-space: pre-wrap;
+}
+.compile-log .l-out { color: #8d959e; }
+.compile-log .l-step { color: #9fd0ff; font-weight: 600; }
+.compile-log .l-warn { color: var(--accent); }
+.compile-log .l-error { color: var(--danger); }
+.compile-log .l-done { color: var(--ok); font-weight: 600; }
 .overlay.tr { top: 10px; right: 10px; }
 .overlay .k { color: var(--muted); display: inline-block; min-width: 76px; }
 

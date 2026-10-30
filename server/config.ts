@@ -37,8 +37,12 @@ export function loadConfig(rootDir: string): EditorConfig {
     );
   const sdkBinDir =
     user.sdkBinDir ?? firstExisting(STEAM_COMMON.map((c) => join(c, 'Alien Swarm', 'bin')).filter((d) => existsSync(join(d, 'vbsp.exe'))));
+  // Compile against and run from a full install (with its VPKs), not a loose-file dev clone.
   const runGameDir =
-    user.runGameDir ?? gameDirs.find((d) => existsSync(join(d, 'lambdawars.exe'))) ?? null;
+    user.runGameDir ??
+    gameDirs.find((d) => existsSync(join(d, 'lambdawars.exe')) && existsSync(join(d, 'lambdawars', 'pak01_dir.vpk'))) ??
+    gameDirs.find((d) => existsSync(join(d, 'lambdawars.exe'))) ??
+    null;
 
   return {
     gameDirs: gameDirs.map((d) => resolve(d)),

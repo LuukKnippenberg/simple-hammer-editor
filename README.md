@@ -110,6 +110,31 @@ map with real mouse and keyboard input (it is saved as `maps/phase3_arena.vmf`).
 ![Entities and the FGD-driven inspector](docs/screenshots/phase3-entities-inspector.png)
 ![Live editing in the large sample map](docs/screenshots/phase3-select-in-city16.png)
 
+### Phase 4: compile and test in game
+
+- **Compile & test** dialog with pre-flight checks and one-click fixes: a sealing sky shell of world
+  brushes, a `light_environment`, a spawn point, player starts, and a `func_map_boundary` (camera limits
+  and fog-of-war height data).
+- The dev server runs the Alien Swarm SDK tools against the full game install: `vbsp`, `vvis` (skipped,
+  with a warning, when the map leaks) and `vrad -hdr` (Lambda Wars maps use HDR lighting only), then
+  installs the BSP into `lambdawars/maps/`. The tool output streams into the dialog.
+- The Recast navmesh is built headless: a hidden `srcds.exe` loads the map and runs `recast_build` from
+  a temporary server config; the editor stops it once all five meshes are saved. The fog-of-war heightmap
+  is written by the server on the same load.
+- **Launch game** starts Lambda Wars windowed on the compiled map.
+
+The Phase 3 arena compiles in about 8 seconds including the navmesh, and loads in game (last screenshot).
+
+![Checks before fixing](docs/screenshots/phase4-checks-before.png)
+![Checks after Fix all](docs/screenshots/phase4-checks-fixed.png)
+![Compiled, with the navmesh log](docs/screenshots/phase4-compiled.png)
+![Sky shell and map boundary added by the fixes](docs/screenshots/phase4-shell-and-boundary.png)
+![The compiled arena running in Lambda Wars](docs/screenshots/phase4-ingame.png)
+
+Known issue on the development machine: the game's in-game web UI (CEF) failed to start its helper
+process (`lambdawars_browser.exe`) on every launch, also when launched by hand, so the HUD stays on
+"Loading CefViewPort". The map itself loads and renders.
+
 ## Development
 
 ```bash

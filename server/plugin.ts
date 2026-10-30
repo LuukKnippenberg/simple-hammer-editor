@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { loadConfig, type EditorConfig } from './config.ts';
 import { AssetFS } from './assets.ts';
 import { loadFgd, type FgdClass } from './fgd.ts';
+import { compileMap, launchGame, safeMapName } from './compile.ts';
 
 export interface MapLocation {
   id: string;
@@ -45,6 +46,7 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
       console.log(`[assets] ${assets.sources.length} sources indexed in ${Date.now() - t0} ms`);
       const listCache = new Map<string, string[]>();
       let fgd: FgdClass[] | null = null;
+      let compiling = false;
 
       const routes: Record<string, Route> = {
         '/api/config': (_req, res) =>
@@ -99,6 +101,35 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           mkdirSync(dir, { recursive: true });
           writeFileSync(join(dir, name), body);
           send(res, 200, JSON.stringify({ id: `repo:${name}`, bytes: body.length }));
+        },
+
+        // Streams progress as newline-delimited JSON: {"kind":"step"|"out"|"warn"|"error"|"done","text":...}
+        '/api/compile': async (req, res, url) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          if (compiling) return send(res, 409, JSON.stringify({ error: 'A compile is already running' }));
+          compiling = true;
+          const name = safeMapName(url.searchParams.get('name') ?? 'untitled');
+          const vmf = (await readBody(req)).toString('latin1');
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/x-ndjson');
+          res.setHeader('Cache-Control', 'no-store');
+          const write = (kind: string, text: string) => res.write(JSON.stringify({ kind, text }) + '\n');
+          write('step', `Compiling ${name} against ${cfg.runGameDir}`);
+          try {
+            const r = await compileMap(cfg, name, vmf, {
+              quality: url.searchParams.get('quality') === 'final' ? 'final' : 'fast',
+              navmesh: url.searchParams.get('navmesh') !== '0',
+            }, write);
+            res.end(JSON.stringify({ kind: 'result', text: JSON.stringify({ ...r, name }) }) + '\n');
+          } finally {
+            compiling = false;
+          }
+        },
+
+        '/api/launch': (req, res, url) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          const name = safeMapName(url.searchParams.get('name') ?? '');
+          send(res, launchGame(cfg, name) ? 200 : 500, JSON.stringify({ name }));
         },
 
         ...extraRoutes({ cfg, assets }),

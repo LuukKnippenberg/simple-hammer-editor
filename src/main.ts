@@ -8,6 +8,7 @@ import { mountInspector } from './ui/inspector.ts';
 import { mountMaterialBrowser } from './ui/materialBrowser.ts';
 import { mountEntityPalette } from './ui/entityPalette.ts';
 import { mountToolOptions } from './ui/toolOptions.ts';
+import { mountCompileDialog } from './ui/compileDialog.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 
@@ -20,6 +21,10 @@ mountTopBar(editor, document.getElementById('topbar')!, loading);
 mountStats(editor, viewport, document.getElementById('statusbar')!);
 mountToolbar(editor, document.getElementById('toolbar')!);
 mountToolOptions(editor, viewport);
+const compileDialog = mountCompileDialog(editor);
+document.getElementById('topbar')!.querySelector('.spacer')!.before(
+  h('button.primary', { onclick: () => compileDialog.open(), title: 'Compile the map and run it in Lambda Wars' }, '▶ Compile & test'),
+);
 const tabs = mountSidebar(document.getElementById('sidebar')!);
 tabs.add('Selection', mountInspector(editor));
 tabs.add('Materials', mountMaterialBrowser(editor));
