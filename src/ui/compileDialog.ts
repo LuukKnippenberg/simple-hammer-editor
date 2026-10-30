@@ -67,7 +67,8 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
   const log = h('pre.compile-log');
   const status = h('div.compile-status');
   const installEl = h('span.hint', { title: 'Change it with the Game picker in the top bar' });
-  void fetch('/api/config').then((r) => r.json()).then((cfg: { install: string | null }) => {
+  // Read on every open: the install can change from another tab.
+  const showInstall = () => void fetch('/api/config').then((r) => r.json()).then((cfg: { install: string | null }) => {
     installEl.textContent = cfg.install ?? 'No Lambda Wars install found';
   });
   const compileBtn = h('button.primary', {}, 'Compile') as HTMLButtonElement;
@@ -139,6 +140,7 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
     open() {
       name.value = editor.mapName.replace(/\.vmf$/i, '').toLowerCase().replace(/[^a-z0-9_]+/g, '_');
       void renderChecks();
+      showInstall();
       backdrop.hidden = false;
     },
   };

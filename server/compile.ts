@@ -111,7 +111,7 @@ export async function compileMap(cfg: EditorConfig, name: string, vmf: string, o
   mkdirSync(maps, { recursive: true });
   copyFileSync(bspPath, join(maps, `${name}.bsp`));
   for (const stale of [`${name}.recast`, `${name}mapheightfielddata.bin`]) rmSync(join(maps, stale), { force: true });
-  log('step', `Installed maps/${name}.bsp (${(statSync(bspPath).size / 1024 / 1024).toFixed(1)} MB)`);
+  log('step', `Installed ${join(maps, `${name}.bsp`)} (${(statSync(bspPath).size / 1024 / 1024).toFixed(1)} MB)`);
 
   if (opts.navmesh) {
     const ok = await buildNavmesh(cfg, name, log);

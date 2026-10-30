@@ -13,13 +13,26 @@ interface Install {
  */
 export function mountInstallPicker(editor: Editor): HTMLSelectElement {
   const select = h('select.install', { title: 'Lambda Wars install: assets, compile and launch' });
-  void fetch('/api/config').then((r) => r.json()).then((cfg: { installs: Install[]; install: string | null }) => {
+  let active: string | null = null;
+  const sync = () => void fetch('/api/config').then((r) => r.json()).then((cfg: { installs: Install[]; install: string | null }) => {
+    if (select.options.length) {
+      if (cfg.install === active) return;
+      // Switched from another tab: compiles already go to the new install; textures update on reload.
+      active = cfg.install;
+      select.value = cfg.install ?? '';
+      toast(editor.container, `The game install was changed in another tab to ${select.selectedOptions[0]?.textContent?.replace('Game: ', '') ?? cfg.install}. Reload to update textures.`, 6000);
+      return;
+    }
+    active = cfg.install;
     if (!cfg.installs.length) select.append(h('option', { value: '' }, 'No Lambda Wars install found'));
     for (const i of cfg.installs) {
       select.append(h('option', { value: i.dir, title: i.dir }, `Game: ${i.name}`));
     }
     select.value = cfg.install ?? '';
   });
+  sync();
+  // Another tab (or the config file) can switch the install while this page is open.
+  window.addEventListener('focus', sync);
 
   select.addEventListener('change', async () => {
     const dir = select.value;
