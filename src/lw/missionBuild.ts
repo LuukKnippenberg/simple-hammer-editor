@@ -4,7 +4,7 @@ import { MapEntity, type VmfDocument } from '../vmf/map.ts';
 import { getConnections, setConnections, type Connection } from '../vmf/io.ts';
 import { boxSolid } from '../edit/brushes.ts';
 import { entity } from '../gen/layout.ts';
-import type { Condition, MissionGraph, Stage, Transition } from './mission.ts';
+import { GATE_OPS, messageText, type Condition, type MissionGraph, type Stage, type Transition } from './mission.ts';
 
 /**
  * Builds a mission flowchart into entities and I/O. Everything it creates carries `she_mission` so a
@@ -18,6 +18,14 @@ import type { Condition, MissionGraph, Stage, Transition } from './mission.ts';
  * - `mf_S_tK` (logic_relay, starts disabled) is transition K. Its condition entities trigger it; when it
  *   fires it disables all of the stage's transitions and conditions, completes or fails the objectives, and
  *   starts the next stage (or calls PlayerVictory / PlayerLost on the win condition).
+ * - Building and ability conditions listen to the game's global events (event_building_listener,
+ *   wars_ability_manager.AbilityCompleted) and filter them per condition: the ability name with a
+ *   logic_case, the player with filter_owner and the building type with filter_unittype, both tested on
+ *   the event's activator (the building, or the unit or building that completed the ability). A count above
+ *   one goes through a math_counter that is enabled and reset with the stage.
+ * - "All of" gives each sub-condition a relay that adds one to a math_counter and then disables itself; the
+ *   counter reaching the number of sub-conditions triggers the transition.
+ * - Ability gates go to one wars_ability_manager per player (`mf_abilN`), whose inputs act on its owner.
  */
 
 const MARK = 'she_mission';
@@ -131,7 +139,61 @@ function buildCondition(ctx: Ctx, s: Stage, t: Transition, rel: string, c: Condi
     case 'resources':
       ctx.report.warnings.push(`${s.title}: "gain resources" can't be built yet (the game has no entity that reports resources)`);
       return { on: [], off: [] };
+    case 'building': case 'ability': {
+      const what = c.kind === 'building' ? c.building : c.ability;
+      if (!what.trim()) { ctx.report.warnings.push(`${s.title}: a "${c.kind}" condition has nothing chosen`); return { on: [], off: [] }; }
+      const counted = c.count > 1;
+      const own = add(ctx, 'filter_owner', { targetname: `${base}_own`, ownernumber: c.owner, Negated: '0' });
+      // The last filter fires the transition, or adds one to the counter.
+      let last = own;
+      if (c.kind === 'building') {
+        const listener = add(ctx, 'event_building_listener', { targetname: base });
+        link(ctx, listener, c.when === 'started' ? 'OnBuildingStarted' : 'OnBuildingFinished', `${base}_own`, 'TestActivator');
+        last = add(ctx, 'filter_unittype', { targetname: `${base}_type`, unittype: what.trim(), Negated: '0' });
+        link(ctx, own, 'OnPass', `${base}_type`, 'TestActivator');
+      } else {
+        // Without a unit (a cheat) the manager is the activator: give it the owner so the filter still applies.
+        const manager = add(ctx, 'wars_ability_manager', { targetname: base, ownernumber: c.owner });
+        const sw = add(ctx, 'logic_case', { targetname: `${base}_case`, Case01: what.trim() });
+        link(ctx, manager, 'AbilityCompleted', `${base}_case`, 'InValue');
+        link(ctx, sw, 'OnCase01', `${base}_own`, 'TestActivator');
+      }
+      if (!counted) {
+        link(ctx, last, 'OnPass', rel, 'Trigger');
+        return { on: [], off: [] };
+      }
+      const counter = add(ctx, 'math_counter', { targetname: `${base}_n`, min: '0', max: String(c.count), startvalue: '0', StartDisabled: '1' });
+      link(ctx, last, 'OnPass', `${base}_n`, 'Add', '1');
+      link(ctx, counter, 'OnHitMax', rel, 'Trigger');
+      return { on: [[`${base}_n`, 'SetValueNoFire', '0'], [`${base}_n`, 'Enable', '']], off: [[`${base}_n`, 'Disable', '']] };
+    }
+    case 'all': {
+      const subs = c.conditions.filter((x) => x.kind !== 'all');
+      if (!subs.length) { ctx.report.warnings.push(`${s.title}: an "all of" condition has no conditions`); return { on: [], off: [] }; }
+      const counter = add(ctx, 'math_counter', { targetname: `${rel}_all`, min: '0', max: String(subs.length), startvalue: '0', StartDisabled: '1' });
+      link(ctx, counter, 'OnHitMax', rel, 'Trigger');
+      const on: [string, string, string][] = [[`${rel}_all`, 'SetValueNoFire', '0'], [`${rel}_all`, 'Enable', '']];
+      const off: [string, string, string][] = [[`${rel}_all`, 'Disable', '']];
+      subs.forEach((sub, k) => {
+        // Each part counts once: its relay adds one and switches itself off.
+        const name = `${rel}_s${k}`;
+        const r = relay(ctx, name, true);
+        link(ctx, r, 'OnTrigger', `${rel}_all`, 'Add', '1');
+        link(ctx, r, 'OnTrigger', name, 'Disable');
+        const part = buildCondition(ctx, s, t, name, sub);
+        on.push([name, 'Enable', ''], ...part.on);
+        off.push([name, 'Disable', ''], ...part.off);
+      });
+      return { on, off };
+    }
   }
+}
+
+/** One wars_ability_manager per player for the stage gates: its inputs act on its own owner's tech tree. */
+function gateManager(ctx: Ctx, owner: string): string {
+  const name = `mf_abil${owner}`;
+  if (!ctx.doc.entities.some((e) => e.get('targetname') === name && e.get(MARK) === '1')) add(ctx, 'wars_ability_manager', { targetname: name, ownernumber: owner });
+  return name;
 }
 
 /** Removes everything a previous build made (entities and the outputs it added to map entities). */
@@ -162,9 +224,9 @@ export function buildMissionInto(doc: VmfDocument, g: MissionGraph, near: Vector
     ctx.row = 0;
     const enter = relay(ctx, `mf_${s.id}_enter`);
     // Messages, one after another.
-    s.messages.filter((m) => m.trim()).forEach((m, i, all) => {
+    s.messages.map(messageText).filter((m) => m).forEach((m, i, all) => {
       const name = `mf_${s.id}_msg${i}`;
-      const box = add(ctx, 'wars_messagebox', { targetname: name, Text: m.replace(/"/g, "'").replace(/\s+/g, ' ').trim() });
+      const box = add(ctx, 'wars_messagebox', { targetname: name, Text: m });
       if (i === 0) link(ctx, enter, 'OnTrigger', name, 'Display', '', 0.5);
       if (i + 1 < all.length) link(ctx, box, 'OnPressContinue', `mf_${s.id}_msg${i + 1}`, 'Display', '', 0.3);
     });
@@ -179,6 +241,10 @@ export function buildMissionInto(doc: VmfDocument, g: MissionGraph, near: Vector
       if (!a.target.trim() || !a.input.trim()) continue;
       if (!mapNamed(doc, a.target).length) ctx.report.warnings.push(`${s.title}: the action's target "${a.target}" is not in the map`);
       link(ctx, enter, 'OnTrigger', a.target.trim(), a.input.trim(), a.param, a.delay);
+    }
+    for (const gt of s.gates ?? []) {
+      if (!gt.ability.trim()) continue;
+      link(ctx, enter, 'OnTrigger', gateManager(ctx, gt.owner), GATE_OPS[gt.op].input, gt.ability.trim());
     }
     ctx.col++;
     ctx.row = 0;

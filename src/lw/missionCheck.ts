@@ -1,7 +1,8 @@
 import type { VmfDocument } from '../vmf/map.ts';
 import { getConnections } from '../vmf/io.ts';
 import { fgdClass } from '../assets/fgd.ts';
-import { CONDITIONS, describeCondition, type MissionGraph, type Stage } from './mission.ts';
+import { CONDITIONS, asMessage, describeCondition, type Condition, type MissionGraph, type Stage } from './mission.ts';
+import { GAME_ABILITIES } from './gameAbilities.ts';
 
 export interface MissionIssue { severity: 'error' | 'warning'; text: string; stage?: string }
 
@@ -54,10 +55,8 @@ export function checkMission(g: MissionGraph, doc: VmfDocument): MissionIssue[] 
     else if (start && fromStart.has(s.id) && fromStart.has('victory') && !reachable(g, [s.id]).has('victory')) warn('can\'t lead to Victory from here', s);
     if (s.id === g.start && !s.objectives.some((o) => o.text.trim())) warn('the start stage has no objective, so the HUD shows nothing to do', s);
 
-    for (const t of s.transitions) {
-      const c = t.condition;
+    const checkCondition = (c: Condition, inAll: boolean): void => {
       const what = `"${describeCondition(c)}"`;
-      if (t.to !== 'victory' && t.to !== 'defeat' && !g.stages.some((x) => x.id === t.to)) err(`${what} leads to a stage that no longer exists`, s);
       switch (c.kind) {
         case 'reach':
           if (!c.area) err(`${what}: no area is drawn`, s);
@@ -78,7 +77,34 @@ export function checkMission(g: MissionGraph, doc: VmfDocument): MissionIssue[] 
         case 'resources':
           warn(`${what}: ${CONDITIONS.resources.hint}`, s);
           break;
+        case 'building': case 'ability': {
+          const name = (c.kind === 'building' ? c.building : c.ability).trim();
+          if (!name) { err(`${what}: nothing is chosen`, s); break; }
+          const known = GAME_ABILITIES.find((a) => a.name === name);
+          if (!known) warn(`${what}: the game has no ${c.kind === 'building' ? 'building' : 'ability'} named "${name}" (names come from the game's Python)`, s);
+          else if (c.kind === 'building' && known.kind !== 'building') err(`${what}: "${name}" is a ${known.kind}, not a building`, s);
+          if (!(c.count >= 1)) err(`${what}: the count must be at least 1`, s);
+          break;
+        }
+        case 'all':
+          if (inAll) { err(`${what}: "all of" can't be nested`, s); break; }
+          if (c.conditions.length < 2) warn(`${what}: "all of" needs two or more conditions to mean anything`, s);
+          for (const sub of c.conditions) checkCondition(sub, true);
+          break;
       }
+    };
+    for (const t of s.transitions) {
+      if (t.to !== 'victory' && t.to !== 'defeat' && !g.stages.some((x) => x.id === t.to)) err(`"${describeCondition(t.condition)}" leads to a stage that no longer exists`, s);
+      checkCondition(t.condition, false);
+    }
+
+    for (const gt of s.gates ?? []) {
+      if (!gt.ability.trim()) { err('an ability gate has no ability chosen', s); continue; }
+      if (!GAME_ABILITIES.some((a) => a.name === gt.ability.trim())) warn(`the ability gate "${gt.ability}": the game has no ability with that name`, s);
+    }
+    for (const m of s.messages.map(asMessage)) {
+      if (m.text.trim().startsWith('#') && (m.speaker?.trim() || m.hint?.trim())) warn(`the message "${m.text.trim()}" is a localisation token: the game looks up the whole text, so its speaker and hint are left out`, s);
+      if (!m.text.trim() && (m.speaker?.trim() || m.hint?.trim())) warn('a message has a speaker or hint but no text, so it is skipped', s);
     }
 
     for (const a of s.actions ?? []) {
