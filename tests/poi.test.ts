@@ -8,7 +8,7 @@ import { POI_TYPES, buildPoi, defaultParams, newSpec, poiOf, registerPoi, shared
 import { applyPoi, deletePoi, poiMembers, regeneratePoi } from '../src/gen/poi/action.ts';
 import { decodePoi, encodePoi } from '../src/gen/poi/spec.ts';
 import { modelInfo } from '../src/gen/poi/models.ts';
-import { modelFootprint, overlaps, rect } from '../src/gen/poi/kit.ts';
+import { modelFootprint, overlaps, rect, walkable } from '../src/gen/poi/kit.ts';
 import type { PoiOutput, PoiSpec, PoiType, Rotation } from '../src/gen/poi/types.ts';
 import '../src/gen/poi/catalogue.ts';
 
@@ -113,6 +113,7 @@ describe('POI framework', () => {
           const model = e.keys.model.replace(/^models\//, '').replace(/\.mdl$/, '');
           expect(modelInfo(model), `${model} is in the model table`).not.toBeNull();
           const fp = modelFootprint(model, e.origin.x, e.origin.y, Number(e.keys.angles.split(' ')[1]));
+          if (walkable(model)) continue;
           for (const r of routes) expect(overlaps(fp, r), `${model} at ${e.origin.toArray()} on route`).toBe(false);
         }
         expect(sig(buildPoi(VmfDocument.empty(), spec))).toBe(sig(out));

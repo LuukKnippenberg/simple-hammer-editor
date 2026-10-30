@@ -7,6 +7,7 @@ import type { ParamValue } from '../../lw/kits.ts';
 import { UNITS } from '../../lw/kits.ts';
 import { Rng } from '../rng.ts';
 import { modelInfo } from './models.ts';
+import { interiorHouse, type InteriorHouseOptions } from '../interiorHouse.ts';
 import type { PoiEntity, PoiOutput, PoiSpec, PoiType, Rect } from './types.ts';
 
 /**
@@ -260,6 +261,22 @@ export class PoiKit {
     const node = solidNode(this.doc, faces);
     this.out.detail.push(node);
     return node;
+  }
+
+  /**
+   * An enterable house on a local rectangle, built by the interior generator (`interiorHouse()`). `doors` are
+   * the local sides that get an entrance: 's' (y0), 'e' (x1), 'n' (y1), 'w' (x0).
+   */
+  house(r: Rect, opts: Omit<InteriorHouseOptions, 'seed' | 'entranceEdges'> & { doors?: ('s' | 'e' | 'n' | 'w')[] } = {}): void {
+    // Counter-clockwise in the local frame stays counter-clockwise in the world (the frame only turns).
+    const fp = [this.world(r.x0, r.y0), this.world(r.x1, r.y0), this.world(r.x1, r.y1), this.world(r.x0, r.y1)].map((p) => p.round());
+    const edges = (opts.doors ?? ['s']).map((d) => ({ s: 0, e: 1, n: 2, w: 3 })[d]);
+    const { doors: _doors, ...rest } = opts;
+    const h = interiorHouse(this.doc, fp, this.z, { ...rest, seed: this.rng.int(1, 99999), entranceEdges: edges });
+    this.out.world.push(...h.world);
+    this.out.detail.push(...h.detail);
+    for (const e of h.entities) this.out.entities.push({ classname: e.classname, origin: e.origin.clone(), keys: { ...e.keys } });
+    this.occupied.push(r);
   }
 
   // --- Routes ----------------------------------------------------------------------------------------------
@@ -634,6 +651,10 @@ function fillRun(pieces: EdgePiece[], len: number): { piece: EdgePiece; at: numb
   for (const p of chosen) { out.push({ piece: p, at }); at += p.len + gap; }
   return out;
 }
+
+/** Flat models units walk over (rails, planks, blankets): they may lie on routes. */
+const WALKABLE = /pg_rail|dockplank|pg_beach_blanket|wood_pallet001a_static/;
+export const walkable = (model: string) => WALKABLE.test(model);
 
 /** Models whose collision is their trunk only: their canopy may hang over routes. */
 const TRUNKS = /props_foliage\/(tree_|oak_|mall_tree)|pg_forest\/pg_palm/;

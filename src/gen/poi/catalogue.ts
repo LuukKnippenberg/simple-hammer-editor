@@ -8,6 +8,7 @@ import { MARKET } from './catalog/market.ts';
 import { BASKETBALL, FOOTBALL } from './catalog/sports.ts';
 import { BARRICADE, CHECKPOINT, RATIONS } from './catalog/combine.ts';
 import { CONSTRUCTION, JUNKYARD, TANKFARM } from './catalog/industry.ts';
+import { GASSTATION, RAILYARD } from './catalog/transport.ts';
 
 /** Registers every POI type (importing this module is enough). */
-registerPoi(SQUARE, PARKING, PLAYGROUND, MARKET, BASKETBALL, CHECKPOINT, BARRICADE, RATIONS, JUNKYARD, CONSTRUCTION, TANKFARM, PARK, FOOTBALL, LOT);
+registerPoi(SQUARE, PARKING, PLAYGROUND, MARKET, BASKETBALL, CHECKPOINT, BARRICADE, RATIONS, JUNKYARD, CONSTRUCTION, TANKFARM, RAILYARD, GASSTATION, PARK, FOOTBALL, LOT);

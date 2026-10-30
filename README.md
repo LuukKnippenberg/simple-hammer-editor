@@ -965,6 +965,25 @@ the middle is the route. Their ground is left as it is by default, so they sit o
 ![The half-built frame and its scaffolding](docs/screenshots/poi-p4-construction-close.png)
 ![Tank farm](docs/screenshots/poi-p4-tankfarm.png)
 
+- **Rail yard** (1536×896 to 4096×2560): ballast, two to six tracks of rail models along the width with buffer
+  stops at both ends, 16-high platforms between pairs of tracks (with a canopy of posts and a pitched metal
+  roof on request), lines of parked train cars that block sight, wrecks lying on their side next to the
+  track, and level crossings kept free of cars (one in the middle, two on yards from 3072 long). Rails are
+  "walkable" props and may cross routes.
+- **Gas station** (1024×896 to 2048×1536): asphalt, a canopy on two columns over two pump islands, the kiosk
+  at the back built by `interiorHouse()` with its door facing the pumps (on this branch the interior
+  generator is still its stub, a closed box; the house becomes enterable when the interiors branch is
+  merged), propane tanks against it (`prop_physics`, explosive), a price sign on a pole, cars at the pumps,
+  tyres and a dumpster. Routes along the forecourt and up the side.
+- Toolkit: `house()` hands a local rectangle to `interiorHouse()` (doors on chosen sides) and files its world
+  brushes, detail brushes and entities with the POI.
+
+![Rail yard with platform canopies and train cars](docs/screenshots/poi-p4-railyard.png)
+![Among the tracks](docs/screenshots/poi-p4-railyard-close.png)
+![A longer yard: three tracks, two crossings, wrecks](docs/screenshots/poi-p4-railyard-wrecks.png)
+![Gas station](docs/screenshots/poi-p4-gasstation.png)
+![The canopy and pumps](docs/screenshots/poi-p4-gasstation-close.png)
+
 ## Example: "Sofia: Battle for the Largo" (singleplayer)
 
 A singleplayer mission based on reference photos of central Sofia, built entirely with the editor's
