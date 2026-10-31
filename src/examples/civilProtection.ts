@@ -60,6 +60,25 @@ const ALLEY: Rect = [28, 15, 29, 19];
 const OUTPOST: Rect = [32, 23, 52, 32];
 const BOULEVARD: Rect = [53, 0, 59, 32];
 const OLD_CITY: Rect = [23, 41, 56, 47];
+/**
+ * Building detail along the route (cells, inclusive): high where the mission goes and the camera looks, medium
+ * facing it, filler everywhere else. Decoration is what fills vbsp's t-junction buffer (scripts/tjunc-budget.mjs).
+ */
+const DETAIL_HIGH: Rect[] = [
+  [21, 8, 37, 17], // both sides of the housing street, and the alley
+  [27, 14, 30, 20],
+  [35, 11, 43, 23], // the canal street and the checkpoint
+  [27, 23, 31, 32], // the outpost's west wall and the buildings behind it
+  [41, 19, 52, 22], // the outpost's north side
+  [28, 41, 33, 47], // the old city where the waves come from
+  [47, 41, 51, 47],
+];
+const DETAIL_MEDIUM: Rect[] = [
+  [0, 20, 21, 22], // facing the station's north wall
+  [19, 33, 22, 40], // facing the canal's west end
+  [48, 0, 52, 13], // along the boulevard
+  [23, 41, 56, 47], // the rest of the old city
+];
 
 const POIS: SketchPoi[] = [
   // The train shed of the station (its walls and roof are added after generating, see buildStation).
@@ -77,6 +96,12 @@ export function buildCivilSketch(): Sketch {
   s.seed = 1709;
   s.floors = [3, 5];
   s.interiors = 'some';
+  // Filler unless painted: high along the route, medium facing it. Green yards instead of sheds.
+  s.yards = 'green';
+  s.quality = new Array(W * H).fill(3);
+  for (const [level, rects] of [[2, DETAIL_MEDIUM], [1, DETAIL_HIGH]] as const) {
+    for (const [x0, y0, x1, y1] of rects) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) s.quality[y * W + x] = level;
+  }
   const fill = (r: Rect, f: (i: number, x: number, y: number) => void) => {
     for (let y = r[1]; y <= r[3]; y++) for (let x = r[0]; x <= r[2]; x++) f(y * W + x, x, y);
   };

@@ -149,7 +149,7 @@ await d.shot('civil-03-top-view');
 await d.key('t');
 await shot('civil-04-overview', [-4200, -5200, 4200], [600, 0, 0], 2000);
 await shot('civil-05-plaza', [-1700, -3100, 1100], [-2500, -1300, 0]);
-await shot('civil-06-housing-street', [-1500, -1330, 420], [800, -1420, 0]);
+await shot('civil-06-housing-street', [-1000, -1330, 420], [800, -1420, 0]);
 await shot('civil-07-checkpoint', [1216, -1500, 560], [1216, -380, 40]);
 await shot('civil-08-outpost', [400, -700, 1500], [1700, 600, 0], 1500);
 await shot('civil-09-canal-bridge', [1900, 700, 620], [1280, 1700, 0]);
