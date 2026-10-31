@@ -40,6 +40,15 @@ Protection), rations (counter, lanes and walking queues), waiting room (benches 
 tables, payphones), hallway (benches along the walls, lamps) and concourse (pillars, open floor). Tests that
 every type stays inside its room and off its doorways.
 
+Done: `dressers.ts` furnishes each room through a POI kit over its floor (props stand on the floor, keep off
+each other and off reserved ways; fences come in whole pieces). Doorways are kept clear and joined by walkways
+first. The kit is turned per type: the train hall and hallway along their long side, customs and rations with
+the main way in on local south. Train hall: platform along the side it is entered from (nobody crosses a
+track to reach it), tracks with buffers, coaches, a far platform in a wide hall. Customs: rows of chain-link
+cages against the long walls with gates onto a corridor, a scanner line and a guard booth. `build.ts` puts
+walls in the world, floors and fittings in one func_detail, roof and glass in func_brushes. `presets.ts`:
+Train station, Customs house, Ration centre. `scripts/rooms-demo.mjs` builds all three in the editor.
+
 ### A3: Relief, lamps and wear per room
 Pilasters, plinth, ledge and cornice on the camera-facing walls of each room, lanterns on them, lamps over the
 furniture, and decals per type (litter where people wait, papers by the ration lanes, stripes on platforms).
