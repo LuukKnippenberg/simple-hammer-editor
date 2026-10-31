@@ -376,6 +376,9 @@ a map can be redrawn and regenerated. The example below compiles sealed with a n
   blocks over raised levels. The game's spawn camera traces down to playerclip, so this keeps the camera
   at the right height (shipped maps do the same).
 - Decals can be placed along a world-space ray (`placeDecalRay`) for scripted map building.
+- **Decal scatter** (`src/edit/decalScatter.ts`): `alongWall` and `onFloor` make lists of rays (posters every
+  so often along a wall, stains at a height, litter in a rectangle) and `placeDecals` casts them, placing an
+  overlay where the hit face is world or `func_detail` and an `infodecal` anywhere else.
 
 ### Map settings
 
@@ -606,6 +609,45 @@ vrad, navmesh) without the browser, optionally into another install:
 ![The square with bare trees](docs/screenshots/district-05-square.png)
 ![A crossing: lamps, cables, awnings, rounded corners](docs/screenshots/district-06-crossing.png)
 ![Rooftops: mansards, dormers, chimneys, a tower](docs/screenshots/district-07-rooftops.png)
+
+### Building phase 8: the t-junction budget, building quality and the street grid
+
+A generated city filled vbsp's t-junction buffer (65,536 entries; the error is "Too many t-junctions"): the
+Civil Protection map stood at 98.8% before anything else was added.
+
+**Measuring** (`scripts/tjunc-budget.mjs`, `server/budget.ts`): builds variants of a map (without buildings,
+roads, POIs or interiors, every block at one quality, the decoration level 0–3), runs vbsp and vbspinfo on each
+in parallel and prints the t-junction count, its share of the limit and brushes, vertexes and faces:
+`node --experimental-transform-types scripts/tjunc-budget.mjs sp_tutorial_combine --variants base,filler,no-pois`.
+What it showed:
+
+- Facade decoration (pilasters, ledges, window frames, cornices on every building) is nearly all of it.
+- Window holes cut into walls, roofs resting on wall tops and walls flush with a neighbour's add many each.
+- Brush entities (`func_brush`) don't count, but moving all decoration into them overflows the 65,536 unique
+  vertexes instead. Overlays need world or `func_detail` faces under them.
+
+**Building quality** per block (`QUALITY` in `src/gen/buildings.ts`, a Quality drop-down in the Building
+panel): *High* (everything), *Medium* (base course and cornice, no enterable houses), *Filler* (plain walls
+with windows and a cornice, no towers, oriels or balconies).
+
+- **Detail layer** in the map sketch: paint High, Medium or Filler on cells; a block takes the most detailed
+  quality painted on any of its cells. The block outlines are drawn on the layer.
+- **Building detail: auto** (Map row): unpainted blocks within 3 cells of a marker or POI are High, within 8
+  Medium, the rest Filler. "High" keeps every unpainted block at High.
+- The Civil Protection map paints the station surroundings and the route, the rest is Filler: 50.7% of the
+  buffer.
+
+**Sofia layout** (Map rows in the sketch, all optional):
+
+- *Block size*: the size of building blocks the sketch cuts its building areas into.
+- *Yards: green*: the open lots behind buildings become lawns (`src/gen/yards.ts`) with leafy trees, benches,
+  a bin and a playground or a parking spot with cars, instead of sheds and dirt.
+- *Open courtyards*: the share of ring sides left open, so courtyards open onto the street.
+- *Streets: Sofia*: wider pavements on streets of 512 and up, cars parked along the kerbs and bollards at
+  the corners.
+- **Lay out street grid** (Street grid section): replaces the building areas with blocks of 11 cells between
+  4-cell streets, an 8-cell boulevard every third street and parks in about 15% of the blocks, and sets the
+  options above with auto detail.
 
 ## Interior buildings
 
@@ -1765,17 +1807,32 @@ The Combine tutorial from the design doc, built with the editor's tools by `scri
 **Layout** (60×48 cells, one route from the south-west to the north-east), drawn with the map sketch:
 
 - **The station** (`buildStation`, with `src/gen/hall.ts`): Unit 09 starts inside a City 17 train station. A tall
-  concourse (plaster walls with tall window models, a stone tile floor, columns with lamps, benches facing the
-  Breencast on the north wall) holds the ration line; archways lead through to a train shed over the rail yard,
-  and one door in the stone front opens onto the housing street. The roof is invisible, as with the generated
-  interiors, but blocks the sun (a `TOOLSBLOCKLIGHT` func_brush with `vrad_brush_cast_shadows`) except over
-  skylight strips, so shafts of light fall on the floor; girders run across the top.
+  concourse holds the ration line; archways lead through to a train shed over the rail yard, and one door in the
+  stone front opens onto the housing street.
+  - *Walls*: stone blocks inside, the station template outside, one window band high in the north and east
+    walls (the sun comes from the south-west, so its light falls through them onto the floor) and window models
+    in the west and south walls.
+  - *Roof*: invisible, as with the generated interiors, but it blocks the sun (a `TOOLSBLOCKLIGHT` func_brush
+    with `vrad_brush_cast_shadows`) and floats 8 units above the walls. Nothing hangs under it: from the RTS
+    camera girders, trusses and a footbridge only crossed the floor as dark bands, so they were taken out.
+  - *Light*: only lamps you can see. Lanterns on the pilasters and columns, hanging lamps over the benches and
+    the canteen, the glow of the Breencast. The hall is dim with bright patches under the windows.
+  - *Relief* (in one `station_relief` func_brush, free for vbsp's t-junctions): a plinth, a ledge, pilasters and
+    a cornice on the north and west inner faces (the faces the camera sees), a framed door with an arch, and
+    three stone pillars with bases and capitals.
+  - *Wear* (`stationDecals`, through `src/edit/decalScatter.ts`): posters and Combine propaganda between the
+    pilasters, stains under the cornice, cracks, dirt, litter and ration papers on the floor where people wait,
+    boot prints and puddles on the platform and hazard stripes along its edges.
+  - *Props*: benches facing the Breencast, payphones, monitors, ornaments by the door, a canteen corner (four
+    tables with benches, bottles and takeout cartons), passenger coaches on the shed's tracks in place of the
+    rail yard's tank wagons, and benches, bins, crates and push carts along the platform.
   The ration line is in use (`decorateRationLine`): a Walking queue in each of the three lanes, 42 citizens
   who step up one at a time and walk back round to the entrance once served, each lane on its own beat. Civil
   Protection stands behind the counter and at the entrance, a scanner hovers over the lines and citizens watch
   the Breencast (all neutral). A `unit_scan` of the player lifts the fog of war over the ration area until the
-  flyer stage. The generated city leaves vbsp almost no room for t-junctions, so the station's walls are plain
-  (no window holes), its roof and girders are brush entities and nothing of it touches the buildings next door.
+  flyer stage. The station's walls are plain (no window holes), its roof and relief are brush entities and
+  nothing of it touches the buildings next door, to keep vbsp's t-junction count down (see the budget section
+  under the building generator).
 - **Housing block**: tenements (some with enterable interiors) along a narrow street, and a dead-end alley
   the runner flees into. Posters and lambda graffiti on the walls, the flyer and ration papers on the kerb.
 - **Canal street**: north from the housing street, fences along the pavements, the Combine checkpoint POI
@@ -1869,6 +1926,12 @@ beyond the 512-unit apron shows.
 ![The old city](docs/screenshots/civil-10-old-city.png)
 ![Citadel boulevard](docs/screenshots/civil-11-boulevard.png)
 ![Lighting preview](docs/screenshots/civil-12-lit-overview.png)
+![In game: the station hall with its window light](docs/screenshots/civil-light-hall.png)
+![In game: relief and lanterns on the north wall](docs/screenshots/civil-relief-north-wall.png)
+![In game: posters, stains and litter](docs/screenshots/civil-decals-north-wall.png)
+![In game: the ration lanes from above](docs/screenshots/civil-decals-lanes.png)
+![In game: the canteen corner](docs/screenshots/civil-props-canteen.png)
+![In game: coaches and the platform](docs/screenshots/civil-props-platform.png)
 ![The mission flowchart](docs/screenshots/civil-14-mission-flow.png)
 ![Arm the squad: an "all of" transition](docs/screenshots/civil-15-mission-allof.png)
 ![The locks at the start](docs/screenshots/civil-16-mission-gates.png)
