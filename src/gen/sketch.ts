@@ -16,6 +16,7 @@ import type { Editor } from '../editor.ts';
 import { levelForPois, type PoiPlacement } from './poi/mapgen.ts';
 import { dressEdges, surfaceEdges } from './surfaceEdges.ts';
 import type { RoadMaterials } from './streetMaterials.ts';
+import { areaAlpha, areaEdging, encodeCuts, insideDistance, shapeCuts, shapeRoads, boxesOverlap, type ShapeSurface, type SketchShape } from './sketchShapes.ts';
 import { bandWidth, buildSurroundings, extendEdgeRoads, HILL_HEIGHT, PLAIN_APRON, sideOf, styleOf, surroundRise, type SurroundSpec } from './surroundings.ts';
 
 /**
@@ -115,6 +116,8 @@ export interface Sketch {
   surroundings?: SurroundSpec;
   /** Carriageway, pavement, kerb and gutter materials and rounded corners for the streets (default: City 17). */
   streetMaterials?: RoadMaterials;
+  /** Streets and areas drawn freely over the cells: diagonal and curved streets, round squares, lawns. */
+  shapes?: SketchShape[];
 }
 
 /** The painted values of the sketch's Detail layer. */
@@ -369,7 +372,10 @@ export function generateFromSketch(s: Sketch): SketchResult {
   // Beyond the edge: hills rise out of the terrain (city and wall sides stay level).
   const rise = surroundRise(s.surroundings, mapW, mapH, s.seed);
   const heightAt = (x: number, y: number) => Math.round((pois.height(x, y) + noise(x, y) * (1 - pois.weight(x, y)) + rise(x, y)) * 10) / 10;
-  const alphaAt = (x: number, y: number) => sampleGrid(alpha, x, y);
+  // Areas drawn over the cells paint their surface into the blend, softly at their outline.
+  const SHAPE_SURFACE: Record<ShapeSurface, Surface> = { grass: Surface.Grass, dirt: Surface.Dirt, paved: Surface.Paved, rubble: Surface.Rubble };
+  const inAreas = areaAlpha(s.shapes, SKETCH_CELL, (sf) => theme.alpha[SHAPE_SURFACE[sf]]);
+  const alphaAt = (x: number, y: number) => inAreas(x, y, sampleGrid(alpha, x, y));
   // Hills are grass, with dirt showing through higher up and in patches.
   const hillAlpha = (x: number, y: number) => Math.max(0, Math.min(220, 20 + (rise(x, y) / HILL_HEIGHT) * 110 + Math.sin(x * 0.0037 + s.seed) * Math.cos(y * 0.0049) * 70));
   const flatHeight = (x: number, y: number) => pois.height(x, y) + rise(x, y);
@@ -419,6 +425,11 @@ export function generateFromSketch(s: Sketch): SketchResult {
       roads.push({ ...defaultRoad('dirt', ends), width: short - 32, radius: 0, lift: 2 });
     }
   }
+  // Streets drawn as shapes: diagonal and curved, built by the same road code.
+  roads.push(...shapeRoads(s.shapes, SKETCH_CELL, flatHeight, s.streetMaterials));
+  // What buildings and props keep off: the shapes' streets and areas.
+  const cuts = shapeCuts(s.shapes, SKETCH_CELL);
+  const inCut = (x: number, y: number) => cuts.some((c) => insideDistance(c, x, y) > 0);
   // Streets that reach a city or wall side run on out of the map.
   extendEdgeRoads(roads, s.surroundings, mapW, mapH, flatHeight);
   // Longest first: through roads keep their surface across junctions.
@@ -433,6 +444,12 @@ export function generateFromSketch(s: Sketch): SketchResult {
   const carriageway = (x: number, y: number) => { const g = onRoad(x, y); return !!g && (g.kind === 'surface' || g.kind === 'rail'); };
   if (s.streets === 'sofia' && s.theme === 'city') ents.push(...sofiaStreets(doc, roads, onRoad, new Rng(s.seed * 61 + 5)));
 
+  // A block's cut option: the shape cuts over it, in world units.
+  const blockCut = (box: Box3) => {
+    const r = [new Vector2(box.min.x, box.min.y), new Vector2(box.max.x, box.min.y), new Vector2(box.max.x, box.max.y), new Vector2(box.min.x, box.max.y)];
+    const mine = cuts.filter((c) => boxesOverlap(c, r)).map((c) => c.map((p) => new Vector2(p.x + shift.x, p.y + shift.y)));
+    return mine.length ? { cut: encodeCuts(mine) } : {};
+  };
   // Buildings: one generated block per rectangle of building cells, on that cell's height level. Each is a stored
   // block (with a handle); the blocks on one level are a group, which shares its street dressing.
   const blocks: { spec: BlockSpec; dressing: BlockDressing }[] = [];
@@ -448,6 +465,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
       options: {
         seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture, interiors: s.interiors,
         yards: s.yards, openYards: s.openYards,
+        ...blockCut(box),
         quality: blockQuality(s, Math.round(box.min.x / SKETCH_CELL), Math.round(box.min.y / SKETCH_CELL), Math.round(box.max.x / SKETCH_CELL), Math.round(box.max.y / SKETCH_CELL)),
       },
     };
@@ -532,6 +550,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
       const px = (x + rng.range(0.2, 0.8)) * SKETCH_CELL, py = (y + rng.range(0.2, 0.8)) * SKETCH_CELL;
       return new Vector3(Math.round(px), Math.round(py), Math.round(groundAt(px, py)) - 2);
     };
+    if (f !== Feature.None && inCut((x + 0.5) * SKETCH_CELL, (y + 0.5) * SKETCH_CELL)) continue;
     if (f === Feature.Trees) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(s.theme === 'city' ? CITY_TREES : TREES), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
     else if (f === Feature.Rubble && rng.chance(0.7)) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(DEBRIS), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
     else if (f === Feature.Cars && rng.chance(0.6)) {
@@ -556,6 +575,10 @@ export function generateFromSketch(s: Sketch): SketchResult {
       (x, y) => surf(x, y) === Surface.Paved,
       (x, y) => s.features[y * s.w + x] === Feature.Building || inPoi(x, y) || s.levels[y * s.w + x] !== 0);
     const dressed = dressEdges(doc, edges, flatHeight, patchSide, shift, new Rng(s.seed * 83 + 7));
+    // And round the areas drawn as shapes.
+    const ring = areaEdging(doc, s.shapes, SKETCH_CELL, flatHeight, patchSide, shift, new Rng(s.seed * 89 + 5));
+    dressed.brushes.push(...ring.brushes);
+    dressed.overlays.push(...ring.overlays);
     if (dressed.brushes.length) {
       const e = entity(doc, 'func_detail', new Vector3(), {});
       e.delete('origin');
@@ -645,7 +668,7 @@ function sofiaStreets(doc: VmfDocument, roads: RoadSpec[], top: (x: number, y: n
     out.push(entity(doc, 'prop_static', new Vector3(Math.round(x), Math.round(y), Math.round(g.z - (b ? b[2] : 0))), { model: `models/${model}.mdl`, angles: `0 ${Math.round(yaw)} 0`, solid: '6' }));
   };
   for (const r of roads) {
-    if (r.style !== 'asphalt' || r.points.length < 2) continue;
+    if (r.style !== 'asphalt' || r.points.length !== 2) continue;
     const a = r.points[0], b = r.points[r.points.length - 1];
     const dir = new Vector2(b.x - a.x, b.y - a.y);
     const len = dir.length();

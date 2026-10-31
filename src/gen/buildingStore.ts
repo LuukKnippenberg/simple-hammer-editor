@@ -8,6 +8,7 @@ import { streetDressing, type BlockDressing } from './streets.ts';
 import type { FeatureEntity } from './facadeFeatures.ts';
 import { Rng } from './rng.ts';
 import { BUILDING_HANDLE, findHandle, isGeneratorHandle, newHandle, type HandleRect } from './handle.ts';
+import { shiftCuts } from './sketchShapes.ts';
 
 /**
  * Stored blocks of buildings. A generated block keeps its footprint and options on its func_detail in the
@@ -220,7 +221,8 @@ type EntityMaker = (classname: string, origin: Vector3, keys: Record<string, str
  */
 export function blockIntoDoc(doc: VmfDocument, spec: BlockSpec, entity: EntityMaker, shift = new Vector3()): { world: KVNode[]; entities: KVNode[]; out: GeneratedBuildings } {
   const fp = footprintOf(spec).translate(new Vector3(-shift.x, -shift.y, 0));
-  const out = generateBuildings(doc, fp, spec.options);
+  // Built where the document still is: cuts (stored in world units, like the footprint) move with it.
+  const out = generateBuildings(doc, fp, { ...spec.options, cut: shiftCuts(spec.options.cut, -shift.x, -shift.y) });
   const detail = storeBlock(doc, spec, out, null, shift);
   const ents = out.entities.map((e) => entity(e.classname, e.origin, { ...e.keys, [BLOCK_ID_KEY]: spec.uid }));
   return { world: out.solids, entities: [detail, ...ents, blockHandleNode(doc, spec, shift)], out };

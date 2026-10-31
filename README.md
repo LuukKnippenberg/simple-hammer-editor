@@ -2157,6 +2157,34 @@ street in the Boulevard look, set through the road panel's code.
 ![In game: the crossing](docs/screenshots/street-game-corner.jpg)
 ![In game: another crossing with rounded kerbs](docs/screenshots/street-game-crossing2.jpg)
 
+### Polish phase 4: free shapes
+
+The sketch is no longer only squares. A **Shapes** layer draws over the cells (`src/gen/sketchShapes.ts`):
+
+- **Street**: click points (half cells), Enter or double-click to finish. Width, pavement and a bend radius:
+  bends are rounded, so a street can be diagonal or curved. Built by the road code with the map's street look.
+- **Area**: click an outline (kept convex), or **Round area**: drag a rectangle for the ellipse inside it, in
+  grass (a lawn laid in it), dirt, paving or rubble (painted into the terrain blend, soft at the outline).
+  Areas get the stone edging and leaves along their outline, as painted lawns do.
+- Right-click removes a shape, Escape drops the one being drawn.
+
+**Buildings follow the shapes.** The streets and areas over a block are stored on it (`cut`), and its lots are cut
+back along them: each lot is trimmed along the edge of the cut that keeps the most of it, a lot a street runs
+through keeps both sides. So buildings get slanted fronts along a diagonal street and a ring of faceted fronts
+round a round square; walls along a cut are street walls (doors, shop fronts, cables). Props and trees on cells
+under a shape are left out.
+
+`scripts/shapes-demo.mjs` draws a round paved square with a round lawn, a diagonal avenue and a curved street in
+the sketch dialog with the mouse, and generates `maps/shapes_demo.vmf` (30.6% of vbsp's t-junction limit,
+compiled without a leak).
+
+![The Shapes layer in the sketch](docs/screenshots/shapes-01-sketch.png)
+![The round square from the RTS angle](docs/screenshots/shapes-03-square.png)
+![The curved street](docs/screenshots/shapes-05-curve.png)
+![The diagonal avenue from above, buildings cut along it](docs/screenshots/shapes-08-avenue-top.png)
+![In game: the round square and its lawn](docs/screenshots/shapes-game-square.jpg)
+![In game: the curved street](docs/screenshots/shapes-game-curve.jpg)
+
 ## Development
 
 ```bash

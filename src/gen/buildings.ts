@@ -14,6 +14,7 @@ import { interiorHouse } from './interiorHouse.ts';
 import { greenYard, type YardStyle } from './yards.ts';
 import { outlineOf } from './interiorPlan.ts';
 import type { InteriorStyleName } from './styles.ts';
+import { boxesOverlap, convexOverlap, cutBack, decodeCuts } from './sketchShapes.ts';
 
 export { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle };
 
@@ -56,6 +57,11 @@ export interface BuildingOptions {
   yards?: YardStyle;
   /** Share of a ring block's side lots left open, so its courtyard opens onto the street (0–1, default 0). */
   openYards?: number;
+  /**
+   * Convex polygons (world units, `encodeCuts`) the buildings keep off: diagonal or curved streets and round squares
+   * drawn over the block. Lots are cut along them, and walls along a cut face the street.
+   */
+  cut?: string;
   /** Facade decoration (default 2: base course, ledges, columns, stepped cornice). */
   detail?: DetailLevel;
   /**
@@ -516,6 +522,45 @@ function wallSolids(doc: VmfDocument, w: WallPlan, s: Style, z0: number): KVNode
  * shaped corners with entrances on the block corners, varying heights, annexes, walls with gateways,
  * cornices, parapets, optional rooftop props and (with alleys) sky bridges.
  */
+/** A convex polygon as whole units, still convex (rounding can bend it a hair: then its hull). */
+function wholeUnits(poly: Vector2[]): Vector2[] {
+  const r = cleanPolygon(ccw(poly.map((p) => new Vector2(Math.round(p.x), Math.round(p.y)))));
+  return isConvexCcw(r) ? r : cleanPolygon(convexHull(r));
+}
+
+const polyArea = (p: Vector2[]) => Math.abs(p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]; return s + a.x * b.y - b.x * a.y; }, 0)) / 2;
+const boxPoly = (b: Box2) => [b.min.clone(), new Vector2(b.max.x, b.min.y), b.max.clone(), new Vector2(b.min.x, b.max.y)];
+const cutsInto = (poly: Vector2[], cuts: Vector2[][]) => cuts.some((c) => convexOverlap(ccw(poly), c));
+
+/**
+ * Cuts a block's plan along streets and squares drawn over it: every wing loses what lies in a cut; a wing cut in
+ * two becomes two buildings; slivers too small to build are dropped, and so are the yards, sheds, walls and lots
+ * a cut runs through.
+ */
+export function cutPlan(plan: ReturnType<typeof planBlock>, cuts: Vector2[][]): void {
+  const pieces = (poly: Vector2[]) => cutBack(ccw(poly), cuts).map(wholeUnits).filter((p) => p.length >= 3 && polyArea(p) >= 128 * 160 && inradius(p) >= 56);
+  const buildings: typeof plan.buildings = [];
+  for (const b of plan.buildings) {
+    const [main, ...rest] = b.parts;
+    const mainPieces = pieces(main.poly).sort((p, q) => polyArea(q) - polyArea(p));
+    if (!mainPieces.length) continue;
+    const changed = !cutsInto(main.poly, cuts) ? null : mainPieces;
+    const head = changed ? { ...main, poly: changed[0], cornerEdges: [], corner: undefined } : main;
+    const annexes = rest.flatMap((part) => {
+      if (!cutsInto(part.poly, cuts)) return [part];
+      const ps = pieces(part.poly).sort((p, q) => polyArea(q) - polyArea(p));
+      return ps.length ? [{ ...part, poly: ps[0], cornerEdges: [] }] : [];
+    });
+    buildings.push({ ...b, parts: [head, ...annexes] });
+    for (const extra of changed?.slice(1) ?? []) buildings.push({ parts: [{ ...main, poly: extra, cornerEdges: [], corner: undefined }], styleSlot: b.styleSlot + 1 });
+  }
+  plan.buildings = buildings;
+  plan.yards = plan.yards.filter((y) => !cutsInto(boxPoly(y), cuts));
+  plan.sheds = plan.sheds.filter((y) => !cutsInto(boxPoly(y), cuts));
+  plan.lots = plan.lots.filter((l) => !cutsInto(boxPoly(l.box), cuts));
+  plan.walls = plan.walls.filter((w) => !cutsInto(boxPoly(new Box2().setFromPoints([w.a, w.b]).expandByScalar(8)), cuts));
+}
+
 export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: BuildingOptions): GeneratedBuildings {
   const rng = new Rng(opts.seed);
   const g = FLOOR;
@@ -534,8 +579,16 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   // Walls on the block's outline face the street; the rest face courtyards, yards or neighbours.
   const onLine = (a: Vector2, b: Vector2, axis: 'x' | 'y', v: number) => Math.abs(a[axis] - v) < 1 && Math.abs(b[axis] - v) < 1;
   const arch = ARCHITECTURES[opts.architecture ?? 'mixed'];
+  const cuts = decodeCuts(opts.cut).filter((c) => boxesOverlap(c, [area.min, new Vector2(area.max.x, area.min.y), area.max, new Vector2(area.min.x, area.max.y)]));
+  /** A wall along the edge of a cut faces the street that made it. */
+  const alongCut = (a: Vector2, b: Vector2) => cuts.some((c) => c.some((p, i) => {
+    const q = c[(i + 1) % c.length], d = new Vector2().subVectors(q, p), len = d.length();
+    if (len < 1) return false;
+    const off = (v: Vector2) => Math.abs((d.x * (v.y - p.y) - d.y * (v.x - p.x)) / len);
+    return off(a) < 3 && off(b) < 3;
+  }));
   const street = {
-    isStreet: (a: Vector2, b: Vector2) => onLine(a, b, 'x', area.min.x) || onLine(a, b, 'x', area.max.x) || onLine(a, b, 'y', area.min.y) || onLine(a, b, 'y', area.max.y),
+    isStreet: (a: Vector2, b: Vector2) => onLine(a, b, 'x', area.min.x) || onLine(a, b, 'x', area.max.x) || onLine(a, b, 'y', area.min.y) || onLine(a, b, 'y', area.max.y) || alongCut(a, b),
     rng: new Rng(opts.seed * 7 + 11),
     entities: out.entities,
     oriels: arch.oriels && quality.streetFeatures, balconies: arch.balconies && quality.streetFeatures, roofHuts: arch.roofHuts, weathering: opts.weathering ?? 0.5,
@@ -546,6 +599,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
     corners: opts.corners ?? arch.corners, courtyards: opts.courtyards ?? true, annexes: (opts.annexes ?? true) && opts.yards !== 'green',
     openings: opts.openYards,
   });
+  if (cuts.length) cutPlan(plan, cuts);
   if (opts.yards === 'green') {
     // Dressed here (lawns, trees, playgrounds, parking), so the street pass leaves them alone. Its own sequence,
     // so the buildings don't change with it.

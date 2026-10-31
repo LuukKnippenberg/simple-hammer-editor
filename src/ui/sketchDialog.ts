@@ -9,9 +9,11 @@ import { VmfDocument } from '../vmf/map.ts';
 import { drawSketchPois, sketchPoiInput, sketchPoiPanel } from './sketchPoiLayer.ts';
 import { placePois } from '../gen/poi/sketchPois.ts';
 import { SURROUND_STYLES, type EdgeSide, type SurroundStyle } from '../gen/surroundings.ts';
+import { SHAPE_SURFACES, ellipsePoints, type ShapeSurface } from '../gen/sketchShapes.ts';
 import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, STREET_PRESETS, type StreetMaterial } from '../gen/streetMaterials.ts';
 
-type Layer = 'height' | 'surface' | 'feature' | 'detail' | 'marker' | 'poi';
+type Layer = 'height' | 'surface' | 'feature' | 'detail' | 'marker' | 'poi' | 'shape';
+type ShapeTool = 'street' | 'area' | 'round';
 type Shape = 'brush' | 'rect' | 'fill';
 const LEVEL_COLORS = ['#1d2f22', '#4f7a3a', '#a3a14e', '#c98a45', '#f0e2c0'];
 
@@ -38,6 +40,15 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
   let feature: Feature = Feature.Building;
   let marker: MarkerKind = 'zombies';
   let quality: 1 | 2 | 3 = 1;
+  // Shapes: the tool, the shape being drawn (points in cells), and the settings new shapes get.
+  let shapeTool: ShapeTool = 'street';
+  let draft: [number, number][] = [];
+  let roundFrom: [number, number] | null = null;
+  let roundTo: [number, number] | null = null;
+  let streetWidth = 256, streetPavement = 64, streetRadius = 256;
+  let areaSurface: ShapeSurface = 'grass';
+  /** Points snap to half cells. */
+  const snapHalf = (v: number) => Math.round(v * 2) / 2;
   const undo: string[] = [];
   const snapshot = () => { undo.push(JSON.stringify(s)); if (undo.length > 60) undo.shift(); };
 
@@ -109,6 +120,39 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       ctx.fillText(mi.letter, cx, cy + 1);
     }
     drawSketchPois(ctx, s, PX, Y, layer === 'poi');
+    // Free shapes: streets as their width, areas filled with their surface; the shape being drawn dashed.
+    const cy = (y: number) => canvas.height - y * PX;
+    const active = layer === 'shape';
+    for (const sh of s.shapes ?? []) {
+      if (sh.kind === 'street') {
+        ctx.strokeStyle = active ? 'rgba(155,148,136,0.95)' : 'rgba(155,148,136,0.7)';
+        ctx.lineWidth = Math.max(2, ((sh.width + 2 * sh.pavement) / 128) * PX);
+        ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
+        ctx.beginPath();
+        sh.points.forEach(([x, y], i) => (i ? ctx.lineTo(x * PX, cy(y)) : ctx.moveTo(x * PX, cy(y))));
+        ctx.stroke();
+        ctx.strokeStyle = '#f2f2f2'; ctx.lineWidth = 1; ctx.setLineDash([6, 6]);
+        ctx.stroke(); ctx.setLineDash([]);
+      } else {
+        ctx.fillStyle = SHAPE_SURFACES.find((q) => q.id === sh.surface)?.color ?? '#888';
+        ctx.globalAlpha = active ? 0.9 : 0.7;
+        ctx.beginPath();
+        sh.points.forEach(([x, y], i) => (i ? ctx.lineTo(x * PX, cy(y)) : ctx.moveTo(x * PX, cy(y))));
+        ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#d8d2c6'; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+      }
+    }
+    const pending = roundFrom && roundTo ? ellipsePoints(roundFrom[0], roundFrom[1], roundTo[0], roundTo[1]) : draft;
+    if (active && pending.length) {
+      ctx.strokeStyle = '#e8a33d'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      pending.forEach(([x, y], i) => (i ? ctx.lineTo(x * PX, cy(y)) : ctx.moveTo(x * PX, cy(y))));
+      if (shapeTool !== 'street' && pending.length > 2) ctx.closePath();
+      ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+      ctx.fillStyle = '#e8a33d';
+      for (const [x, y] of draft) { ctx.beginPath(); ctx.arc(x * PX, cy(y), 3, 0, Math.PI * 2); ctx.fill(); }
+    }
     if (layer === 'detail') {
       // Painted cells as a wash; each block outlined in the quality it will be built at.
       for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
@@ -181,9 +225,39 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
   };
   let down: { x: number; y: number; erase: boolean } | null = null;
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  /** Ends the shape being drawn: a street needs two points, an area three. */
+  const finishShape = () => {
+    if (shapeTool === 'street' && draft.length >= 2) (s.shapes ??= []).push({ kind: 'street', points: draft, width: streetWidth, pavement: streetPavement, radius: streetRadius });
+    if (shapeTool === 'area' && draft.length >= 3) (s.shapes ??= []).push({ kind: 'area', points: draft, surface: areaSurface });
+    draft = [];
+    draw();
+  };
+  /** The shape nearest a point (within a cell of one of its points or segments), for right-click removal. */
+  const shapeNear = (fx: number, fy: number) => (s.shapes ?? []).findIndex((sh) => sh.points.some(([x, y], i, a) => {
+    const [x2, y2] = a[(i + 1) % a.length];
+    const dx = x2 - x, dy = y2 - y, len2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((fx - x) * dx + (fy - y) * dy) / len2));
+    return Math.hypot(fx - (x + t * dx), fy - (y + t * dy)) < (sh.kind === 'street' ? Math.max(1, sh.width / 256) : 1);
+  }));
+  canvas.addEventListener('dblclick', () => { if (layer === 'shape') finishShape(); });
   canvas.addEventListener('pointerdown', (e) => {
     const c = cellOf(e);
     const erase = e.button === 2;
+    if (layer === 'shape') {
+      if (erase) {
+        if (draft.length) { draft = []; draw(); return; }
+        const i = shapeNear(c.fx, c.fy);
+        if (i >= 0) { snapshot(); s.shapes!.splice(i, 1); draw(); }
+        return;
+      }
+      const p: [number, number] = [snapHalf(c.fx), snapHalf(c.fy)];
+      if (shapeTool === 'round') { roundFrom = p; roundTo = p; canvas.setPointerCapture(e.pointerId); draw(); return; }
+      if (!draft.length) snapshot();
+      const last = draft[draft.length - 1];
+      if (!last || last[0] !== p[0] || last[1] !== p[1]) draft.push(p);
+      draw();
+      return;
+    }
     snapshot();
     if (layer === 'marker') {
       const near = s.markers.findIndex((m) => Math.hypot(m.x - c.fx, m.y - c.fy) < 0.9);
@@ -199,12 +273,24 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
     if (shape === 'brush' && layer !== 'poi') { paintAt(c.x, c.y, erase); draw(); }
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (layer === 'shape' && roundFrom) { const c = cellOf(e); roundTo = [snapHalf(c.fx), snapHalf(c.fy)]; draw(); return; }
     if (!down) return;
     const c = cellOf(e);
     if (shape === 'brush' && layer !== 'poi') { paintAt(c.x, c.y, down.erase); draw(); }
     else draw({ x0: down.x, y0: down.y, x1: c.x, y1: c.y });
   });
   canvas.addEventListener('pointerup', (e) => {
+    if (layer === 'shape' && roundFrom) {
+      const c = cellOf(e);
+      const to: [number, number] = [snapHalf(c.fx), snapHalf(c.fy)];
+      if (Math.abs(to[0] - roundFrom[0]) >= 1 && Math.abs(to[1] - roundFrom[1]) >= 1) {
+        snapshot();
+        (s.shapes ??= []).push({ kind: 'area', points: ellipsePoints(roundFrom[0], roundFrom[1], to[0], to[1]), surface: areaSurface });
+      }
+      roundFrom = roundTo = null;
+      draw();
+      return;
+    }
     if (!down) return;
     if (layer === 'poi') sketchPoiInput(s, down, cellOf(e), false);
     else if (shape === 'rect') {
@@ -216,6 +302,8 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
   });
   window.addEventListener('keydown', (e) => {
     if (backdrop.hidden) return;
+    if (layer === 'shape' && e.key === 'Enter') { finishShape(); e.preventDefault(); return; }
+    if (layer === 'shape' && e.key === 'Escape' && draft.length) { draft = []; draw(); e.preventDefault(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && undo.length) {
       s = JSON.parse(undo.pop()!);
       e.preventDefault();
@@ -235,8 +323,13 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       h('span.swatch', { style: { background: inf.color } }), inf.label)));
 
   const renderSide = () => {
-    const layerOpts: [Layer, string][] = [['height', 'Height'], ['surface', 'Surface'], ['feature', 'Features'], ['detail', 'Detail'], ['marker', 'Markers'], ['poi', 'POIs']];
+    const layerOpts: [Layer, string][] = [['height', 'Height'], ['surface', 'Surface'], ['feature', 'Features'], ['detail', 'Detail'], ['marker', 'Markers'], ['poi', 'POIs'], ['shape', 'Shapes']];
     let paint: HTMLElement;
+    const shapeNum = (value: number, set: (v: number) => void, min: number, max: number, step = 16) => {
+      const i = h('input', { type: 'number', value, min, max, step }) as HTMLInputElement;
+      i.addEventListener('change', () => set(Math.max(min, Math.min(max, Number(i.value) || min))));
+      return i;
+    };
     if (layer === 'height') {
       paint = h('div', {},
         h('div.palette', {}, ...[0, 1, 2, 3, 4].map((l) => h((!ramp && l === level ? 'button.pal.active' : 'button.pal') as 'button', { onclick: () => { level = l; ramp = false; renderSide(); } },
@@ -252,6 +345,22 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
         h('p.hint', {}, `Paint high detail where the mission goes and filler elsewhere; right drag removes paint. A block takes its most detailed paint; unpainted ones follow Building detail (auto: high within ${AUTO_DETAIL.high} cells of markers and POIs, medium within ${AUTO_DETAIL.medium}). Outlines show the result.`));
     } else if (layer === 'poi') {
       paint = sketchPoiPanel(renderSide);
+    } else if (layer === 'shape') {
+      const settings = shapeTool === 'street'
+        ? h('div', {},
+          h('div.row', {}, h('label', {}, 'Width'), shapeNum(streetWidth, (v) => (streetWidth = v), 128, 640), h('span.unit', {}, 'units')),
+          h('div.row', {}, h('label', {}, 'Pavement'), shapeNum(streetPavement, (v) => (streetPavement = v), 0, 192), h('span.unit', {}, 'each side')),
+          h('div.row', {}, h('label', {}, 'Bends'), shapeNum(streetRadius, (v) => (streetRadius = v), 0, 1024, 64), h('span.unit', {}, 'radius')))
+        : swatches(SHAPE_SURFACES.map((q) => [q.id, q] as [ShapeSurface, { label: string; color: string }]), () => areaSurface, (v) => (areaSurface = v));
+      const hint = shapeTool === 'street' ? 'Click the street\'s points (half cells), double-click or Enter to finish. Bends are rounded by the radius; buildings are cut along it.'
+        : shapeTool === 'area' ? 'Click the outline\'s points, double-click or Enter to finish (it is kept convex). Buildings keep off it.'
+          : 'Drag a rectangle: the area is the ellipse inside it. Buildings keep off it.';
+      paint = h('div', {},
+        h('div.row', {}, h('label', {}, 'Draw'), seg<ShapeTool>([['street', 'Street'], ['area', 'Area'], ['round', 'Round area']], () => shapeTool, (v) => { shapeTool = v; draft = []; })),
+        settings,
+        h('p.hint', {}, hint + ' Right-click a shape to remove it, Escape drops the one being drawn.'),
+        h('div.row', {}, h('span.muted', {}, `${s.shapes?.length ?? 0} shapes`),
+          h('button', { onclick: () => { if (s.shapes?.length && confirm('Remove all shapes?')) { snapshot(); s.shapes = []; draw(); renderSide(); } } }, 'Clear shapes')));
     } else {
       paint = h('div', {}, swatches(Object.entries(MARKER_INFO) as [MarkerKind, { label: string; color: string }][], () => marker, (v) => (marker = v)),
         h('p.hint', {}, 'Click to place, click a marker again to remove it.'));
@@ -371,8 +480,8 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
     side.replaceChildren(
       h('div.section', {}, h('h3', {}, 'Layer'), seg(layerOpts, () => layer, (v) => { layer = v; draw(); })),
       h('div.section', {}, h('h3', {}, 'Paint'), paint,
-        layer !== 'marker' && layer !== 'poi' ? h('div.row', {}, h('label', {}, 'Tool'), seg<Shape>([['brush', 'Brush'], ['rect', 'Rectangle'], ['fill', 'Fill']], () => shape, (v) => (shape = v))) : null,
-        layer !== 'marker' && layer !== 'poi' ? h('div.row', {}, h('label', {}, 'Brush size'), seg<number>([[1, '1'], [2, '2'], [3, '3'], [5, '5']], () => size, (v) => (size = v))) : null,
+        layer !== 'marker' && layer !== 'poi' && layer !== 'shape' ? h('div.row', {}, h('label', {}, 'Tool'), seg<Shape>([['brush', 'Brush'], ['rect', 'Rectangle'], ['fill', 'Fill']], () => shape, (v) => (shape = v))) : null,
+        layer !== 'marker' && layer !== 'poi' && layer !== 'shape' ? h('div.row', {}, h('label', {}, 'Brush size'), seg<number>([[1, '1'], [2, '2'], [3, '3'], [5, '5']], () => size, (v) => (size = v))) : null,
         h('div.row', {}, h('label', {}, 'Symmetry'), seg<'none' | 'mirror' | 'rotate'>([['none', 'None'], ['mirror', 'Mirror'], ['rotate', 'Rotate']], () => symmetry, (v) => (symmetry = v)))),
       h('div.section', {}, h('h3', {}, 'Map'),
         h('div.row', {}, h('label', {}, 'Theme'), theme),
