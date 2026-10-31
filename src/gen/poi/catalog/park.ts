@@ -19,8 +19,9 @@ function centre(k: PoiKit, kind: string, cx: number, cy: number): void {
   if (kind === 'pond') {
     // A raised ornamental pond: a stone rim (too high to climb out of) round a muddy floor and water.
     k.ring(cx, cy, 256, 236, -8, 28, STONE, 20);
-    k.cylinder(cx, cy, 238, -8, 4, { top: 'NATURE/MUDFLOOR001A', bottom: NODRAW, sides: NODRAW }, 20);
-    if (k.flag('water')) k.waterDisc(cx, cy, 237, 22, 4, undefined, 20);
+    // The floor stands above the lawn (which would show through the water otherwise).
+    k.cylinder(cx, cy, 238, -8, 8, { top: 'NATURE/MUDFLOOR001A', bottom: NODRAW, sides: NODRAW }, 20);
+    if (k.flag('water')) k.waterDisc(cx, cy, 237, 24, 8, 'NATURE/WATER_COAST01', 20);
     for (let i = 0; i < 5; i++) {
       const a = k.rng.range(0, Math.PI * 2);
       k.prop('props_foliage/rock_forest01', cx + Math.cos(a) * 190, cy + Math.sin(a) * 190, k.rng.int(0, 359), { force: true, z: 4, noOccupy: true });

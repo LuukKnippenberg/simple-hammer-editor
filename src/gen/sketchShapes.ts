@@ -104,20 +104,27 @@ export function shapeCuts(shapes: SketchShape[] | undefined, cell: number, margi
     if (s.kind === 'street' && s.points.length >= 2) {
       const pts = centreline(s.points.map(([x, y]) => new Vector3(x * cell, y * cell, 0)), s.radius ?? 0);
       const half = s.width / 2 + s.pavement + 8 + margin;
-      for (let i = 0; i + 1 < pts.length; i++) {
-        const a = new Vector2(pts[i].x, pts[i].y), b = new Vector2(pts[i + 1].x, pts[i + 1].y);
-        const d = new Vector2().subVectors(b, a);
-        if (d.length() < 1) continue;
-        d.normalize();
+      const p2 = pts.map((p) => new Vector2(p.x, p.y));
+      const dir = (i: number) => new Vector2().subVectors(p2[i + 1], p2[i]).normalize();
+      /** The turn at point i (radians), 0 at the ends. */
+      const turn = (i: number) => (i <= 0 || i >= p2.length - 1 ? 0 : Math.acos(Math.max(-1, Math.min(1, dir(i - 1).dot(dir(i))))));
+      for (let i = 0; i + 1 < p2.length; i++) {
+        const a = p2[i], b = p2[i + 1];
+        if (a.distanceTo(b) < 1) continue;
+        const d = dir(i);
         const n = new Vector2(-d.y, d.x).multiplyScalar(half);
-        // Each quad runs a little past its ends, so neighbouring quads overlap at gentle bends.
-        const a2 = a.clone().addScaledVector(d, -4), b2 = b.clone().addScaledVector(d, 4);
+        // Each quad runs on past its ends by what the turn there opens on the outside, so a gentle bend (an arc of
+        // a rounded corner) is closed without a disc.
+        const ext = (t: number) => (t < 0.45 ? half * Math.tan(t / 2) + 4 : 4);
+        const a2 = a.clone().addScaledVector(d, -ext(turn(i))), b2 = b.clone().addScaledVector(d, ext(turn(i + 1)));
         out.push(ccw([a2.clone().sub(n), b2.clone().sub(n), b2.clone().add(n), a2.clone().add(n)]));
       }
-      for (let i = 1; i + 1 < pts.length; i++) {
+      // A disc only where a sharp corner leaves a gap.
+      for (let i = 1; i + 1 < p2.length; i++) {
+        if (turn(i) < 0.45) continue;
         out.push(ccw(Array.from({ length: 8 }, (_, k) => {
           const t = ((k + 0.5) / 8) * Math.PI * 2;
-          return new Vector2(pts[i].x + Math.cos(t) * half * 1.08, pts[i].y + Math.sin(t) * half * 1.08);
+          return new Vector2(p2[i].x + Math.cos(t) * half * 1.08, p2[i].y + Math.sin(t) * half * 1.08);
         })));
       }
     } else if (s.kind === 'area' && s.points.length >= 3) {

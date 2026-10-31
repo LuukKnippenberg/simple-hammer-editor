@@ -222,8 +222,10 @@ describe('stored blocks of buildings', () => {
     expect(text).not.toContain(BUILDING_HANDLE.classname);
     expect(text).not.toContain('EDITOR/');
     expect(copy.entities.filter((e) => e.classname === 'func_detail' && !e.solids.length)).toHaveLength(0);
-    // The blocks themselves stay.
-    expect(copy.entities.filter((e) => blockOf(e)).length).toBeGreaterThanOrEqual(2);
+    // The blocks' brushes stay; their settings (editor only, and possibly longer than vbsp reads) go.
+    expect(copy.entities.filter((e) => e.classname === 'func_detail' && e.get('she_building_id') && e.solids.length).length).toBeGreaterThanOrEqual(2);
+    expect(copy.entities.filter((e) => blockOf(e))).toHaveLength(0);
+    expect(text.split(String.fromCharCode(10)).every((l) => l.length < 1024)).toBe(true);
   });
 
   it('Sketch and Generate map store their blocks too, one group per level', () => {

@@ -72,6 +72,10 @@ const VARIANTS = {
     }
   },
   'no-interiors': regenerate({ interiors: 'none' }),
+  // Without what lies beyond the playable area, the edging along lawns and areas, or the drawn street shapes.
+  'no-surroundings': (doc) => removeAll(doc, doc.entities.filter((e) => e.get('targetname') === 'surroundings' || /combineinnerwall|tree_pine0|deciduous_01a/.test(e.get('model') ?? ''))),
+  'no-edging': (doc) => removeAll(doc, doc.entities.filter((e) => e.classname === 'func_detail' && !e.get('she_road') && !e.get(POI_KEY) && !e.get('she_buildings') && !e.get('she_rooms') && e.solids.some((q) => q.sides.some((x) => x.material === 'STONE/STONEWALL017A')))),
+  'no-curves': (doc) => removeAll(doc, doc.entities.filter((e) => { const r = e.get('she_road'); return r && r.split('|')[6].split(';').length > 2; })),
   // Each block's detail brushes (bands, cornices, columns, roofs...) as a func_brush instead of func_detail.
   'detail-brush': (doc) => {
     for (const e of blocks(doc)) {

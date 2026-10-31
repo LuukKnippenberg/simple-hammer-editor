@@ -34,6 +34,9 @@ export const ROOMS_HANDLE: HandleKind = { classname: 'she_rooms_handle', idKey: 
 
 const kinds = [POI_HANDLE, BUILDING_HANDLE, ROOMS_HANDLE];
 
+/** Keys holding a generator's settings (not its ids, which logic may still use to find members). */
+const EDITOR_KEYS = ['she_buildings', 'she_road', 'she_rooms', 'she_rooms_world', 'she_building_world', 'she_building_anchor'];
+
 /** The kind of a handle entity, or null when it is not a handle. */
 export function kindOf(e: MapEntity | null | undefined): HandleKind | null {
   return (e && kinds.find((k) => k.classname === e.classname)) ?? null;
@@ -88,5 +91,8 @@ export function stripHandles(doc: VmfDocument): number {
   const handles = doc.entities.filter((e) => isGeneratorHandle(e));
   for (const h of handles) doc.removeEntity(h);
   for (const e of doc.entities.filter(emptyHolder)) doc.removeEntity(e);
+  // The generators' stored settings are for the editor only, and some (a block cut by long curved streets) run past
+  // vbsp's 1024-character limit for a key value, which hangs it while it reads the map.
+  for (const e of doc.entities) for (const k of EDITOR_KEYS) if (e.get(k) !== undefined) e.node.delete(k);
   return handles.length;
 }

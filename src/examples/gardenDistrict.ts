@@ -29,6 +29,7 @@ import { ATMOSPHERE_PRESETS, pathEntities, shotEntities, type EntitySpec } from 
 import { buildAtmosphere, buildFlyby, buildSendAlong, groundBelow } from '../lw/cinematicsAction.ts';
 import { Rng } from '../gen/rng.ts';
 import { roomLayout, type RoomBuildingSpec, type RoomSpec, type StreetDoor } from '../gen/rooms/model.ts';
+import { ellipsePoints } from '../gen/sketchShapes.ts';
 import { applyRooms } from '../gen/rooms/action.ts';
 
 const W = 64;
@@ -131,6 +132,17 @@ export function buildGardenSketch(): Sketch {
     s.features[i] = Feature.None;
   });
   s.pois = POIS.map((p) => ({ ...p }));
+  // Tsar Samuil street's look: asphalt between square slab pavements with stone kerbs, setts gutters, round corners.
+  s.streetMaterials = { carriageway: 'asphalt_worn', pavement: 'slabs', kerb: 'stone', gutter: 'setts', corner: 96 };
+  // The city goes on round the district; the Combine wall closes it to the north, past the station.
+  s.surroundings = { style: 'city', sides: { n: 'wall' } };
+  // Not all squares: a diagonal street from the north crossing to the garden's north-west corner, a street curving
+  // through the north row, and a round lawn by the palace front.
+  s.shapes = [
+    { kind: 'street', points: [[33.5, 38.5], [48, 26]], width: 256, pavement: 64 },
+    { kind: 'street', points: [[19.5, 44], [24, 46.5], [29, 46.5], [33.5, 44.5]], width: 224, pavement: 64, radius: 384 },
+    { kind: 'area', points: ellipsePoints(4.5, 12, 8.5, 16), surface: 'grass' },
+  ];
   s.markers = [
     m('sp_start', SPOTS.start[0], SPOTS.start[1], { faction: 'combine', squad: 'unit_stalker:1, unit_combine:4, unit_metropolice:4', yaw: 45 }),
     // Scrap: two piles in the park, one in the car park.

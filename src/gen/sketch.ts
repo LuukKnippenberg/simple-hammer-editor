@@ -17,7 +17,7 @@ import { levelForPois, type PoiPlacement } from './poi/mapgen.ts';
 import { dressEdges, surfaceEdges } from './surfaceEdges.ts';
 import type { RoadMaterials } from './streetMaterials.ts';
 import { areaAlpha, areaEdging, encodeCuts, insideDistance, shapeCuts, shapeRoads, boxesOverlap, type ShapeSurface, type SketchShape } from './sketchShapes.ts';
-import { bandWidth, buildSurroundings, extendEdgeRoads, HILL_HEIGHT, PLAIN_APRON, sideOf, styleOf, surroundRise, type SurroundSpec } from './surroundings.ts';
+import { bandWidth, buildSurroundings, extendEdgeRoads, FAR_LIGHTMAP, HILL_HEIGHT, outside, PLAIN_APRON, setLightmapScale, sideOf, styleOf, surroundRise, type SurroundSpec } from './surroundings.ts';
 
 /**
  * A 2D map sketch: a grid of 128-unit cells with separate layers for height level, ground surface and
@@ -390,6 +390,8 @@ export function generateFromSketch(s: Sketch): SketchResult {
     const side = sideOf(x + P / 2, y + P / 2, mapW, mapH);
     const hill = !!side && styleOf(s.surroundings, side) === 'hills';
     const patch = terrainPatch(doc, x, y, P, hill ? THEMES.rural.blend : theme.blend, heightAt, hill ? hillAlpha : alphaAt, 4);
+    // Beyond the playable area (and its first 512, which the camera sees close), a coarse lightmap.
+    if (outside(x + P / 2, y + P / 2, mapW, mapH) > P) setLightmapScale(patch, FAR_LIGHTMAP);
     solids.push(patch);
     patchTops.set(`${x},${y}`, patch.childrenNamed('side')[0].get('id')!);
   }

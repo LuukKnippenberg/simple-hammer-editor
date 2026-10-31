@@ -46,6 +46,18 @@ const WALL_MODELS = [1, 2, 3].map((i) => `models/props_combine/combineinnerwallc
 const WALL_HALF_H = [532, 537, 561];
 const WALL_STEP = 640;
 
+/**
+ * Lightmap scale for what lies beyond the playable area: seen only from afar, so a coarse lightmap does (64 units a
+ * sample instead of 16 is a sixteenth of the light data; a full band at 16 doubles a map's lighting and overflows the
+ * engine's memory when the map loads).
+ */
+export const FAR_LIGHTMAP = 64;
+
+/** Sets every side of a brush node to a lightmap scale. */
+export function setLightmapScale(node: KVNode, scale: number): void {
+  for (const side of node.childrenNamed('side')) side.set('lightmapscale', String(scale));
+}
+
 export const styleOf = (spec: SurroundSpec | undefined, side: EdgeSide): SurroundStyle => spec?.sides?.[side] ?? spec?.style ?? 'none';
 const anyBuilt = (spec: SurroundSpec | undefined) => (['n', 'e', 's', 'w'] as EdgeSide[]).some((s) => styleOf(spec, s) !== 'none');
 /** The band's width: the old apron when nothing is built. */
@@ -151,6 +163,7 @@ function fillerBuilding(doc: VmfDocument, rect: [number, number, number, number]
     f.v = { ...ax.v, shift: (((-(z0) / 0.5) % 512) + 512) % 512 };
   }
   out.push(solidNode(doc, faces as FaceSpec[], '120 120 120'));
+  setLightmapScale(out[out.length - 1], FAR_LIGHTMAP);
   if (rng.chance(0.65)) {
     // A hipped roof: up to a short ridge along the long side.
     const wx = x1 - x0, wy = y1 - y0, alongX = wx >= wy, half = Math.min(wx, wy) / 2;
@@ -161,6 +174,7 @@ function fillerBuilding(doc: VmfDocument, rect: [number, number, number, number]
       : [new Vector2(x0 + half - 8, y0 + inset), new Vector2(x0 + half + 8, y0 + inset), new Vector2(x0 + half + 8, y1 - inset), new Vector2(x0 + half - 8, y1 - inset)];
     if (ridge[1].x > ridge[0].x && ridge[2].y > ridge[1].y) {
       out.push(solidNode(doc, frustumFaces(fp, ridge, top, top + rise, { top: ROOF_TILE, bottom: NODRAW, sides: ROOF_TILE }), '120 120 120'));
+      setLightmapScale(out[out.length - 1], FAR_LIGHTMAP);
       return top + rise;
     }
   }

@@ -2185,6 +2185,27 @@ compiled without a leak).
 ![In game: the round square and its lawn](docs/screenshots/shapes-game-square.jpg)
 ![In game: the curved street](docs/screenshots/shapes-game-curve.jpg)
 
+### Polish: Garden District rebuilt
+
+"Garden District" now uses all four: city surroundings with the Combine wall on the north side, Tsar Samuil
+street's look (worn asphalt, square slab pavements, stone kerbs, setts gutters, round corners), a diagonal street
+from the north crossing to the church garden, a street curving through the north row, a round lawn by the palace
+front, and the park and parking set into the square's paving. 63.7% of vbsp's t-junction limit.
+
+Two fixes found on the way:
+
+- **vbsp hung reading the map**: a block cut by the curved street stored its settings in a key of 1,614
+  characters, past vbsp's 1,024. Compiles now drop the generators' settings keys (editor only); cut polygons
+  are also shorter (discs only at sharp bends; a gentle bend is closed by lengthening the quads).
+- **"Engine hunk overflow" when the map loaded**: the band's terrain and buildings at full lightmap detail
+  doubled the light data (26 MB). Everything beyond the playable area now uses lightmap scale 64 (BSP 41 → 28.5 MB).
+- The park's pond floor sat level with the lawn round it, which showed through the water; it now stands above it.
+
+![In game: the north street, the wall beyond](docs/screenshots/garden-polish-north.jpg)
+![In game: the round lawn on the square, the Citadel](docs/screenshots/garden-polish-square.jpg)
+![In game: the parking rows on the square's paving](docs/screenshots/garden-polish-west.jpg)
+![In game: the park set into the paving, the pond](docs/screenshots/garden-polish-park.jpg)
+
 ## Development
 
 ```bash
