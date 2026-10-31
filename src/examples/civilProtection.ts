@@ -284,6 +284,17 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   }
   const westPilasters: number[] = [];
   for (let y = S.south + 192; y < S.north - 160; y += 512) if (Math.abs(y - S.divider) > 96) westPilasters.push(y);
+  // Pillars on the grid of the north and west pilasters, wherever the floor is free: not on the benches, the
+  // crowds, the start, the ration area or the ways between them.
+  const busy: [number, number, number, number][] = [
+    [X(6.6), Y(12.2), X(12.2), Y(14)], [X(8.4), Y(14.6), X(10.8), Y(17)], [X(10.6), Y(9.8), X(12.4), Y(11.6)],
+    [X(5), Y(8.6), X(7), Y(10.6)], [X(12.6), Y(8.2), X(21), Y(17.4)],
+  ];
+  const pillars: [number, number][] = [];
+  for (const x of northPilasters) for (const y of westPilasters) {
+    if (y < S.divider + 256 || y > S.north - 256 || x > X(12)) continue;
+    if (!busy.some(([a0, b0, a1, b1]) => x > a0 - 64 && x < a1 + 64 && y > b0 - 64 && y < b1 + 64)) pillars.push([x, y]);
+  }
   // The sun comes from the north-east (light_environment yaw 215): window bands in the north and east walls let
   // it fall into the hall in slanting shafts; the other walls have window models.
   const walls: HallWall[] = [
@@ -298,6 +309,8 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   // Skylights: two strips along the concourse, one over each outer track of the shed, broken by roof bands.
   const bands: [number, number][] = [[X(1), X(7)], [X(8), X(14)], [X(15), X(20.5)]];
   const strips = (ys: [number, number][]) => ys.flatMap(([y0, y1]) => bands.map(([x0, x1]): [number, number, number, number] => [x0, y0, x1, y1]));
+  const hallSkylights = strips([[Y(10.5) - 48, Y(10.5) + 48], [Y(15.5) - 48, Y(15.5) + 48]]);
+  const shedSkylights = strips([[Y(1.5) - 40, Y(1.5) + 40], [Y(5.5) - 40, Y(5.5) + 40]]);
   const inner = { x0: S.west + T / 2, x1: S.front - T / 2, south: S.south + T / 2, divider0: S.divider - T / 2, divider1: S.divider + T / 2, north: S.north - T / 2 };
   const hall = hallBrushes(doc, {
     floorZ: FLOOR, height: HEIGHT, walls,
@@ -308,12 +321,8 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
     // Over the walls and a little beyond (the roof floats a little above the wall tops), but not touching the
     // buildings next door.
     roofs: [
-      { rect: [S.west - 40, S.divider, S.front + 40, S.north + 40], skylights: strips([[Y(10.5) - 48, Y(10.5) + 48], [Y(15.5) - 48, Y(15.5) + 48]]) },
-      { rect: [S.west - 40, S.south - 40, S.shedEast + 40, S.divider], skylights: strips([[Y(1.5) - 40, Y(1.5) + 40], [Y(5.5) - 40, Y(5.5) + 40]]) },
-    ],
-    girders: [
-      { rect: [inner.x0, inner.divider1, inner.x1, inner.north], along: 'y', every: 384, size: 16, material: 'METAL/METALBAR001A' },
-      { rect: [inner.x0, inner.south, S.shedEast - T / 2, inner.divider0], along: 'y', every: 320, size: 16, material: 'METAL/METALBAR001A' },
+      { rect: [S.west - 40, S.divider, S.front + 40, S.north + 40], skylights: hallSkylights },
+      { rect: [S.west - 40, S.south - 40, S.shedEast + 40, S.divider], skylights: shedSkylights },
     ],
   });
   for (const n of hall.world) doc.addSolid(n);
@@ -324,10 +333,9 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
     e.items.push(...solids, editorBlock());
     doc.addEntity(e);
   };
-  // The roof blocks the sun from a func_brush (see HallBrushes.roof); the girders are a brush entity too, so
-  // neither adds to the world's t-junctions.
+  // The roof blocks the sun from a func_brush (see HallBrushes.roof), so it adds nothing to the world's
+  // t-junctions; so do the beams, trusses and relief (station_relief below).
   brushEnt('func_brush', { targetname: 'station_roof', Solidity: '1', spawnflags: '2', rendermode: '10', disableshadows: '1', vrad_brush_cast_shadows: '1', StartDisabled: '0' }, hall.roof);
-  brushEnt('func_brush', { targetname: 'station_girders', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', StartDisabled: '0' }, hall.girders);
   // The glass of the window bands: never solid, and it lets the light through (no vrad shadow).
   brushEnt('func_brush', { targetname: 'station_glass', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', vrad_brush_cast_shadows: '0', StartDisabled: '0' }, hall.glass);
   // Relief on the walls the camera sees: a grimy stone plinth, a moulding ledge, pilasters with bases and
@@ -366,6 +374,45 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   onWall(front, S.door[0] - 56, S.door[1] + 56, 24, FLOOR + doorTop, FLOOR + doorTop + 48, TRIM);
   addEnt('prop_static', new Vector3(S.front + T / 2 + 24, (S.door[0] + S.door[1]) / 2, FLOOR + doorTop + 48), { model: 'models/props_trainstation/trainstation_arch001.mdl', angles: '0 0 0', solid: '0' });
   props++;
+  // The concourse's roof structure: thin steel girders across it, one from each north pilaster. (Heavy stone
+  // beams, as in the coffered HL2 hall, read wrong from the RTS camera: just under it they look huge, and their
+  // tops face the unlit underside of the roof, so they show as thick black bands over the floor.)
+  const beamZ: [number, number] = [TOP - 56, TOP - 8];
+  for (const x of northPilasters) relief.push(boxSolid(doc, new Vector3(x - 8, inner.divider1, TOP - 24), new Vector3(x + 8, inner.north, TOP - 8), 'METAL/METALBAR001A'));
+  // Square pillars in the open west half, around the start, where a girder meets a west pilaster's line. Their
+  // shafts are world brushes, so the navmesh goes around them; base and capital are decoration.
+  for (const [px, py] of pillars) {
+    doc.addSolid(boxSolid(doc, new Vector3(px - 32, py - 32, FLOOR), new Vector3(px + 32, py + 32, beamZ[0]), { top: NODRAW, bottom: NODRAW, sides: 'STONE/STONEWALL050A' }));
+    relief.push(boxSolid(doc, new Vector3(px - 48, py - 48, FLOOR), new Vector3(px + 48, py + 48, FLOOR + 64), { top: TRIM, bottom: NODRAW, sides: TRIM }));
+    relief.push(boxSolid(doc, new Vector3(px - 48, py - 48, beamZ[0] - 32), new Vector3(px + 48, py + 48, beamZ[0]), { top: TRIM, bottom: TRIM, sides: TRIM }));
+  }
+  // Skylight frames: dark metal around every opening, so the invisible roof still shows where it is.
+  const FRAME = 'METAL/METALBAR001A';
+  for (const [x0, y0, x1, y1] of [...hallSkylights, ...shedSkylights]) {
+    for (const [a, b] of [[new Vector3(x0 - 12, y0 - 12, TOP - 8), new Vector3(x1 + 12, y0, TOP + 24)], [new Vector3(x0 - 12, y1, TOP - 8), new Vector3(x1 + 12, y1 + 12, TOP + 24)],
+      [new Vector3(x0 - 12, y0, TOP - 8), new Vector3(x0, y1, TOP + 24)], [new Vector3(x1, y0, TOP - 8), new Vector3(x1 + 12, y1, TOP + 24)]]) {
+      relief.push(boxSolid(doc, a, b, FRAME));
+    }
+  }
+  // The train shed: steel trusses across it (top and bottom chords, posts between), and a footbridge over the
+  // tracks above the trains, like the walkway in the HL2 station.
+  const STEEL = 'METAL/METALBAR001A';
+  for (let x = inner.x0 + 320; x < S.shedEast - T / 2 - 160; x += 320) {
+    relief.push(boxSolid(doc, new Vector3(x - 8, inner.south, TOP - 24), new Vector3(x + 8, inner.divider0, TOP - 8), STEEL));
+    relief.push(boxSolid(doc, new Vector3(x - 8, inner.south, TOP - 104), new Vector3(x + 8, inner.divider0, TOP - 88), STEEL));
+    for (let y = inner.south + 80; y < inner.divider0 - 40; y += 160) relief.push(boxSolid(doc, new Vector3(x - 6, y - 6, TOP - 88), new Vector3(x + 6, y + 6, TOP - 24), STEEL));
+  }
+  const bridgeX = X(13.5), deck = FLOOR + 296;
+  // Small lamps over the walkway: under the roof its deck would otherwise show as a black strip from above.
+  for (let y = inner.south + 160; y < inner.divider0 - 64; y += 288) {
+    addEnt('light', new Vector3(bridgeX, y, deck + 72), { _light: '255 210 160 80', _lightHDR: '-1 -1 -1 1', _quadratic_attn: '1', _fifty_percent_distance: '64', _zero_percent_distance: '200' });
+  }
+  relief.push(boxSolid(doc, new Vector3(bridgeX - 48, inner.south, deck), new Vector3(bridgeX + 48, inner.divider0, deck + 12), { top: 'METAL/METALFLOOR001A', bottom: STEEL, sides: STEEL }));
+  for (const side of [-1, 1]) {
+    const rx = bridgeX + side * 44;
+    relief.push(boxSolid(doc, new Vector3(rx - 4, inner.south, deck + 52), new Vector3(rx + 4, inner.divider0, deck + 58), 'METAL/METALRAIL001A'));
+    for (let y = inner.south + 32; y < inner.divider0; y += 128) relief.push(boxSolid(doc, new Vector3(rx - 3, y - 3, deck + 12), new Vector3(rx + 3, y + 3, deck + 52), 'METAL/METALRAIL001A'));
+  }
   brushEnt('func_brush', { targetname: 'station_relief', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', vrad_brush_cast_shadows: '1', StartDisabled: '0' }, relief);
   // The concourse floor: a beige and brown checker of stone tiles, dark enough not to light the hall back up.
   doc.addSolid(boxSolid(doc, new Vector3(inner.x0, inner.divider1, -12), new Vector3(inner.x1, inner.north, 4), { top: 'TILE/TILEFLOOR010A', bottom: 'TOOLS/TOOLSNODRAW', sides: 'TOOLS/TOOLSNODRAW' }));
@@ -399,7 +446,8 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   for (let x = X(2); x < S.shedEast - 256; x += 512) hanging(x, Y(0) + 368, 240);
   // The Breencast's cold glow on the floor in front of the billboard.
   light(new Vector3(X(9.5), S.north - 96, 200), '165 200 255 110', 128, 512);
-  // Lanterns on every other pilaster of the north and west walls.
+  // Lanterns on the pillars, facing the camera, and on every other pilaster of the north and west walls.
+  for (const [px, py] of pillars) lantern(px, py, 315, 32);
   northPilasters.forEach((x, i) => { if (i % 2 === 0) lantern(x, inner.north, 270, 28); });
   westPilasters.forEach((y) => lantern(inner.x0, y, 0, 28));
   const archFree = (x: number) => !S.arches.some(([a0, a1]) => x > a0 - 48 && x < a1 + 48);
