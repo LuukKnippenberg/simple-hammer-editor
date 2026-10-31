@@ -2012,6 +2012,64 @@ beyond the 512-unit apron shows.
 ![In game: the uprising shot over the canal (the Citadel now gives population 3 / 9)](docs/screenshots/civil-game-g1-36.png)
 ![In game: the Overwatch shot, Striders and the dropship](docs/screenshots/civil-game-g5-24.png)
 
+## Example: "Garden District" (Combine mission)
+
+A Combine mission with base building, not a tutorial, built from scratch with the newer tools by
+`scripts/build-garden-district.mjs` (layout, set pieces and the flowchart in `src/examples/gardenDistrict.ts`). Saved
+as `maps/sp_garden_district.vmf` with its `.sketch.json` and `.mission.json`. The design doc is a Claude doc,
+"Combine Mission: Garden District". The district is built after central Sofia: the aerial view of the blocks around
+the St. George church garden, Tsar Samuil street, the car park by the NDK and Knyaz Alexander I square.
+
+**Layout** (64 × 52 cells):
+
+- **Palace square** (west): the Combine base site, paved, a palace front along the west side, rows of parked cars
+  (parking POI) at the north end, a park with two scrap piles to the south, the grand hotel to the north.
+- **Street grid**: blocks 10 cells wide between 4-cell streets. Sofia layout: green courtyards, some open onto
+  the street, cars parked along both kerbs, bollards on the pavements. Tenement architecture, 4 to 5 floors.
+  Building detail is painted per block: high around the square, the market and the garden, filler elsewhere.
+  The map uses 57.6% of vbsp's t-junction limit.
+- **Customs house** and **central station**: interior buildings with rooms (hallway, customs hall with cages,
+  waiting room; train hall, concourse, waiting room), rebels inside, a capture point in the customs hall and on
+  the platform.
+- **Street market** and **car park block**: market and parking POIs, a capture point and a scrap pile.
+- **Church garden**: a cross-shaped domed church (brush nave, transept, towers and apse; the Lost Coast
+  monastery dome and two rooftop domes), a lawn with a MultiBlend of grass, dirt and mud, paths, benches, bare
+  trees, a low railing with two gates. The rebel headquarters, barracks and munition depot stand in it, with
+  barricades in both gates.
+- **Wear**: 182 decal rays (posters and propaganda on the facades along every street, litter and stains on the
+  carriageways, scorch marks, graffiti), placed as overlays or decals by `decalScatter`.
+
+**Mission**: 10 stages from the design doc's 11 objectives (customs house, market and armory share one, in any
+order). Defeat when the Citadel (`combine_hq`) is lost.
+
+| Stage | Completes when | Pressure |
+|---|---|---|
+| Deploy the command post | a power generator and a garrison are finished | 250 requisition at the start; dropship landing shot |
+| Power from scrap | a scrap power generator is finished | |
+| Muster | population 16 (the Citadel's upgrade raises the cap from 9) | raid 1 (partisans, molotovs) from the north street after 90 s |
+| Hold the square | 3 minutes | raid 2 (rebels, RPGs) from the east |
+| Customs house, market and armory | both capture points taken and an armory finished | raid 3 after 4 minutes |
+| Retake the central station | the platform's capture point taken | rebels in every room |
+| Reinforcements | 20 s | 4 elite soldiers and 2 Hunters step off the train; a Strider walks up the boulevard |
+| Break into the garden | both gate barricades destroyed | counterattack from two streets, dusk, smoke, the gunship |
+| Rebel command | the rebel headquarters is destroyed | squads from the barracks |
+| District secured | 10 s | victory |
+
+**Checked**: the flowchart plays through to victory in the editor's simulation with no issues; the map compiles
+without a leak (final, with navmesh, 260 s). In game the map loads with the Citadel, the starting squad, the rebels
+in the customs house and the station, and the rebel buildings in the garden. Not played through: the browser helper
+error on the test machine ends a session after about a minute.
+
+![Sketch: surfaces](docs/screenshots/garden-01-sketch-surface.png)
+![Sketch: building detail](docs/screenshots/garden-02-sketch-detail.png)
+![Top view](docs/screenshots/garden-03-top-view.png)
+![Overview](docs/screenshots/garden-04-overview.png)
+![The church garden](docs/screenshots/garden-07-garden.png)
+![The central station](docs/screenshots/garden-09-station.png)
+![In game: the Citadel on the square](docs/screenshots/garden-game-square.png)
+![In game: the church garden and the rebel command](docs/screenshots/garden-game-garden.png)
+![In game: the customs hall](docs/screenshots/garden-game-customs.png)
+
 ## Development
 
 ```bash
@@ -2023,5 +2081,6 @@ node scripts/phase4-demo.mjs [map] [prefix]        # compile checks + compile th
 node scripts/phase5-demo.mjs                      # map and building generators
 node scripts/build-sofia.mjs                      # builds and compiles maps/sp_sofia.vmf
 node scripts/build-rooms-station.mjs              # the interior building test map, maps/rooms_station.vmf
+node scripts/build-garden-district.mjs            # the Combine mission maps/sp_garden_district.vmf
 powershell -File scripts/capture-window.ps1 -Out shot.png   # in-game screenshot of the game window
 ```

@@ -1,0 +1,734 @@
+{
+ "version": 1,
+ "start": "deploy",
+ "stages": [
+  {
+   "id": "deploy",
+   "title": "Deploy the command post",
+   "x": 40,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Forward command, Garden District. Deploy power and a garrison.",
+     "hint": "Build with the Stalker."
+    },
+    {
+     "speaker": "Kessler",
+     "text": "Every minute you spend admiring the palace, the vermin dig in deeper."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o1a",
+     "text": "Build a Power Generator"
+    },
+    {
+     "id": "o1b",
+     "text": "Build a Garrison"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a1",
+     "target": "atmo_day",
+     "input": "Trigger",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a2",
+     "target": "start_funds",
+     "input": "GiveResources",
+     "param": "250",
+     "delay": 0
+    },
+    {
+     "id": "a3",
+     "target": "dropship_route_flyby",
+     "input": "StartForward",
+     "param": "",
+     "delay": 0.5
+    },
+    {
+     "id": "a4",
+     "target": "shot_landing",
+     "input": "Enable",
+     "param": "",
+     "delay": 0.5
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t5",
+     "condition": {
+      "kind": "all",
+      "conditions": [
+       {
+        "kind": "building",
+        "building": "build_comb_powergenerator",
+        "owner": "2",
+        "count": 1,
+        "when": "finished"
+       },
+       {
+        "kind": "building",
+        "building": "build_comb_garrison",
+        "owner": "2",
+        "count": 1,
+        "when": "finished"
+       }
+      ]
+     },
+     "to": "scrap",
+     "completes": true
+    },
+    {
+     "id": "t6",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "scrap",
+   "title": "Power from scrap",
+   "x": 360,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Scrap reserves detected in the park. Convert them.",
+     "hint": "Scrap generators go on scrap piles."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o2",
+     "text": "Build a Scrap Power Generator in the park"
+    }
+   ],
+   "actions": [],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t7",
+     "condition": {
+      "kind": "building",
+      "building": "build_comb_powergenerator_scrap",
+      "owner": "2",
+      "count": 1,
+      "when": "finished"
+     },
+     "to": "muster",
+     "completes": true
+    },
+    {
+     "id": "t8",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "muster",
+   "title": "Muster",
+   "x": 680,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Raise the force to sixteen. Movement on the north street.",
+     "hint": "The Citadel holds 9; its population upgrade raises that to 20."
+    },
+    {
+     "speaker": "Deacon",
+     "text": "Welcome to the garden, Overseer. Mind the bells."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o3",
+     "text": "Raise your force to 16 population"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a9",
+     "target": "garden_bell",
+     "input": "PlaySound",
+     "param": "",
+     "delay": 6
+    },
+    {
+     "id": "a10",
+     "target": "raid_siren",
+     "input": "PlaySound",
+     "param": "",
+     "delay": 88
+    },
+    {
+     "id": "a11",
+     "target": "raid_siren",
+     "input": "StopSound",
+     "param": "",
+     "delay": 100
+    },
+    {
+     "id": "a12",
+     "target": "raid1",
+     "input": "Enable",
+     "param": "",
+     "delay": 90
+    },
+    {
+     "id": "a13",
+     "target": "raid1b",
+     "input": "Enable",
+     "param": "",
+     "delay": 90
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t14",
+     "condition": {
+      "kind": "troops",
+      "owner": "2",
+      "count": 16,
+      "compare": "atleast"
+     },
+     "to": "hold",
+     "completes": true
+    },
+    {
+     "id": "t15",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "hold",
+   "title": "Hold the square",
+   "x": 1000,
+   "y": 60,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Hostile column, east approach. Hold the square."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o4",
+     "text": "Hold the square for 3 minutes"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a16",
+     "target": "raid_siren",
+     "input": "PlaySound",
+     "param": "",
+     "delay": 2
+    },
+    {
+     "id": "a17",
+     "target": "raid_siren",
+     "input": "StopSound",
+     "param": "",
+     "delay": 14
+    },
+    {
+     "id": "a18",
+     "target": "raid2",
+     "input": "Enable",
+     "param": "",
+     "delay": 5
+    },
+    {
+     "id": "a19",
+     "target": "raid2b",
+     "input": "Enable",
+     "param": "",
+     "delay": 8
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t20",
+     "condition": {
+      "kind": "survive",
+      "seconds": 180
+     },
+     "to": "blocks",
+     "completes": true
+    },
+    {
+     "id": "t21",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "blocks",
+   "title": "Customs house, market and armory",
+   "x": 40,
+   "y": 420,
+   "messages": [
+    {
+     "speaker": "Kessler",
+     "text": "The customs house and the market feed them. Take both.",
+     "hint": "Capture points give requisition."
+    },
+    {
+     "speaker": "Dispatch",
+     "text": "Armory required for issue of pulse rifles."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o5a",
+     "text": "Clear the customs house and take its capture point"
+    },
+    {
+     "id": "o5b",
+     "text": "Take the street market"
+    },
+    {
+     "id": "o6",
+     "text": "Build an Armory"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a22",
+     "target": "raid3",
+     "input": "Enable",
+     "param": "",
+     "delay": 240
+    },
+    {
+     "id": "a23",
+     "target": "raid3b",
+     "input": "Enable",
+     "param": "",
+     "delay": 242
+    },
+    {
+     "id": "a24",
+     "target": "raid_siren",
+     "input": "PlaySound",
+     "param": "",
+     "delay": 236
+    },
+    {
+     "id": "a25",
+     "target": "raid_siren",
+     "input": "StopSound",
+     "param": "",
+     "delay": 248
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t26",
+     "condition": {
+      "kind": "all",
+      "conditions": [
+       {
+        "kind": "capture",
+        "target": "cp_customs",
+        "owner": "2"
+       },
+       {
+        "kind": "capture",
+        "target": "cp_market",
+        "owner": "2"
+       },
+       {
+        "kind": "building",
+        "building": "build_comb_armory",
+        "owner": "2",
+        "count": 1,
+        "when": "finished"
+       }
+      ]
+     },
+     "to": "station",
+     "completes": true
+    },
+    {
+     "id": "t27",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "station",
+   "title": "Retake the central station",
+   "x": 360,
+   "y": 420,
+   "messages": [
+    {
+     "speaker": "Kessler",
+     "text": "The station. Clear it room by room and give me back my rail line."
+    },
+    {
+     "speaker": "Deacon",
+     "text": "You took a building. We are the district."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o7",
+     "text": "Take the capture point in the train hall"
+    }
+   ],
+   "actions": [],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t28",
+     "condition": {
+      "kind": "capture",
+      "target": "cp_station",
+      "owner": "2"
+     },
+     "to": "reinforce",
+     "completes": true
+    },
+    {
+     "id": "t29",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "reinforce",
+   "title": "Reinforcements",
+   "x": 680,
+   "y": 420,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Rail line restored. Overwatch reinforcement arriving, platform one."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o8",
+     "text": "Meet the reinforcements at the platform"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a30",
+     "target": "shot_train",
+     "input": "Enable",
+     "param": "",
+     "delay": 0.5
+    },
+    {
+     "id": "a31",
+     "target": "train_elites",
+     "input": "Enable",
+     "param": "",
+     "delay": 1
+    },
+    {
+     "id": "a32",
+     "target": "train_hunters",
+     "input": "Enable",
+     "param": "",
+     "delay": 2
+    },
+    {
+     "id": "a33",
+     "target": "strider",
+     "input": "ChangeOwner",
+     "param": "2",
+     "delay": 1
+    },
+    {
+     "id": "a34",
+     "target": "strider_route_go",
+     "input": "Trigger",
+     "param": "",
+     "delay": 1.5
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t35",
+     "condition": {
+      "kind": "survive",
+      "seconds": 20
+     },
+     "to": "gates",
+     "completes": true
+    },
+    {
+     "id": "t36",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "gates",
+   "title": "Break into the garden",
+   "x": 40,
+   "y": 780,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Rebel command located: church garden. Break the gates."
+    },
+    {
+     "speaker": "Deacon",
+     "text": "Ring the bells! Everyone, to the square!"
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o9",
+     "text": "Destroy the barricades in both garden gates"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a37",
+     "target": "shot_garden",
+     "input": "Enable",
+     "param": "",
+     "delay": 0.5
+    },
+    {
+     "id": "a38",
+     "target": "garden_bell",
+     "input": "PlaySound",
+     "param": "",
+     "delay": 1
+    },
+    {
+     "id": "a39",
+     "target": "atmo_dusk",
+     "input": "Trigger",
+     "param": "",
+     "delay": 2
+    },
+    {
+     "id": "a40",
+     "target": "garden_fx",
+     "input": "Start",
+     "param": "",
+     "delay": 2
+    },
+    {
+     "id": "a41",
+     "target": "counter1",
+     "input": "Enable",
+     "param": "",
+     "delay": 6
+    },
+    {
+     "id": "a42",
+     "target": "counter2",
+     "input": "Enable",
+     "param": "",
+     "delay": 10
+    },
+    {
+     "id": "a43",
+     "target": "gunship_route_flyby",
+     "input": "StartForward",
+     "param": "",
+     "delay": 4
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t44",
+     "condition": {
+      "kind": "all",
+      "conditions": [
+       {
+        "kind": "destroy",
+        "target": "gate_north"
+       },
+       {
+        "kind": "destroy",
+        "target": "gate_west"
+       }
+      ]
+     },
+     "to": "command",
+     "completes": true
+    },
+    {
+     "id": "t45",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "command",
+   "title": "Rebel command",
+   "x": 360,
+   "y": 780,
+   "messages": [
+    {
+     "speaker": "Kessler",
+     "text": "Burn the nest. Leave the church; it makes a fine example."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o10",
+     "text": "Destroy the rebel headquarters in the church garden"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a46",
+     "target": "laststand",
+     "input": "Enable",
+     "param": "",
+     "delay": 3
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t47",
+     "condition": {
+      "kind": "destroy",
+      "target": "reb_hq"
+     },
+     "to": "end",
+     "completes": true
+    },
+    {
+     "id": "t48",
+     "condition": {
+      "kind": "lost",
+      "target": "combine_hq"
+     },
+     "to": "defeat",
+     "completes": false
+    }
+   ]
+  },
+  {
+   "id": "end",
+   "title": "District secured",
+   "x": 680,
+   "y": 780,
+   "messages": [
+    {
+     "speaker": "Dispatch",
+     "text": "Garden District: contained. Resume compliance."
+    }
+   ],
+   "objectives": [
+    {
+     "id": "o11",
+     "text": "District secured"
+    }
+   ],
+   "actions": [
+    {
+     "id": "a49",
+     "target": "laststand",
+     "input": "Disable",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a50",
+     "target": "counter1",
+     "input": "Disable",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a51",
+     "target": "counter2",
+     "input": "Disable",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a52",
+     "target": "garden_bell",
+     "input": "StopSound",
+     "param": "",
+     "delay": 0
+    },
+    {
+     "id": "a53",
+     "target": "atmo_citadel",
+     "input": "Trigger",
+     "param": "",
+     "delay": 2
+    }
+   ],
+   "gates": [],
+   "transitions": [
+    {
+     "id": "t54",
+     "condition": {
+      "kind": "survive",
+      "seconds": 10
+     },
+     "to": "victory",
+     "completes": true
+    }
+   ]
+  }
+ ]
+}
