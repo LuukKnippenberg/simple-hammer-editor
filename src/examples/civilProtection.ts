@@ -214,6 +214,8 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   const doc = editor.doc;
   const S = STATION;
   const T = 32, FLOOR = -16, HEIGHT = 432;
+  /** The window band's slot, above the floor. */
+  const BAND = [240, 400] as const;
   let props = 0;
   const addEnt = (cls: string, origin: Vector3, keys: Record<string, string>) => doc.addEntity(entityNode(editor, cls, origin.clone().round(), keys));
   /** A prop on the floor (`lift` above it), prop_static where the model allows it. */
@@ -222,10 +224,9 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
     addEnt(b && b[6] === 0 ? 'prop_dynamic' : 'prop_static', new Vector3(x, y, ground(x, y) + lift - (b ? b[2] : 0)), { model: `models/${model}.mdl`, angles: `0 ${Math.round(yaw)} 0`, solid: '6' });
     props++;
   };
-  // Tall windows high up the inside of the walls, every 256 except where something else is (the door, the
-  // billboard). They are models, not holes: window holes split every wall into piers, sills and lintels, and
-  // with the generated city around it that is more t-junctions than vbsp can fix. The front's stone shows
-  // windows of its own outside.
+  // Tall window models high up the inside of the walls that have no window band, every 256 except where
+  // something else is. Separate window holes would split a wall into piers, sills and lintels: more t-junctions
+  // than vbsp can fix in this city. The front's stone shows windows of its own outside.
   const windows = (from: number, to: number, skip: [number, number][] = []): number[] => {
     const out: number[] = [];
     for (let c = Math.min(from, to) + 192; c <= Math.max(from, to) - 128; c += 256) {
@@ -233,8 +234,11 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
     }
     return out;
   };
-  /** A wall from a to b (extended by half its thickness at both ends), cut for doors at world ranges along it. */
-  const wall = (ax: number, ay: number, bx: number, by: number, inside: 1 | 0, doors: [number, number, number][], panes: number[]): HallWall => {
+  /**
+   * A wall from a to b (extended by half its thickness at both ends), cut for doors at world ranges along it, with
+   * window models at `panes` or a window band (one long slot high up, glazed) over the `band` ranges.
+   */
+  const wall = (ax: number, ay: number, bx: number, by: number, inside: 1 | 0, doors: [number, number, number][], panes: number[], band: [number, number][] = []): HallWall => {
     const dir = new Vector2(bx - ax, by - ay).normalize();
     const a = new Vector2(ax, ay).addScaledVector(dir, -T / 2), b = new Vector2(bx, by).addScaledVector(dir, T / 2);
     const along = (w: number) => (dir.x !== 0 ? (w - a.x) * dir.x : (w - a.y) * dir.y);
@@ -248,19 +252,34 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
     }
     return {
       a, b, thickness: T, inside,
-      openings: doors.map(([w0, w1, top]) => { const [from, to] = span(w0, w1); return { from, to, z0: 0, z1: top - FLOOR }; }),
+      openings: [
+        ...doors.map(([w0, w1, top]) => { const [from, to] = span(w0, w1); return { from, to, z0: 0, z1: top - FLOOR }; }),
+        ...band.map(([w0, w1]) => { const [from, to] = span(w0, w1); return { from, to, z0: BAND[0], z1: BAND[1] }; }),
+      ],
     };
+  };
+  /** Window band ranges along a wall from `from` to `to`, kept 128 off the corners and clear of `skip` ranges. */
+  const bandOf = (from: number, to: number, skip: [number, number][] = []): [number, number][] => {
+    let out: [number, number][] = [[Math.min(from, to) + 128, Math.max(from, to) - 128]];
+    for (const [s0, s1] of skip) {
+      const k0 = Math.min(s0, s1) - 64, k1 = Math.max(s0, s1) + 64;
+      out = out.flatMap(([a0, a1]): [number, number][] => (k1 <= a0 || k0 >= a1 ? [[a0, a1]] : [[a0, k0], [k1, a1]]));
+      out = out.filter(([u, v]) => v - u >= 128);
+    }
+    return out;
   };
   const doorTop = 256, archTop = 304;
   // The ration lanes' east barricades stood where the door now opens.
   for (const e of doc.entities.filter((q) => q.classname === 'prop_static' && /combine_barricade/.test(q.get('model') ?? '') && q.origin
     && q.origin.x > S.front - 96 && q.origin.x < S.front && q.origin.y > S.door[0] - 128 && q.origin.y < S.door[1] + 96)) doc.removeEntity(e);
+  // The sun comes from the north-east (light_environment yaw 215): window bands in the north and east walls let
+  // it fall into the hall in slanting shafts; the other walls have window models.
   const walls: HallWall[] = [
     wall(S.west, S.south, S.shedEast, S.south, 1, [], windows(S.west, S.shedEast)),
-    wall(S.shedEast, S.south, S.shedEast, S.divider, 1, [], windows(S.south, S.divider)),
+    wall(S.shedEast, S.south, S.shedEast, S.divider, 1, [], [], bandOf(S.south, S.divider)),
     wall(S.shedEast, S.divider, S.front, S.divider, 1, [], []),
-    wall(S.front, S.divider, S.front, S.north, 1, [[S.door[0], S.door[1], doorTop]], windows(S.divider, S.north, [S.door])),
-    wall(S.front, S.north, S.west, S.north, 1, [], windows(S.west, S.front, [S.billboard])),
+    wall(S.front, S.divider, S.front, S.north, 1, [[S.door[0], S.door[1], doorTop]], [], bandOf(S.divider, S.north, [S.door])),
+    wall(S.front, S.north, S.west, S.north, 1, [], [], bandOf(S.west, S.front, [S.billboard])),
     wall(S.west, S.north, S.west, S.south, 1, [], windows(S.south, S.north)),
     wall(S.west, S.divider, S.front, S.divider, 0, S.arches.map(([x0, x1]) => [x0, x1, archTop]), []),
   ];
@@ -297,18 +316,36 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   // neither adds to the world's t-junctions.
   brushEnt('func_brush', { targetname: 'station_roof', Solidity: '1', spawnflags: '2', rendermode: '10', disableshadows: '1', vrad_brush_cast_shadows: '1', StartDisabled: '0' }, hall.roof);
   brushEnt('func_brush', { targetname: 'station_girders', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', StartDisabled: '0' }, hall.girders);
-  // The concourse floor: large stone tiles, just above the ground.
-  doc.addSolid(boxSolid(doc, new Vector3(inner.x0, inner.divider1, -12), new Vector3(inner.x1, inner.north, 4), { top: 'TILE/TILEFLOOR021A', bottom: 'TOOLS/TOOLSNODRAW', sides: 'TOOLS/TOOLSNODRAW' }));
-  // Lamps: warm light over the concourse and the platforms (the roof keeps the daylight out).
-  const lamp = (x: number, y: number) => addEnt('light', new Vector3(x, y, 300), { _light: '255 222 178 240', _lightHDR: '-1 -1 -1 1', _quadratic_attn: '1', _fifty_percent_distance: '320', _zero_percent_distance: '880' });
-  for (let x = X(1.5); x < S.front - 128; x += 448) for (const y of [Y(9), Y(12), Y(15), Y(18)]) lamp(x, y);
-  for (let x = X(1.5); x < S.shedEast - 128; x += 576) for (const y of [Y(2), Y(5)]) lamp(x, y);
-  // Columns along the north wall and between the arches, each with a lamp on its inner face.
+  // The glass of the window bands: never solid, and it lets the light through (no vrad shadow).
+  brushEnt('func_brush', { targetname: 'station_glass', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', vrad_brush_cast_shadows: '0', StartDisabled: '0' }, hall.glass);
+  // The concourse floor: a beige and brown checker of stone tiles, dark enough not to light the hall back up.
+  doc.addSolid(boxSolid(doc, new Vector3(inner.x0, inner.divider1, -12), new Vector3(inner.x1, inner.north, 4), { top: 'TILE/TILEFLOOR010A', bottom: 'TOOLS/TOOLSNODRAW', sides: 'TOOLS/TOOLSNODRAW' }));
+  // Light: the roof keeps the daylight out except through the skylights and window bands; inside, only lamps you
+  // can see, each a small warm pool (short falloff), so the hall stays dim between them as in the HL2 station.
+  const light = (at: Vector3, color: string, fifty: number, zero: number) =>
+    addEnt('light', at, { _light: color, _lightHDR: '-1 -1 -1 1', _quadratic_attn: '1', _fifty_percent_distance: String(fifty), _zero_percent_distance: String(zero) });
+  const hanging = (x: number, y: number, z = 260) => {
+    addEnt('prop_static', new Vector3(x, y, ground(x, y) + z), { model: 'models/props_c17/lampfixture01a.mdl', angles: '0 0 0', solid: '0' });
+    props++;
+    light(new Vector3(x, y, ground(x, y) + z - 18), '255 208 156 150', 128, 448);
+  };
+  // Columns along the north wall and between the arches, each with its lantern lit.
   const column = (x: number, y: number, face: number) => {
     prop('props_trainstation/trainstation_column001', x, y, 0);
-    addEnt('prop_static', new Vector3(x + Math.cos((face * Math.PI) / 180) * 14, y + Math.sin((face * Math.PI) / 180) * 14, ground(x, y) + 190), { model: 'models/props_trainstation/column_light001a.mdl', angles: `0 ${face} 0`, solid: '0' });
+    const c = Math.cos((face * Math.PI) / 180), sn = Math.sin((face * Math.PI) / 180);
+    addEnt('prop_static', new Vector3(x + c * 14, y + sn * 14, ground(x, y) + 190), { model: 'models/props_trainstation/column_light001a.mdl', angles: `0 ${face} 0`, solid: '0' });
     props++;
+    light(new Vector3(x + c * 32, y + sn * 32, ground(x, y) + 190), '255 196 140 90', 96, 384);
   };
+  // Hanging lamps over the benches, the ration counter and the middle of the lanes, and along the platform.
+  for (const x of [X(8.2), X(10.4)]) hanging(x, Y(13.1));
+  const rations = POIS.find((q) => q.type === 'rations')!;
+  const laneX = (i: number) => X(rations.x) + (rations.w * C) / 2 + (i - 1) * 176;
+  const headY = Y(rations.y) + rations.h * C - 320 + 16;
+  for (let i = 0; i < 3; i++) { hanging(laneX(i), headY + 24); hanging(laneX(i), headY - 320); }
+  for (let x = X(2); x < S.shedEast - 256; x += 512) hanging(x, Y(0) + 368, 240);
+  // The Breencast's cold glow on the floor in front of the billboard.
+  light(new Vector3(X(9.5), S.north - 96, 200), '165 200 255 110', 128, 512);
   for (let x = X(1.5); x < S.front - 96; x += 512) if (x < S.billboard[0] - 64 || x > S.billboard[1] + 64) column(x, inner.north - 12, 270);
   const archFree = (x: number) => !S.arches.some(([a0, a1]) => x > a0 - 48 && x < a1 + 48);
   for (let x = X(1.5); x < X(12.5); x += 384) if (archFree(x)) column(x, inner.divider1 + 12, 90);
