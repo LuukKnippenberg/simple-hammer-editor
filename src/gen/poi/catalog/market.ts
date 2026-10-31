@@ -1,5 +1,5 @@
 import type { PoiKit } from '../kit.ts';
-import { NODRAW, rect } from '../kit.ts';
+import { GROUND_PARAM, NODRAW, rect } from '../kit.ts';
 import type { PoiType } from '../types.ts';
 
 const COBBLE = 'STONE/STONEFLOOR006A';
@@ -62,13 +62,14 @@ export const MARKET: PoiType = {
     { key: 'hall', label: 'Covered hall', type: 'check', default: false, hint: 'Columns and an open roof frame over the stalls' },
     { key: 'density', label: 'Stalls (%)', type: 'number', default: 85 },
     { key: 'abandoned', label: 'Abandoned', type: 'check', default: false },
+    GROUND_PARAM,
     { key: 'lamps', label: 'Lamp posts', type: 'check', default: true },
     { key: 'lights', label: 'Lights on', type: 'check', default: false },
   ],
   gameplay: { capture: true, scrap: true, units: ['zombie', 'combine', 'metropolice'] },
   build(k) {
     const { W, D } = k;
-    k.pad(k.bounds, COBBLE);
+    k.pad(k.bounds, k.groundMaterial(COBBLE));
     const abandoned = k.flag('abandoned');
     const density = Math.max(0, Math.min(100, k.num('density', 85))) / 100;
     const m = 64;

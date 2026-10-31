@@ -27,6 +27,21 @@ export const EXTRA_UNITS = [
  * by that radius from every obstacle, so a 128 lane next to props leaves them almost no room: 160 does.
  */
 export const ROUTE_WIDTH = 160;
+
+/**
+ * The ground a POI can take over from where it stands, so it doesn't sit on the map as a rectangle of another
+ * material: the sketch's paving (the city blend's stone), asphalt, cobbles. `own` keeps the POI's own surface.
+ */
+export const GROUND_MATERIALS: Record<string, string> = {
+  paving: 'STONE/STONEFLOOR006D', asphalt: 'CONCRETE/CONCRETEFLOOR033A', cobble: 'STONE/STONEFLOOR006A',
+};
+/** The `ground` parameter POIs that can blend in share. */
+export const GROUND_PARAM = {
+  key: 'ground', label: 'Ground', type: 'select' as const, default: 'own', hint: 'Its own surface, or the ground around it (set by the sketch)',
+  options: [{ value: 'own', label: 'Its own' }, { value: 'paving', label: 'Paving' }, { value: 'asphalt', label: 'Asphalt' }, { value: 'cobble', label: 'Cobbles' }],
+};
+/** Leaves, dirt and stains that soften where two surfaces meet. */
+export const EDGE_WEAR = ['decals/leaves_ground01', 'decals/leaves_ground02', 'overlays/leaves_ground03', 'overlays/dirt01a', 'overlays/stain_01'];
 /** Extra width on each side of a gap that a route opens in a fence or wall (fence posts stick out). */
 const GAP_MARGIN = 32;
 /** Pads and paths stand this far above the ground (keeps them clear of the ground's own faces). */
@@ -181,6 +196,27 @@ export class PoiKit {
       const node = this.box(piece, bottom, top, { top: material, bottom: NODRAW, sides: side });
       const topSide = node.childrenNamed('side')[0].get('id')!;
       this.pads.push({ r: piece, top: topZ, sides: [topSide] });
+    }
+  }
+
+  /** The material the POI's base takes: the ground around it when the `ground` parameter says so, else `own`. */
+  groundMaterial(own: string): string {
+    return GROUND_MATERIALS[this.str('ground')] ?? own;
+  }
+
+  /**
+   * Leaves, dirt and stains along the inside of a local rectangle's edges (where a lawn or a lot meets the ground
+   * around it), one every `every` units, on the pads there.
+   */
+  edgeWear(r: Rect, every = 288, materials: readonly string[] = EDGE_WEAR): void {
+    const sides: [[number, number], [number, number]][] = [[[r.x0, r.y0], [r.x1, r.y0]], [[r.x1, r.y0], [r.x1, r.y1]], [[r.x1, r.y1], [r.x0, r.y1]], [[r.x0, r.y1], [r.x0, r.y0]]];
+    for (const [a, b] of sides) {
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const nx = -(b[1] - a[1]) / len, ny = (b[0] - a[0]) / len;
+      for (let t = this.rng.range(48, every); t < len - 48; t += every * this.rng.range(0.7, 1.3)) {
+        const size = this.rng.range(96, 176), inward = this.rng.range(16, 72);
+        this.overlay(this.rng.pick(materials), a[0] + ((b[0] - a[0]) * t) / len + nx * inward, a[1] + ((b[1] - a[1]) * t) / len + ny * inward, size, size, this.rng.int(0, 359));
+      }
     }
   }
 

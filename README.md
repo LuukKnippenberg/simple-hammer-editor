@@ -2101,6 +2101,32 @@ west, hills east, wall north) compiles without a leak in 156 s.
 ![In game: the boulevard at the east edge, grass hills beyond](docs/screenshots/surround-game-east.png)
 ![In game: a street at the south edge](docs/screenshots/surround-game-south.png)
 
+### Polish phase 2: blending generated parts into their surroundings
+
+Generated pieces no longer sit on the map as rectangles of another material.
+
+- **POIs take the ground they stand on.** Park, parking lot and market have a *Ground* parameter (own, paving,
+  asphalt, cobbles); the sketch sets it from the surface under the POI, so a lot on a square is marked out on
+  the square's paving and a park is a lawn set into it. Leaves and dirt (`edgeWear`) lie along the inside of
+  the lawn's edge.
+- **Park on paving**: the lawn is inset 96 with a stone edging (gaps where the paths run out across the paving
+  strip), hedges inside it. The fountain has a tiled basin above the lawn, clear water and a statue on its
+  column.
+- **Parking lot**: rows fill in runs (85%, gaps of one or two bays), no wrecks on a kept lot, a kerbed island
+  with a lamp and a shrub at each row end, the ticket booth on its own island with a lamp; the lone concrete
+  barrier is gone.
+- **Sketch surfaces meet softly** (`src/gen/surfaceEdges.ts`): where lawn or dirt cells meet paving, a low stone
+  edging runs along the boundary and leaves, dirt and stains lie over it (overlays on the terrain faces), except
+  under buildings and POIs.
+
+`scripts/blending-demo.mjs` builds `maps/blend_demo.vmf`: a square with a park, a parking lot and a market,
+lawn strips and city surroundings.
+
+![The square in the editor](docs/screenshots/blend-02-square.png)
+![In game: the park set into the square's paving, stone edging, the fountain](docs/screenshots/blend-game-park.jpg)
+![In game: the parking lot marked out on the paving, islands with lamps](docs/screenshots/blend-game-parking.jpg)
+![In game: a lawn strip edged with stone between the square and the street](docs/screenshots/blend-game-lawn.jpg)
+
 ## Development
 
 ```bash

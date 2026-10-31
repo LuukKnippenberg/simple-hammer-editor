@@ -1,5 +1,5 @@
 import type { PoiKit } from '../kit.ts';
-import { NODRAW, rect } from '../kit.ts';
+import { GROUND_PARAM, NODRAW, rect } from '../kit.ts';
 import type { PoiType } from '../types.ts';
 
 const GRASS = 'NATURE/DIRTFLOOR006A';
@@ -27,10 +27,13 @@ function centre(k: PoiKit, kind: string, cx: number, cy: number): void {
     }
   } else if (kind === 'fountain') {
     k.ring(cx, cy, 160, 140, -8, 28, STONE, 16);
-    k.cylinder(cx, cy, 142, -8, -2, { top: 'CONCRETE/CONCRETEFLOOR039A', bottom: NODRAW, sides: NODRAW }, 16);
+    // The basin floor stands above the lawn (which would show through the water otherwise).
+    k.cylinder(cx, cy, 142, -8, 6, { top: 'TILE/TILEFLOOR012A', bottom: NODRAW, sides: NODRAW }, 16);
     k.cylinder(cx, cy, 24, -2, 72, STONE, 10);
     k.cylinder(cx, cy, 64, 72, 88, STONE, 12, 72);
-    if (k.flag('water')) k.waterDisc(cx, cy, 141, 20, -2);
+    // A statue on the column.
+    k.prop('props_c17/gravestone_statue001a', cx, cy, k.rng.int(0, 359), { force: true, z: 88, noOccupy: true });
+    if (k.flag('water')) k.waterDisc(cx, cy, 141, 22, 6, 'NATURE/WATER_COAST01');
   } else if (kind === 'bandstand') {
     // A low octagonal stage units can step onto (16 high), posts and a pointed roof.
     k.cylinder(cx, cy, 176, -8, 16, WOOD, 8);
@@ -61,12 +64,18 @@ export const PARK: PoiType = {
     { key: 'fow', label: 'Hedges block sight', type: 'check', default: true, hint: 'fow_blocker along the hedges' },
     { key: 'lamps', label: 'Lamp posts', type: 'check', default: true },
     { key: 'lights', label: 'Lights on', type: 'check', default: false },
+    GROUND_PARAM,
   ],
   gameplay: { capture: true, units: ['zombie', 'fastzombie', 'headcrab'] },
   build(k) {
     const { W, D } = k;
     const [cx, cy] = k.centre;
-    k.pad(k.bounds, GRASS);
+    // On paving (a city square) the park is a lawn set into the paving with a stone edging, a strip of the paving
+    // round it: the paths run on out across the strip, so the park joins the square instead of sitting on it.
+    const inset = k.str('ground') !== 'own' && k.str('ground') ? 96 : 0;
+    if (inset) k.pad(k.bounds, k.groundMaterial(GRASS));
+    const lawn = rect(inset, inset, W - inset, D - inset);
+    k.pad(lawn, GRASS, inset ? 4 : undefined);
     const kind = k.str('feature');
     const fr = FEATURE_R[kind] ?? 96;
     const loopR = fr + 128;
@@ -107,7 +116,11 @@ export const PARK: PoiType = {
       const a = ((i + 0.5) / 4) * Math.PI * 2;
       k.prop(BENCH, cx + Math.cos(a) * (loopR + 100), cy + Math.sin(a) * (loopR + 100), (a * 180) / Math.PI);
     }
-    if (k.flag('hedges')) k.perimeter('hedge', 56, { fow: k.flag('fow') });
+    if (inset) {
+      k.perimeter('kerb', inset, { height: 10 });
+      k.edgeWear(lawn, 256);
+    }
+    if (k.flag('hedges')) k.perimeter('hedge', inset + 56, { fow: k.flag('fow') });
     // Tree clusters on the lawns, bushes under them.
     const density = Math.max(0, Math.min(100, k.num('trees', 50))) / 100;
     const clusters = Math.round(((W * D) / 600000) * density) + 1;

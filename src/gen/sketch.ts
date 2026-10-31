@@ -14,6 +14,7 @@ import { MODEL_BOUNDS } from './poi/models.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
 import type { Editor } from '../editor.ts';
 import { levelForPois, type PoiPlacement } from './poi/mapgen.ts';
+import { dressEdges, surfaceEdges } from './surfaceEdges.ts';
 import { bandWidth, buildSurroundings, extendEdgeRoads, HILL_HEIGHT, PLAIN_APRON, sideOf, styleOf, surroundRise, type SurroundSpec } from './surroundings.ts';
 
 /**
@@ -165,9 +166,26 @@ export interface SketchPoi {
 /** A sketch's POIs as placements in layout units. */
 export function sketchPoiPlacements(s: Sketch): PoiPlacement[] {
   return (s.pois ?? []).map((p) => ({
-    type: p.type, seed: p.seed, rotation: p.rotation ?? 0, params: p.params, landscape: s.theme === 'city' ? 'city' : undefined,
+    type: p.type, seed: p.seed, rotation: p.rotation ?? 0, params: poiGround(s, p), landscape: s.theme === 'city' ? 'city' : undefined,
     rect: { x0: p.x * SKETCH_CELL, y0: p.y * SKETCH_CELL, x1: (p.x + p.w) * SKETCH_CELL, y1: (p.y + p.h) * SKETCH_CELL },
   }));
+}
+
+/**
+ * A POI's parameters with its `ground` set from the sketch where it isn't set: the surface most of its cells have
+ * (paving or a road), so a park or a parking lot on a square takes the square's paving round it.
+ */
+function poiGround(s: Sketch, p: SketchPoi): Record<string, ParamValue> | undefined {
+  if (p.params?.ground !== undefined || s.theme !== 'city') return p.params;
+  const n: Record<number, number> = {};
+  for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) {
+    if (x < 0 || y < 0 || x >= s.w || y >= s.h) continue;
+    const v = s.surface[y * s.w + x];
+    n[v] = (n[v] ?? 0) + 1;
+  }
+  const top = Number(Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0]);
+  const ground = top === Surface.Paved ? 'paving' : top === Surface.Road ? 'asphalt' : undefined;
+  return ground ? { ...p.params, ground } : p.params;
 }
 
 export function emptySketch(w: number, h: number, theme: SketchTheme = 'city'): Sketch {
@@ -357,11 +375,16 @@ export function generateFromSketch(s: Sketch): SketchResult {
   const ents: KVNode[] = [];
   const apron = bandWidth(s.surroundings);
   const P = 512;
+  // The terrain's top faces by patch, for overlays laid on it.
+  const patchTops = new Map<string, string>();
   for (let y = -apron; y < mapH + apron; y += P) for (let x = -apron; x < mapW + apron; x += P) {
     const side = sideOf(x + P / 2, y + P / 2, mapW, mapH);
     const hill = !!side && styleOf(s.surroundings, side) === 'hills';
-    solids.push(terrainPatch(doc, x, y, P, hill ? THEMES.rural.blend : theme.blend, heightAt, hill ? hillAlpha : alphaAt, 4));
+    const patch = terrainPatch(doc, x, y, P, hill ? THEMES.rural.blend : theme.blend, heightAt, hill ? hillAlpha : alphaAt, 4);
+    solids.push(patch);
+    patchTops.set(`${x},${y}`, patch.childrenNamed('side')[0].get('id')!);
   }
+  const patchSide = (x: number, y: number) => patchTops.get(`${Math.floor((x + apron) / P) * P - apron},${Math.floor((y + apron) / P) * P - apron}`) ?? null;
 
   const shift = new Vector3(-mapW / 2, -mapH / 2, 0);
   // Roads over the road cells, built by the road tool's code (so they can be edited as roads): in the city
@@ -518,6 +541,25 @@ export function generateFromSketch(s: Sketch): SketchResult {
         ents.push(entity(doc, 'prop_static', p, { model, angles: `0 ${rng.int(0, 3) * 90 + rng.int(-12, 12)} 0`, solid: '6' }));
       }
     }
+  }
+
+  // Where lawns and dirt meet paving: a stone edging along the boundary and leaves and dirt over it. Not under
+  // buildings or POIs (they edge themselves), and only on the level ground of the city.
+  if (s.theme === 'city') {
+    const surf = (x: number, y: number) => s.surface[y * s.w + x];
+    const inPoi = (x: number, y: number) => (s.pois ?? []).some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
+    const edges = surfaceEdges(s.w, s.h, SKETCH_CELL,
+      (x, y) => surf(x, y) === Surface.Grass || surf(x, y) === Surface.Dirt,
+      (x, y) => surf(x, y) === Surface.Paved,
+      (x, y) => s.features[y * s.w + x] === Feature.Building || inPoi(x, y) || s.levels[y * s.w + x] !== 0);
+    const dressed = dressEdges(doc, edges, flatHeight, patchSide, shift, new Rng(s.seed * 83 + 7));
+    if (dressed.brushes.length) {
+      const e = entity(doc, 'func_detail', new Vector3(), {});
+      e.delete('origin');
+      e.items.push(...dressed.brushes);
+      ents.push(e);
+    }
+    ents.push(...dressed.overlays);
   }
 
   // Beyond the edge: the city going on, a Combine wall or wooded hills (one func_brush and props), and an NPC clip
