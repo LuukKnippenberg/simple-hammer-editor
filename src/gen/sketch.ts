@@ -14,6 +14,7 @@ import { MODEL_BOUNDS } from './poi/models.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
 import type { Editor } from '../editor.ts';
 import { levelForPois, type PoiPlacement } from './poi/mapgen.ts';
+import { bandWidth, buildSurroundings, extendEdgeRoads, HILL_HEIGHT, PLAIN_APRON, sideOf, styleOf, surroundRise, type SurroundSpec } from './surroundings.ts';
 
 /**
  * A 2D map sketch: a grid of 128-unit cells with separate layers for height level, ground surface and
@@ -108,6 +109,8 @@ export interface Sketch {
    * along both kerbs of wide carriageways and bollards on the pavement edges.
    */
   streets?: 'classic' | 'sofia';
+  /** What lies beyond the playable area (default: a flat apron). */
+  surroundings?: SurroundSpec;
 }
 
 /** The painted values of the sketch's Detail layer. */
@@ -341,17 +344,23 @@ export function generateFromSketch(s: Sketch): SketchResult {
   // POIs level the terrain under them (and cut their sea or pits into it).
   const pois = levelForPois((x, y) => sampleGrid(heights, x, y), sketchPoiPlacements(s));
   // No noise where a POI levelled the ground.
-  const heightAt = (x: number, y: number) => Math.round((pois.height(x, y) + noise(x, y) * (1 - pois.weight(x, y))) * 10) / 10;
+  const mapW = s.w * SKETCH_CELL, mapH = s.h * SKETCH_CELL;
+  // Beyond the edge: hills rise out of the terrain (city and wall sides stay level).
+  const rise = surroundRise(s.surroundings, mapW, mapH, s.seed);
+  const heightAt = (x: number, y: number) => Math.round((pois.height(x, y) + noise(x, y) * (1 - pois.weight(x, y)) + rise(x, y)) * 10) / 10;
   const alphaAt = (x: number, y: number) => sampleGrid(alpha, x, y);
-  const flatHeight = (x: number, y: number) => pois.height(x, y);
+  // Hills are grass, with dirt showing through higher up and in patches.
+  const hillAlpha = (x: number, y: number) => Math.max(0, Math.min(220, 20 + (rise(x, y) / HILL_HEIGHT) * 110 + Math.sin(x * 0.0037 + s.seed) * Math.cos(y * 0.0049) * 70));
+  const flatHeight = (x: number, y: number) => pois.height(x, y) + rise(x, y);
 
   const solids: KVNode[] = [];
   const ents: KVNode[] = [];
-  const mapW = s.w * SKETCH_CELL, mapH = s.h * SKETCH_CELL;
-  const apron = 512;
+  const apron = bandWidth(s.surroundings);
   const P = 512;
   for (let y = -apron; y < mapH + apron; y += P) for (let x = -apron; x < mapW + apron; x += P) {
-    solids.push(terrainPatch(doc, x, y, P, theme.blend, heightAt, alphaAt, 4));
+    const side = sideOf(x + P / 2, y + P / 2, mapW, mapH);
+    const hill = !!side && styleOf(s.surroundings, side) === 'hills';
+    solids.push(terrainPatch(doc, x, y, P, hill ? THEMES.rural.blend : theme.blend, heightAt, hill ? hillAlpha : alphaAt, 4));
   }
 
   const shift = new Vector3(-mapW / 2, -mapH / 2, 0);
@@ -384,6 +393,8 @@ export function generateFromSketch(s: Sketch): SketchResult {
       roads.push({ ...defaultRoad('dirt', ends), width: short - 32, radius: 0, lift: 2 });
     }
   }
+  // Streets that reach a city or wall side run on out of the map.
+  extendEdgeRoads(roads, s.surroundings, mapW, mapH, flatHeight);
   // Longest first: through roads keep their surface across junctions.
   roads.sort((a, b) => b.points[0].distanceTo(b.points[1]) - a.points[0].distanceTo(a.points[1]));
   buildRoads(doc, roads).forEach((nodes, i) => {
@@ -509,12 +520,31 @@ export function generateFromSketch(s: Sketch): SketchResult {
     }
   }
 
+  // Beyond the edge: the city going on, a Combine wall or wooded hills (one func_brush and props), and an NPC clip
+  // round the playable area so units stay in it where streets run on out.
+  const around = buildSurroundings({ doc, spec: s.surroundings, w: mapW, h: mapH, seed: s.seed, ground: flatHeight, roads });
+  if (around.brushes.length) {
+    const e = entity(doc, 'func_brush', new Vector3(mapW / 2, mapH / 2, 0), {
+      targetname: 'surroundings', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', vrad_brush_cast_shadows: '1', StartDisabled: '0',
+    });
+    e.delete('origin');
+    e.items.push(...around.brushes);
+    ents.push(e);
+  }
+  for (const p of around.props) ents.push(entity(doc, 'prop_static', p.origin, { model: p.model, angles: `0 ${p.yaw} 0`, solid: p.solid, disableshadows: p.solid === '0' ? '1' : '0' }));
+  if (apron > PLAIN_APRON) {
+    const top = Math.max(0, ...s.levels) * s.levelHeight + s.floors[1] * 128 + 1024;
+    for (const [x0, y0, x1, y1] of [[-16, -16, mapW + 16, 0], [-16, mapH, mapW + 16, mapH + 16], [-16, 0, 0, mapH], [mapW, 0, mapW + 16, mapH]]) {
+      solids.push(solidNode(doc, boxFaces(new Vector3(x0, y0, -48), new Vector3(x1, y1, top), 'TOOLS/TOOLSNPCCLIP')));
+    }
+  }
+
   const maxLevel = Math.max(0, ...s.levels);
   // POIs cut canals and pits below the ground; their walls and floors reach 16 further down.
   let lowest = 0;
   for (let vy = 0; vy < H; vy++) for (let vx = 0; vx < W; vx++) lowest = Math.min(lowest, pois.height(vx * SAMPLE, vy * SAMPLE) - 16);
   addEnvironment(doc, solids, ents, {
-    width: mapW, height: mapH, apron, maxHeight: maxLevel * s.levelHeight + s.floors[1] * 128 + 768,
+    width: mapW, height: mapH, apron, maxHeight: Math.max(maxLevel * s.levelHeight + s.floors[1] * 128 + 768, around.top + 384),
     sunYaw: rng.int(20, 70), fogColor: theme.fog, cameraGround: levelBlocks(s), lowest,
   });
   doc.world.set('skyname', theme.sky);

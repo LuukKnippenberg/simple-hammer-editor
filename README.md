@@ -2070,6 +2070,37 @@ error on the test machine ends a session after about a minute.
 ![In game: the church garden and the rebel command](docs/screenshots/garden-game-garden.png)
 ![In game: the customs hall](docs/screenshots/garden-game-customs.png)
 
+## Map polish
+
+Four improvements after playing "Garden District" (plan: `docs/plans/map-polish.md`).
+
+### Polish phase 1: surroundings beyond the playable area
+
+Maps no longer end in a void at their edge. **Surroundings** (Map rows in the sketch, one style for the map and
+another per side; `src/gen/surroundings.ts`) fill a 2048-wide band outside the boundary:
+
+- **City**: the streets that reach the edge run on out (the road is lengthened, so no kerb crosses it), and the
+  blocks between them get two rows of plain filler buildings: facade textures lined up on the ground, hipped tile
+  roofs or flat ones, 4 to 7 floors along the edge and 7 to 11 behind (the skyline).
+- **Hills**: the terrain rises up to 1100 away from the edge with rolling bumps, grass with dirt patches higher up,
+  pines and leafy trees scattered over it.
+- **Combine wall**: the wall clusters City16 is closed with, alternated and overlapped 352 outside the edge, the
+  filler skyline behind them; streets run up to the wall.
+- **None**: the old 512 apron.
+
+The buildings are one `func_brush` (`surroundings`), the walls and trees props, so none of it uses vbsp's
+t-junction buffer. An NPC clip round the playable area keeps units in where streets run on out. The sky shell
+moves out with the band. The demo (`scripts/surroundings-demo.mjs`, `maps/surround_demo.vmf`, city south and
+west, hills east, wall north) compiles without a leak in 156 s.
+
+![The demo: city, hills and wall round a street grid](docs/screenshots/surround-02-overview.png)
+![The Combine wall on the north side](docs/screenshots/surround-03-north-wall.png)
+![Hills on the east side](docs/screenshots/surround-04-east-hills.png)
+![The city going on to the south](docs/screenshots/surround-05-south-city.png)
+![In game: the wall closes the view past the north edge](docs/screenshots/surround-game-north.png)
+![In game: the boulevard at the east edge, grass hills beyond](docs/screenshots/surround-game-east.png)
+![In game: a street at the south edge](docs/screenshots/surround-game-south.png)
+
 ## Development
 
 ```bash
