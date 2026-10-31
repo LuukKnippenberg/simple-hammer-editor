@@ -374,44 +374,16 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   onWall(front, S.door[0] - 56, S.door[1] + 56, 24, FLOOR + doorTop, FLOOR + doorTop + 48, TRIM);
   addEnt('prop_static', new Vector3(S.front + T / 2 + 24, (S.door[0] + S.door[1]) / 2, FLOOR + doorTop + 48), { model: 'models/props_trainstation/trainstation_arch001.mdl', angles: '0 0 0', solid: '0' });
   props++;
-  // The concourse's roof structure: thin steel girders across it, one from each north pilaster. (Heavy stone
-  // beams, as in the coffered HL2 hall, read wrong from the RTS camera: just under it they look huge, and their
-  // tops face the unlit underside of the roof, so they show as thick black bands over the floor.)
-  const beamZ: [number, number] = [TOP - 56, TOP - 8];
-  for (const x of northPilasters) relief.push(boxSolid(doc, new Vector3(x - 8, inner.divider1, TOP - 24), new Vector3(x + 8, inner.north, TOP - 8), 'METAL/METALBAR001A'));
-  // Square pillars in the open west half, around the start, where a girder meets a west pilaster's line. Their
-  // shafts are world brushes, so the navmesh goes around them; base and capital are decoration.
+  // Nothing hangs under the roof: girders, trusses, skylight frames and a footbridge were tried, and from the RTS
+  // camera they only cross the floor as dark lines and bands (and their shadows), so the roof stays invisible.
+  // Square pillars stand in the open west half, around the start, on the grid of the pilasters; their shafts are
+  // world brushes, so the navmesh goes around them; base and capital are decoration. They stop at 288, below the
+  // window bands, so they hide little of the floor.
+  const PILLAR_TOP = FLOOR + 304;
   for (const [px, py] of pillars) {
-    doc.addSolid(boxSolid(doc, new Vector3(px - 32, py - 32, FLOOR), new Vector3(px + 32, py + 32, beamZ[0]), { top: NODRAW, bottom: NODRAW, sides: 'STONE/STONEWALL050A' }));
+    doc.addSolid(boxSolid(doc, new Vector3(px - 32, py - 32, FLOOR), new Vector3(px + 32, py + 32, PILLAR_TOP), { top: NODRAW, bottom: NODRAW, sides: 'STONE/STONEWALL050A' }));
     relief.push(boxSolid(doc, new Vector3(px - 48, py - 48, FLOOR), new Vector3(px + 48, py + 48, FLOOR + 64), { top: TRIM, bottom: NODRAW, sides: TRIM }));
-    relief.push(boxSolid(doc, new Vector3(px - 48, py - 48, beamZ[0] - 32), new Vector3(px + 48, py + 48, beamZ[0]), { top: TRIM, bottom: TRIM, sides: TRIM }));
-  }
-  // Skylight frames: dark metal around every opening, so the invisible roof still shows where it is.
-  const FRAME = 'METAL/METALBAR001A';
-  for (const [x0, y0, x1, y1] of [...hallSkylights, ...shedSkylights]) {
-    for (const [a, b] of [[new Vector3(x0 - 12, y0 - 12, TOP - 8), new Vector3(x1 + 12, y0, TOP + 24)], [new Vector3(x0 - 12, y1, TOP - 8), new Vector3(x1 + 12, y1 + 12, TOP + 24)],
-      [new Vector3(x0 - 12, y0, TOP - 8), new Vector3(x0, y1, TOP + 24)], [new Vector3(x1, y0, TOP - 8), new Vector3(x1 + 12, y1, TOP + 24)]]) {
-      relief.push(boxSolid(doc, a, b, FRAME));
-    }
-  }
-  // The train shed: steel trusses across it (top and bottom chords, posts between), and a footbridge over the
-  // tracks above the trains, like the walkway in the HL2 station.
-  const STEEL = 'METAL/METALBAR001A';
-  for (let x = inner.x0 + 320; x < S.shedEast - T / 2 - 160; x += 320) {
-    relief.push(boxSolid(doc, new Vector3(x - 8, inner.south, TOP - 24), new Vector3(x + 8, inner.divider0, TOP - 8), STEEL));
-    relief.push(boxSolid(doc, new Vector3(x - 8, inner.south, TOP - 104), new Vector3(x + 8, inner.divider0, TOP - 88), STEEL));
-    for (let y = inner.south + 80; y < inner.divider0 - 40; y += 160) relief.push(boxSolid(doc, new Vector3(x - 6, y - 6, TOP - 88), new Vector3(x + 6, y + 6, TOP - 24), STEEL));
-  }
-  const bridgeX = X(13.5), deck = FLOOR + 296;
-  // Small lamps over the walkway: under the roof its deck would otherwise show as a black strip from above.
-  for (let y = inner.south + 160; y < inner.divider0 - 64; y += 288) {
-    addEnt('light', new Vector3(bridgeX, y, deck + 72), { _light: '255 210 160 80', _lightHDR: '-1 -1 -1 1', _quadratic_attn: '1', _fifty_percent_distance: '64', _zero_percent_distance: '200' });
-  }
-  relief.push(boxSolid(doc, new Vector3(bridgeX - 48, inner.south, deck), new Vector3(bridgeX + 48, inner.divider0, deck + 12), { top: 'METAL/METALFLOOR001A', bottom: STEEL, sides: STEEL }));
-  for (const side of [-1, 1]) {
-    const rx = bridgeX + side * 44;
-    relief.push(boxSolid(doc, new Vector3(rx - 4, inner.south, deck + 52), new Vector3(rx + 4, inner.divider0, deck + 58), 'METAL/METALRAIL001A'));
-    for (let y = inner.south + 32; y < inner.divider0; y += 128) relief.push(boxSolid(doc, new Vector3(rx - 3, y - 3, deck + 12), new Vector3(rx + 3, y + 3, deck + 52), 'METAL/METALRAIL001A'));
+    relief.push(boxSolid(doc, new Vector3(px - 48, py - 48, PILLAR_TOP - 32), new Vector3(px + 48, py + 48, PILLAR_TOP), { top: TRIM, bottom: TRIM, sides: TRIM }));
   }
   brushEnt('func_brush', { targetname: 'station_relief', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', vrad_brush_cast_shadows: '1', StartDisabled: '0' }, relief);
   // The concourse floor: a beige and brown checker of stone tiles, dark enough not to light the hall back up.
