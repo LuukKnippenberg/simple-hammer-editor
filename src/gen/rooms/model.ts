@@ -253,7 +253,12 @@ export function roomLayout(spec: RoomBuildingSpec): RoomLayout {
     const axis: 'x' | 'y' = sd.side === 'n' || sd.side === 's' ? 'x' : 'y';
     const line = sd.side === 'n' ? oy + (sd.y + 1) * c : sd.side === 's' ? oy + sd.y * c : sd.side === 'e' ? ox + (sd.x + 1) * c : ox + sd.x * c;
     const start = axis === 'x' ? ox + sd.x * c : oy + sd.y * c;
-    const d: Doorway = { kind: 'street', rooms: [rooms[room].id], axis, at: line, from: start + 16, to: start + n * c - 16, top: Math.min(STREET_DOOR_HEIGHT, spec.height - 64) };
+    // Clear of the room's corners, so the wall keeps a jamb there.
+    const rc = rooms[room].cells;
+    const [r0, r1] = axis === 'x' ? [ox + rc.x0 * c, ox + rc.x1 * c] : [oy + rc.y0 * c, oy + rc.y1 * c];
+    const from = Math.max(start + 16, r0 + T / 2 + 24), to = Math.min(start + n * c - 16, r1 - T / 2 - 24);
+    if (to - from < 96) { issues.push(`The street door at cell ${sd.x}, ${sd.y} (${sd.side}) is too close to a corner`); continue; }
+    const d: Doorway = { kind: 'street', rooms: [rooms[room].id], axis, at: line, from, to, top: Math.min(STREET_DOOR_HEIGHT, spec.height - 64) };
     doorways.push(d);
     cut(d, threshold);
   }

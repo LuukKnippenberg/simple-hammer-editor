@@ -14,7 +14,7 @@ export const allTypes = (seed = 7): RoomBuildingSpec => ({
     room('hall', 'trainHall', 0, 0, 16, 7), room('conc', 'concourse', 0, 7, 10, 15), room('cust', 'customs', 10, 7, 16, 12),
     room('wait', 'waiting', 10, 12, 16, 15), room('rat', 'rations', 0, 15, 8, 21), room('corr', 'hallway', 8, 15, 16, 17),
   ],
-  doors: [{ x: 0, y: 10, side: 'w', width: 2 }, { x: 15, y: 15, side: 'e', width: 1 }],
+  doors: [{ x: 0, y: 10, side: 'w', width: 2 }, { x: 15, y: 15, side: 'e', width: 2 }],
   links: [], bands: ['n', 'e'],
 });
 
@@ -58,8 +58,9 @@ describe('room dressers', () => {
       const clear = d.axis === 'x' ? rect(d.from, d.at - 128, d.to, d.at + 128) : rect(d.at - 128, d.from, d.at + 128, d.to);
       for (const n of props(b.entities)) {
         const m = model(n);
-        if (walkable(m)) continue;
-        const [x, y] = origin(n);
+        // Rails lie flat; lamps hang overhead and lanterns and monitors are on the walls.
+        const [x, y, z] = origin(n);
+        if (walkable(m) || z > 100) continue;
         expect(overlaps(modelFootprint(m, x, y, yaw(n)), clear, -2), `${m} at ${x} ${y} blocks the ${d.kind} at ${d.at}`).toBe(false);
       }
     }

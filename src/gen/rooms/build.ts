@@ -7,6 +7,7 @@ import type { PoiEntity } from '../poi/types.ts';
 import { roomLayout, type RoomBuildingSpec, type RoomLayout } from './model.ts';
 import { roomShell, STATION_STYLE, type RoomStyle } from './shell.ts';
 import { dressRoom } from './dressers.ts';
+import { cameraFaces, wallRelief, wallWear } from './relief.ts';
 
 /** Ties everything an interior building made to it (its func_detail, brush entities and point entities). */
 export const ROOMS_ID_KEY = 'she_rooms_id';
@@ -17,7 +18,7 @@ export interface RoomBuildingResult {
   world: KVNode[];
   /** Entities: the func_detail (floors, platforms, pillars, counters), the roof, glass and point entities. */
   entities: KVNode[];
-  counts: { walls: number; detail: number; props: number; lights: number; overlays: number };
+  counts: { walls: number; detail: number; relief: number; props: number; lights: number; overlays: number };
 }
 
 function brushEntity(doc: VmfDocument, classname: string, keys: Record<string, string>, solids: KVNode[]): KVNode {
@@ -52,8 +53,14 @@ export function roomBuilding(doc: VmfDocument, spec: RoomBuildingSpec, style: Ro
   const uid = spec.uid;
   const rng = new Rng(spec.seed);
   const detail: KVNode[] = [], points: KVNode[] = [], extra: KVNode[] = [];
+  // Relief, lanterns, posters and stains on the walls the camera sees.
+  const faces = cameraFaces(layout);
+  const walls = wallRelief(doc, layout, faces);
+  const relief = [...walls.relief];
+  for (const pe of [...walls.entities, ...wallWear(layout, faces, shell.world, new Rng(spec.seed * 7 + 3))]) points.push(pointEntity(doc, pe, uid));
   for (const room of layout.rooms) {
-    const { output } = dressRoom(doc, layout, room, rng.int(1, 1e9));
+    const { output, ctx } = dressRoom(doc, layout, room, rng.int(1, 1e9));
+    relief.push(...ctx.relief);
     detail.push(...output.world, ...output.detail);
     for (const pe of output.entities) {
       if (pe.solids?.length) extra.push(brushEntity(doc, pe.classname, { ...pe.keys, [ROOMS_ID_KEY]: uid }, pe.solids));
@@ -64,13 +71,14 @@ export function roomBuilding(doc: VmfDocument, spec: RoomBuildingSpec, style: Ro
     brushEntity(doc, 'func_detail', { [ROOMS_ID_KEY]: uid }, detail),
     brushEntity(doc, 'func_brush', { ...FUNC_BRUSH(`rooms_${uid}_roof`, false, true), [ROOMS_ID_KEY]: uid }, shell.roof),
     ...(shell.glass.length ? [brushEntity(doc, 'func_brush', { ...FUNC_BRUSH(`rooms_${uid}_glass`, true, false), [ROOMS_ID_KEY]: uid }, shell.glass)] : []),
+    ...(relief.length ? [brushEntity(doc, 'func_brush', { ...FUNC_BRUSH(`rooms_${uid}_relief`, true, true), [ROOMS_ID_KEY]: uid }, relief)] : []),
     ...extra, ...points,
   ];
   const cls = (n: KVNode) => n.get('classname') ?? '';
   return {
     layout, world: shell.world, entities,
     counts: {
-      walls: shell.world.length, detail: detail.length,
+      walls: shell.world.length, detail: detail.length, relief: relief.length,
       props: points.filter((n) => /^prop_/.test(cls(n))).length,
       lights: points.filter((n) => /^light/.test(cls(n))).length,
       overlays: points.filter((n) => cls(n) === 'info_overlay').length,

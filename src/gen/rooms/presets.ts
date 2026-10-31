@@ -35,7 +35,7 @@ export const ROOM_PRESETS: RoomPreset[] = [
       room('customs', 'customs', 3, 0, 11, 6, 'Customs'),
       room('waiting', 'waiting', 3, 6, 11, 10, 'Waiting room'),
     ],
-    doors: [door(0, 1, 'w'), door(10, 0, 's', 1)],
+    doors: [door(0, 1, 'w'), door(8, 0, 's')],
   },
   {
     id: 'rations', label: 'Ration centre', height: 384,

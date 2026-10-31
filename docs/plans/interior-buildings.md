@@ -53,6 +53,13 @@ Train station, Customs house, Ration centre. `scripts/rooms-demo.mjs` builds all
 Pilasters, plinth, ledge and cornice on the camera-facing walls of each room, lanterns on them, lamps over the
 furniture, and decals per type (litter where people wait, papers by the ration lanes, stripes on platforms).
 
+Done: `relief.ts` finds every room's north and west faces that are wall all along (`cameraFaces`), puts a
+plinth, ledge, cornice and pilasters on them (pilasters stop under window bands, nothing crosses a doorway),
+lanterns with lights on every other pilaster, posters, propaganda and stains as overlays on the wall brushes.
+The dressers hang lamps over the furniture and put floor overlays down per type (hazard stripes on platform
+edges, boot prints into customs, ration papers in the lanes, litter by the benches); concourse pillars get
+bases, capitals and a lantern. Street doors keep 40 units from the room's corners.
+
 ### A4: Storage and regeneration
 The spec is stored in the map like a block of buildings (a key on the building's func_detail, with its members
 listed), so the editor can rebuild a building after its rooms change, and a handle to move it.
