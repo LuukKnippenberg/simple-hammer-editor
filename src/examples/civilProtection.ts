@@ -25,6 +25,7 @@ import { KITS, applyStandardRelations, placeUnits, recordKit, spread, type Param
 import type { AbilityGate, MissionGraph, Stage, Transition } from '../lw/mission.ts';
 import { getConnections } from '../vmf/io.ts';
 import { placeDecalRay } from '../edit/decals.ts';
+import { alongWall, onFloor, placeDecals, type DecalPlacement } from '../edit/decalScatter.ts';
 import { MODEL_BOUNDS } from '../gen/poi/models.ts';
 import { ATMOSPHERE_PRESETS, pathEntities, shotEntities, type EntitySpec } from '../lw/cinematics.ts';
 import { addScreen, buildAtmosphere, buildFlyby, buildSendAlong, groundBelow } from '../lw/cinematicsAction.ts';
@@ -210,7 +211,10 @@ export const STATION = {
  * skylight strips (shafts of light), girders across the top and lamps on the columns. `ground` gives the floor
  * height (the editor's raycast; 0 without one).
  */
-export function buildStation(editor: Editor, ground: (x: number, y: number) => number = () => 0): { brushes: number; props: number } {
+/** What buildStation made that later dressing needs: where the pilasters stand. */
+export interface StationLayout { brushes: number; props: number; northPilasters: number[]; westPilasters: number[] }
+
+export function buildStation(editor: Editor, ground: (x: number, y: number) => number = () => 0): StationLayout {
   const doc = editor.doc;
   const S = STATION;
   const T = 32, FLOOR = -16, HEIGHT = 432;
@@ -432,7 +436,73 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   // Combine monitors on the north wall either side of the billboard, ornaments by the door.
   for (const x of [S.billboard[0] - 160, S.billboard[1] + 160]) prop('props_combine/combine_intmonitor003', x, inner.north - 4, 270, 120);
   for (const y of [S.door[0] - 48, S.door[1] + 48]) prop('props_trainstation/trainstation_ornament001', inner.x1 - 28, y, 180);
-  return { brushes: hall.world.length + hall.roof.length + 1, props };
+  return { brushes: hall.world.length + hall.roof.length + 1, props, northPilasters, westPilasters };
+}
+
+const POSTERS = [
+  ...Array.from({ length: 15 }, (_, i) => `posters/poster${i + 1}`),
+  'decals/decal_posterbreen', 'decals/decal_posters001a', 'decals/decal_posters003a', 'decals/decal_posters005a',
+];
+const PROPAGANDA = ['decals/combinepropaganda01a', 'decals/combinepropaganda01b', 'decals/combinepropaganda01c', 'decals/combinepropaganda01d'];
+const STAINS = ['decals/decalstain001a', 'decals/decalstain002a', 'decals/decalstain005a', 'decals/decalstain010a', 'decals/decalstain012a', 'decals/decalstain014a', 'decals/wallstain01a'];
+const FLOOR_DIRT = ['overlays/stains_05a', 'overlays/stains_05b', 'overlays/stains_05c', 'overlays/stains_05d', 'overlays/stain_01', 'overlays/stain_04', 'overlays/dirt01a'];
+const LITTER = ['decals/trashdecal01a', 'decals/trashdecal02a', 'decals/trashdecal03a', 'decals/trashdecal04a', 'decals/trashdecal05a'];
+const PAPERS = ['overlays/rationpapers01', 'overlays/rationpapers03', 'overlays/rationpapers04'];
+
+/**
+ * The station's wear, after the HL2 one: posters in pairs and Combine propaganda between the pilasters, water
+ * stains running from under the cornice, and on the floor cracks, stains, litter and ration papers (most where
+ * people wait and queue), boot prints at the door, puddles under the skylights and hazard stripes along the
+ * platform edges.
+ */
+export function stationDecals(l: StationLayout, rng: Rng): DecalPlacement[] {
+  const S = STATION, T = 32;
+  const out: DecalPlacement[] = [];
+  const wallN = { along: 'x' as const, at: S.north - T / 2, n: -1 as const }, wallW = { along: 'y' as const, at: S.west + T / 2, n: 1 as const };
+  // Between each two pilasters: a pair of posters, or one big propaganda banner.
+  const gaps = (ps: number[], lo: number, hi: number) => {
+    const pts = [lo, ...ps, hi];
+    return pts.slice(1).map((b, i): [number, number] => [pts[i], b]).filter(([a, b]) => b - a > 200);
+  };
+  const posters = (wall: typeof wallN | typeof wallW, ps: number[], lo: number, hi: number, skip: [number, number][] = []) => {
+    for (const [a, b] of gaps(ps, lo, hi)) {
+      const mid = (a + b) / 2;
+      if (skip.some(([k0, k1]) => mid + 120 > k0 && mid - 120 < k1)) continue;
+      if (rng.chance(0.35)) out.push(...alongWall({ ...wall, from: mid, to: mid, every: 1, z: 176, materials: PROPAGANDA, size: [150, 170], rng }));
+      else for (const d of [-60, 60]) out.push(...alongWall({ ...wall, from: mid + d, to: mid + d, every: 1, z: 166 + rng.range(-8, 8), materials: POSTERS, size: [88, 112], rng }));
+    }
+  };
+  // Not on the billboard or the monitors either side of it.
+  posters(wallN, l.northPilasters, S.west + 64, S.front - 64, [[S.billboard[0] - 220, S.billboard[1] + 220]]);
+  posters(wallW, l.westPilasters.filter((y) => y > S.divider), S.divider + 64, S.north - 64);
+  // Stains under the cornice.
+  out.push(...alongWall({ ...wallN, from: S.west + 160, to: S.front - 160, every: 192, z: 330, materials: STAINS, size: [96, 160], rng, chance: 0.6, jitter: 48 }));
+  out.push(...alongWall({ ...wallW, from: S.south + 160, to: S.north - 160, every: 192, z: 330, materials: STAINS, size: [96, 160], rng, chance: 0.6, jitter: 48 }));
+  // The concourse floor: wear everywhere, litter and papers where people wait and queue.
+  const hall: [number, number, number, number] = [S.west + 64, S.divider + 64, S.front - 64, S.north - 64];
+  const benches: [number, number, number, number] = [X(6.6), Y(12), X(12.2), Y(14.4)];
+  const lanes: [number, number, number, number] = [X(13), Y(8.6), X(21), Y(10.2)];
+  out.push(...onFloor({ rect: hall, count: 10, top: 120, materials: ['overlays/concrete_crack01'], size: [128, 224], rng }));
+  out.push(...onFloor({ rect: hall, count: 18, top: 120, materials: FLOOR_DIRT, size: [128, 256], rng }));
+  out.push(...onFloor({ rect: hall, count: 10, top: 120, materials: LITTER, size: [64, 96], rng }));
+  out.push(...onFloor({ rect: benches, count: 8, top: 120, materials: LITTER, size: [64, 96], rng }));
+  out.push(...onFloor({ rect: benches, count: 4, top: 120, materials: PAPERS, size: [80, 112], rng }));
+  out.push(...onFloor({ rect: lanes, count: 8, top: 120, materials: PAPERS, size: [80, 112], rng }));
+  // Boot prints coming in at the door, puddles under the skylights.
+  for (let k = 0; k < 6; k++) out.push({ material: rng.pick(['overlays/bootprint_01', 'overlays/bootprint_02']), from: new Vector3(S.front - 64 - k * 56, rng.range(S.door[0] + 48, S.door[1] - 48), 120), dir: new Vector3(0, 0, -1), size: 48, rotation: 90 + rng.range(-12, 12) });
+  for (const [x, y] of [[X(3.5), Y(10.5)], [X(9), Y(15.5)]]) out.push({ material: 'decals/decalborealispuddle001a', from: new Vector3(x, y, 120), dir: new Vector3(0, 0, -1), size: 176, rotation: rng.int(0, 359) });
+  // The platform: hazard stripes along both edges (not over the crossing), a few stains and papers.
+  const platform = [Y(0) + 272, Y(0) + 464];
+  for (const ey of [platform[0] + 28, platform[1] - 28]) {
+    for (let x = X(1); x < X(21); x += 160) {
+      if (Math.abs(x - X(11)) < 160) continue;
+      out.push({ material: 'overlays/hazard_stripe001c', from: new Vector3(x, ey, 120), dir: new Vector3(0, 0, -1), size: 144, rotation: 0 });
+    }
+  }
+  const deck: [number, number, number, number] = [X(1), platform[0] + 48, X(21), platform[1] - 48];
+  out.push(...onFloor({ rect: deck, count: 6, top: 120, materials: FLOOR_DIRT, size: [96, 160], rng }));
+  out.push(...onFloor({ rect: deck, count: 4, top: 120, materials: PAPERS, size: [80, 112], rng }));
+  return out;
 }
 
 /**
@@ -496,9 +566,10 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
   };
   const byName = (n: string) => doc.entities.find((e) => e.get('targetname') === n);
 
+  let station: StationLayout | null = null;
   recordKit(editor, 'Civil Protection set pieces', () => {
     // The station around the start: concourse, train shed, the door onto the housing street.
-    const station = buildStation(editor, ground);
+    station = buildStation(editor, ground);
     brushes += station.brushes;
     props += station.props;
     // The checkpoint's forcefield gate: a never-solid func_brush for the look, a func_nav_blocker that keeps
@@ -623,9 +694,12 @@ export async function decorateCivilProtection(editor: Editor): Promise<CivilRepo
   await decal('decals/decal_posters002a', new Vector3(X(29), Y(18), 100), new Vector3(1, 0, 0));
   for (const cx of [24, 31, 35]) await decal(rng.pick(['decals/decal_posters001a', 'decals/decal_posters003a', 'decals/decal_posters005a']), new Vector3(X(cx), Y(13), 110), new Vector3(0, 1, 0));
   for (const cx of [26, 33]) await decal('decals/combinepropaganda01a', new Vector3(X(cx), Y(12.5), 150), new Vector3(0, -1, 0));
-  // Propaganda in the station: on the concourse's north and west walls.
-  for (const cx of [3, 5.5, 13.5]) await decal('decals/combinepropaganda01a', new Vector3(X(cx), Y(17.6), 170), new Vector3(0, 1, 0));
-  for (const cy of [13, 16]) await decal(rng.pick(['decals/decal_posters001a', 'decals/decal_posters003a', 'decals/decal_posters005a']), new Vector3(X(1), Y(cy), 120), new Vector3(-1, 0, 0));
+  // The station's wear: posters, stains, litter, papers, puddles and platform stripes (stationDecals).
+  if (station) {
+    const worn = await placeDecals(editor, stationDecals(station, new Rng(1709 * 3 + 1)));
+    decals += worn.overlays + worn.decals;
+    if (worn.missed) notes.push(`${worn.missed} station decals found no surface`);
+  }
   // Scorch marks and blood in the old city.
   for (const [cx, cy] of [[31, 42.5], [49, 42.4], [38, 43.5], [44, 45.5], [27, 42]]) await decal('decals/decal_crater001a', new Vector3(X(cx), Y(cy), 200), down);
   for (const [cx, cy] of [[34, 42], [46, 43]]) await decal('decals/bloodstain_002', new Vector3(X(cx), Y(cy), 200), down);
