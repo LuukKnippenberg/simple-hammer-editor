@@ -2127,6 +2127,36 @@ lawn strips and city surroundings.
 ![In game: the parking lot marked out on the paving, islands with lamps](docs/screenshots/blend-game-parking.jpg)
 ![In game: a lawn strip edged with stone between the square and the street](docs/screenshots/blend-game-lawn.jpg)
 
+### Polish phase 3: street and pavement materials
+
+Every part of a street can be chosen (`src/gen/streetMaterials.ts`):
+
+| Part | Choices |
+|---|---|
+| Carriageway | asphalt (with the centre line where it was lined), worn asphalt, setts, cobbles, concrete |
+| Pavement | concrete, square slabs (the reference's pavement), large slabs, small tiles, bricks, cobbles |
+| Kerb | concrete, stone, granite |
+| Gutter | none, or a strip of setts, cobbles or concrete along each kerb inside the carriageway |
+| Round kerbs | a radius for the kerbs at street corners |
+
+Ready-made sets: *City 17* (as before), *Old town* (setts, square slabs, stone kerbs, cobbled gutters, round
+corners), *Boulevard* (worn asphalt, large slabs, granite, setts gutters) and *Cobbled lane*.
+
+- **Per map**: the sketch's Map section has *Street look* (a set) and a row per part; all its streets take them.
+- **Per road**: the Road panel has the same rows, stored with the road (`she_road`), so a rebuild keeps them.
+- **Rounded kerbs**: where two straight streets with kerbs cross or meet, the corner squares are cut out of
+  kerbs and pavements and filled with a fillet of carriageway, a curved kerb and a quarter disc of pavement.
+  Brushes still only touch (tested).
+
+`scripts/street-materials-demo.mjs` builds `maps/street_demo.vmf`: a street grid in the Old town look with one
+street in the Boulevard look, set through the road panel's code.
+
+![The sketch's street options](docs/screenshots/street-01-sketch-options.png)
+![The road panel with the Boulevard look](docs/screenshots/street-02-road-panel.png)
+![A crossing from above: setts, cobbled gutters, square slabs, rounded kerbs](docs/screenshots/street-07-corner-top.png)
+![In game: the crossing](docs/screenshots/street-game-corner.jpg)
+![In game: another crossing with rounded kerbs](docs/screenshots/street-game-crossing2.jpg)
+
 ## Development
 
 ```bash

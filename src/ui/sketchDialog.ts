@@ -9,6 +9,7 @@ import { VmfDocument } from '../vmf/map.ts';
 import { drawSketchPois, sketchPoiInput, sketchPoiPanel } from './sketchPoiLayer.ts';
 import { placePois } from '../gen/poi/sketchPois.ts';
 import { SURROUND_STYLES, type EdgeSide, type SurroundStyle } from '../gen/surroundings.ts';
+import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, STREET_PRESETS, type StreetMaterial } from '../gen/streetMaterials.ts';
 
 type Layer = 'height' | 'surface' | 'feature' | 'detail' | 'marker' | 'poi';
 type Shape = 'brush' | 'rect' | 'fill';
@@ -290,6 +291,23 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       h('option', { value: '' }, 'Classic'), h('option', { value: 'sofia' }, 'Sofia: parked cars, bollards')) as HTMLSelectElement;
     streets.value = s.streets === 'sofia' ? 'sofia' : '';
     streets.addEventListener('change', () => (s.streets = (streets.value || undefined) as Sketch['streets']));
+    // Street materials: a preset, then each part on its own.
+    const sm = () => (s.streetMaterials ??= {});
+    const matSel = (list: StreetMaterial[], key: 'carriageway' | 'pavement' | 'kerb' | 'gutter', title: string) => {
+      const sel = h('select', { title }, h('option', { value: '' }, 'Default'), ...list.map((m) => h('option', { value: m.id }, m.label))) as HTMLSelectElement;
+      sel.value = s.streetMaterials?.[key] ?? '';
+      sel.addEventListener('change', () => { sm()[key] = sel.value || undefined; });
+      return sel;
+    };
+    const streetPreset = h('select', { title: 'The look of the streets in one choice' }, h('option', { value: '' }, 'Choose a set…'),
+      ...STREET_PRESETS.map((p) => h('option', { value: p.id }, p.label))) as HTMLSelectElement;
+    streetPreset.addEventListener('change', () => {
+      const p = STREET_PRESETS.find((q) => q.id === streetPreset.value);
+      if (p) { s.streetMaterials = { ...p.materials }; renderSide(); }
+    });
+    const corner = h('input', { type: 'number', min: 0, max: 160, step: 16, value: s.streetMaterials?.corner ?? 0, title: 'Radius of the kerbs at street corners (0: square)' }) as HTMLInputElement;
+    corner.addEventListener('change', () => { sm().corner = Math.max(0, Math.min(160, Number(corner.value) || 0)); });
+
     // Beyond the playable area: one style for the whole map, another per side where wanted.
     const surround = h('select', { title: 'What lies beyond the edge of the playable area' },
       ...SURROUND_STYLES.map((st) => h('option', { value: st.id, title: st.hint }, st.label))) as HTMLSelectElement;
@@ -339,7 +357,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       if (n === s.w) return;
       snapshot();
       const old = s;
-      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade, architecture: old.architecture, interiors: old.interiors, buildingDetail: old.buildingDetail, blockSize: old.blockSize, yards: old.yards, openYards: old.openYards, streets: old.streets, surroundings: old.surroundings };
+      s = { ...emptySketch(n, n, old.theme), seed: old.seed, levelHeight: old.levelHeight, floors: old.floors, facade: old.facade, architecture: old.architecture, interiors: old.interiors, buildingDetail: old.buildingDetail, blockSize: old.blockSize, yards: old.yards, openYards: old.openYards, streets: old.streets, surroundings: old.surroundings, streetMaterials: old.streetMaterials };
       if (old.quality) s.quality = new Array(n * n).fill(0);
       for (let y = 0; y < Math.min(n, old.h); y++) for (let x = 0; x < Math.min(n, old.w); x++) {
         const a = y * n + x, b = y * old.w + x;
@@ -368,6 +386,12 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
         h('div.row', {}, h('label', {}, 'Yards'), yards),
         h('div.row', {}, h('label', {}, 'Open courtyards'), openYards),
         h('div.row', {}, h('label', {}, 'Streets'), streets),
+        h('div.row', {}, h('label', {}, 'Street look'), streetPreset),
+        h('div.row', {}, h('label', {}, 'Carriageway'), matSel(CARRIAGEWAYS, 'carriageway', 'What the carriageway is made of')),
+        h('div.row', {}, h('label', {}, 'Pavement'), matSel(PAVEMENTS, 'pavement', 'What the pavements are made of')),
+        h('div.row', {}, h('label', {}, 'Kerb'), matSel(KERBS, 'kerb', 'The kerb stones')),
+        h('div.row', {}, h('label', {}, 'Gutter'), matSel(GUTTERS, 'gutter', 'A strip of setts or cobbles along the kerbs')),
+        h('div.row', {}, h('label', {}, 'Round corners'), corner, h('span.unit', {}, 'units')),
         h('div.row', {}, h('label', {}, 'Surroundings'), surround),
         h('div.row', {}, h('label', {}, 'Per side'), ...(['n', 'e', 's', 'w'] as EdgeSide[]).map(sideSel)),
         h('div.row', {}, h('label', {}, 'Facade'), facade),

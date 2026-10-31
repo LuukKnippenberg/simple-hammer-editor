@@ -13,6 +13,7 @@ import type { CornerOption } from '../gen/buildingPlan.ts';
 import type { RoofOption } from '../gen/roofs.ts';
 import { ioSection } from './ioEditor.ts';
 import { ROAD_STYLES, centreline, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
+import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, type StreetMaterial } from '../gen/streetMaterials.ts';
 import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
 import { POLE_TYPES, powerlineOf, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
 import { editPowerline } from '../edit/powerlineTool.ts';
@@ -222,12 +223,25 @@ function roadPanel(editor: Editor, e: MapEntity, road: RoadSpec): HTMLElement {
     return i;
   };
   const len = centreline(road.points, road.radius).reduce((s, p, i, a) => s + (i ? p.distanceTo(a[i - 1]) : 0), 0);
+  const mat = (list: StreetMaterial[], key: 'carriageway' | 'pavement' | 'kerb' | 'gutter') => {
+    const sel = h('select', {}, h('option', { value: '' }, 'From style'), ...list.map((m) => h('option', { value: m.id }, m.label))) as HTMLSelectElement;
+    sel.value = road.materials?.[key] ?? '';
+    sel.addEventListener('change', () => apply({ materials: { ...road.materials, [key]: sel.value || undefined } }));
+    return sel;
+  };
+  const corner = h('input', { type: 'number', value: String(road.materials?.corner ?? 0), step: '16', min: '0', title: 'Kerb radius where this road crosses another' }) as HTMLInputElement;
+  corner.addEventListener('change', () => apply({ materials: { ...road.materials, corner: Math.max(0, parseFloat(corner.value) || 0) } }));
   return h('div.section', {}, h('h3', {}, 'Road'),
     h('p.hint', {}, `${road.points.length} points, ${Math.round(len)} units long. Draw new roads with the Road tool (7).`),
     h('div.row', {}, h('label', {}, 'Style'), style),
     h('div.row', {}, h('label', {}, 'Width'), num('width', 32, 64)),
     h('div.row', {}, h('label', {}, 'Pavement'), num('pavement', 16, 0)),
     h('div.row', {}, h('label', {}, 'Corners'), num('radius', 32, 0)),
+    h('div.row', {}, h('label', {}, 'Carriageway'), mat(CARRIAGEWAYS, 'carriageway')),
+    h('div.row', {}, h('label', {}, 'Pavement'), mat(PAVEMENTS, 'pavement')),
+    h('div.row', {}, h('label', {}, 'Kerb'), mat(KERBS, 'kerb')),
+    h('div.row', {}, h('label', {}, 'Gutter'), mat(GUTTERS, 'gutter')),
+    h('div.row', {}, h('label', {}, 'Round kerbs'), corner),
     h('div.row', {},
       h('button', { onclick: () => rebuildRoads(editor, 'Rebuild roads') }, 'Rebuild all roads'),
       h('button', {

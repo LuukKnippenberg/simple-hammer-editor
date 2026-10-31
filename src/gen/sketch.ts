@@ -15,6 +15,7 @@ import { KITS, type ParamValue } from '../lw/kits.ts';
 import type { Editor } from '../editor.ts';
 import { levelForPois, type PoiPlacement } from './poi/mapgen.ts';
 import { dressEdges, surfaceEdges } from './surfaceEdges.ts';
+import type { RoadMaterials } from './streetMaterials.ts';
 import { bandWidth, buildSurroundings, extendEdgeRoads, HILL_HEIGHT, PLAIN_APRON, sideOf, styleOf, surroundRise, type SurroundSpec } from './surroundings.ts';
 
 /**
@@ -112,6 +113,8 @@ export interface Sketch {
   streets?: 'classic' | 'sofia';
   /** What lies beyond the playable area (default: a flat apron). */
   surroundings?: SurroundSpec;
+  /** Carriageway, pavement, kerb and gutter materials and rounded corners for the streets (default: City 17). */
+  streetMaterials?: RoadMaterials;
 }
 
 /** The painted values of the sketch's Detail layer. */
@@ -411,7 +414,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
       // overlapping detail brushes get chopped against each other, and over a whole district the extra
       // t-junctions overflow vbsp's limit.
       const width = Math.max(96, short - 2 * (pavement + 8 + 6));
-      roads.push({ ...defaultRoad('asphalt', ends), width, pavement, radius: 0, lined: long >= short * 2 && width >= 128, lift: 3 });
+      roads.push({ ...defaultRoad('asphalt', ends), width, pavement, radius: 0, lined: long >= short * 2 && width >= 128, lift: 3, ...(s.streetMaterials ? { materials: { ...s.streetMaterials } } : {}) });
     } else {
       roads.push({ ...defaultRoad('dirt', ends), width: short - 32, radius: 0, lift: 2 });
     }

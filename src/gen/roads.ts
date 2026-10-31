@@ -2,6 +2,7 @@ import { Vector2, Vector3 } from 'three';
 import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import type { MapEntity, TexAxis, VmfDocument } from '../vmf/map.ts';
 import { planeBrush, type PlaneSpec } from './roofs.ts';
+import { carriagewayMaterial, decodeMaterials, encodeMaterials, gutterMaterial, kerbMaterial, pavementMaterial, type RoadMaterials } from './streetMaterials.ts';
 
 /**
  * Roads drawn as a line of points: asphalt, cobble, tram or dirt surfaces, kerbs and pavements, as
@@ -47,6 +48,8 @@ export interface RoadSpec {
   /** Override: centre line (default from the style). */
   lined?: boolean;
   lift?: number;
+  /** Carriageway, pavement, kerb and gutter materials and rounded corners (see streetMaterials.ts). */
+  materials?: RoadMaterials;
 }
 
 export function defaultRoad(style: RoadStyle, points: Vector3[] = []): RoadSpec {
@@ -61,11 +64,13 @@ const KEY = 'she_road';
 export function encodeRoad(r: RoadSpec): string {
   const pts = r.points.map((p) => `${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}`).join(';');
   const flags = `${r.kerbs === undefined ? '' : r.kerbs ? 'k' : 'K'}${r.lined === undefined ? '' : r.lined ? 'l' : 'L'}`;
-  return [r.style, r.width, r.pavement, r.radius, flags, r.lift ?? '', pts].join('|');
+  const parts = [r.style, r.width, r.pavement, r.radius, flags, r.lift ?? '', pts];
+  const m = encodeMaterials(r.materials);
+  return (m ? [...parts, m] : parts).join('|');
 }
 
 export function decodeRoad(s: string): RoadSpec | null {
-  const [style, width, pavement, radius, flags, lift, pts] = s.split('|');
+  const [style, width, pavement, radius, flags, lift, pts, materials] = s.split('|');
   if (!(style in ROAD_STYLES) || !pts) return null;
   const points = pts.split(';').map((p) => { const [x, y, z] = p.split(' ').map(Number); return new Vector3(x, y, z); });
   const r: RoadSpec = { style: style as RoadStyle, width: Number(width), pavement: Number(pavement), radius: Number(radius), points };
@@ -74,6 +79,8 @@ export function decodeRoad(s: string): RoadSpec | null {
   if (flags?.includes('l')) r.lined = true;
   if (flags?.includes('L')) r.lined = false;
   if (lift) r.lift = Number(lift);
+  const m = decodeMaterials(materials);
+  if (m) r.materials = m;
   return r;
 }
 
@@ -146,6 +153,10 @@ interface Piece {
   seg: Seg;
   /** Top height above the segment's ground plane. */
   top: number;
+  /** A gutter strip: part of the carriageway in its own material. */
+  gutter?: boolean;
+  /** A corner fillet: textured world-aligned, not along the road. */
+  corner?: boolean;
 }
 
 const cross = (o: Vector2, a: Vector2, b: Vector2) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
@@ -208,8 +219,11 @@ function roadPieces(r: RoadSpec, index: number): Piece[] {
   const w = r.width / 2;
   const kerbs = r.kerbs ?? st.kerb;
   const kerbTop = kerbs ? KERB_H : 0;
-  // Bands across the road: [from, to, kind, top].
-  const bands: [number, number, Kind, number][] = [[-w, w, 'surface', 0]];
+  // Bands across the road: [from, to, kind, top, gutter]. A gutter strip runs along each kerb inside the carriageway.
+  const g = kerbs && gutterMaterial(r.materials?.gutter) ? Math.min(r.materials?.gutterWidth ?? 32, w / 3) : 0;
+  const bands: [number, number, Kind, number, boolean?][] = g
+    ? [[-w + g, w - g, 'surface', 0], [w - g, w, 'surface', 0, true], [-w, -w + g, 'surface', 0, true]]
+    : [[-w, w, 'surface', 0]];
   if (kerbs) bands.push([w, w + KERB_W, 'kerb', kerbTop], [-w - KERB_W, -w, 'kerb', kerbTop]);
   if (r.pavement > 0) {
     const k = kerbs ? KERB_W : 0;
@@ -232,10 +246,10 @@ function roadPieces(r: RoadSpec, index: number): Piece[] {
     const a = line[i], b = line[i + 1];
     const len = v2(b).distanceTo(v2(a));
     const seg: Seg = { a: v2(a), dir: v2(b).sub(v2(a)).normalize(), za: a.z, slope: len > 0 ? (b.z - a.z) / len : 0, along };
-    for (const [d0, d1, kind, top] of bands) {
+    for (const [d0, d1, kind, top, gutter] of bands) {
       const l0 = off(d0), l1 = off(d1);
       const poly = ccwPoly([l0[i], l0[i + 1], l1[i + 1], l1[i]].map((p) => p.clone()));
-      if (Math.abs(area(poly)) > 1) pieces.push({ road: index, kind, poly, seg, top });
+      if (Math.abs(area(poly)) > 1) pieces.push({ road: index, kind, poly, seg, top, gutter });
     }
     along += len;
   }
@@ -255,9 +269,15 @@ function pieceBrush(doc: VmfDocument, piece: Piece, r: RoadSpec): KVNode | null 
   const normal = new Vector3(-s.slope * s.dir.x, -s.slope * s.dir.y, 1).normalize();
   let top = st.surface, side = NODRAW;
   let axes: { u?: TexAxis; v?: TexAxis } = {};
-  if (piece.kind === 'surface') {
-    const lined = r.lined ?? st.lined;
-    top = lined ? st.surface : st.surface === ROAD_STYLES.asphalt.surface ? PLAIN_ASPHALT : st.surface;
+  const m = r.materials;
+  if (piece.kind === 'surface' && piece.gutter) {
+    top = gutterMaterial(m?.gutter) ?? st.surface;
+  } else if (piece.kind === 'surface') {
+    // A chosen carriageway material has no centre line, except the lined asphalt.
+    const own = carriagewayMaterial(m?.carriageway);
+    const lined = !piece.corner && (own ? own === ROAD_STYLES.asphalt.surface && (r.lined ?? true) : r.lined ?? st.lined);
+    top = own ?? (lined ? st.surface : st.surface === ROAD_STYLES.asphalt.surface ? PLAIN_ASPHALT : st.surface);
+    if (own === ROAD_STYLES.asphalt.surface && !lined) top = PLAIN_ASPHALT;
     if (lined) {
       // One texture tile across the carriageway puts the dashed line on the centre; dashes run along the road.
       const across = new Vector3(-s.dir.y, s.dir.x, 0), along = new Vector3(s.dir.x, s.dir.y, 0);
@@ -266,8 +286,8 @@ function pieceBrush(doc: VmfDocument, piece: Piece, r: RoadSpec): KVNode | null 
       const vShift = s.along / vScale - (s.a.x * along.x + s.a.y * along.y) / vScale;
       axes = { u: { axis: across, shift: ((uShift % 512) + 512) % 512, scale: uScale }, v: { axis: along, shift: ((vShift % 512) + 512) % 512, scale: vScale } };
     }
-  } else if (piece.kind === 'kerb') { top = KERB; side = KERB; }
-  else if (piece.kind === 'pavement') { top = PAVEMENT; side = KERB; }
+  } else if (piece.kind === 'kerb') { top = kerbMaterial(m?.kerb) ?? KERB; side = top; }
+  else if (piece.kind === 'pavement') { top = pavementMaterial(m?.pavement) ?? PAVEMENT; side = kerbMaterial(m?.kerb) ?? KERB; }
   else { top = RAIL; side = RAIL; }
   const planes: PlaneSpec[] = [
     { point: new Vector3(s.a.x, s.a.y, topZ), normal, material: top, ...axes },
@@ -291,16 +311,23 @@ function pieceBrush(doc: VmfDocument, piece: Piece, r: RoadSpec): KVNode | null 
  */
 export function buildRoads(doc: VmfDocument, roads: RoadSpec[]): KVNode[][] {
   const all = roads.map((r, i) => (r.points.length >= 2 ? roadPieces(r, i) : []));
-  const of = (kind: Kind) => all.flat().filter((p) => p.kind === kind);
+  // Rounded kerbs where two straight streets cross: the corner squares are cut out of the kerbs and pavements
+  // and filled with a fillet of carriageway, a curved kerb and a quarter disc of pavement.
+  const corners = cornerFillets(roads);
+  for (const c of corners) all[c.road].push(...c.pieces);
+  // Corner pieces lie inside the corner squares, which are cut out of everything else: they cut nothing themselves.
+  const of = (kind: Kind) => all.flat().filter((p) => p.kind === kind && !p.corner);
   const surfaces = of('surface'), kerbs = of('kerb'), pavements = of('pavement');
   return roads.map((r, i) => {
     const out: KVNode[] = [];
     for (const piece of all[i]) {
-      const cutters = piece.kind === 'surface' ? surfaces.filter((c) => c.road < i)
+      // Corner fillets were fitted into the corner squares already.
+      const cutters = piece.corner ? [] : piece.kind === 'surface' ? surfaces.filter((c) => c.road < i)
         : piece.kind === 'kerb' ? [...surfaces.filter((c) => c.road !== i), ...kerbs.filter((c) => c.road < i)]
           : piece.kind === 'pavement' ? [...surfaces, ...kerbs].filter((c) => c.road !== i).concat(pavements.filter((c) => c.road < i))
             : [];
       let polys = [piece.poly];
+      if ((piece.kind === 'kerb' || piece.kind === 'pavement') && !piece.corner) for (const c of corners) polys = polys.flatMap((p) => subtract(p, c.square));
       for (const c of cutters) polys = polys.flatMap((p) => subtract(p, c.poly));
       for (const poly of polys) {
         if (Math.abs(area(poly)) < 4) continue;
@@ -310,6 +337,68 @@ export function buildRoads(doc: VmfDocument, roads: RoadSpec[]): KVNode[][] {
     }
     return out;
   });
+}
+
+/** Arc steps of a rounded corner. */
+const CORNER_STEPS = 6;
+
+/**
+ * Rounded corners where two straight, axis-aligned streets with kerbs cross or meet (a T): one per corner where
+ * both kerbs run on past the corner. The radius is the larger of the two roads' `materials.corner`, at most the
+ * kerb and pavement width.
+ */
+export function cornerFillets(roads: RoadSpec[]): { road: number; square: Vector2[]; pieces: Piece[] }[] {
+  const out: { road: number; square: Vector2[]; pieces: Piece[] }[] = [];
+  const straight = (r: RoadSpec) => {
+    if (r.points.length !== 2 || !(r.kerbs ?? ROAD_STYLES[r.style].kerb)) return null;
+    const [a, b] = r.points;
+    if (Math.abs(a.y - b.y) < 0.5) return { axis: 'x' as const, at: a.y, lo: Math.min(a.x, b.x), hi: Math.max(a.x, b.x), z: (a.z + b.z) / 2 };
+    if (Math.abs(a.x - b.x) < 0.5) return { axis: 'y' as const, at: a.x, lo: Math.min(a.y, b.y), hi: Math.max(a.y, b.y), z: (a.z + b.z) / 2 };
+    return null;
+  };
+  const lines = roads.map(straight);
+  for (let i = 0; i < roads.length; i++) for (let j = i + 1; j < roads.length; j++) {
+    const li = lines[i], lj = lines[j];
+    if (!li || !lj || li.axis === lj.axis) continue;
+    const [ai, bi] = li.axis === 'x' ? [i, j] : [j, i];
+    const A = lines[ai]!, B = lines[bi]!, ra = roads[ai], rb = roads[bi];
+    const want = Math.max(ra.materials?.corner ?? 0, rb.materials?.corner ?? 0);
+    if (want <= 0) continue;
+    const wa = ra.width / 2, wb = rb.width / 2;
+    // The streets must meet: B's line within A's extent and the other way round, give or take the other's half width
+    // (the sketch's street pieces end inside the crossing, not at its centre).
+    if (B.at < A.lo - wb || B.at > A.hi + wb || A.at < B.lo - wa || A.at > B.hi + wa) continue;
+    const pav = Math.min(ra.pavement, rb.pavement);
+    const R = Math.max(KERB_W + 8, Math.min(want, KERB_W + pav));
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      const c = new Vector2(B.at + sx * wb, A.at + sy * wa);
+      // Both kerbs run on past the corner square.
+      const aRuns = sx > 0 ? A.hi >= c.x + R + 16 : A.lo <= c.x - R - 16;
+      const bRuns = sy > 0 ? B.hi >= c.y + R + 16 : B.lo <= c.y - R - 16;
+      if (!aRuns || !bRuns) continue;
+      const o = new Vector2(c.x + sx * R, c.y + sy * R);
+      const t0 = Math.atan2(-sy, 0), t1 = Math.atan2(0, -sx);
+      let d = t1 - t0;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      const arc = (rad: number) => Array.from({ length: CORNER_STEPS + 1 }, (_, k) => {
+        const t = t0 + (d * k) / CORNER_STEPS;
+        return new Vector2(o.x + Math.cos(t) * rad, o.y + Math.sin(t) * rad);
+      });
+      const outer = arc(R), inner = arc(R - KERB_W);
+      const seg: Seg = { a: c.clone(), dir: new Vector2(1, 0), za: A.z, slope: 0, along: 0 };
+      const pieces: Piece[] = [];
+      const add = (kind: Kind, poly: Vector2[], top: number) => { const q = ccwPoly(poly); if (Math.abs(area(q)) > 1) pieces.push({ road: ai, kind, poly: q, seg, top, corner: true }); };
+      for (let k = 0; k < CORNER_STEPS; k++) {
+        add('surface', [c.clone(), outer[k], outer[k + 1]], 0);
+        add('kerb', [outer[k], outer[k + 1], inner[k + 1], inner[k]], KERB_H);
+        if (pav > 0) add('pavement', [o.clone(), inner[k], inner[k + 1]], KERB_H);
+      }
+      const square = ccwPoly([c.clone(), new Vector2(o.x, c.y), o.clone(), new Vector2(c.x, o.y)]);
+      out.push({ road: ai, square, pieces });
+    }
+  }
+  return out;
 }
 
 /** A func_detail node carrying a road's brushes and its definition. */
