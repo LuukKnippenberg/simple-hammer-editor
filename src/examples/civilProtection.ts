@@ -272,6 +272,18 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   // The ration lanes' east barricades stood where the door now opens.
   for (const e of doc.entities.filter((q) => q.classname === 'prop_static' && /combine_barricade/.test(q.get('model') ?? '') && q.origin
     && q.origin.x > S.front - 96 && q.origin.x < S.front && q.origin.y > S.door[0] - 128 && q.origin.y < S.door[1] + 96)) doc.removeEntity(e);
+  // Pilasters on the walls the camera looks at (it looks north-west: the north and west walls' inner faces).
+  // The north wall's every 384 clear of the billboard and its monitors; the west wall's every 512, a window model
+  // between each two.
+  const monitors = [S.billboard[0] - 160, S.billboard[1] + 160];
+  const northPilasters: number[] = [];
+  for (let x = S.west + 208; x < S.front - 160; x += 384) {
+    if (x > S.billboard[0] - 64 && x < S.billboard[1] + 64) continue;
+    if (monitors.some((m) => Math.abs(m - x) < 72)) continue;
+    northPilasters.push(x);
+  }
+  const westPilasters: number[] = [];
+  for (let y = S.south + 192; y < S.north - 160; y += 512) if (Math.abs(y - S.divider) > 96) westPilasters.push(y);
   // The sun comes from the north-east (light_environment yaw 215): window bands in the north and east walls let
   // it fall into the hall in slanting shafts; the other walls have window models.
   const walls: HallWall[] = [
@@ -280,7 +292,7 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
     wall(S.shedEast, S.divider, S.front, S.divider, 1, [], []),
     wall(S.front, S.divider, S.front, S.north, 1, [[S.door[0], S.door[1], doorTop]], [], bandOf(S.divider, S.north, [S.door])),
     wall(S.front, S.north, S.west, S.north, 1, [], [], bandOf(S.west, S.front, [S.billboard])),
-    wall(S.west, S.north, S.west, S.south, 1, [], windows(S.south, S.north)),
+    wall(S.west, S.north, S.west, S.south, 1, [], westPilasters.map((y) => y + 256).filter((y) => y < S.north - 160 && Math.abs(y - S.divider) > 160)),
     wall(S.west, S.divider, S.front, S.divider, 0, S.arches.map(([x0, x1]) => [x0, x1, archTop]), []),
   ];
   // Skylights: two strips along the concourse, one over each outer track of the shed, broken by roof bands.
@@ -290,7 +302,7 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   const hall = hallBrushes(doc, {
     floorZ: FLOOR, height: HEIGHT, walls,
     materials: {
-      inner: 'PLASTER/PLASTERWALL035D', outer: 'BUILDING_TEMPLATE/BUILDING_TRAINSTATION_TEMPLATE002R', outerScale: 0.5,
+      inner: 'STONE/STONEWALL050A', outer: 'BUILDING_TEMPLATE/BUILDING_TRAINSTATION_TEMPLATE002R', outerScale: 0.5,
       cap: 'CONCRETE/CONCRETEFLOOR028A', glass: 'GLASS/GLASSWINDOW029A',
     },
     // Over the walls and a little beyond (the roof floats a little above the wall tops), but not touching the
@@ -318,6 +330,43 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   brushEnt('func_brush', { targetname: 'station_girders', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', StartDisabled: '0' }, hall.girders);
   // The glass of the window bands: never solid, and it lets the light through (no vrad shadow).
   brushEnt('func_brush', { targetname: 'station_glass', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', vrad_brush_cast_shadows: '0', StartDisabled: '0' }, hall.glass);
+  // Relief on the walls the camera sees: a grimy stone plinth, a moulding ledge, pilasters with bases and
+  // capitals, and a stepped cornice under the (invisible) roof. A brush entity, so none of it adds to vbsp's
+  // t-junctions; it casts shadows in the sun shafts.
+  const TRIM = 'BUILDING_TEMPLATE/BUILDING_TEMPLATE003A', PLINTH = 'STONE/STONEWALL029B', NODRAW = 'TOOLS/TOOLSNODRAW';
+  const TOP = FLOOR + HEIGHT;
+  const relief: KVNode[] = [];
+  /** A box on a wall face: `along` a range along the wall, `out` how far it stands proud, z0..z1 in world z. */
+  const onWall = (face: { axis: 'x' | 'y'; at: number; n: 1 | -1 }, a0: number, a1: number, out: number, z0: number, z1: number, mat: string) => {
+    const w0 = face.at, w1 = face.at + face.n * out;
+    const min = face.axis === 'y' ? new Vector3(a0, Math.min(w0, w1), z0) : new Vector3(Math.min(w0, w1), a0, z0);
+    const max = face.axis === 'y' ? new Vector3(a1, Math.max(w0, w1), z1) : new Vector3(Math.max(w0, w1), a1, z1);
+    relief.push(boxSolid(doc, min, max, { top: mat, bottom: NODRAW, sides: mat }));
+  };
+  const faces = [
+    { face: { axis: 'y' as const, at: S.north - T / 2, n: -1 as const }, from: S.west + T / 2, to: S.front - T / 2, pilasters: northPilasters },
+    { face: { axis: 'x' as const, at: S.west + T / 2, n: 1 as const }, from: S.divider + T / 2, to: S.north - T / 2, pilasters: westPilasters.filter((y) => y > S.divider) },
+    { face: { axis: 'x' as const, at: S.west + T / 2, n: 1 as const }, from: S.south + T / 2, to: S.divider - T / 2, pilasters: westPilasters.filter((y) => y < S.divider) },
+  ];
+  for (const { face, from, to, pilasters } of faces) {
+    onWall(face, from, to, 8, FLOOR, FLOOR + 80, PLINTH);
+    onWall(face, from, to, 12, FLOOR + 112, FLOOR + 124, TRIM);
+    onWall(face, from, to, 12, TOP - 56, TOP - 40, TRIM);
+    onWall(face, from, to, 28, TOP - 40, TOP, TRIM);
+    for (const c of pilasters) {
+      onWall(face, c - 36, c + 36, 24, FLOOR, FLOOR + 112, TRIM);
+      onWall(face, c - 24, c + 24, 16, FLOOR + 112, TOP - 80, TRIM);
+      onWall(face, c - 36, c + 36, 24, TOP - 80, TOP - 56, TRIM);
+    }
+  }
+  // The front door, outside: jambs, a lintel and the station's arch ornament above it.
+  const front = { axis: 'x' as const, at: S.front + T / 2, n: 1 as const };
+  onWall(front, S.door[0] - 40, S.door[0], 20, FLOOR, FLOOR + doorTop + 32, TRIM);
+  onWall(front, S.door[1], S.door[1] + 40, 20, FLOOR, FLOOR + doorTop + 32, TRIM);
+  onWall(front, S.door[0] - 56, S.door[1] + 56, 24, FLOOR + doorTop, FLOOR + doorTop + 48, TRIM);
+  addEnt('prop_static', new Vector3(S.front + T / 2 + 24, (S.door[0] + S.door[1]) / 2, FLOOR + doorTop + 48), { model: 'models/props_trainstation/trainstation_arch001.mdl', angles: '0 0 0', solid: '0' });
+  props++;
+  brushEnt('func_brush', { targetname: 'station_relief', Solidity: '1', spawnflags: '2', rendermode: '0', disableshadows: '1', vrad_brush_cast_shadows: '1', StartDisabled: '0' }, relief);
   // The concourse floor: a beige and brown checker of stone tiles, dark enough not to light the hall back up.
   doc.addSolid(boxSolid(doc, new Vector3(inner.x0, inner.divider1, -12), new Vector3(inner.x1, inner.north, 4), { top: 'TILE/TILEFLOOR010A', bottom: 'TOOLS/TOOLSNODRAW', sides: 'TOOLS/TOOLSNODRAW' }));
   // Light: the roof keeps the daylight out except through the skylights and window bands; inside, only lamps you
@@ -329,13 +378,17 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
     props++;
     light(new Vector3(x, y, ground(x, y) + z - 18), '255 208 156 150', 128, 448);
   };
-  // Columns along the north wall and between the arches, each with its lantern lit.
+  /** A lit lantern on a column or pilaster at (x, y), `out` in front of its centre, facing `face`. */
+  const lantern = (x: number, y: number, face: number, out: number) => {
+    const c = Math.cos((face * Math.PI) / 180), sn = Math.sin((face * Math.PI) / 180);
+    addEnt('prop_static', new Vector3(x + c * out, y + sn * out, ground(x, y) + 190), { model: 'models/props_trainstation/column_light001a.mdl', angles: `0 ${face} 0`, solid: '0' });
+    props++;
+    light(new Vector3(x + c * (out + 18), y + sn * (out + 18), ground(x, y) + 190), '255 196 140 90', 96, 384);
+  };
+  // Columns between the arches, each with its lantern.
   const column = (x: number, y: number, face: number) => {
     prop('props_trainstation/trainstation_column001', x, y, 0);
-    const c = Math.cos((face * Math.PI) / 180), sn = Math.sin((face * Math.PI) / 180);
-    addEnt('prop_static', new Vector3(x + c * 14, y + sn * 14, ground(x, y) + 190), { model: 'models/props_trainstation/column_light001a.mdl', angles: `0 ${face} 0`, solid: '0' });
-    props++;
-    light(new Vector3(x + c * 32, y + sn * 32, ground(x, y) + 190), '255 196 140 90', 96, 384);
+    lantern(x, y, face, 14);
   };
   // Hanging lamps over the benches, the ration counter and the middle of the lanes, and along the platform.
   for (const x of [X(8.2), X(10.4)]) hanging(x, Y(13.1));
@@ -346,14 +399,16 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   for (let x = X(2); x < S.shedEast - 256; x += 512) hanging(x, Y(0) + 368, 240);
   // The Breencast's cold glow on the floor in front of the billboard.
   light(new Vector3(X(9.5), S.north - 96, 200), '165 200 255 110', 128, 512);
-  for (let x = X(1.5); x < S.front - 96; x += 512) if (x < S.billboard[0] - 64 || x > S.billboard[1] + 64) column(x, inner.north - 12, 270);
+  // Lanterns on every other pilaster of the north and west walls.
+  northPilasters.forEach((x, i) => { if (i % 2 === 0) lantern(x, inner.north, 270, 28); });
+  westPilasters.forEach((y) => lantern(inner.x0, y, 0, 28));
   const archFree = (x: number) => !S.arches.some(([a0, a1]) => x > a0 - 48 && x < a1 + 48);
   for (let x = X(1.5); x < X(12.5); x += 384) if (archFree(x)) column(x, inner.divider1 + 12, 90);
   // Waiting room: two rows of benches facing the Breencast (the crowd stands in front of them), bins at the
   // row ends, payphones on the west wall.
   for (const y of [Y(12.6), Y(13.6)]) for (let x = X(7.3); x <= X(11.2); x += 92) prop('props_trainstation/bench_indoor001a', x, y, 90);
   for (const y of [Y(12.6), Y(13.6)]) { prop('props_trainstation/trashcan_indoor001b', X(6.8), y); prop('props_trainstation/trashcan_indoor001b', X(11.8), y); }
-  for (const y of [Y(10.5), Y(11), Y(11.5)]) prop('props_trainstation/payphone001a', inner.x0 + 10, y, 0);
+  for (const y of [Y(10.5), Y(11), Y(11.5)]) prop('props_trainstation/payphone001a', inner.x0 + 20, y, 0);
   // Combine monitors on the north wall either side of the billboard, ornaments by the door.
   for (const x of [S.billboard[0] - 160, S.billboard[1] + 160]) prop('props_combine/combine_intmonitor003', x, inner.north - 4, 270, 120);
   for (const y of [S.door[0] - 48, S.door[1] + 48]) prop('props_trainstation/trainstation_ornament001', inner.x1 - 28, y, 180);
