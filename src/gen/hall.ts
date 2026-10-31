@@ -24,6 +24,8 @@ export interface HallWall {
   /** Which side faces into the hall: the side the left-hand normal of a→b points to (1), the other (-1), or both (0, a partition). */
   inside: 1 | -1 | 0;
   openings: HallOpening[];
+  /** Inner finishes for this wall's left / right face (left of a→b), instead of the hall's `inner`. */
+  faces?: { left?: string; right?: string };
 }
 
 export interface HallMaterials {
@@ -145,6 +147,8 @@ export function hallBrushes(doc: VmfDocument, spec: HallSpec): HallBrushes {
         continue;
       }
       const faces: FaceSpec[] = boxFaces(piece.min, piece.max, { top: m.cap, bottom: NODRAW, sides: m.inner });
+      if (w.faces?.left) faces[sideOf(left)].material = w.faces.left;
+      if (w.faces?.right) faces[sideOf(left.clone().negate())].material = w.faces.right;
       if (outerSide >= 0) {
         const f = faces[outerSide];
         f.material = m.outer;

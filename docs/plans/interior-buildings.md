@@ -21,11 +21,17 @@ first version of this; this generalises it.
 ## Phases
 
 ### A1: Model and shell
-`src/gen/interior/` with the data model (`InteriorBuildingSpec`: a rectangle footprint, a cell size, rooms as
-rectangles of cells, each with a type) and the shell generator: walls on every room edge (outer walls where the
+`src/gen/rooms/` with the data model (`RoomBuildingSpec`: a cell grid and rooms as rectangles of cells, each
+with a type; the rooms together are the building's shape, so an L or a T is just rooms placed that way) and the shell generator: walls on every room edge (outer walls where the
 edge is on the outline, partitions between rooms), doorways where rooms meet (one per shared edge, or none for
 a type that wants to be closed off), street doors on outer walls the spec names, window bands on outer walls,
 a floor per room in its type's material, the invisible roof with per-room skylights. Tests for the layout rules.
+
+Done: `model.ts` (`roomLayout`: wall runs on the grid lines, corners kept by the walls along x, doorways and
+archways between rooms, street doors, window bands on the north and east walls, floors per room, and issues
+for overlapping rooms, doors off the outline and rooms you can't reach), `types.ts` (the room type catalogue)
+and `shell.ts` (`roomShell`: walls with per-room inner finishes, the floating roof with skylights per room
+type, glass). Room floors come with the furniture in A2 (as POI-kit pads, which overlays stick to).
 
 ### A2: Room types
 A catalogue of room types, each a dresser that furnishes a room given its rectangle and its doorways (kept
