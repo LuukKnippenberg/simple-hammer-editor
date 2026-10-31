@@ -436,6 +436,36 @@ export function buildStation(editor: Editor, ground: (x: number, y: number) => n
   // Combine monitors on the north wall either side of the billboard, ornaments by the door.
   for (const x of [S.billboard[0] - 160, S.billboard[1] + 160]) prop('props_combine/combine_intmonitor003', x, inner.north - 4, 270, 120);
   for (const y of [S.door[0] - 48, S.door[1] + 48]) prop('props_trainstation/trainstation_ornament001', inner.x1 - 28, y, 180);
+  // A canteen corner in the north-west of the concourse: cafeteria tables with benches either side, bottles and
+  // takeout cartons on some, a bin by the wall.
+  const rng = new Rng(1709 * 5 + 3);
+  for (const tx of [S.west + 180, S.west + 400]) for (const ty of [S.north - 156, S.north - 380]) {
+    prop('props_wasteland/cafeteria_table001a_static', tx, ty, 0);
+    for (const side of [-1, 1]) prop('props_wasteland/cafeteria_bench001a', tx + side * 40, ty, 0);
+    const things = rng.int(0, 3);
+    for (let k = 0; k < things; k++) {
+      prop(rng.pick(['props_junk/garbage_glassbottle001a', 'props_junk/garbage_glassbottle003a', 'props_junk/garbage_takeoutcarton001a']), tx + rng.range(-10, 10), ty + rng.range(-48, 48), rng.int(0, 359), 30);
+    }
+  }
+  prop('props_trainstation/trashcan_indoor001b', S.west + 290, S.north - 60);
+  // The train shed: passenger coaches on both tracks along the platform instead of the rail yard's wagons (tank
+  // wagons and wrecks don't belong in a station), benches down the platform, bins, crates, boxes and push carts
+  // at its ends.
+  for (const e of doc.entities.filter((q) => /^prop_/.test(q.classname) && /props_trainstation\/train00|props_junk\/train00/.test(q.get('model') ?? '') && q.origin
+    && q.origin.x > S.west && q.origin.x < S.shedEast && q.origin.y > S.south && q.origin.y < S.divider)) doc.removeEntity(e);
+  const platformY = Y(0) + 368;
+  const crossing = X(11);
+  // train001 is the coach (the one with glass); 684 long along its y, so turned 90 to run along the track.
+  for (const ty of [Y(0) + 192, Y(0) + 544]) for (const cx of [X(4.2), X(16.8)]) prop('props_trainstation/train001', cx, ty, 90);
+  for (let x = X(2.5); x < X(20.5); x += 384) {
+    if (Math.abs(x - crossing) < 192) continue;
+    prop('props_trainstation/benchoutdoor01a', x, platformY, 90);
+    if (rng.chance(0.5)) prop('props_trainstation/trashcan_indoor001b', x + 96, platformY + 40, 0);
+  }
+  for (const [x, dy] of [[X(1.4), -40], [X(1.6), 40], [X(20.4), -40], [X(20.6), 40]]) {
+    prop(rng.pick(['props_junk/wood_crate001a_static', 'props_junk/cardboard_box001a_static']), x, platformY + dy, rng.int(0, 3) * 90);
+  }
+  for (const x of [X(1.8), X(20.2)]) prop('props_silo/pushcart_static', x, platformY + 72, 0);
   return { brushes: hall.world.length + hall.roof.length + 1, props, northPilasters, westPilasters };
 }
 

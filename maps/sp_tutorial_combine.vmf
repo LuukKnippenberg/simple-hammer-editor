@@ -84293,10 +84293,10 @@ world
 	}
 	solid
 	{
-		"id" "23425"
+		"id" "23459"
 		side
 		{
-			"id" "23426"
+			"id" "23460"
 			"plane" "(-2816 -616 304) (-2432 -600 304) (-2432 -616 304)"
 			"material" "METAL/METALWALL003A"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -84307,7 +84307,7 @@ world
 		}
 		side
 		{
-			"id" "23427"
+			"id" "23461"
 			"plane" "(-2816 -616 -8) (-2432 -616 -8) (-2432 -600 -8)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -84318,7 +84318,7 @@ world
 		}
 		side
 		{
-			"id" "23428"
+			"id" "23462"
 			"plane" "(-2816 -616 304) (-2432 -616 304) (-2816 -616 -8)"
 			"material" "METAL/METALWALL003A"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -84329,7 +84329,7 @@ world
 		}
 		side
 		{
-			"id" "23429"
+			"id" "23463"
 			"plane" "(-2432 -616 304) (-2432 -600 304) (-2432 -616 -8)"
 			"material" "METAL/METALWALL003A"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -84340,7 +84340,7 @@ world
 		}
 		side
 		{
-			"id" "23430"
+			"id" "23464"
 			"plane" "(-2432 -600 304) (-2816 -600 304) (-2432 -600 -8)"
 			"material" "METAL/METALWALL003A"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -84351,7 +84351,7 @@ world
 		}
 		side
 		{
-			"id" "23431"
+			"id" "23465"
 			"plane" "(-2816 -600 304) (-2816 -616 304) (-2816 -600 -8)"
 			"material" "METAL/METALWALL003A"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -272157,26 +272157,6 @@ entity
 }
 entity
 {
-	"id" "22048"
-	"classname" "prop_static"
-	"model" "models/props_trainstation/train002.mdl"
-	"angles" "0 90 0"
-	"solid" "6"
-	"she_poi_id" "gb00"
-	"origin" "-2091 -2528 98"
-}
-entity
-{
-	"id" "22049"
-	"classname" "prop_static"
-	"model" "models/props_junk/train002.mdl"
-	"angles" "79 88 0"
-	"solid" "6"
-	"she_poi_id" "gb00"
-	"origin" "-3338 -2344 78"
-}
-entity
-{
 	"id" "22050"
 	"classname" "prop_static"
 	"model" "models/props_c17/oildrum001_static.mdl"
@@ -284856,6 +284836,874 @@ entity
 entity
 {
 	"id" "23409"
+	"classname" "prop_static"
+	"model" "models/props_wasteland/cafeteria_table001a_static.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3612 -748 15"
+}
+entity
+{
+	"id" "23410"
+	"classname" "prop_dynamic"
+	"model" "models/props_wasteland/cafeteria_bench001a.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3652 -748 10"
+}
+entity
+{
+	"id" "23411"
+	"classname" "prop_dynamic"
+	"model" "models/props_wasteland/cafeteria_bench001a.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3572 -748 10"
+}
+entity
+{
+	"id" "23412"
+	"classname" "prop_static"
+	"model" "models/props_wasteland/cafeteria_table001a_static.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3612 -972 15"
+}
+entity
+{
+	"id" "23413"
+	"classname" "prop_dynamic"
+	"model" "models/props_wasteland/cafeteria_bench001a.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3652 -972 10"
+}
+entity
+{
+	"id" "23414"
+	"classname" "prop_dynamic"
+	"model" "models/props_wasteland/cafeteria_bench001a.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3572 -972 10"
+}
+entity
+{
+	"id" "23415"
+	"classname" "prop_dynamic"
+	"model" "models/props_junk/garbage_glassbottle001a.mdl"
+	"angles" "0 70 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3609 -1005 38"
+}
+entity
+{
+	"id" "23416"
+	"classname" "prop_dynamic"
+	"model" "models/props_junk/garbage_glassbottle001a.mdl"
+	"angles" "0 191 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3613 -964 38"
+}
+entity
+{
+	"id" "23417"
+	"classname" "prop_dynamic"
+	"model" "models/props_junk/garbage_glassbottle001a.mdl"
+	"angles" "0 238 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3610 -949 38"
+}
+entity
+{
+	"id" "23418"
+	"classname" "prop_static"
+	"model" "models/props_wasteland/cafeteria_table001a_static.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3392 -748 15"
+}
+entity
+{
+	"id" "23419"
+	"classname" "prop_dynamic"
+	"model" "models/props_wasteland/cafeteria_bench001a.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3432 -748 10"
+}
+entity
+{
+	"id" "23420"
+	"classname" "prop_dynamic"
+	"model" "models/props_wasteland/cafeteria_bench001a.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3352 -748 10"
+}
+entity
+{
+	"id" "23421"
+	"classname" "prop_dynamic"
+	"model" "models/props_junk/garbage_glassbottle003a.mdl"
+	"angles" "0 231 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3395 -766 38"
+}
+entity
+{
+	"id" "23422"
+	"classname" "prop_static"
+	"model" "models/props_wasteland/cafeteria_table001a_static.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3392 -972 15"
+}
+entity
+{
+	"id" "23423"
+	"classname" "prop_dynamic"
+	"model" "models/props_wasteland/cafeteria_bench001a.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3432 -972 10"
+}
+entity
+{
+	"id" "23424"
+	"classname" "prop_dynamic"
+	"model" "models/props_wasteland/cafeteria_bench001a.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"skin" "0"
+	"disableshadows" "0"
+	"ExplodeDamage" "0"
+	"ExplodeRadius" "0"
+	"PerformanceMode" "0"
+	"pressuredelay" "0"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"renderfx" "0"
+	"rendermode" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"disablereceiveshadows" "0"
+	"RandomAnimation" "0"
+	"DisableBoneFollowers" "0"
+	"HoldAnimation" "0"
+	"MinAnimTime" "5"
+	"MaxAnimTime" "10"
+	"SetBodyGroup" "0"
+	"StartDisabled" "0"
+	"origin" "-3352 -972 10"
+}
+entity
+{
+	"id" "23425"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/trashcan_indoor001b.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3502 -652 20"
+}
+entity
+{
+	"id" "23426"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/train001.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3302 -2880 115"
+}
+entity
+{
+	"id" "23427"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/train001.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-1690 -2880 115"
+}
+entity
+{
+	"id" "23428"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/train001.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3302 -2528 115"
+}
+entity
+{
+	"id" "23429"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/train001.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-1690 -2528 115"
+}
+entity
+{
+	"id" "23430"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/benchoutdoor01a.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3520 -2704 27"
+}
+entity
+{
+	"id" "23431"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/benchoutdoor01a.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3136 -2704 27"
+}
+entity
+{
+	"id" "23432"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/trashcan_indoor001b.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3040 -2664 36"
+}
+entity
+{
+	"id" "23433"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/benchoutdoor01a.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-2752 -2704 27"
+}
+entity
+{
+	"id" "23434"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/trashcan_indoor001b.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-2656 -2664 36"
+}
+entity
+{
+	"id" "23435"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/benchoutdoor01a.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-1984 -2704 27"
+}
+entity
+{
+	"id" "23436"
+	"classname" "prop_static"
+	"model" "models/props_trainstation/benchoutdoor01a.mdl"
+	"angles" "0 90 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-1600 -2704 27"
+}
+entity
+{
+	"id" "23437"
+	"classname" "prop_static"
+	"model" "models/props_junk/wood_crate001a_static.mdl"
+	"angles" "0 180 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3661 -2744 36"
+}
+entity
+{
+	"id" "23438"
+	"classname" "prop_static"
+	"model" "models/props_junk/wood_crate001a_static.mdl"
+	"angles" "0 270 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3635 -2664 36"
+}
+entity
+{
+	"id" "23439"
+	"classname" "prop_static"
+	"model" "models/props_junk/cardboard_box001a_static.mdl"
+	"angles" "0 270 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-1229 -2744 28"
+}
+entity
+{
+	"id" "23440"
+	"classname" "prop_static"
+	"model" "models/props_junk/cardboard_box001a_static.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-1203 -2664 28"
+}
+entity
+{
+	"id" "23441"
+	"classname" "prop_static"
+	"model" "models/props_silo/pushcart_static.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-3610 -2632 33"
+}
+entity
+{
+	"id" "23442"
+	"classname" "prop_static"
+	"model" "models/props_silo/pushcart_static.mdl"
+	"angles" "0 0 0"
+	"solid" "6"
+	"mindxlevel" "0"
+	"maxdxlevel" "0"
+	"skin" "0"
+	"disableshadows" "0"
+	"screenspacefade" "0"
+	"fademindist" "-1"
+	"fademaxdist" "0"
+	"fadescale" "1"
+	"disablevertexlighting" "0"
+	"disableselfshadowing" "0"
+	"ignorenormals" "0"
+	"renderamt" "255"
+	"rendercolor" "255 255 255"
+	"origin" "-1254 -2632 33"
+}
+entity
+{
+	"id" "23443"
 	"classname" "func_brush"
 	"targetname" "outpost_gate"
 	"Solidity" "1"
@@ -284865,10 +285713,10 @@ entity
 	"vrad_brush_cast_shadows" "0"
 	solid
 	{
-		"id" "23410"
+		"id" "23444"
 		side
 		{
-			"id" "23411"
+			"id" "23445"
 			"plane" "(1120 -514 160) (1312 -510 160) (1312 -514 160)"
 			"material" "EFFECTS/COMBINESHIELD/COMSHIELDWALL"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -284879,7 +285727,7 @@ entity
 		}
 		side
 		{
-			"id" "23412"
+			"id" "23446"
 			"plane" "(1120 -514 0) (1312 -514 0) (1312 -510 0)"
 			"material" "EFFECTS/COMBINESHIELD/COMSHIELDWALL"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -284890,7 +285738,7 @@ entity
 		}
 		side
 		{
-			"id" "23413"
+			"id" "23447"
 			"plane" "(1120 -514 160) (1312 -514 160) (1120 -514 0)"
 			"material" "EFFECTS/COMBINESHIELD/COMSHIELDWALL"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -284901,7 +285749,7 @@ entity
 		}
 		side
 		{
-			"id" "23414"
+			"id" "23448"
 			"plane" "(1312 -514 160) (1312 -510 160) (1312 -514 0)"
 			"material" "EFFECTS/COMBINESHIELD/COMSHIELDWALL"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -284912,7 +285760,7 @@ entity
 		}
 		side
 		{
-			"id" "23415"
+			"id" "23449"
 			"plane" "(1312 -510 160) (1120 -510 160) (1312 -510 0)"
 			"material" "EFFECTS/COMBINESHIELD/COMSHIELDWALL"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -284923,7 +285771,7 @@ entity
 		}
 		side
 		{
-			"id" "23416"
+			"id" "23450"
 			"plane" "(1120 -510 160) (1120 -514 160) (1120 -510 0)"
 			"material" "EFFECTS/COMBINESHIELD/COMSHIELDWALL"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -284948,16 +285796,16 @@ entity
 }
 entity
 {
-	"id" "23417"
+	"id" "23451"
 	"classname" "func_nav_blocker"
 	"targetname" "outpost_gate_nav"
 	"StartDisabled" "0"
 	solid
 	{
-		"id" "23418"
+		"id" "23452"
 		side
 		{
-			"id" "23419"
+			"id" "23453"
 			"plane" "(1104 -544 128) (1328 -480 128) (1328 -544 128)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -284968,7 +285816,7 @@ entity
 		}
 		side
 		{
-			"id" "23420"
+			"id" "23454"
 			"plane" "(1104 -544 -16) (1328 -544 -16) (1328 -480 -16)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -284979,7 +285827,7 @@ entity
 		}
 		side
 		{
-			"id" "23421"
+			"id" "23455"
 			"plane" "(1104 -544 128) (1328 -544 128) (1104 -544 -16)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -284990,7 +285838,7 @@ entity
 		}
 		side
 		{
-			"id" "23422"
+			"id" "23456"
 			"plane" "(1328 -544 128) (1328 -480 128) (1328 -544 -16)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -285001,7 +285849,7 @@ entity
 		}
 		side
 		{
-			"id" "23423"
+			"id" "23457"
 			"plane" "(1328 -480 128) (1104 -480 128) (1328 -480 -16)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -285012,7 +285860,7 @@ entity
 		}
 		side
 		{
-			"id" "23424"
+			"id" "23458"
 			"plane" "(1104 -480 128) (1104 -544 128) (1104 -480 -16)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -285037,7 +285885,7 @@ entity
 }
 entity
 {
-	"id" "23432"
+	"id" "23466"
 	"classname" "prop_static"
 	"model" "models/props_c17/fence03a.mdl"
 	"angles" "0 0 0"
@@ -285059,7 +285907,7 @@ entity
 }
 entity
 {
-	"id" "23433"
+	"id" "23467"
 	"classname" "prop_static"
 	"model" "models/props_c17/fence03a.mdl"
 	"angles" "0 0 0"
@@ -285081,7 +285929,7 @@ entity
 }
 entity
 {
-	"id" "23434"
+	"id" "23468"
 	"classname" "prop_static"
 	"model" "models/props_c17/fence03a.mdl"
 	"angles" "0 0 0"
@@ -285103,7 +285951,7 @@ entity
 }
 entity
 {
-	"id" "23435"
+	"id" "23469"
 	"classname" "prop_static"
 	"model" "models/props_c17/fence03a.mdl"
 	"angles" "0 0 0"
@@ -285125,7 +285973,7 @@ entity
 }
 entity
 {
-	"id" "23436"
+	"id" "23470"
 	"classname" "prop_static"
 	"model" "models/props_c17/light_floodlight02_off.mdl"
 	"angles" "0 45 0"
@@ -285147,7 +285995,7 @@ entity
 }
 entity
 {
-	"id" "23437"
+	"id" "23471"
 	"classname" "light"
 	"_light" "215 230 255 220"
 	"_lightHDR" "-1 -1 -1 1"
@@ -285159,7 +286007,7 @@ entity
 }
 entity
 {
-	"id" "23438"
+	"id" "23472"
 	"classname" "prop_static"
 	"model" "models/props_c17/light_floodlight02_off.mdl"
 	"angles" "0 135 0"
@@ -285181,7 +286029,7 @@ entity
 }
 entity
 {
-	"id" "23439"
+	"id" "23473"
 	"classname" "light"
 	"_light" "215 230 255 220"
 	"_lightHDR" "-1 -1 -1 1"
@@ -285193,7 +286041,7 @@ entity
 }
 entity
 {
-	"id" "23440"
+	"id" "23474"
 	"classname" "prop_static"
 	"model" "models/props_c17/light_floodlight02_off.mdl"
 	"angles" "0 315 0"
@@ -285215,7 +286063,7 @@ entity
 }
 entity
 {
-	"id" "23441"
+	"id" "23475"
 	"classname" "light"
 	"_light" "215 230 255 220"
 	"_lightHDR" "-1 -1 -1 1"
@@ -285227,7 +286075,7 @@ entity
 }
 entity
 {
-	"id" "23442"
+	"id" "23476"
 	"classname" "prop_static"
 	"model" "models/props_c17/light_floodlight02_off.mdl"
 	"angles" "0 225 0"
@@ -285249,7 +286097,7 @@ entity
 }
 entity
 {
-	"id" "23443"
+	"id" "23477"
 	"classname" "light"
 	"_light" "215 230 255 220"
 	"_lightHDR" "-1 -1 -1 1"
@@ -285261,7 +286109,7 @@ entity
 }
 entity
 {
-	"id" "23444"
+	"id" "23478"
 	"classname" "prop_static"
 	"model" "models/pg_props/pg_obj/ja_combine_crate.mdl"
 	"angles" "0 90 0"
@@ -285283,7 +286131,7 @@ entity
 }
 entity
 {
-	"id" "23445"
+	"id" "23479"
 	"classname" "prop_static"
 	"model" "models/pg_props/pg_obj/ja_combine_crate.mdl"
 	"angles" "0 270 0"
@@ -285305,7 +286153,7 @@ entity
 }
 entity
 {
-	"id" "23446"
+	"id" "23480"
 	"classname" "prop_static"
 	"model" "models/pg_props/pg_obj/ja_combine_crate.mdl"
 	"angles" "0 180 0"
@@ -285327,7 +286175,7 @@ entity
 }
 entity
 {
-	"id" "23447"
+	"id" "23481"
 	"classname" "prop_static"
 	"model" "models/pg_props/pg_obj/ja_combine_crate.mdl"
 	"angles" "0 180 0"
@@ -285349,7 +286197,7 @@ entity
 }
 entity
 {
-	"id" "23448"
+	"id" "23482"
 	"classname" "prop_static"
 	"model" "models/pg_props/pg_obj/ja_combine_crate.mdl"
 	"angles" "0 270 0"
@@ -285371,7 +286219,7 @@ entity
 }
 entity
 {
-	"id" "23449"
+	"id" "23483"
 	"classname" "prop_static"
 	"model" "models/pg_props/pg_obj/ja_combine_crate.mdl"
 	"angles" "0 90 0"
@@ -285393,7 +286241,7 @@ entity
 }
 entity
 {
-	"id" "23450"
+	"id" "23484"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285415,7 +286263,7 @@ entity
 }
 entity
 {
-	"id" "23451"
+	"id" "23485"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285437,7 +286285,7 @@ entity
 }
 entity
 {
-	"id" "23452"
+	"id" "23486"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285459,7 +286307,7 @@ entity
 }
 entity
 {
-	"id" "23453"
+	"id" "23487"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285481,7 +286329,7 @@ entity
 }
 entity
 {
-	"id" "23454"
+	"id" "23488"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285503,7 +286351,7 @@ entity
 }
 entity
 {
-	"id" "23455"
+	"id" "23489"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285525,7 +286373,7 @@ entity
 }
 entity
 {
-	"id" "23456"
+	"id" "23490"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285547,7 +286395,7 @@ entity
 }
 entity
 {
-	"id" "23457"
+	"id" "23491"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285569,7 +286417,7 @@ entity
 }
 entity
 {
-	"id" "23458"
+	"id" "23492"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285591,7 +286439,7 @@ entity
 }
 entity
 {
-	"id" "23459"
+	"id" "23493"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285613,7 +286461,7 @@ entity
 }
 entity
 {
-	"id" "23460"
+	"id" "23494"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285635,7 +286483,7 @@ entity
 }
 entity
 {
-	"id" "23461"
+	"id" "23495"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285657,7 +286505,7 @@ entity
 }
 entity
 {
-	"id" "23462"
+	"id" "23496"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285679,7 +286527,7 @@ entity
 }
 entity
 {
-	"id" "23463"
+	"id" "23497"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285701,7 +286549,7 @@ entity
 }
 entity
 {
-	"id" "23464"
+	"id" "23498"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285723,7 +286571,7 @@ entity
 }
 entity
 {
-	"id" "23465"
+	"id" "23499"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285745,7 +286593,7 @@ entity
 }
 entity
 {
-	"id" "23466"
+	"id" "23500"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285767,7 +286615,7 @@ entity
 }
 entity
 {
-	"id" "23467"
+	"id" "23501"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285789,7 +286637,7 @@ entity
 }
 entity
 {
-	"id" "23468"
+	"id" "23502"
 	"classname" "prop_static"
 	"model" "models/props_combine/combine_barricade_tall01a.mdl"
 	"angles" "0 0 0"
@@ -285811,7 +286659,7 @@ entity
 }
 entity
 {
-	"id" "23469"
+	"id" "23503"
 	"classname" "prop_dynamic"
 	"model" "models/props_c17/paper01.mdl"
 	"angles" "0 30 0"
@@ -285830,7 +286678,7 @@ entity
 }
 entity
 {
-	"id" "23470"
+	"id" "23504"
 	"classname" "prop_static"
 	"model" "models/props_vehicles/car002b.mdl"
 	"angles" "0 20 0"
@@ -285852,7 +286700,7 @@ entity
 }
 entity
 {
-	"id" "23471"
+	"id" "23505"
 	"classname" "prop_static"
 	"model" "models/props_vehicles/car004b.mdl"
 	"angles" "0 160 0"
@@ -285874,7 +286722,7 @@ entity
 }
 entity
 {
-	"id" "23472"
+	"id" "23506"
 	"classname" "prop_static"
 	"model" "models/props_vehicles/car003b.mdl"
 	"angles" "0 80 0"
@@ -285896,11 +286744,11 @@ entity
 }
 entity
 {
-	"id" "23473"
+	"id" "23507"
 	"classname" "unit_citizen"
 	"targetname" "loiterer"
 	"ownernumber" "0"
-	"angles" "0 138 0"
+	"angles" "0 32 0"
 	"unittype" "unit_citizen"
 	"skin" "0"
 	"disableshadows" "0"
@@ -285915,11 +286763,11 @@ entity
 }
 entity
 {
-	"id" "23474"
+	"id" "23508"
 	"classname" "unit_citizen"
 	"targetname" "litterer"
 	"ownernumber" "0"
-	"angles" "0 333 0"
+	"angles" "0 138 0"
 	"unittype" "unit_citizen"
 	"skin" "0"
 	"disableshadows" "0"
@@ -285934,11 +286782,11 @@ entity
 }
 entity
 {
-	"id" "23475"
+	"id" "23509"
 	"classname" "unit_citizen"
 	"targetname" "runner"
 	"ownernumber" "0"
-	"angles" "0 324 0"
+	"angles" "0 213 0"
 	"unittype" "unit_citizen"
 	"skin" "0"
 	"disableshadows" "0"
@@ -285953,7 +286801,7 @@ entity
 }
 entity
 {
-	"id" "23476"
+	"id" "23510"
 	"classname" "unit_scan"
 	"targetname" "reveal_rations"
 	"unittype" "unit_scan"
@@ -285972,7 +286820,7 @@ entity
 }
 entity
 {
-	"id" "23477"
+	"id" "23511"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p0"
 	"angles" "0 90 0"
@@ -285983,7 +286831,7 @@ entity
 }
 entity
 {
-	"id" "23478"
+	"id" "23512"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p1"
 	"angles" "0 180 0"
@@ -285994,7 +286842,7 @@ entity
 }
 entity
 {
-	"id" "23479"
+	"id" "23513"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p2"
 	"angles" "0 90 0"
@@ -286005,7 +286853,7 @@ entity
 }
 entity
 {
-	"id" "23480"
+	"id" "23514"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p3"
 	"angles" "0 90 0"
@@ -286016,7 +286864,7 @@ entity
 }
 entity
 {
-	"id" "23481"
+	"id" "23515"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p4"
 	"angles" "0 90 0"
@@ -286027,7 +286875,7 @@ entity
 }
 entity
 {
-	"id" "23482"
+	"id" "23516"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p5"
 	"angles" "0 90 0"
@@ -286038,7 +286886,7 @@ entity
 }
 entity
 {
-	"id" "23483"
+	"id" "23517"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p6"
 	"angles" "0 90 0"
@@ -286049,7 +286897,7 @@ entity
 }
 entity
 {
-	"id" "23484"
+	"id" "23518"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p7"
 	"angles" "0 90 0"
@@ -286060,7 +286908,7 @@ entity
 }
 entity
 {
-	"id" "23485"
+	"id" "23519"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p8"
 	"angles" "0 90 0"
@@ -286071,7 +286919,7 @@ entity
 }
 entity
 {
-	"id" "23486"
+	"id" "23520"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p9"
 	"angles" "0 90 0"
@@ -286082,7 +286930,7 @@ entity
 }
 entity
 {
-	"id" "23487"
+	"id" "23521"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p10"
 	"angles" "0 90 0"
@@ -286093,7 +286941,7 @@ entity
 }
 entity
 {
-	"id" "23488"
+	"id" "23522"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p11"
 	"angles" "0 90 0"
@@ -286104,7 +286952,7 @@ entity
 }
 entity
 {
-	"id" "23489"
+	"id" "23523"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p12"
 	"angles" "0 90 0"
@@ -286115,7 +286963,7 @@ entity
 }
 entity
 {
-	"id" "23490"
+	"id" "23524"
 	"classname" "wars_give_order"
 	"targetname" "ration_line1_p13"
 	"angles" "0 90 0"
@@ -286126,7 +286974,7 @@ entity
 }
 entity
 {
-	"id" "23491"
+	"id" "23525"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c0"
 	"ownernumber" "0"
@@ -286145,7 +286993,7 @@ entity
 }
 entity
 {
-	"id" "23492"
+	"id" "23526"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c1"
 	"ownernumber" "0"
@@ -286164,7 +287012,7 @@ entity
 }
 entity
 {
-	"id" "23493"
+	"id" "23527"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c2"
 	"ownernumber" "0"
@@ -286183,7 +287031,7 @@ entity
 }
 entity
 {
-	"id" "23494"
+	"id" "23528"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c3"
 	"ownernumber" "0"
@@ -286202,7 +287050,7 @@ entity
 }
 entity
 {
-	"id" "23495"
+	"id" "23529"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c4"
 	"ownernumber" "0"
@@ -286221,7 +287069,7 @@ entity
 }
 entity
 {
-	"id" "23496"
+	"id" "23530"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c5"
 	"ownernumber" "0"
@@ -286240,7 +287088,7 @@ entity
 }
 entity
 {
-	"id" "23497"
+	"id" "23531"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c6"
 	"ownernumber" "0"
@@ -286259,7 +287107,7 @@ entity
 }
 entity
 {
-	"id" "23498"
+	"id" "23532"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c7"
 	"ownernumber" "0"
@@ -286278,7 +287126,7 @@ entity
 }
 entity
 {
-	"id" "23499"
+	"id" "23533"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c8"
 	"ownernumber" "0"
@@ -286297,7 +287145,7 @@ entity
 }
 entity
 {
-	"id" "23500"
+	"id" "23534"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c9"
 	"ownernumber" "0"
@@ -286316,7 +287164,7 @@ entity
 }
 entity
 {
-	"id" "23501"
+	"id" "23535"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c10"
 	"ownernumber" "0"
@@ -286335,7 +287183,7 @@ entity
 }
 entity
 {
-	"id" "23502"
+	"id" "23536"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c11"
 	"ownernumber" "0"
@@ -286354,7 +287202,7 @@ entity
 }
 entity
 {
-	"id" "23503"
+	"id" "23537"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c12"
 	"ownernumber" "0"
@@ -286373,7 +287221,7 @@ entity
 }
 entity
 {
-	"id" "23504"
+	"id" "23538"
 	"classname" "unit_citizen"
 	"targetname" "ration_line1_c13"
 	"ownernumber" "0"
@@ -286392,7 +287240,7 @@ entity
 }
 entity
 {
-	"id" "23505"
+	"id" "23539"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step0"
 	"spawnflags" "0"
@@ -286419,7 +287267,7 @@ entity
 }
 entity
 {
-	"id" "23506"
+	"id" "23540"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step1"
 	"spawnflags" "0"
@@ -286446,7 +287294,7 @@ entity
 }
 entity
 {
-	"id" "23507"
+	"id" "23541"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step2"
 	"spawnflags" "0"
@@ -286473,7 +287321,7 @@ entity
 }
 entity
 {
-	"id" "23508"
+	"id" "23542"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step3"
 	"spawnflags" "0"
@@ -286500,7 +287348,7 @@ entity
 }
 entity
 {
-	"id" "23509"
+	"id" "23543"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step4"
 	"spawnflags" "0"
@@ -286527,7 +287375,7 @@ entity
 }
 entity
 {
-	"id" "23510"
+	"id" "23544"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step5"
 	"spawnflags" "0"
@@ -286554,7 +287402,7 @@ entity
 }
 entity
 {
-	"id" "23511"
+	"id" "23545"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step6"
 	"spawnflags" "0"
@@ -286581,7 +287429,7 @@ entity
 }
 entity
 {
-	"id" "23512"
+	"id" "23546"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step7"
 	"spawnflags" "0"
@@ -286608,7 +287456,7 @@ entity
 }
 entity
 {
-	"id" "23513"
+	"id" "23547"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step8"
 	"spawnflags" "0"
@@ -286635,7 +287483,7 @@ entity
 }
 entity
 {
-	"id" "23514"
+	"id" "23548"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step9"
 	"spawnflags" "0"
@@ -286662,7 +287510,7 @@ entity
 }
 entity
 {
-	"id" "23515"
+	"id" "23549"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step10"
 	"spawnflags" "0"
@@ -286689,7 +287537,7 @@ entity
 }
 entity
 {
-	"id" "23516"
+	"id" "23550"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step11"
 	"spawnflags" "0"
@@ -286716,7 +287564,7 @@ entity
 }
 entity
 {
-	"id" "23517"
+	"id" "23551"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step12"
 	"spawnflags" "0"
@@ -286743,7 +287591,7 @@ entity
 }
 entity
 {
-	"id" "23518"
+	"id" "23552"
 	"classname" "logic_relay"
 	"targetname" "ration_line1_step13"
 	"spawnflags" "0"
@@ -286770,7 +287618,7 @@ entity
 }
 entity
 {
-	"id" "23519"
+	"id" "23553"
 	"classname" "logic_auto"
 	"targetname" "map_start"
 	"spawnflags" "1"
@@ -286785,7 +287633,7 @@ entity
 }
 entity
 {
-	"id" "23520"
+	"id" "23554"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p0"
 	"angles" "0 90 0"
@@ -286796,7 +287644,7 @@ entity
 }
 entity
 {
-	"id" "23521"
+	"id" "23555"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p1"
 	"angles" "0 180 0"
@@ -286807,7 +287655,7 @@ entity
 }
 entity
 {
-	"id" "23522"
+	"id" "23556"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p2"
 	"angles" "0 90 0"
@@ -286818,7 +287666,7 @@ entity
 }
 entity
 {
-	"id" "23523"
+	"id" "23557"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p3"
 	"angles" "0 90 0"
@@ -286829,7 +287677,7 @@ entity
 }
 entity
 {
-	"id" "23524"
+	"id" "23558"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p4"
 	"angles" "0 90 0"
@@ -286840,7 +287688,7 @@ entity
 }
 entity
 {
-	"id" "23525"
+	"id" "23559"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p5"
 	"angles" "0 90 0"
@@ -286851,7 +287699,7 @@ entity
 }
 entity
 {
-	"id" "23526"
+	"id" "23560"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p6"
 	"angles" "0 90 0"
@@ -286862,7 +287710,7 @@ entity
 }
 entity
 {
-	"id" "23527"
+	"id" "23561"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p7"
 	"angles" "0 90 0"
@@ -286873,7 +287721,7 @@ entity
 }
 entity
 {
-	"id" "23528"
+	"id" "23562"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p8"
 	"angles" "0 90 0"
@@ -286884,7 +287732,7 @@ entity
 }
 entity
 {
-	"id" "23529"
+	"id" "23563"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p9"
 	"angles" "0 90 0"
@@ -286895,7 +287743,7 @@ entity
 }
 entity
 {
-	"id" "23530"
+	"id" "23564"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p10"
 	"angles" "0 90 0"
@@ -286906,7 +287754,7 @@ entity
 }
 entity
 {
-	"id" "23531"
+	"id" "23565"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p11"
 	"angles" "0 90 0"
@@ -286917,7 +287765,7 @@ entity
 }
 entity
 {
-	"id" "23532"
+	"id" "23566"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p12"
 	"angles" "0 90 0"
@@ -286928,7 +287776,7 @@ entity
 }
 entity
 {
-	"id" "23533"
+	"id" "23567"
 	"classname" "wars_give_order"
 	"targetname" "ration_line2_p13"
 	"angles" "0 90 0"
@@ -286939,7 +287787,7 @@ entity
 }
 entity
 {
-	"id" "23534"
+	"id" "23568"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c0"
 	"ownernumber" "0"
@@ -286958,7 +287806,7 @@ entity
 }
 entity
 {
-	"id" "23535"
+	"id" "23569"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c1"
 	"ownernumber" "0"
@@ -286977,7 +287825,7 @@ entity
 }
 entity
 {
-	"id" "23536"
+	"id" "23570"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c2"
 	"ownernumber" "0"
@@ -286996,7 +287844,7 @@ entity
 }
 entity
 {
-	"id" "23537"
+	"id" "23571"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c3"
 	"ownernumber" "0"
@@ -287015,7 +287863,7 @@ entity
 }
 entity
 {
-	"id" "23538"
+	"id" "23572"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c4"
 	"ownernumber" "0"
@@ -287034,7 +287882,7 @@ entity
 }
 entity
 {
-	"id" "23539"
+	"id" "23573"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c5"
 	"ownernumber" "0"
@@ -287053,7 +287901,7 @@ entity
 }
 entity
 {
-	"id" "23540"
+	"id" "23574"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c6"
 	"ownernumber" "0"
@@ -287072,7 +287920,7 @@ entity
 }
 entity
 {
-	"id" "23541"
+	"id" "23575"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c7"
 	"ownernumber" "0"
@@ -287091,7 +287939,7 @@ entity
 }
 entity
 {
-	"id" "23542"
+	"id" "23576"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c8"
 	"ownernumber" "0"
@@ -287110,7 +287958,7 @@ entity
 }
 entity
 {
-	"id" "23543"
+	"id" "23577"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c9"
 	"ownernumber" "0"
@@ -287129,7 +287977,7 @@ entity
 }
 entity
 {
-	"id" "23544"
+	"id" "23578"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c10"
 	"ownernumber" "0"
@@ -287148,7 +287996,7 @@ entity
 }
 entity
 {
-	"id" "23545"
+	"id" "23579"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c11"
 	"ownernumber" "0"
@@ -287167,7 +288015,7 @@ entity
 }
 entity
 {
-	"id" "23546"
+	"id" "23580"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c12"
 	"ownernumber" "0"
@@ -287186,7 +288034,7 @@ entity
 }
 entity
 {
-	"id" "23547"
+	"id" "23581"
 	"classname" "unit_citizen"
 	"targetname" "ration_line2_c13"
 	"ownernumber" "0"
@@ -287205,7 +288053,7 @@ entity
 }
 entity
 {
-	"id" "23548"
+	"id" "23582"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step0"
 	"spawnflags" "0"
@@ -287232,7 +288080,7 @@ entity
 }
 entity
 {
-	"id" "23549"
+	"id" "23583"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step1"
 	"spawnflags" "0"
@@ -287259,7 +288107,7 @@ entity
 }
 entity
 {
-	"id" "23550"
+	"id" "23584"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step2"
 	"spawnflags" "0"
@@ -287286,7 +288134,7 @@ entity
 }
 entity
 {
-	"id" "23551"
+	"id" "23585"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step3"
 	"spawnflags" "0"
@@ -287313,7 +288161,7 @@ entity
 }
 entity
 {
-	"id" "23552"
+	"id" "23586"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step4"
 	"spawnflags" "0"
@@ -287340,7 +288188,7 @@ entity
 }
 entity
 {
-	"id" "23553"
+	"id" "23587"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step5"
 	"spawnflags" "0"
@@ -287367,7 +288215,7 @@ entity
 }
 entity
 {
-	"id" "23554"
+	"id" "23588"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step6"
 	"spawnflags" "0"
@@ -287394,7 +288242,7 @@ entity
 }
 entity
 {
-	"id" "23555"
+	"id" "23589"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step7"
 	"spawnflags" "0"
@@ -287421,7 +288269,7 @@ entity
 }
 entity
 {
-	"id" "23556"
+	"id" "23590"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step8"
 	"spawnflags" "0"
@@ -287448,7 +288296,7 @@ entity
 }
 entity
 {
-	"id" "23557"
+	"id" "23591"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step9"
 	"spawnflags" "0"
@@ -287475,7 +288323,7 @@ entity
 }
 entity
 {
-	"id" "23558"
+	"id" "23592"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step10"
 	"spawnflags" "0"
@@ -287502,7 +288350,7 @@ entity
 }
 entity
 {
-	"id" "23559"
+	"id" "23593"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step11"
 	"spawnflags" "0"
@@ -287529,7 +288377,7 @@ entity
 }
 entity
 {
-	"id" "23560"
+	"id" "23594"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step12"
 	"spawnflags" "0"
@@ -287556,7 +288404,7 @@ entity
 }
 entity
 {
-	"id" "23561"
+	"id" "23595"
 	"classname" "logic_relay"
 	"targetname" "ration_line2_step13"
 	"spawnflags" "0"
@@ -287583,7 +288431,7 @@ entity
 }
 entity
 {
-	"id" "23562"
+	"id" "23596"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p0"
 	"angles" "0 90 0"
@@ -287594,7 +288442,7 @@ entity
 }
 entity
 {
-	"id" "23563"
+	"id" "23597"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p1"
 	"angles" "0 0 0"
@@ -287605,7 +288453,7 @@ entity
 }
 entity
 {
-	"id" "23564"
+	"id" "23598"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p2"
 	"angles" "0 90 0"
@@ -287616,7 +288464,7 @@ entity
 }
 entity
 {
-	"id" "23565"
+	"id" "23599"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p3"
 	"angles" "0 90 0"
@@ -287627,7 +288475,7 @@ entity
 }
 entity
 {
-	"id" "23566"
+	"id" "23600"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p4"
 	"angles" "0 90 0"
@@ -287638,7 +288486,7 @@ entity
 }
 entity
 {
-	"id" "23567"
+	"id" "23601"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p5"
 	"angles" "0 90 0"
@@ -287649,7 +288497,7 @@ entity
 }
 entity
 {
-	"id" "23568"
+	"id" "23602"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p6"
 	"angles" "0 90 0"
@@ -287660,7 +288508,7 @@ entity
 }
 entity
 {
-	"id" "23569"
+	"id" "23603"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p7"
 	"angles" "0 90 0"
@@ -287671,7 +288519,7 @@ entity
 }
 entity
 {
-	"id" "23570"
+	"id" "23604"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p8"
 	"angles" "0 90 0"
@@ -287682,7 +288530,7 @@ entity
 }
 entity
 {
-	"id" "23571"
+	"id" "23605"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p9"
 	"angles" "0 90 0"
@@ -287693,7 +288541,7 @@ entity
 }
 entity
 {
-	"id" "23572"
+	"id" "23606"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p10"
 	"angles" "0 90 0"
@@ -287704,7 +288552,7 @@ entity
 }
 entity
 {
-	"id" "23573"
+	"id" "23607"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p11"
 	"angles" "0 90 0"
@@ -287715,7 +288563,7 @@ entity
 }
 entity
 {
-	"id" "23574"
+	"id" "23608"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p12"
 	"angles" "0 90 0"
@@ -287726,7 +288574,7 @@ entity
 }
 entity
 {
-	"id" "23575"
+	"id" "23609"
 	"classname" "wars_give_order"
 	"targetname" "ration_line3_p13"
 	"angles" "0 90 0"
@@ -287737,7 +288585,7 @@ entity
 }
 entity
 {
-	"id" "23576"
+	"id" "23610"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c0"
 	"ownernumber" "0"
@@ -287756,7 +288604,7 @@ entity
 }
 entity
 {
-	"id" "23577"
+	"id" "23611"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c1"
 	"ownernumber" "0"
@@ -287775,7 +288623,7 @@ entity
 }
 entity
 {
-	"id" "23578"
+	"id" "23612"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c2"
 	"ownernumber" "0"
@@ -287794,7 +288642,7 @@ entity
 }
 entity
 {
-	"id" "23579"
+	"id" "23613"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c3"
 	"ownernumber" "0"
@@ -287813,7 +288661,7 @@ entity
 }
 entity
 {
-	"id" "23580"
+	"id" "23614"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c4"
 	"ownernumber" "0"
@@ -287832,7 +288680,7 @@ entity
 }
 entity
 {
-	"id" "23581"
+	"id" "23615"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c5"
 	"ownernumber" "0"
@@ -287851,7 +288699,7 @@ entity
 }
 entity
 {
-	"id" "23582"
+	"id" "23616"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c6"
 	"ownernumber" "0"
@@ -287870,7 +288718,7 @@ entity
 }
 entity
 {
-	"id" "23583"
+	"id" "23617"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c7"
 	"ownernumber" "0"
@@ -287889,7 +288737,7 @@ entity
 }
 entity
 {
-	"id" "23584"
+	"id" "23618"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c8"
 	"ownernumber" "0"
@@ -287908,7 +288756,7 @@ entity
 }
 entity
 {
-	"id" "23585"
+	"id" "23619"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c9"
 	"ownernumber" "0"
@@ -287927,7 +288775,7 @@ entity
 }
 entity
 {
-	"id" "23586"
+	"id" "23620"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c10"
 	"ownernumber" "0"
@@ -287946,7 +288794,7 @@ entity
 }
 entity
 {
-	"id" "23587"
+	"id" "23621"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c11"
 	"ownernumber" "0"
@@ -287965,7 +288813,7 @@ entity
 }
 entity
 {
-	"id" "23588"
+	"id" "23622"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c12"
 	"ownernumber" "0"
@@ -287984,7 +288832,7 @@ entity
 }
 entity
 {
-	"id" "23589"
+	"id" "23623"
 	"classname" "unit_citizen"
 	"targetname" "ration_line3_c13"
 	"ownernumber" "0"
@@ -288003,7 +288851,7 @@ entity
 }
 entity
 {
-	"id" "23590"
+	"id" "23624"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step0"
 	"spawnflags" "0"
@@ -288030,7 +288878,7 @@ entity
 }
 entity
 {
-	"id" "23591"
+	"id" "23625"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step1"
 	"spawnflags" "0"
@@ -288057,7 +288905,7 @@ entity
 }
 entity
 {
-	"id" "23592"
+	"id" "23626"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step2"
 	"spawnflags" "0"
@@ -288084,7 +288932,7 @@ entity
 }
 entity
 {
-	"id" "23593"
+	"id" "23627"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step3"
 	"spawnflags" "0"
@@ -288111,7 +288959,7 @@ entity
 }
 entity
 {
-	"id" "23594"
+	"id" "23628"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step4"
 	"spawnflags" "0"
@@ -288138,7 +288986,7 @@ entity
 }
 entity
 {
-	"id" "23595"
+	"id" "23629"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step5"
 	"spawnflags" "0"
@@ -288165,7 +289013,7 @@ entity
 }
 entity
 {
-	"id" "23596"
+	"id" "23630"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step6"
 	"spawnflags" "0"
@@ -288192,7 +289040,7 @@ entity
 }
 entity
 {
-	"id" "23597"
+	"id" "23631"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step7"
 	"spawnflags" "0"
@@ -288219,7 +289067,7 @@ entity
 }
 entity
 {
-	"id" "23598"
+	"id" "23632"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step8"
 	"spawnflags" "0"
@@ -288246,7 +289094,7 @@ entity
 }
 entity
 {
-	"id" "23599"
+	"id" "23633"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step9"
 	"spawnflags" "0"
@@ -288273,7 +289121,7 @@ entity
 }
 entity
 {
-	"id" "23600"
+	"id" "23634"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step10"
 	"spawnflags" "0"
@@ -288300,7 +289148,7 @@ entity
 }
 entity
 {
-	"id" "23601"
+	"id" "23635"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step11"
 	"spawnflags" "0"
@@ -288327,7 +289175,7 @@ entity
 }
 entity
 {
-	"id" "23602"
+	"id" "23636"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step12"
 	"spawnflags" "0"
@@ -288354,7 +289202,7 @@ entity
 }
 entity
 {
-	"id" "23603"
+	"id" "23637"
 	"classname" "logic_relay"
 	"targetname" "ration_line3_step13"
 	"spawnflags" "0"
@@ -288381,7 +289229,7 @@ entity
 }
 entity
 {
-	"id" "23604"
+	"id" "23638"
 	"classname" "unit_metropolice"
 	"targetname" "ration_guard"
 	"ownernumber" "0"
@@ -288400,7 +289248,7 @@ entity
 }
 entity
 {
-	"id" "23605"
+	"id" "23639"
 	"classname" "unit_metropolice"
 	"targetname" "ration_guard"
 	"ownernumber" "0"
@@ -288419,7 +289267,7 @@ entity
 }
 entity
 {
-	"id" "23606"
+	"id" "23640"
 	"classname" "unit_metropolice"
 	"targetname" "ration_guard"
 	"ownernumber" "0"
@@ -288438,7 +289286,7 @@ entity
 }
 entity
 {
-	"id" "23607"
+	"id" "23641"
 	"classname" "unit_metropolice"
 	"targetname" "ration_guard"
 	"ownernumber" "0"
@@ -288457,7 +289305,7 @@ entity
 }
 entity
 {
-	"id" "23608"
+	"id" "23642"
 	"classname" "unit_cscanner"
 	"targetname" "ration_scanner"
 	"ownernumber" "0"
@@ -288476,7 +289324,7 @@ entity
 }
 entity
 {
-	"id" "23609"
+	"id" "23643"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288495,7 +289343,7 @@ entity
 }
 entity
 {
-	"id" "23610"
+	"id" "23644"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288514,7 +289362,7 @@ entity
 }
 entity
 {
-	"id" "23611"
+	"id" "23645"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288533,7 +289381,7 @@ entity
 }
 entity
 {
-	"id" "23612"
+	"id" "23646"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288552,7 +289400,7 @@ entity
 }
 entity
 {
-	"id" "23613"
+	"id" "23647"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288571,7 +289419,7 @@ entity
 }
 entity
 {
-	"id" "23614"
+	"id" "23648"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288590,7 +289438,7 @@ entity
 }
 entity
 {
-	"id" "23615"
+	"id" "23649"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288609,7 +289457,7 @@ entity
 }
 entity
 {
-	"id" "23616"
+	"id" "23650"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288628,7 +289476,7 @@ entity
 }
 entity
 {
-	"id" "23617"
+	"id" "23651"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288647,7 +289495,7 @@ entity
 }
 entity
 {
-	"id" "23618"
+	"id" "23652"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288666,7 +289514,7 @@ entity
 }
 entity
 {
-	"id" "23619"
+	"id" "23653"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288685,7 +289533,7 @@ entity
 }
 entity
 {
-	"id" "23620"
+	"id" "23654"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288704,7 +289552,7 @@ entity
 }
 entity
 {
-	"id" "23621"
+	"id" "23655"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288723,7 +289571,7 @@ entity
 }
 entity
 {
-	"id" "23622"
+	"id" "23656"
 	"classname" "unit_citizen"
 	"targetname" "plaza_crowd"
 	"ownernumber" "0"
@@ -288742,7 +289590,7 @@ entity
 }
 entity
 {
-	"id" "23623"
+	"id" "23657"
 	"classname" "wars_give_order"
 	"targetname" "runner_flee"
 	"unitname" "runner"
@@ -288753,11 +289601,11 @@ entity
 }
 entity
 {
-	"id" "23624"
+	"id" "23658"
 	"classname" "unit_stalker"
 	"targetname" "asset"
 	"ownernumber" "0"
-	"angles" "0 98 0"
+	"angles" "0 291 0"
 	"unittype" "unit_stalker"
 	"skin" "0"
 	"disableshadows" "0"
@@ -288772,7 +289620,7 @@ entity
 }
 entity
 {
-	"id" "23625"
+	"id" "23659"
 	"classname" "control_point"
 	"targetname" "outpost_relay"
 	"ownernumber" "0"
@@ -288796,17 +289644,17 @@ entity
 }
 entity
 {
-	"id" "23626"
+	"id" "23660"
 	"classname" "trigger_capture_area"
 	"control_point" "outpost_relay"
 	"spawnflags" "3"
 	"StartDisabled" "0"
 	solid
 	{
-		"id" "23627"
+		"id" "23661"
 		side
 		{
-			"id" "23628"
+			"id" "23662"
 			"plane" "(1824 352 127) (2272 800 127) (2272 352 127)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -288817,7 +289665,7 @@ entity
 		}
 		side
 		{
-			"id" "23629"
+			"id" "23663"
 			"plane" "(1824 352 -17) (2272 352 -17) (2272 800 -17)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -288828,7 +289676,7 @@ entity
 		}
 		side
 		{
-			"id" "23630"
+			"id" "23664"
 			"plane" "(1824 352 127) (2272 352 127) (1824 352 -17)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -288839,7 +289687,7 @@ entity
 		}
 		side
 		{
-			"id" "23631"
+			"id" "23665"
 			"plane" "(2272 352 127) (2272 800 127) (2272 352 -17)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -288850,7 +289698,7 @@ entity
 		}
 		side
 		{
-			"id" "23632"
+			"id" "23666"
 			"plane" "(2272 800 127) (1824 800 127) (2272 800 -17)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -288861,7 +289709,7 @@ entity
 		}
 		side
 		{
-			"id" "23633"
+			"id" "23667"
 			"plane" "(1824 800 127) (1824 352 127) (1824 800 -17)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -288886,7 +289734,7 @@ entity
 }
 entity
 {
-	"id" "23634"
+	"id" "23668"
 	"classname" "build_comb_hq"
 	"targetname" "outpost_hq"
 	"ownernumber" "0"
@@ -288912,11 +289760,11 @@ entity
 }
 entity
 {
-	"id" "23635"
+	"id" "23669"
 	"classname" "unit_strider"
 	"targetname" "striders"
 	"ownernumber" "0"
-	"angles" "0 127 0"
+	"angles" "0 306 0"
 	"unittype" "unit_strider"
 	"skin" "0"
 	"disableshadows" "0"
@@ -288932,11 +289780,11 @@ entity
 }
 entity
 {
-	"id" "23636"
+	"id" "23670"
 	"classname" "unit_strider"
 	"targetname" "striders"
 	"ownernumber" "0"
-	"angles" "0 127 0"
+	"angles" "0 306 0"
 	"unittype" "unit_strider"
 	"skin" "0"
 	"disableshadows" "0"
@@ -288952,7 +289800,7 @@ entity
 }
 entity
 {
-	"id" "23637"
+	"id" "23671"
 	"classname" "wars_give_order"
 	"targetname" "wave1_order"
 	"unitname" "wave1_unit"
@@ -288963,7 +289811,7 @@ entity
 }
 entity
 {
-	"id" "23638"
+	"id" "23672"
 	"classname" "unit_maker"
 	"targetname" "wave1"
 	"NPCType" "unit_rebel_partisan_molotov"
@@ -288982,7 +289830,7 @@ entity
 }
 entity
 {
-	"id" "23639"
+	"id" "23673"
 	"classname" "wars_give_order"
 	"targetname" "wave2_order"
 	"unitname" "wave2_unit"
@@ -288993,7 +289841,7 @@ entity
 }
 entity
 {
-	"id" "23640"
+	"id" "23674"
 	"classname" "unit_maker"
 	"targetname" "wave2"
 	"NPCType" "unit_rebel"
@@ -289012,7 +289860,7 @@ entity
 }
 entity
 {
-	"id" "23641"
+	"id" "23675"
 	"classname" "wars_give_order"
 	"targetname" "wave3_order"
 	"unitname" "wave3_unit"
@@ -289023,7 +289871,7 @@ entity
 }
 entity
 {
-	"id" "23642"
+	"id" "23676"
 	"classname" "unit_maker"
 	"targetname" "wave3"
 	"NPCType" "unit_rebel_rpg"
@@ -289042,7 +289890,7 @@ entity
 }
 entity
 {
-	"id" "23643"
+	"id" "23677"
 	"classname" "wars_player_relation"
 	"targetname" "player_hates_1"
 	"disposition" "1"
@@ -289054,7 +289902,7 @@ entity
 }
 entity
 {
-	"id" "23644"
+	"id" "23678"
 	"classname" "point_viewcontrol"
 	"targetname" "shot_uprising"
 	"target" "shot_uprising_look"
@@ -289071,7 +289919,7 @@ entity
 }
 entity
 {
-	"id" "23645"
+	"id" "23679"
 	"classname" "info_target"
 	"targetname" "shot_uprising_look"
 	"she_cine" "shot_uprising"
@@ -289080,7 +289928,7 @@ entity
 }
 entity
 {
-	"id" "23646"
+	"id" "23680"
 	"classname" "path_corner"
 	"targetname" "shot_uprising_to"
 	"wait" "0"
@@ -289090,7 +289938,7 @@ entity
 }
 entity
 {
-	"id" "23647"
+	"id" "23681"
 	"classname" "point_viewcontrol"
 	"targetname" "shot_overwatch"
 	"target" "shot_overwatch_look"
@@ -289107,7 +289955,7 @@ entity
 }
 entity
 {
-	"id" "23648"
+	"id" "23682"
 	"classname" "info_target"
 	"targetname" "shot_overwatch_look"
 	"she_cine" "shot_overwatch"
@@ -289116,7 +289964,7 @@ entity
 }
 entity
 {
-	"id" "23649"
+	"id" "23683"
 	"classname" "path_corner"
 	"targetname" "shot_overwatch_to"
 	"wait" "0"
@@ -289126,7 +289974,7 @@ entity
 }
 entity
 {
-	"id" "23650"
+	"id" "23684"
 	"classname" "path_track"
 	"targetname" "dropship_route_1"
 	"she_cine" "dropship_route"
@@ -289139,7 +289987,7 @@ entity
 }
 entity
 {
-	"id" "23651"
+	"id" "23685"
 	"classname" "path_track"
 	"targetname" "dropship_route_2"
 	"she_cine" "dropship_route"
@@ -289152,7 +290000,7 @@ entity
 }
 entity
 {
-	"id" "23652"
+	"id" "23686"
 	"classname" "path_track"
 	"targetname" "dropship_route_3"
 	"she_cine" "dropship_route"
@@ -289165,7 +290013,7 @@ entity
 }
 entity
 {
-	"id" "23653"
+	"id" "23687"
 	"classname" "path_track"
 	"targetname" "dropship_route_4"
 	"she_cine" "dropship_route"
@@ -289178,7 +290026,7 @@ entity
 }
 entity
 {
-	"id" "23654"
+	"id" "23688"
 	"classname" "path_track"
 	"targetname" "dropship_route_5"
 	"she_cine" "dropship_route"
@@ -289191,7 +290039,7 @@ entity
 }
 entity
 {
-	"id" "23655"
+	"id" "23689"
 	"classname" "path_track"
 	"targetname" "dropship_route_6"
 	"she_cine" "dropship_route"
@@ -289203,7 +290051,7 @@ entity
 }
 entity
 {
-	"id" "23656"
+	"id" "23690"
 	"classname" "path_track"
 	"targetname" "gunship_route_1"
 	"she_cine" "gunship_route"
@@ -289216,7 +290064,7 @@ entity
 }
 entity
 {
-	"id" "23657"
+	"id" "23691"
 	"classname" "path_track"
 	"targetname" "gunship_route_2"
 	"she_cine" "gunship_route"
@@ -289229,7 +290077,7 @@ entity
 }
 entity
 {
-	"id" "23658"
+	"id" "23692"
 	"classname" "path_track"
 	"targetname" "gunship_route_3"
 	"she_cine" "gunship_route"
@@ -289242,7 +290090,7 @@ entity
 }
 entity
 {
-	"id" "23659"
+	"id" "23693"
 	"classname" "path_track"
 	"targetname" "gunship_route_4"
 	"she_cine" "gunship_route"
@@ -289255,7 +290103,7 @@ entity
 }
 entity
 {
-	"id" "23660"
+	"id" "23694"
 	"classname" "path_track"
 	"targetname" "gunship_route_5"
 	"she_cine" "gunship_route"
@@ -289268,7 +290116,7 @@ entity
 }
 entity
 {
-	"id" "23661"
+	"id" "23695"
 	"classname" "path_track"
 	"targetname" "gunship_route_6"
 	"she_cine" "gunship_route"
@@ -289280,7 +290128,7 @@ entity
 }
 entity
 {
-	"id" "23662"
+	"id" "23696"
 	"classname" "path_track"
 	"targetname" "strider_route_1"
 	"she_cine" "strider_route"
@@ -289293,7 +290141,7 @@ entity
 }
 entity
 {
-	"id" "23663"
+	"id" "23697"
 	"classname" "path_track"
 	"targetname" "strider_route_2"
 	"she_cine" "strider_route"
@@ -289306,7 +290154,7 @@ entity
 }
 entity
 {
-	"id" "23664"
+	"id" "23698"
 	"classname" "path_track"
 	"targetname" "strider_route_3"
 	"she_cine" "strider_route"
@@ -289319,7 +290167,7 @@ entity
 }
 entity
 {
-	"id" "23665"
+	"id" "23699"
 	"classname" "path_track"
 	"targetname" "strider_route_4"
 	"she_cine" "strider_route"
@@ -289331,7 +290179,7 @@ entity
 }
 entity
 {
-	"id" "23666"
+	"id" "23700"
 	"classname" "info_particle_system"
 	"targetname" "uprising_fx"
 	"effect_name" "smoke_large_01"
@@ -289348,7 +290196,7 @@ entity
 }
 entity
 {
-	"id" "23667"
+	"id" "23701"
 	"classname" "info_particle_system"
 	"targetname" "uprising_fx"
 	"effect_name" "smoke_large_01"
@@ -289365,7 +290213,7 @@ entity
 }
 entity
 {
-	"id" "23668"
+	"id" "23702"
 	"classname" "info_particle_system"
 	"targetname" "uprising_fx"
 	"effect_name" "smoke_dark_plume_1"
@@ -289382,7 +290230,7 @@ entity
 }
 entity
 {
-	"id" "23669"
+	"id" "23703"
 	"classname" "info_particle_system"
 	"targetname" "uprising_fx"
 	"effect_name" "burning_vehicle"
@@ -289399,7 +290247,7 @@ entity
 }
 entity
 {
-	"id" "23670"
+	"id" "23704"
 	"classname" "info_particle_system"
 	"targetname" "uprising_fx"
 	"effect_name" "burning_vehicle"
@@ -289416,7 +290264,7 @@ entity
 }
 entity
 {
-	"id" "23671"
+	"id" "23705"
 	"classname" "info_particle_system"
 	"targetname" "uprising_fx"
 	"effect_name" "fire_large_01"
@@ -289433,7 +290281,7 @@ entity
 }
 entity
 {
-	"id" "23672"
+	"id" "23706"
 	"classname" "info_particle_system"
 	"targetname" "uprising_fx"
 	"effect_name" "embers_large_01"
@@ -289450,7 +290298,7 @@ entity
 }
 entity
 {
-	"id" "23673"
+	"id" "23707"
 	"classname" "ambient_generic"
 	"targetname" "uprising_siren"
 	"message" "ambient/levels/citadel/citadel_5sirens.wav"
@@ -289474,7 +290322,7 @@ entity
 }
 entity
 {
-	"id" "23674"
+	"id" "23708"
 	"classname" "func_tracktrain"
 	"targetname" "dropship_route_flyby"
 	"target" "dropship_route_1"
@@ -289502,10 +290350,10 @@ entity
 	"MoveSoundMaxTime" "0"
 	solid
 	{
-		"id" "23675"
+		"id" "23709"
 		side
 		{
-			"id" "23676"
+			"id" "23710"
 			"plane" "(3320 -2952 908) (3336 -2936 908) (3336 -2952 908)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289516,7 +290364,7 @@ entity
 		}
 		side
 		{
-			"id" "23677"
+			"id" "23711"
 			"plane" "(3320 -2952 892) (3336 -2952 892) (3336 -2936 892)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289527,7 +290375,7 @@ entity
 		}
 		side
 		{
-			"id" "23678"
+			"id" "23712"
 			"plane" "(3320 -2952 908) (3336 -2952 908) (3320 -2952 892)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289538,7 +290386,7 @@ entity
 		}
 		side
 		{
-			"id" "23679"
+			"id" "23713"
 			"plane" "(3336 -2952 908) (3336 -2936 908) (3336 -2952 892)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -289549,7 +290397,7 @@ entity
 		}
 		side
 		{
-			"id" "23680"
+			"id" "23714"
 			"plane" "(3336 -2936 908) (3320 -2936 908) (3336 -2936 892)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289560,7 +290408,7 @@ entity
 		}
 		side
 		{
-			"id" "23681"
+			"id" "23715"
 			"plane" "(3320 -2936 908) (3320 -2952 908) (3320 -2936 892)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -289585,7 +290433,7 @@ entity
 }
 entity
 {
-	"id" "23682"
+	"id" "23716"
 	"classname" "prop_dynamic"
 	"targetname" "dropship_route_flyby_model"
 	"model" "models/combine_dropship_container.mdl"
@@ -289620,7 +290468,7 @@ entity
 }
 entity
 {
-	"id" "23683"
+	"id" "23717"
 	"classname" "func_tracktrain"
 	"targetname" "gunship_route_flyby"
 	"target" "gunship_route_1"
@@ -289648,10 +290496,10 @@ entity
 	"MoveSoundMaxTime" "0"
 	solid
 	{
-		"id" "23684"
+		"id" "23718"
 		side
 		{
-			"id" "23685"
+			"id" "23719"
 			"plane" "(-712 1592 648) (-696 1608 648) (-696 1592 648)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289662,7 +290510,7 @@ entity
 		}
 		side
 		{
-			"id" "23686"
+			"id" "23720"
 			"plane" "(-712 1592 632) (-696 1592 632) (-696 1608 632)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289673,7 +290521,7 @@ entity
 		}
 		side
 		{
-			"id" "23687"
+			"id" "23721"
 			"plane" "(-712 1592 648) (-696 1592 648) (-712 1592 632)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289684,7 +290532,7 @@ entity
 		}
 		side
 		{
-			"id" "23688"
+			"id" "23722"
 			"plane" "(-696 1592 648) (-696 1608 648) (-696 1592 632)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -289695,7 +290543,7 @@ entity
 		}
 		side
 		{
-			"id" "23689"
+			"id" "23723"
 			"plane" "(-696 1608 648) (-712 1608 648) (-696 1608 632)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289706,7 +290554,7 @@ entity
 		}
 		side
 		{
-			"id" "23690"
+			"id" "23724"
 			"plane" "(-712 1608 648) (-712 1592 648) (-712 1608 632)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -289731,7 +290579,7 @@ entity
 }
 entity
 {
-	"id" "23691"
+	"id" "23725"
 	"classname" "prop_dynamic"
 	"targetname" "gunship_route_flyby_model"
 	"model" "models/gunship.mdl"
@@ -289766,7 +290614,7 @@ entity
 }
 entity
 {
-	"id" "23692"
+	"id" "23726"
 	"classname" "logic_relay"
 	"targetname" "strider_route_go"
 	"she_cine" "strider_route"
@@ -289786,7 +290634,7 @@ entity
 }
 entity
 {
-	"id" "23707"
+	"id" "23741"
 	"classname" "func_brush"
 	"Solidity" "1"
 	"disableshadows" "1"
@@ -289797,10 +290645,10 @@ entity
 	"StartDisabled" "0"
 	solid
 	{
-		"id" "23693"
+		"id" "23727"
 		side
 		{
-			"id" "23694"
+			"id" "23728"
 			"plane" "(-2800 -617 286) (-2448 -616 286) (-2448 -617 286)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289811,7 +290659,7 @@ entity
 		}
 		side
 		{
-			"id" "23695"
+			"id" "23729"
 			"plane" "(-2800 -617 94) (-2448 -617 94) (-2448 -616 94)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289822,7 +290670,7 @@ entity
 		}
 		side
 		{
-			"id" "23696"
+			"id" "23730"
 			"plane" "(-2800 -617 286) (-2448 -617 286) (-2800 -617 94)"
 			"material" "PROPS/TVSCREEN001A"
 			"uaxis" "[-1 0 0 -890.181818] 2.75"
@@ -289833,7 +290681,7 @@ entity
 		}
 		side
 		{
-			"id" "23697"
+			"id" "23731"
 			"plane" "(-2448 -617 286) (-2448 -616 286) (-2448 -617 94)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -289844,7 +290692,7 @@ entity
 		}
 		side
 		{
-			"id" "23698"
+			"id" "23732"
 			"plane" "(-2448 -616 286) (-2800 -616 286) (-2448 -616 94)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289855,7 +290703,7 @@ entity
 		}
 		side
 		{
-			"id" "23699"
+			"id" "23733"
 			"plane" "(-2800 -616 286) (-2800 -617 286) (-2800 -616 94)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -289880,7 +290728,7 @@ entity
 }
 entity
 {
-	"id" "23708"
+	"id" "23742"
 	"classname" "func_brush"
 	"Solidity" "1"
 	"disableshadows" "1"
@@ -289891,10 +290739,10 @@ entity
 	"StartDisabled" "1"
 	solid
 	{
-		"id" "23700"
+		"id" "23734"
 		side
 		{
-			"id" "23701"
+			"id" "23735"
 			"plane" "(-2800 -618 286) (-2448 -617 286) (-2448 -618 286)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289905,7 +290753,7 @@ entity
 		}
 		side
 		{
-			"id" "23702"
+			"id" "23736"
 			"plane" "(-2800 -618 94) (-2448 -618 94) (-2448 -617 94)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289916,7 +290764,7 @@ entity
 		}
 		side
 		{
-			"id" "23703"
+			"id" "23737"
 			"plane" "(-2800 -618 286) (-2448 -618 286) (-2800 -618 94)"
 			"material" "EFFECTS/SCREEN_MONITOR_BLANK"
 			"uaxis" "[-1 0 0 -890.181818] 2.75"
@@ -289927,7 +290775,7 @@ entity
 		}
 		side
 		{
-			"id" "23704"
+			"id" "23738"
 			"plane" "(-2448 -618 286) (-2448 -617 286) (-2448 -618 94)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -289938,7 +290786,7 @@ entity
 		}
 		side
 		{
-			"id" "23705"
+			"id" "23739"
 			"plane" "(-2448 -617 286) (-2800 -617 286) (-2448 -617 94)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289949,7 +290797,7 @@ entity
 		}
 		side
 		{
-			"id" "23706"
+			"id" "23740"
 			"plane" "(-2800 -617 286) (-2800 -618 286) (-2800 -617 94)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -289974,7 +290822,7 @@ entity
 }
 entity
 {
-	"id" "23723"
+	"id" "23757"
 	"classname" "func_brush"
 	"Solidity" "1"
 	"disableshadows" "1"
@@ -289985,10 +290833,10 @@ entity
 	"StartDisabled" "0"
 	solid
 	{
-		"id" "23709"
+		"id" "23743"
 		side
 		{
-			"id" "23710"
+			"id" "23744"
 			"plane" "(217 400 152) (218 624 152) (218 400 152)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -289999,7 +290847,7 @@ entity
 		}
 		side
 		{
-			"id" "23711"
+			"id" "23745"
 			"plane" "(217 400 40) (218 400 40) (218 624 40)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -290010,7 +290858,7 @@ entity
 		}
 		side
 		{
-			"id" "23712"
+			"id" "23746"
 			"plane" "(217 400 152) (218 400 152) (217 400 40)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -290021,7 +290869,7 @@ entity
 		}
 		side
 		{
-			"id" "23713"
+			"id" "23747"
 			"plane" "(218 400 152) (218 624 152) (218 400 40)"
 			"material" "PROPS/TVSCREEN001A"
 			"uaxis" "[0 -1 0 356.571429] 1.75"
@@ -290032,7 +290880,7 @@ entity
 		}
 		side
 		{
-			"id" "23714"
+			"id" "23748"
 			"plane" "(218 624 152) (217 624 152) (218 624 40)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -290043,7 +290891,7 @@ entity
 		}
 		side
 		{
-			"id" "23715"
+			"id" "23749"
 			"plane" "(217 624 152) (217 400 152) (217 624 40)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -290068,7 +290916,7 @@ entity
 }
 entity
 {
-	"id" "23724"
+	"id" "23758"
 	"classname" "func_brush"
 	"Solidity" "1"
 	"disableshadows" "1"
@@ -290079,10 +290927,10 @@ entity
 	"StartDisabled" "1"
 	solid
 	{
-		"id" "23716"
+		"id" "23750"
 		side
 		{
-			"id" "23717"
+			"id" "23751"
 			"plane" "(218 400 152) (219 624 152) (219 400 152)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -290093,7 +290941,7 @@ entity
 		}
 		side
 		{
-			"id" "23718"
+			"id" "23752"
 			"plane" "(218 400 40) (219 400 40) (219 624 40)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -290104,7 +290952,7 @@ entity
 		}
 		side
 		{
-			"id" "23719"
+			"id" "23753"
 			"plane" "(218 400 152) (219 400 152) (218 400 40)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -290115,7 +290963,7 @@ entity
 		}
 		side
 		{
-			"id" "23720"
+			"id" "23754"
 			"plane" "(219 400 152) (219 624 152) (219 400 40)"
 			"material" "EFFECTS/SCREEN_MONITOR_BLANK"
 			"uaxis" "[0 -1 0 356.571429] 1.75"
@@ -290126,7 +290974,7 @@ entity
 		}
 		side
 		{
-			"id" "23721"
+			"id" "23755"
 			"plane" "(219 624 152) (218 624 152) (219 624 40)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -290137,7 +290985,7 @@ entity
 		}
 		side
 		{
-			"id" "23722"
+			"id" "23756"
 			"plane" "(218 624 152) (218 400 152) (218 624 40)"
 			"material" "TOOLS/TOOLSNODRAW"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -290162,7 +291010,7 @@ entity
 }
 entity
 {
-	"id" "23725"
+	"id" "23759"
 	"classname" "logic_relay"
 	"targetname" "atmo_day"
 	"spawnflags" "0"
@@ -290189,7 +291037,7 @@ entity
 }
 entity
 {
-	"id" "23726"
+	"id" "23760"
 	"classname" "logic_relay"
 	"targetname" "atmo_dusk"
 	"spawnflags" "0"
@@ -290216,7 +291064,7 @@ entity
 }
 entity
 {
-	"id" "23727"
+	"id" "23761"
 	"classname" "color_correction"
 	"targetname" "atmo_dusk_cc"
 	"filename" "scripts/colorcorrection/cc_thunder.raw"
@@ -290231,7 +291079,7 @@ entity
 }
 entity
 {
-	"id" "23728"
+	"id" "23762"
 	"classname" "logic_relay"
 	"targetname" "atmo_citadel"
 	"spawnflags" "0"
@@ -290258,7 +291106,7 @@ entity
 }
 entity
 {
-	"id" "23729"
+	"id" "23763"
 	"classname" "color_correction"
 	"targetname" "atmo_citadel_cc"
 	"filename" "scripts/colorcorrection/ep2_outland_01_blue.raw"
@@ -290273,7 +291121,7 @@ entity
 }
 entity
 {
-	"id" "23730"
+	"id" "23764"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers01"
 	"sides" "2089"
@@ -290296,7 +291144,7 @@ entity
 }
 entity
 {
-	"id" "23731"
+	"id" "23765"
 	"classname" "infodecal"
 	"texture" "decals/trashdecal02a"
 	"LowPriority" "0"
@@ -290304,7 +291152,7 @@ entity
 }
 entity
 {
-	"id" "23732"
+	"id" "23766"
 	"classname" "infodecal"
 	"texture" "decals/trashdecal02a"
 	"LowPriority" "0"
@@ -290312,7 +291160,7 @@ entity
 }
 entity
 {
-	"id" "23733"
+	"id" "23767"
 	"classname" "infodecal"
 	"texture" "decals/trashdecal02a"
 	"LowPriority" "0"
@@ -290320,7 +291168,7 @@ entity
 }
 entity
 {
-	"id" "23734"
+	"id" "23768"
 	"classname" "infodecal"
 	"texture" "decals/trashdecal02a"
 	"LowPriority" "0"
@@ -290328,7 +291176,7 @@ entity
 }
 entity
 {
-	"id" "23735"
+	"id" "23769"
 	"classname" "info_overlay"
 	"material" "decals/decalgraffiti001b"
 	"sides" "7436"
@@ -290351,7 +291199,7 @@ entity
 }
 entity
 {
-	"id" "23736"
+	"id" "23770"
 	"classname" "infodecal"
 	"texture" "decals/decal_posters002a"
 	"LowPriority" "0"
@@ -290359,7 +291207,7 @@ entity
 }
 entity
 {
-	"id" "23737"
+	"id" "23771"
 	"classname" "infodecal"
 	"texture" "decals/decal_posters003a"
 	"LowPriority" "0"
@@ -290367,7 +291215,7 @@ entity
 }
 entity
 {
-	"id" "23738"
+	"id" "23772"
 	"classname" "infodecal"
 	"texture" "decals/decal_posters003a"
 	"LowPriority" "0"
@@ -290375,7 +291223,7 @@ entity
 }
 entity
 {
-	"id" "23739"
+	"id" "23773"
 	"classname" "infodecal"
 	"texture" "decals/decal_posters001a"
 	"LowPriority" "0"
@@ -290383,7 +291231,7 @@ entity
 }
 entity
 {
-	"id" "23740"
+	"id" "23774"
 	"classname" "infodecal"
 	"texture" "decals/combinepropaganda01a"
 	"LowPriority" "0"
@@ -290391,7 +291239,7 @@ entity
 }
 entity
 {
-	"id" "23741"
+	"id" "23775"
 	"classname" "infodecal"
 	"texture" "decals/combinepropaganda01a"
 	"LowPriority" "0"
@@ -290399,7 +291247,7 @@ entity
 }
 entity
 {
-	"id" "23742"
+	"id" "23776"
 	"classname" "info_overlay"
 	"material" "posters/poster6"
 	"sides" "22713"
@@ -290422,7 +291270,7 @@ entity
 }
 entity
 {
-	"id" "23743"
+	"id" "23777"
 	"classname" "info_overlay"
 	"material" "posters/poster2"
 	"sides" "22713"
@@ -290445,7 +291293,7 @@ entity
 }
 entity
 {
-	"id" "23744"
+	"id" "23778"
 	"classname" "info_overlay"
 	"material" "decals/combinepropaganda01a"
 	"sides" "22685"
@@ -290468,7 +291316,7 @@ entity
 }
 entity
 {
-	"id" "23745"
+	"id" "23779"
 	"classname" "info_overlay"
 	"material" "posters/poster10"
 	"sides" "22685"
@@ -290491,7 +291339,7 @@ entity
 }
 entity
 {
-	"id" "23746"
+	"id" "23780"
 	"classname" "info_overlay"
 	"material" "posters/poster13"
 	"sides" "22685"
@@ -290514,7 +291362,7 @@ entity
 }
 entity
 {
-	"id" "23747"
+	"id" "23781"
 	"classname" "info_overlay"
 	"material" "decals/combinepropaganda01c"
 	"sides" "22742"
@@ -290537,7 +291385,7 @@ entity
 }
 entity
 {
-	"id" "23748"
+	"id" "23782"
 	"classname" "info_overlay"
 	"material" "posters/poster6"
 	"sides" "22742"
@@ -290560,7 +291408,7 @@ entity
 }
 entity
 {
-	"id" "23749"
+	"id" "23783"
 	"classname" "info_overlay"
 	"material" "decals/decal_posters003a"
 	"sides" "22742"
@@ -290583,7 +291431,7 @@ entity
 }
 entity
 {
-	"id" "23750"
+	"id" "23784"
 	"classname" "info_overlay"
 	"material" "posters/poster3"
 	"sides" "22742"
@@ -290606,7 +291454,7 @@ entity
 }
 entity
 {
-	"id" "23751"
+	"id" "23785"
 	"classname" "info_overlay"
 	"material" "posters/poster8"
 	"sides" "22742"
@@ -290629,7 +291477,7 @@ entity
 }
 entity
 {
-	"id" "23752"
+	"id" "23786"
 	"classname" "infodecal"
 	"texture" "decals/decalstain010a"
 	"LowPriority" "0"
@@ -290637,7 +291485,7 @@ entity
 }
 entity
 {
-	"id" "23753"
+	"id" "23787"
 	"classname" "infodecal"
 	"texture" "decals/decalstain005a"
 	"LowPriority" "0"
@@ -290645,7 +291493,7 @@ entity
 }
 entity
 {
-	"id" "23754"
+	"id" "23788"
 	"classname" "infodecal"
 	"texture" "decals/decalstain012a"
 	"LowPriority" "0"
@@ -290653,7 +291501,7 @@ entity
 }
 entity
 {
-	"id" "23755"
+	"id" "23789"
 	"classname" "infodecal"
 	"texture" "decals/decalstain012a"
 	"LowPriority" "0"
@@ -290661,7 +291509,7 @@ entity
 }
 entity
 {
-	"id" "23756"
+	"id" "23790"
 	"classname" "info_overlay"
 	"material" "decals/decalstain010a"
 	"sides" "22706 22720"
@@ -290684,7 +291532,7 @@ entity
 }
 entity
 {
-	"id" "23757"
+	"id" "23791"
 	"classname" "info_overlay"
 	"material" "decals/wallstain01a"
 	"sides" "22706"
@@ -290707,7 +291555,7 @@ entity
 }
 entity
 {
-	"id" "23758"
+	"id" "23792"
 	"classname" "info_overlay"
 	"material" "decals/decalstain005a"
 	"sides" "22706"
@@ -290730,7 +291578,7 @@ entity
 }
 entity
 {
-	"id" "23759"
+	"id" "23793"
 	"classname" "infodecal"
 	"texture" "decals/decalstain005a"
 	"LowPriority" "0"
@@ -290738,7 +291586,7 @@ entity
 }
 entity
 {
-	"id" "23760"
+	"id" "23794"
 	"classname" "infodecal"
 	"texture" "decals/decalstain012a"
 	"LowPriority" "0"
@@ -290746,7 +291594,7 @@ entity
 }
 entity
 {
-	"id" "23761"
+	"id" "23795"
 	"classname" "infodecal"
 	"texture" "decals/wallstain01a"
 	"LowPriority" "0"
@@ -290754,7 +291602,7 @@ entity
 }
 entity
 {
-	"id" "23762"
+	"id" "23796"
 	"classname" "infodecal"
 	"texture" "decals/decalstain001a"
 	"LowPriority" "0"
@@ -290762,7 +291610,7 @@ entity
 }
 entity
 {
-	"id" "23763"
+	"id" "23797"
 	"classname" "infodecal"
 	"texture" "decals/decalstain014a"
 	"LowPriority" "0"
@@ -290770,7 +291618,7 @@ entity
 }
 entity
 {
-	"id" "23764"
+	"id" "23798"
 	"classname" "infodecal"
 	"texture" "decals/decalstain002a"
 	"LowPriority" "0"
@@ -290778,7 +291626,7 @@ entity
 }
 entity
 {
-	"id" "23765"
+	"id" "23799"
 	"classname" "info_overlay"
 	"material" "decals/decalstain005a"
 	"sides" "22742"
@@ -290801,7 +291649,7 @@ entity
 }
 entity
 {
-	"id" "23766"
+	"id" "23800"
 	"classname" "info_overlay"
 	"material" "decals/decalstain005a"
 	"sides" "22742"
@@ -290824,7 +291672,7 @@ entity
 }
 entity
 {
-	"id" "23767"
+	"id" "23801"
 	"classname" "info_overlay"
 	"material" "decals/wallstain01a"
 	"sides" "22742"
@@ -290847,7 +291695,7 @@ entity
 }
 entity
 {
-	"id" "23768"
+	"id" "23802"
 	"classname" "info_overlay"
 	"material" "decals/decalstain012a"
 	"sides" "22742"
@@ -290870,7 +291718,7 @@ entity
 }
 entity
 {
-	"id" "23769"
+	"id" "23803"
 	"classname" "info_overlay"
 	"material" "decals/decalstain005a"
 	"sides" "22742"
@@ -290893,7 +291741,7 @@ entity
 }
 entity
 {
-	"id" "23770"
+	"id" "23804"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -290916,7 +291764,7 @@ entity
 }
 entity
 {
-	"id" "23771"
+	"id" "23805"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -290939,7 +291787,7 @@ entity
 }
 entity
 {
-	"id" "23772"
+	"id" "23806"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -290962,7 +291810,7 @@ entity
 }
 entity
 {
-	"id" "23773"
+	"id" "23807"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -290985,7 +291833,7 @@ entity
 }
 entity
 {
-	"id" "23774"
+	"id" "23808"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -291008,7 +291856,7 @@ entity
 }
 entity
 {
-	"id" "23775"
+	"id" "23809"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -291031,7 +291879,7 @@ entity
 }
 entity
 {
-	"id" "23776"
+	"id" "23810"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -291054,7 +291902,7 @@ entity
 }
 entity
 {
-	"id" "23777"
+	"id" "23811"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -291077,7 +291925,7 @@ entity
 }
 entity
 {
-	"id" "23778"
+	"id" "23812"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -291100,7 +291948,7 @@ entity
 }
 entity
 {
-	"id" "23779"
+	"id" "23813"
 	"classname" "info_overlay"
 	"material" "overlays/concrete_crack01"
 	"sides" "23324"
@@ -291123,7 +291971,7 @@ entity
 }
 entity
 {
-	"id" "23780"
+	"id" "23814"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05d"
 	"sides" "23324"
@@ -291146,7 +291994,7 @@ entity
 }
 entity
 {
-	"id" "23781"
+	"id" "23815"
 	"classname" "info_overlay"
 	"material" "overlays/stain_01"
 	"sides" "23324"
@@ -291169,7 +292017,7 @@ entity
 }
 entity
 {
-	"id" "23782"
+	"id" "23816"
 	"classname" "info_overlay"
 	"material" "overlays/stain_04"
 	"sides" "23324"
@@ -291192,7 +292040,7 @@ entity
 }
 entity
 {
-	"id" "23783"
+	"id" "23817"
 	"classname" "info_overlay"
 	"material" "overlays/dirt01a"
 	"sides" "23324"
@@ -291215,7 +292063,7 @@ entity
 }
 entity
 {
-	"id" "23784"
+	"id" "23818"
 	"classname" "info_overlay"
 	"material" "overlays/stain_04"
 	"sides" "23324"
@@ -291238,7 +292086,7 @@ entity
 }
 entity
 {
-	"id" "23785"
+	"id" "23819"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05d"
 	"sides" "23324"
@@ -291261,7 +292109,7 @@ entity
 }
 entity
 {
-	"id" "23786"
+	"id" "23820"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05a"
 	"sides" "23324"
@@ -291284,7 +292132,7 @@ entity
 }
 entity
 {
-	"id" "23787"
+	"id" "23821"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05c"
 	"sides" "23324"
@@ -291307,7 +292155,7 @@ entity
 }
 entity
 {
-	"id" "23788"
+	"id" "23822"
 	"classname" "info_overlay"
 	"material" "overlays/dirt01a"
 	"sides" "23324"
@@ -291330,7 +292178,7 @@ entity
 }
 entity
 {
-	"id" "23789"
+	"id" "23823"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05d"
 	"sides" "23324"
@@ -291353,7 +292201,7 @@ entity
 }
 entity
 {
-	"id" "23790"
+	"id" "23824"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05a"
 	"sides" "23324"
@@ -291376,7 +292224,7 @@ entity
 }
 entity
 {
-	"id" "23791"
+	"id" "23825"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05b"
 	"sides" "23324"
@@ -291399,7 +292247,7 @@ entity
 }
 entity
 {
-	"id" "23792"
+	"id" "23826"
 	"classname" "info_overlay"
 	"material" "overlays/stain_01"
 	"sides" "23324"
@@ -291422,7 +292270,7 @@ entity
 }
 entity
 {
-	"id" "23793"
+	"id" "23827"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05a"
 	"sides" "23324"
@@ -291445,7 +292293,7 @@ entity
 }
 entity
 {
-	"id" "23794"
+	"id" "23828"
 	"classname" "info_overlay"
 	"material" "overlays/stain_04"
 	"sides" "23324"
@@ -291468,7 +292316,7 @@ entity
 }
 entity
 {
-	"id" "23795"
+	"id" "23829"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05c"
 	"sides" "23324"
@@ -291491,7 +292339,7 @@ entity
 }
 entity
 {
-	"id" "23796"
+	"id" "23830"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05a"
 	"sides" "23324"
@@ -291514,7 +292362,7 @@ entity
 }
 entity
 {
-	"id" "23797"
+	"id" "23831"
 	"classname" "info_overlay"
 	"material" "overlays/stain_04"
 	"sides" "23324"
@@ -291537,7 +292385,7 @@ entity
 }
 entity
 {
-	"id" "23798"
+	"id" "23832"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal03a"
 	"sides" "23324"
@@ -291560,7 +292408,7 @@ entity
 }
 entity
 {
-	"id" "23799"
+	"id" "23833"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal05a"
 	"sides" "23324"
@@ -291583,7 +292431,7 @@ entity
 }
 entity
 {
-	"id" "23800"
+	"id" "23834"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal04a"
 	"sides" "23324"
@@ -291606,7 +292454,7 @@ entity
 }
 entity
 {
-	"id" "23801"
+	"id" "23835"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal02a"
 	"sides" "23324"
@@ -291629,7 +292477,7 @@ entity
 }
 entity
 {
-	"id" "23802"
+	"id" "23836"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal03a"
 	"sides" "23324"
@@ -291652,7 +292500,7 @@ entity
 }
 entity
 {
-	"id" "23803"
+	"id" "23837"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal04a"
 	"sides" "23324"
@@ -291675,7 +292523,7 @@ entity
 }
 entity
 {
-	"id" "23804"
+	"id" "23838"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal05a"
 	"sides" "23324"
@@ -291698,7 +292546,7 @@ entity
 }
 entity
 {
-	"id" "23805"
+	"id" "23839"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal03a"
 	"sides" "23324"
@@ -291721,7 +292569,7 @@ entity
 }
 entity
 {
-	"id" "23806"
+	"id" "23840"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal05a"
 	"sides" "23324"
@@ -291744,7 +292592,7 @@ entity
 }
 entity
 {
-	"id" "23807"
+	"id" "23841"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal05a"
 	"sides" "23324"
@@ -291767,7 +292615,7 @@ entity
 }
 entity
 {
-	"id" "23808"
+	"id" "23842"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal03a"
 	"sides" "23324"
@@ -291790,7 +292638,7 @@ entity
 }
 entity
 {
-	"id" "23809"
+	"id" "23843"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal05a"
 	"sides" "23324"
@@ -291813,7 +292661,7 @@ entity
 }
 entity
 {
-	"id" "23810"
+	"id" "23844"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal04a"
 	"sides" "23324"
@@ -291836,7 +292684,7 @@ entity
 }
 entity
 {
-	"id" "23811"
+	"id" "23845"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal03a"
 	"sides" "23324"
@@ -291859,7 +292707,7 @@ entity
 }
 entity
 {
-	"id" "23812"
+	"id" "23846"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal05a"
 	"sides" "23324"
@@ -291882,7 +292730,7 @@ entity
 }
 entity
 {
-	"id" "23813"
+	"id" "23847"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal03a"
 	"sides" "23324"
@@ -291905,7 +292753,7 @@ entity
 }
 entity
 {
-	"id" "23814"
+	"id" "23848"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal04a"
 	"sides" "23324"
@@ -291928,7 +292776,7 @@ entity
 }
 entity
 {
-	"id" "23815"
+	"id" "23849"
 	"classname" "info_overlay"
 	"material" "decals/trashdecal02a"
 	"sides" "23324"
@@ -291951,7 +292799,7 @@ entity
 }
 entity
 {
-	"id" "23816"
+	"id" "23850"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers01"
 	"sides" "23324"
@@ -291974,7 +292822,7 @@ entity
 }
 entity
 {
-	"id" "23817"
+	"id" "23851"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers04"
 	"sides" "23324"
@@ -291997,7 +292845,7 @@ entity
 }
 entity
 {
-	"id" "23818"
+	"id" "23852"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers04"
 	"sides" "23324"
@@ -292020,7 +292868,7 @@ entity
 }
 entity
 {
-	"id" "23819"
+	"id" "23853"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers03"
 	"sides" "23324"
@@ -292043,7 +292891,7 @@ entity
 }
 entity
 {
-	"id" "23820"
+	"id" "23854"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers01"
 	"sides" "23324"
@@ -292066,7 +292914,7 @@ entity
 }
 entity
 {
-	"id" "23821"
+	"id" "23855"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers03"
 	"sides" "23324"
@@ -292089,7 +292937,7 @@ entity
 }
 entity
 {
-	"id" "23822"
+	"id" "23856"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers04"
 	"sides" "23324"
@@ -292112,7 +292960,7 @@ entity
 }
 entity
 {
-	"id" "23823"
+	"id" "23857"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers01"
 	"sides" "23324"
@@ -292135,7 +292983,7 @@ entity
 }
 entity
 {
-	"id" "23824"
+	"id" "23858"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers03"
 	"sides" "23324"
@@ -292158,7 +293006,7 @@ entity
 }
 entity
 {
-	"id" "23825"
+	"id" "23859"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers04"
 	"sides" "23324"
@@ -292181,7 +293029,7 @@ entity
 }
 entity
 {
-	"id" "23826"
+	"id" "23860"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers01"
 	"sides" "23324"
@@ -292204,7 +293052,7 @@ entity
 }
 entity
 {
-	"id" "23827"
+	"id" "23861"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers01"
 	"sides" "23324"
@@ -292227,7 +293075,7 @@ entity
 }
 entity
 {
-	"id" "23828"
+	"id" "23862"
 	"classname" "info_overlay"
 	"material" "overlays/bootprint_02"
 	"sides" "23324"
@@ -292250,7 +293098,7 @@ entity
 }
 entity
 {
-	"id" "23829"
+	"id" "23863"
 	"classname" "info_overlay"
 	"material" "overlays/bootprint_01"
 	"sides" "23324"
@@ -292273,7 +293121,7 @@ entity
 }
 entity
 {
-	"id" "23830"
+	"id" "23864"
 	"classname" "info_overlay"
 	"material" "overlays/bootprint_01"
 	"sides" "23324"
@@ -292296,7 +293144,7 @@ entity
 }
 entity
 {
-	"id" "23831"
+	"id" "23865"
 	"classname" "info_overlay"
 	"material" "overlays/bootprint_01"
 	"sides" "23324"
@@ -292319,7 +293167,7 @@ entity
 }
 entity
 {
-	"id" "23832"
+	"id" "23866"
 	"classname" "info_overlay"
 	"material" "overlays/bootprint_02"
 	"sides" "23324"
@@ -292342,7 +293190,7 @@ entity
 }
 entity
 {
-	"id" "23833"
+	"id" "23867"
 	"classname" "info_overlay"
 	"material" "overlays/bootprint_02"
 	"sides" "23324"
@@ -292365,7 +293213,7 @@ entity
 }
 entity
 {
-	"id" "23834"
+	"id" "23868"
 	"classname" "info_overlay"
 	"material" "decals/decalborealispuddle001a"
 	"sides" "23324"
@@ -292388,7 +293236,7 @@ entity
 }
 entity
 {
-	"id" "23835"
+	"id" "23869"
 	"classname" "info_overlay"
 	"material" "decals/decalborealispuddle001a"
 	"sides" "23324"
@@ -292411,7 +293259,7 @@ entity
 }
 entity
 {
-	"id" "23836"
+	"id" "23870"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292434,7 +293282,7 @@ entity
 }
 entity
 {
-	"id" "23837"
+	"id" "23871"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292457,7 +293305,7 @@ entity
 }
 entity
 {
-	"id" "23838"
+	"id" "23872"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292480,7 +293328,7 @@ entity
 }
 entity
 {
-	"id" "23839"
+	"id" "23873"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292503,7 +293351,7 @@ entity
 }
 entity
 {
-	"id" "23840"
+	"id" "23874"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292526,7 +293374,7 @@ entity
 }
 entity
 {
-	"id" "23841"
+	"id" "23875"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292549,7 +293397,7 @@ entity
 }
 entity
 {
-	"id" "23842"
+	"id" "23876"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292572,7 +293420,7 @@ entity
 }
 entity
 {
-	"id" "23843"
+	"id" "23877"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292595,7 +293443,7 @@ entity
 }
 entity
 {
-	"id" "23844"
+	"id" "23878"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292618,7 +293466,7 @@ entity
 }
 entity
 {
-	"id" "23845"
+	"id" "23879"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292641,7 +293489,7 @@ entity
 }
 entity
 {
-	"id" "23846"
+	"id" "23880"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292664,7 +293512,7 @@ entity
 }
 entity
 {
-	"id" "23847"
+	"id" "23881"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292687,7 +293535,7 @@ entity
 }
 entity
 {
-	"id" "23848"
+	"id" "23882"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292710,7 +293558,7 @@ entity
 }
 entity
 {
-	"id" "23849"
+	"id" "23883"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292733,7 +293581,7 @@ entity
 }
 entity
 {
-	"id" "23850"
+	"id" "23884"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292756,7 +293604,7 @@ entity
 }
 entity
 {
-	"id" "23851"
+	"id" "23885"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292779,7 +293627,7 @@ entity
 }
 entity
 {
-	"id" "23852"
+	"id" "23886"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292802,7 +293650,7 @@ entity
 }
 entity
 {
-	"id" "23853"
+	"id" "23887"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292825,7 +293673,7 @@ entity
 }
 entity
 {
-	"id" "23854"
+	"id" "23888"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292848,7 +293696,7 @@ entity
 }
 entity
 {
-	"id" "23855"
+	"id" "23889"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292871,7 +293719,7 @@ entity
 }
 entity
 {
-	"id" "23856"
+	"id" "23890"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292894,7 +293742,7 @@ entity
 }
 entity
 {
-	"id" "23857"
+	"id" "23891"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292917,7 +293765,7 @@ entity
 }
 entity
 {
-	"id" "23858"
+	"id" "23892"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21977"
@@ -292940,7 +293788,7 @@ entity
 }
 entity
 {
-	"id" "23859"
+	"id" "23893"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292963,7 +293811,7 @@ entity
 }
 entity
 {
-	"id" "23860"
+	"id" "23894"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -292986,7 +293834,7 @@ entity
 }
 entity
 {
-	"id" "23861"
+	"id" "23895"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -293009,7 +293857,7 @@ entity
 }
 entity
 {
-	"id" "23862"
+	"id" "23896"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -293032,7 +293880,7 @@ entity
 }
 entity
 {
-	"id" "23863"
+	"id" "23897"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -293055,7 +293903,7 @@ entity
 }
 entity
 {
-	"id" "23864"
+	"id" "23898"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -293078,7 +293926,7 @@ entity
 }
 entity
 {
-	"id" "23865"
+	"id" "23899"
 	"classname" "info_overlay"
 	"material" "overlays/hazard_stripe001c"
 	"sides" "21998"
@@ -293101,7 +293949,7 @@ entity
 }
 entity
 {
-	"id" "23866"
+	"id" "23900"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05a"
 	"sides" "21998"
@@ -293124,7 +293972,7 @@ entity
 }
 entity
 {
-	"id" "23867"
+	"id" "23901"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05a"
 	"sides" "21977"
@@ -293147,7 +293995,7 @@ entity
 }
 entity
 {
-	"id" "23868"
+	"id" "23902"
 	"classname" "info_overlay"
 	"material" "overlays/stain_04"
 	"sides" "21998"
@@ -293170,7 +294018,7 @@ entity
 }
 entity
 {
-	"id" "23869"
+	"id" "23903"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05d"
 	"sides" "21998"
@@ -293193,7 +294041,7 @@ entity
 }
 entity
 {
-	"id" "23870"
+	"id" "23904"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05d"
 	"sides" "21977"
@@ -293216,7 +294064,7 @@ entity
 }
 entity
 {
-	"id" "23871"
+	"id" "23905"
 	"classname" "info_overlay"
 	"material" "overlays/stains_05d"
 	"sides" "21998"
@@ -293239,7 +294087,7 @@ entity
 }
 entity
 {
-	"id" "23872"
+	"id" "23906"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers04"
 	"sides" "21998"
@@ -293262,7 +294110,7 @@ entity
 }
 entity
 {
-	"id" "23873"
+	"id" "23907"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers04"
 	"sides" "21977"
@@ -293285,7 +294133,7 @@ entity
 }
 entity
 {
-	"id" "23874"
+	"id" "23908"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers04"
 	"sides" "21977"
@@ -293308,7 +294156,7 @@ entity
 }
 entity
 {
-	"id" "23875"
+	"id" "23909"
 	"classname" "info_overlay"
 	"material" "overlays/rationpapers03"
 	"sides" "21998"
@@ -293331,7 +294179,7 @@ entity
 }
 entity
 {
-	"id" "23876"
+	"id" "23910"
 	"classname" "infodecal"
 	"texture" "decals/decal_crater001a"
 	"LowPriority" "0"
@@ -293339,7 +294187,7 @@ entity
 }
 entity
 {
-	"id" "23877"
+	"id" "23911"
 	"classname" "infodecal"
 	"texture" "decals/decal_crater001a"
 	"LowPriority" "0"
@@ -293347,7 +294195,7 @@ entity
 }
 entity
 {
-	"id" "23878"
+	"id" "23912"
 	"classname" "infodecal"
 	"texture" "decals/decal_crater001a"
 	"LowPriority" "0"
@@ -293355,7 +294203,7 @@ entity
 }
 entity
 {
-	"id" "23879"
+	"id" "23913"
 	"classname" "infodecal"
 	"texture" "decals/decal_crater001a"
 	"LowPriority" "0"
@@ -293363,7 +294211,7 @@ entity
 }
 entity
 {
-	"id" "23880"
+	"id" "23914"
 	"classname" "infodecal"
 	"texture" "decals/decal_crater001a"
 	"LowPriority" "0"
@@ -293371,7 +294219,7 @@ entity
 }
 entity
 {
-	"id" "23881"
+	"id" "23915"
 	"classname" "infodecal"
 	"texture" "decals/bloodstain_002"
 	"LowPriority" "0"
@@ -293379,7 +294227,7 @@ entity
 }
 entity
 {
-	"id" "23882"
+	"id" "23916"
 	"classname" "infodecal"
 	"texture" "decals/bloodstain_002"
 	"LowPriority" "0"
