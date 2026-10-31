@@ -894,6 +894,76 @@ name, echoes a marker into the console log when a unit arrives.
 ![The village block: solid gabled houses next to enterable ones](docs/screenshots/interiors-p6-test-map-village.png)
 ![In game: the navmesh overlay over the rooms, a path up the stairs and a rebel on the upper floor](docs/screenshots/interiors-p6-in-game-stairs.png)
 
+## Interior buildings with rooms
+
+A building you walk into, made of rooms with a purpose: draw the rooms on a floor plan, give each a type, and
+the generator builds the shell and furnishes every room for its type (`src/gen/rooms/`, plan in
+`docs/plans/interior-buildings.md`). The Civil Protection station was the hand-made first version of this.
+
+- **Rooms and shape** (`model.ts`): the building is a grid of 128-unit cells and each room is a rectangle of
+  cells; the rooms together are the building's shape, so an L or a T is just rooms placed that way. Walls stand
+  wherever a room meets the outside or another room. Walls along x keep the corners and walls along y stop
+  against them, so no two wall brushes overlap.
+- **How rooms meet**: each type prefers a doorway, a row of archways or no wall at all, and two rooms meet with
+  the less open of their two preferences (a train hall and a concourse: archways; a concourse and a waiting
+  room: a doorway). A link per pair of rooms overrides it, including a closed wall. Street doors go on outer
+  walls and keep clear of the corners.
+- **Shell** (`shell.ts`, with `hall.ts`): plain world walls, a window band high up in the north and east outer
+  walls (the sun comes from the north-east), glass in a never-solid func_brush, and the invisible roof that
+  blocks the sun (a func_brush that casts vrad shadows) with skylight strips over the halls. Nothing hangs
+  under the roof.
+- **Room types** (`types.ts`, `dressers.ts`): each room is furnished through a POI kit laid over its floor, so
+  props stand on the floor, keep off each other and off the ways through. Every doorway is kept clear and
+  joined to the others by walkways first.
+
+| Type | Furniture |
+|---|---|
+| Train hall | A raised platform along the side it is entered from, tracks on ballast with buffers, passenger coaches at the platform, a second platform in a wide hall; benches, bins, luggage, push carts; hazard stripes on the edges |
+| Concourse | Stone pillars on a grid (bases, capitals, lanterns) in a large one, a Breencast on a pole where most benches fit in front of it, ornaments by the street doors, luggage |
+| Customs | Rows of chain-link cages against the long walls with gates onto a corridor, benches and luggage inside, a scanner line of barricades across the way in, a guard booth and monitor |
+| Rations | Lanes between railings up to a Combine counter with monitors, the booth and crates of rations behind it, a Breencast in a corner, ration papers in the lanes |
+| Waiting room | Rows of benches facing a Breencast monitor on the north wall, canteen tables with bottles and cartons, payphones, a vending machine |
+| Hallway | Benches along the walls, bins, a payphone and a vending machine, lamps down the middle |
+
+- **Relief, lamps and wear** (`relief.ts`): the camera looks north-west, so the north and west inner faces of
+  every room get a plinth, a ledge, pilasters (stopping under window bands) and a cornice in one func_brush,
+  lanterns on every other pilaster, posters, propaganda and stains as overlays on the walls. Lamps hang over the
+  furniture; floors get stains, cracks and litter per type.
+- **Stored and editable** (`store.ts`, `action.ts`): the spec is kept on the building's func_detail
+  (`she_rooms`), with its walls' ids and everything else tagged, so it rebuilds in place. A green handle moves
+  it; clicking anything it made selects it.
+- **The dialog** (`src/ui/roomsDialog.ts`, *Interior building…* in the Selection panel, or *Design interior
+  building…* with a block brush selected): drag rooms onto the floor plan, pick their types, click outer walls
+  for street doors, set how neighbours meet, choose a preset (Train station, Customs house, Ration centre). The
+  plan shows walls, doorways, archways and window bands as they will be built and lists what is wrong
+  (overlapping rooms, doors not on an outer wall, rooms you can't reach from the street).
+
+![The floor plan dialog with the Train station preset](docs/screenshots/rooms-dialog-room.png)
+![The station built in the editor, with its panel](docs/screenshots/rooms-dialog-built.png)
+![The test map in the editor](docs/screenshots/rooms-station-editor-overview.png)
+
+**Test map** (`scripts/build-rooms-station.mjs` → `maps/rooms_station.vmf`): the Train station preset on a paved
+square (6 rooms, 24 × 24 cells), two player starts and two rebel squads outside its street door. At map start
+one squad is ordered onto the train platform (through the concourse and its archways), the other into the
+ration hall (through the concourse and the hallway); triggers there log when a unit arrives.
+
+| | |
+|---|---|
+| Brushes | 317 (84 world: the walls and the ground; floors, platforms, pillars and counters in one func_detail; roof, glass and relief in func_brushes) |
+| Props / lights / overlays | 181 (none converted by the static-prop check) / 53 / 149 |
+| Compile (final, with navmesh) | 34 s, no leak; navmesh 219 KB |
+| In game | all 4 rebels reached the platform and all 4 reached the ration hall |
+
+`scripts/rooms-demo.mjs` builds the three presets side by side in the editor (`maps/rooms_demo.vmf`);
+`scripts/rooms-dialog-demo.mjs` drives the dialog.
+
+![In game: the train hall, concourse and customs](docs/screenshots/rooms-game-hall.png)
+![In game: the platform, with the squad that walked there](docs/screenshots/rooms-game-close-platform.png)
+![In game: customs, cages along the north wall](docs/screenshots/rooms-game-close-customs.png)
+![In game: the hallway and the ration hall's lanes](docs/screenshots/rooms-game-close-rations.png)
+![In game: the concourse and its Breencast](docs/screenshots/rooms-game-close-concourse.png)
+![In game: the waiting room](docs/screenshots/rooms-game-close-waiting.png)
+
 ## Roads, powerlines, audio and mission flow
 
 ### Roads
@@ -1952,5 +2022,6 @@ node scripts/phase3-demo.mjs                      # scripted editing session wit
 node scripts/phase4-demo.mjs [map] [prefix]        # compile checks + compile through the dialog
 node scripts/phase5-demo.mjs                      # map and building generators
 node scripts/build-sofia.mjs                      # builds and compiles maps/sp_sofia.vmf
+node scripts/build-rooms-station.mjs              # the interior building test map, maps/rooms_station.vmf
 powershell -File scripts/capture-window.ps1 -Out shot.png   # in-game screenshot of the game window
 ```

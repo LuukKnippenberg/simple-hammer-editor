@@ -83,3 +83,7 @@ there, replacing it) or on a building's handle (Edit rooms…, Re-roll, Delete; 
 ### A6: Demo and docs
 A demo station built from a preset with every room type, compiled and checked in the game with screenshots,
 and a README section.
+
+Done: `scripts/build-rooms-station.mjs` builds `maps/rooms_station.vmf` (the Train station preset with squads
+ordered through it); compiled without a leak in 34 s, and in game both squads walked through the building to
+the platform and the ration hall. README section "Interior buildings with rooms".
