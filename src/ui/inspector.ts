@@ -24,6 +24,11 @@ import { addPreset } from '../edit/presetAction.ts';
 import { poiEditor, selectedPoi } from './poiPanel.ts';
 import { duplicatePoi, selectedPois } from '../gen/poi/action.ts';
 import { cinemaInspector } from './cinemaPanel.ts';
+import { deleteRooms, regenerateRooms, selectedRooms } from '../gen/rooms/action.ts';
+import { roomsOf } from '../gen/rooms/store.ts';
+import { roomLayout } from '../gen/rooms/model.ts';
+import { roomType } from '../gen/rooms/types.ts';
+import { openRoomsDialog } from './roomsDialog.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -36,6 +41,9 @@ export function mountInspector(editor: Editor): HTMLElement {
         h('div.section', {}, h('h3', {}, 'Selection'),
           h('p.hint', {}, 'Click a brush or entity to select it. Shift-click adds to the selection.'),
           h('p.hint', {}, 'Tools: 1 select · 2 block · 3 paint · 4 entity. M move · R resize · F focus · Ctrl+D duplicate · Del delete · [ ] grid.')),
+        h('div.section', {}, h('h3', {}, 'Interior building'),
+          h('p.hint', {}, 'A building made of rooms (train hall, customs, rations, waiting room, hallway, concourse), each furnished for its type. Built in front of the camera; select a block brush first to build it there.'),
+          h('button', { onclick: () => openRoomsDialog(editor) }, '🏛 Interior building…')),
       );
       return;
     }
@@ -57,6 +65,12 @@ export function mountInspector(editor: Editor): HTMLElement {
         h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
       if (blocks.length === 1) panel.append(buildingPanel(editor, blocks[0]));
+      return;
+    }
+    // Interior building handles stand for their buildings.
+    const rooms = selectedRooms(editor);
+    if (rooms.length) {
+      panel.append(roomsPanel(editor, rooms));
       return;
     }
     const solids = sel.allSolids();
@@ -110,6 +124,11 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
     if (solids.length) panel.append(brushEditor(editor));
     if (looseWorld.length && !partOf.size) panel.append(buildingPanel(editor));
+    if (looseWorld.length === 1 && !partOf.size) {
+      panel.append(h('div.section', {}, h('h3', {}, 'Interior building'),
+        h('p.hint', {}, 'Replace this block with a building made of rooms, drawn on a floor plan.'),
+        h('button', { onclick: () => openRoomsDialog(editor, { brush: looseWorld[0] }) }, '🏛 Design interior building…')));
+    }
   };
   editor.on('selection', render);
   editor.on('change', render);
@@ -277,6 +296,26 @@ function powerlinePanel(editor: Editor, e: MapEntity, spec: PowerlineSpec, count
 }
 
 /** Turns the selected block brushes into buildings; for a generated block (`block`), its stored settings. */
+/** An interior building's handle: its rooms, what is wrong with them, and the dialog to change them. */
+function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
+  const one = details.length === 1 ? details[0] : null;
+  const spec = one ? roomsOf(one) : null;
+  const out = h('div.section', {}, h('h3', {}, 'Selection'),
+    h('div', {}, details.length > 1 ? `${details.length} interior buildings` : '🏛 Interior building'),
+    h('p.hint', {}, 'Drag the gizmo to move it (M); it is rebuilt where it lands. Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'));
+  if (!one || !spec) return out;
+  const issues = roomLayout(spec).issues;
+  out.append(
+    h('div.hint', {}, `${spec.rooms.length} rooms, walls ${spec.height} high:`),
+    h('ul.room-list', {}, ...spec.rooms.map((r) => h('li', {}, h('span.swatch', { style: { background: roomType(r.type).color } }), `${r.name || roomType(r.type).label} (${r.cells.x1 - r.cells.x0}×${r.cells.y1 - r.cells.y0})`))),
+    ...issues.map((i) => h('div.issue', {}, '⚠ ' + i)),
+    h('div.row', {},
+      h('button.primary', { onclick: () => openRoomsDialog(editor, { detail: one }) }, 'Edit rooms…'),
+      h('button', { title: 'Same rooms, new seed: other furniture and wear', onclick: () => regenerateRooms(editor, one, { seed: Math.floor(Math.random() * 100000) }, 'Re-roll interior building') }, 'Re-roll'),
+      h('button', { onclick: () => deleteRooms(editor, one) }, 'Delete')));
+  return out;
+}
+
 function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElement {
   const minF = h('input', { type: 'number', value: '3', min: '1', max: '12' }) as HTMLInputElement;
   const maxF = h('input', { type: 'number', value: '6', min: '1', max: '12' }) as HTMLInputElement;

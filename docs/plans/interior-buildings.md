@@ -73,6 +73,13 @@ rooms set the size), delete. Clicking anything the building made selects it by i
 An Interior building dialog: footprint size, a room grid to paint rooms on, a type per room, doors, presets
 (Train station, Customs house, Ration centre), Generate and Regenerate.
 
+Done: `src/ui/roomsDialog.ts`. A floor plan on a cell grid: drag rooms onto empty cells, click a room to select
+it (name, type, and how it meets each neighbour: by the room types, doorway, archways, open or closed), click
+outer walls for street doors, Erase or right-click to remove a room. The plan draws walls, doorways, archways and
+window bands as they will be built, and lists what is wrong. Presets, wall height, window band sides, seed.
+Opened from the Selection panel: with nothing selected (built in front of the camera), on a block brush (built
+there, replacing it) or on a building's handle (Edit rooms…, Re-roll, Delete; Delete key works too).
+
 ### A6: Demo and docs
 A demo station built from a preset with every room type, compiled and checked in the game with screenshots,
 and a README section.

@@ -317,6 +317,9 @@ input.switch:checked::before { transform: translateX(14px); background: #fff; }
 .sketch-canvas-wrap { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; background: #111316; border-radius: 4px; }
 .sketch-canvas { cursor: crosshair; image-rendering: pixelated; box-shadow: 0 0 0 1px #000; }
 .sketch-side { width: 300px; overflow-y: auto; }
+.room-issues .issue, .section .issue { color: #ffb74a; font-size: 12px; margin: 2px 0; }
+.room-list { margin: 4px 0; padding-left: 4px; list-style: none; font-size: 12px; }
+.room-list li { display: flex; align-items: center; gap: 6px; }
 .seg { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; }
 .seg button { flex: 1; padding: 3px 6px; font-size: 12px; }
 .swatch.ramp { background: repeating-linear-gradient(45deg, #ddd 0 2px, #555 2px 4px); }

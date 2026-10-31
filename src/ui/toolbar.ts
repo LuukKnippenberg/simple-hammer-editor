@@ -4,6 +4,7 @@ import { copySelection, deleteSelection, duplicateSelection, pasteClipboard, rot
 import { isTyping } from '../render/cameraControls.ts';
 import { deletePoi, duplicatePoi, selectedPois, turnPoi } from '../gen/poi/action.ts';
 import { deleteBlock, duplicateBlock, selectedBlocks, turnBlock } from '../gen/buildingAction.ts';
+import { deleteRooms, selectedRooms } from '../gen/rooms/action.ts';
 import { h, toast } from './dom.ts';
 
 const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
@@ -109,6 +110,13 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
       else if (k === 'd' && blocks.length === 1) duplicateBlock(editor, blocks[0]);
       else if (k === 'c') toast(editor.container, 'Blocks of buildings are copied with Ctrl+D (duplicate)', 1800);
       else if (k === ',' || k === '.') editor.history.group(`Turn ${many}`, () => blocks.forEach((b) => turnBlock(editor, b)));
+      e.preventDefault();
+      return;
+    }
+    // Selected interior building handles: Delete removes the whole building.
+    const rooms = selectedRooms(editor);
+    if (rooms.length && (k === 'delete' || k === 'backspace')) {
+      editor.history.group('Delete interior building', () => rooms.forEach((r) => deleteRooms(editor, r)));
       e.preventDefault();
       return;
     }
