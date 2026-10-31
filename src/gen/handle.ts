@@ -29,7 +29,10 @@ export const POI_HANDLE: HandleKind = { classname: 'she_poi_handle', idKey: 'she
 /** A generated block of buildings' handle (`src/gen/buildingStore.ts`): a plinth just around the block's walls. */
 export const BUILDING_HANDLE: HandleKind = { classname: 'she_building_handle', idKey: 'she_building_id', material: 'EDITOR/BUILDING_HANDLE', color: '64 168 255', pad: 16 };
 
-const kinds = [POI_HANDLE, BUILDING_HANDLE];
+/** An interior building's handle (`src/gen/rooms/store.ts`): around its rooms, outside its outer walls. */
+export const ROOMS_HANDLE: HandleKind = { classname: 'she_rooms_handle', idKey: 'she_rooms_id', material: 'EDITOR/ROOMS_HANDLE', color: '96 200 120', pad: 24 };
+
+const kinds = [POI_HANDLE, BUILDING_HANDLE, ROOMS_HANDLE];
 
 /** The kind of a handle entity, or null when it is not a handle. */
 export function kindOf(e: MapEntity | null | undefined): HandleKind | null {

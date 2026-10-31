@@ -17,7 +17,7 @@ const report = await d.eval(async () => {
   const { VmfDocument } = await import('/src/vmf/map.ts');
   const { boxSolid } = await import('/src/edit/brushes.ts');
   const { SETTING_GROUPS, createGroupEntity, writeField } = await import('/src/lw/mapSettings.ts');
-  const { addRoomBuilding } = await import('/src/gen/rooms/build.ts');
+  const { addStoredRoomBuilding } = await import('/src/gen/rooms/store.ts');
   const { presetSpec } = await import('/src/gen/rooms/presets.ts');
   const Vector3 = ed.camera.position.constructor;
   const doc = VmfDocument.empty();
@@ -29,7 +29,7 @@ const report = await d.eval(async () => {
   doc.addSolid(boxSolid(doc, new Vector3(-3072, -2048, -64), new Vector3(4096, 2560, 0), 'CONCRETE/CONCRETEFLOOR033A'));
   const out = {};
   for (const [id, x, y] of [['station', -2816, -1792], ['customs', 768, -1792], ['rations', 768, 512]]) {
-    const r = addRoomBuilding(doc, presetSpec(id, x, y, 0, id, 11));
+    const r = addStoredRoomBuilding(doc, presetSpec(id, x, y, 0, id, 11));
     out[id] = { issues: r.layout.issues, counts: r.counts };
   }
   ed.changed();

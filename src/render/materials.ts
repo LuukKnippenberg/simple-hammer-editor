@@ -151,9 +151,9 @@ export class MaterialLibrary {
       const kind = classify(key);
       if (kind === 'handle') {
         // Not a game material: nothing to load.
-        // Orange for POIs, blue for blocks of buildings.
-        const blue = key.includes('building');
-        const material = new MeshLambertMaterial({ color: blue ? 0x40a8ff : 0xffa630, emissive: blue ? 0x00203a : 0x3a2000, transparent: true, opacity: 0.16, depthWrite: false });
+        // Orange for POIs, blue for blocks of buildings, green for interior buildings.
+        const [color, emissive] = key.includes('building') ? [0x40a8ff, 0x00203a] : key.includes('rooms') ? [0x60c878, 0x0a2a12] : [0xffa630, 0x3a2000];
+        const material = new MeshLambertMaterial({ color, emissive, transparent: true, opacity: 0.16, depthWrite: false });
         info = { name: key, kind, width: 512, height: 512, material, loaded: true, preview: null };
         this.world.set(key, info);
         return info;

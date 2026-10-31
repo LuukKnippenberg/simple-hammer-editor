@@ -22,7 +22,9 @@ import { handleOf } from '../gen/poi/handle.ts';
 import { POI_ID_KEY } from '../gen/poi/spec.ts';
 import { blockHandleDragged } from '../gen/buildingAction.ts';
 import { blockOfSolid, blockOwner } from '../gen/buildingStore.ts';
-import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE } from '../gen/handle.ts';
+import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE, ROOMS_HANDLE } from '../gen/handle.ts';
+import { roomsHandleDragged } from '../gen/rooms/action.ts';
+import { roomsOwner } from '../gen/rooms/store.ts';
 
 export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema';
 
@@ -195,6 +197,8 @@ export class SelectTool implements Tool {
     const doc = this.editor.doc;
     const poi = owner?.get(POI_ID_KEY);
     if (poi) { const h = handleOf(doc, poi); return h ? { entity: h } : null; }
+    const rooms = roomsOwner(doc, owner, owner ? null : solid);
+    if (rooms) { const h = findHandle(doc, ROOMS_HANDLE, rooms.get(ROOMS_HANDLE.idKey) ?? ''); return h ? { entity: h } : null; }
     const block = owner ? blockOwner(doc, owner) : solid ? blockOfSolid(doc, solid) : null;
     const h = block && findHandle(doc, BUILDING_HANDLE, block.get(BUILDING_HANDLE.idKey) ?? '');
     return h ? { entity: h } : null;
@@ -269,10 +273,11 @@ export class SelectTool implements Tool {
     if (handle && kind) {
       // A dragged generator handle: what it stands for is rebuilt to fit, in the same undo step as the drag.
       const mode = this.mode;
-      const what = kind === POI_HANDLE ? 'POI' : 'buildings';
+      const what = kind === POI_HANDLE ? 'POI' : kind === ROOMS_HANDLE ? 'interior building' : 'buildings';
       this.editor.history.group(mode === 'translate' ? `Move ${what}` : `Resize ${what}`, () => {
         this.endHistory?.();
         if (kind === POI_HANDLE) handleDragged(this.editor, handle, mode);
+        else if (kind === ROOMS_HANDLE) roomsHandleDragged(this.editor, handle, mode);
         else blockHandleDragged(this.editor, handle, mode);
       });
     } else {

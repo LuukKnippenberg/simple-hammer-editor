@@ -64,6 +64,11 @@ bases, capitals and a lantern. Street doors keep 40 units from the room's corner
 The spec is stored in the map like a block of buildings (a key on the building's func_detail, with its members
 listed), so the editor can rebuild a building after its rooms change, and a handle to move it.
 
+Done: `store.ts` keeps the spec in `she_rooms` on the building's func_detail, its walls' ids in
+`she_rooms_world` and ties everything else to it with `she_rooms_id`. `action.ts`: build or rebuild in place
+(one undo step, the handle keeps its identity), move by dragging the green handle (a resize puts it back: the
+rooms set the size), delete. Clicking anything the building made selects it by its handle.
+
 ### A5: Editor
 An Interior building dialog: footprint size, a room grid to paint rooms on, a type per room, doors, presets
 (Train station, Customs house, Ration centre), Generate and Regenerate.
