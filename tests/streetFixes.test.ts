@@ -118,7 +118,7 @@ describe('street fixes', () => {
     const ed = stubEditor();
     const spec = stationSpec(0);
     const r = applyRooms(ed, spec, 'Add');
-    expect(r.issues ?? []).toEqual([]);
+    expect(r.result.layout.issues).toEqual([]);
     const rails = ed.doc.entities.filter((e) => e.get('model') === 'models/pg_props/pg_obj/pg_rail_512.mdl');
     expect(new Set(rails.map((e) => e.origin!.y))).toEqual(new Set(STATION_TRACKS));
     // The rails reach the east wall's inner face (cell 13 of the building, less half a wall).

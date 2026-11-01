@@ -2239,6 +2239,29 @@ victory. `scripts/street-fixes-shots.mjs` takes the editor shots.
 ![In game: the car park under the newer block](docs/screenshots/fixes-game-carpark.jpg)
 ![In game: the tracks leave the train hall through its east wall](docs/screenshots/fixes-game-station.jpg)
 
+### Polish: the outside of the interior buildings
+
+The station style's outer walls were one texture of a window in its stone surround, tiled over every wall: big
+painted windows everywhere, cut off at the wall top and unrelated to the real window bands. They are now built from
+the City 17 station's own texture set (`STATION_STYLE` in `src/gen/rooms/shell.ts`, `outerRelief` in
+`src/gen/rooms/relief.ts`):
+
+- plain ashlar walls (`..._TEMPLATE002J`), whose ledges run as string courses;
+- the window bands show a row of arched windows (`..._TEMPLATE002F`) on their outside, fitted to the band's height
+  (`windows` in the hall materials); glass stays on the inside;
+- relief round the outside (in the building's relief func_brush, so no vbsp t-junctions): a rusticated plinth,
+  pilasters about every 384 units (wider ones at the corners) that divide walls and window bands into bays, a
+  cornice along the top and jambs and a lintel round each street door;
+- the reveals of windows and doors in outer walls are the outer stone (they were the room's plaster) and the
+  underside over a window has the cap's material (it was nodraw).
+
+Garden District's station and customs house also have window bands on their south fronts now.
+`scripts/facade-preview.mjs` builds both on an empty square and takes the editor shots.
+
+![Before: the window texture tiled over the walls](docs/screenshots/facade-before-customs-corner.png)
+![After: the customs house's corner](docs/screenshots/facade-v3-customs-corner.png)
+![After: the station](docs/screenshots/facade-v3-station.png)
+
 ## Development
 
 ```bash

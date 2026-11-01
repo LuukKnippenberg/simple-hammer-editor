@@ -13,11 +13,18 @@ export interface RoomStyle {
   outerScale: number;
   cap: string;
   glass: string;
+  /** The window bands' outside: a row of windows (see HallMaterials.windows). */
+  windows?: string;
 }
 
-/** The City 17 station's stone front. */
+/**
+ * The City 17 station's stone front, from the station's own texture set: plain ashlar walls (their ledges become
+ * string courses), arched windows in the window bands. The plinth, pilasters, cornice and door surrounds are relief
+ * (see outerRelief).
+ */
 export const STATION_STYLE: RoomStyle = {
-  outer: 'BUILDING_TEMPLATE/BUILDING_TRAINSTATION_TEMPLATE002R', outerScale: 0.5, cap: 'CONCRETE/CONCRETEFLOOR028A', glass: 'GLASS/GLASSWINDOW029A',
+  outer: 'BUILDING_TEMPLATE/BUILDING_TRAINSTATION_TEMPLATE002J', outerScale: 0.75, cap: 'CONCRETE/CONCRETEFLOOR028A', glass: 'GLASS/GLASSWINDOW029A',
+  windows: 'BUILDING_TEMPLATE/BUILDING_TRAINSTATION_TEMPLATE002F',
 };
 
 export interface RoomShell {
@@ -81,7 +88,7 @@ export function roomShell(doc: VmfDocument, layout: RoomLayout, style: RoomStyle
   const hall = hallBrushes(doc, {
     floorZ: layout.base, height: layout.top - layout.base,
     walls: layout.walls.map((w) => hallWall(w, inner)),
-    materials: { inner: roomType(layout.rooms[0]?.spec.type ?? '').walls, outer: style.outer, outerScale: style.outerScale, cap: style.cap, glass: style.glass },
+    materials: { inner: roomType(layout.rooms[0]?.spec.type ?? '').walls, outer: style.outer, outerScale: style.outerScale, cap: style.cap, glass: style.glass, windows: style.windows },
     roofs,
   });
   return { world: hall.world, roof: hall.roof, glass: hall.glass };

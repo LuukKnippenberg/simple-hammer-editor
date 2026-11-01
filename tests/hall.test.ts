@@ -45,8 +45,10 @@ describe('hall builder', () => {
     });
     const mats = (n: (typeof b.world)[number]) => n.childrenNamed('side').map((s) => s.get('material'));
     const walls = b.world.filter((n) => mats(n).includes('PLASTER/INNER'));
-    // Inside is the left of a→b (+y): the outer finish goes on -y, the face list's third side.
-    for (const w of walls) expect(mats(w)).toEqual(['STONE/CAP', 'TOOLS/TOOLSNODRAW', 'STONE/OUTER', 'PLASTER/INNER', 'PLASTER/INNER', 'PLASTER/INNER']);
+    // Inside is the left of a→b (+y): the outer finish goes on -y, the face list's third side, and on the piece's
+    // ends (the reveals of the window); the inside is plaster. Over the window the underside is the cap's.
+    for (const w of walls) expect(mats(w).slice(2)).toEqual(['STONE/OUTER', 'STONE/OUTER', 'PLASTER/INNER', 'STONE/OUTER']);
+    expect(walls.map((w) => mats(w)[1]).sort()).toEqual(['STONE/CAP', 'TOOLS/TOOLSNODRAW', 'TOOLS/TOOLSNODRAW', 'TOOLS/TOOLSNODRAW']);
     expect(b.roof).toHaveLength(4);
     expect(b.roof.every((n) => mats(n).every((m) => m === 'TOOLS/TOOLSBLOCKLIGHT'))).toBe(true);
     expect(b.glass).toHaveLength(1);

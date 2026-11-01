@@ -35,6 +35,11 @@ export interface HallMaterials {
   glass: string;
   /** World units per texel for the outer finish (facades are drawn larger than plaster). */
   outerScale?: number;
+  /**
+   * The outside of the window panes: a window texture (512 texels tall) fitted to the window's height and repeated
+   * along it, so from the street a band reads as a row of windows. Glass on both sides when not given.
+   */
+  windows?: string;
 }
 
 export interface HallSpec {
@@ -141,22 +146,29 @@ export function hallBrushes(doc: VmfDocument, spec: HallSpec): HallBrushes {
     const left = new Vector2(-dir.y, dir.x);
     const sideOf = (n: Vector2) => (n.y < -0.5 ? 2 : n.x > 0.5 ? 3 : n.y > 0.5 ? 4 : 5);
     const outerSide = w.inside === 0 ? -1 : sideOf(w.inside === 1 ? left.clone().negate() : left);
+    /** Texture axes on the outer face, world-aligned at `scale`, the texture's top on `top`. */
+    const outerAxes = (scale: number, top: number) => {
+      const n = [new Vector3(0, -1, 0), new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(-1, 0, 0)][outerSide - 2];
+      const ax = worldAlignedAxes(n, scale);
+      return { u: ax.u, v: { ...ax.v, shift: (top / scale) % 512 } };
+    };
     for (const piece of wallPieces(w, floorZ, height)) {
       if (piece.window) {
-        glass.push(solidNode(doc, boxFaces(piece.min, piece.max, m.glass)));
+        const faces = boxFaces(piece.min, piece.max, m.glass);
+        if (m.windows && outerSide >= 0) Object.assign(faces[outerSide], { material: m.windows, ...outerAxes((piece.max.z - piece.min.z) / 512, piece.max.z) });
+        glass.push(solidNode(doc, faces));
         continue;
       }
       const faces: FaceSpec[] = boxFaces(piece.min, piece.max, { top: m.cap, bottom: NODRAW, sides: m.inner });
       if (w.faces?.left) faces[sideOf(left)].material = w.faces.left;
       if (w.faces?.right) faces[sideOf(left.clone().negate())].material = w.faces.right;
       if (outerSide >= 0) {
-        const f = faces[outerSide];
-        f.material = m.outer;
-        const n = [new Vector3(0, -1, 0), new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(-1, 0, 0)][outerSide - 2];
-        const ax = worldAlignedAxes(n, m.outerScale ?? 0.25);
-        f.u = ax.u;
-        f.v = { ...ax.v, shift: ((floorZ + height) / (m.outerScale ?? 0.25)) % 512 };
+        Object.assign(faces[outerSide], { material: m.outer, ...outerAxes(m.outerScale ?? 0.25, floorZ + height) });
+        // The reveals of the openings in an outer wall (the piece's ends) are the outer stone, not the room's plaster,
+        // and the underside over a window or door is the cap's.
+        for (const i of dir.x !== 0 ? [3, 5] : [2, 4]) faces[i].material = m.outer;
       }
+      if (piece.min.z > floorZ + 1) faces[1].material = m.cap;
       world.push(solidNode(doc, faces));
     }
   }

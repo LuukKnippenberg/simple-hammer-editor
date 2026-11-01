@@ -7,7 +7,7 @@ import type { PoiEntity } from '../poi/types.ts';
 import { roomLayout, type RoomBuildingSpec, type RoomLayout } from './model.ts';
 import { roomShell, STATION_STYLE, type RoomStyle } from './shell.ts';
 import { dressRoom } from './dressers.ts';
-import { cameraFaces, wallRelief, wallWear } from './relief.ts';
+import { cameraFaces, outerRelief, wallRelief, wallWear } from './relief.ts';
 
 /** Ties everything an interior building made to it (its func_detail, brush entities and point entities). */
 export const ROOMS_ID_KEY = 'she_rooms_id';
@@ -56,7 +56,7 @@ export function roomBuilding(doc: VmfDocument, spec: RoomBuildingSpec, style: Ro
   // Relief, lanterns, posters and stains on the walls the camera sees.
   const faces = cameraFaces(layout);
   const walls = wallRelief(doc, layout, faces);
-  const relief = [...walls.relief];
+  const relief = [...walls.relief, ...outerRelief(doc, layout)];
   for (const pe of [...walls.entities, ...wallWear(layout, faces, shell.world, new Rng(spec.seed * 7 + 3))]) points.push(pointEntity(doc, pe, uid));
   for (const room of layout.rooms) {
     const { output, ctx } = dressRoom(doc, layout, room, rng.int(1, 1e9));

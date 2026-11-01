@@ -1,10 +1,10 @@
 import { Vector3 } from 'three';
 import type { KVNode } from '../../vmf/keyvalues.ts';
 import { vecStr, type VmfDocument } from '../../vmf/map.ts';
-import { boxSolid } from '../../edit/brushes.ts';
+import { boxFaces, boxSolid, solidNode, worldAlignedAxes } from '../../edit/brushes.ts';
 import type { Rng } from '../rng.ts';
 import type { PoiEntity } from '../poi/types.ts';
-import type { RoomBox, RoomLayout } from './model.ts';
+import { WALL, type RoomBox, type RoomLayout } from './model.ts';
 
 /**
  * The walls the camera sees, dressed: it looks north-west, so in every room the inner faces of the north and west
@@ -16,6 +16,11 @@ import type { RoomBox, RoomLayout } from './model.ts';
 
 export const TRIM = 'BUILDING_TEMPLATE/BUILDING_TEMPLATE003A';
 export const PLINTH = 'STONE/STONEWALL029B';
+/** A cornice moulding over a band of frieze, 128 texels tall. */
+const CORNICE = 'BUILDING_TEMPLATE/BUILDING_TRAINSTATION_TEMPLATE002K';
+/** The station's ashlar, for the pilasters and door surrounds outside. */
+const ASHLAR = 'BUILDING_TEMPLATE/BUILDING_TRAINSTATION_TEMPLATE002J';
+const CAP = 'CONCRETE/CONCRETEFLOOR028A';
 const NODRAW = 'TOOLS/TOOLSNODRAW';
 
 const POSTERS = [
@@ -121,6 +126,65 @@ export function wallRelief(doc: VmfDocument, layout: RoomLayout, faces: RoomFace
     });
   }
   return { relief, entities };
+}
+
+/**
+ * The outside of the building, dressed as the station front: a rusticated plinth, pilasters dividing the walls (and
+ * the window bands) into bays, a cornice along the top and a surround (jambs and a lintel) at each street door.
+ * Brushes for the relief func_brush; they run on round the building's corners.
+ */
+export function outerRelief(doc: VmfDocument, layout: RoomLayout): KVNode[] {
+  const out: KVNode[] = [];
+  const B = layout.base, T = layout.top;
+  const threshold = layout.floor - layout.base;
+  const PLINTH_H = 96, CORNICE_H = 32;
+  for (const w of layout.walls) {
+    if ((w.lo === null) === (w.hi === null)) continue;
+    // Outwards: to the low side when the room is on the high side.
+    const sign = w.lo === null ? -1 : 1;
+    const face = w.at + sign * (WALL / 2);
+    const doors = w.openings.filter((o) => o.z0 <= threshold + 1);
+    /** A box on the outer face from a0 to a1 along it, `proud` out from it, z0..z1; `fit` textures its front face. */
+    const box = (a0: number, a1: number, proud: number, z0: number, z1: number, mat: string, fit?: { material: string; scale: number }) => {
+      const n0 = face, n1 = face + sign * proud;
+      const lo = Math.min(n0, n1), hi = Math.max(n0, n1);
+      const min = w.axis === 'x' ? new Vector3(a0, lo, z0) : new Vector3(lo, a0, z0);
+      const max = w.axis === 'x' ? new Vector3(a1, hi, z1) : new Vector3(hi, a1, z1);
+      const faces = boxFaces(min, max, { top: mat === PLINTH ? mat : CAP, bottom: NODRAW, sides: mat });
+      if (fit) {
+        const n = w.axis === 'x' ? new Vector3(0, sign, 0) : new Vector3(sign, 0, 0);
+        const i = w.axis === 'x' ? (sign < 0 ? 2 : 4) : (sign < 0 ? 5 : 3);
+        const ax = worldAlignedAxes(n, fit.scale);
+        Object.assign(faces[i], { material: fit.material, u: ax.u, v: { ...ax.v, shift: (z1 / fit.scale) % 512 } });
+      }
+      out.push(solidNode(doc, faces));
+    };
+    // Round the corners: past the end of the run by the wall's half thickness and the relief's own depth.
+    const ends = (proud: number): [number, number] => [w.from - WALL / 2 - proud, w.to + WALL / 2 + proud];
+    const [p0, p1] = ends(8);
+    for (const [a, b] of minus(p0, p1, doors.map((o): [number, number] => [o.from, o.to]), 0)) box(a, b, 8, B - 8, B + PLINTH_H, PLINTH);
+    const [c0, c1] = ends(20);
+    box(c0, c1, 20, T - CORNICE_H, T, ASHLAR, { material: CORNICE, scale: CORNICE_H / 128 });
+    // Pilasters about every 384, clear of the doors and the corners (each corner gets one either way).
+    const free = (c: number) => !doors.some((o) => c > o.from - 96 && c < o.to + 96);
+    const n = Math.max(1, Math.round((w.to - w.from) / 384));
+    for (let k = 0; k <= n; k++) {
+      const c = w.from + ((w.to - w.from) * k) / n;
+      const corner = k === 0 || k === n;
+      if (!free(c)) continue;
+      const half = corner ? 40 : 28;
+      const a = corner ? (k === 0 ? w.from - WALL / 2 : w.to + WALL / 2 - 2 * half) : c - half;
+      box(Math.round(a), Math.round(a + 2 * half), 14, B + PLINTH_H, T - CORNICE_H, ASHLAR);
+    }
+    // Door surrounds: jambs either side up past the opening, a lintel over it.
+    for (const o of doors) {
+      const top = B + o.z1;
+      box(o.from - 36, o.from, 14, B, top + 24, ASHLAR);
+      box(o.to, o.to + 36, 14, B, top + 24, ASHLAR);
+      box(o.from - 52, o.to + 52, 18, top + 24, top + 56, ASHLAR);
+    }
+  }
+  return out;
 }
 
 /** Bounds of a box brush node (its plane points are its corners). */

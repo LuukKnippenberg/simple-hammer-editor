@@ -166,7 +166,7 @@ export function customsSpec(z: number): RoomBuildingSpec {
     uid: 'customs', seed: 2203, origin: { x: X(CUSTOMS_CELLS[0]), y: Y(CUSTOMS_CELLS[1]), z }, cell: C, height: 352,
     rooms: [room('hallway', 'hallway', 0, 0, 2, 9, 'Hallway'), room('customs', 'customs', 2, 0, 10, 5, 'Customs hall'), room('waiting', 'waiting', 2, 5, 10, 9, 'Waiting room')],
     doors: [door(0, 3, 'w'), door(5, 0, 's')],
-    links: [], bands: ['n', 'e'],
+    links: [], bands: ['n', 'e', 's'],
   };
 }
 
@@ -189,7 +189,7 @@ export function stationSpec(z: number): RoomBuildingSpec {
     rooms: [room('hall', 'trainHall', 0, 4, 13, 10, 'Train hall'), room('concourse', 'concourse', 0, 0, 8, 4, 'Concourse'), room('waiting', 'waiting', 8, 0, 13, 4, 'Waiting room')],
     // The tracks leave through an opening in the hall's east wall.
     doors: [door(3, 0, 's'), door(10, 0, 's', 1), door(12, 6, 'e', 4)],
-    links: [], bands: ['n', 'e'],
+    links: [], bands: ['n', 'e', 's'],
   };
 }
 
