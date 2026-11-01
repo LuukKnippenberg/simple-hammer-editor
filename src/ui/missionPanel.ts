@@ -74,7 +74,7 @@ export function missionRes(editor: Editor, mapName: string): string {
 }
 
 /** Mission tab: mission info, Lambda Wars kits with their settings, relations and a short summary. */
-export function mountMissionPanel(editor: Editor, openFlow: () => void = () => {}): HTMLElement {
+export function mountMissionPanel(editor: Editor, openFlow: () => void = () => {}, toggleObjectives?: () => void): HTMLElement {
   const tool = editor.tools.tools.kit as KitTool;
   const flowEl = h('div');
   const infoEl = h('div');
@@ -177,7 +177,8 @@ export function mountMissionPanel(editor: Editor, openFlow: () => void = () => {
     const g = editor.mission;
     flowEl.replaceChildren(
       h('p.hint', {}, g ? `${g.stages.length} stage${g.stages.length === 1 ? '' : 's'}: ${g.stages.map((s) => s.title).join(' \u2192 ')}` : 'Define the mission as a flowchart: stages with messages and objectives, and the conditions that lead from one to the next.'),
-      h('button.primary', { onclick: openFlow }, g ? '\u25c7 Open mission flow' : '\u25c7 Create mission flow'));
+      h('button.primary', { onclick: openFlow }, g ? '\u25c7 Open mission flow' : '\u25c7 Create mission flow'),
+      ...(g && toggleObjectives ? [h('button', { title: 'Step through the objectives in the viewport and retarget them there (M)', onclick: toggleObjectives }, '\ud83c\udfaf Objectives in view')] : []));
   };
   editor.on('mission', renderFlow);
   editor.on('document', renderFlow);

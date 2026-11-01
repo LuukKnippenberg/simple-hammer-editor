@@ -20,6 +20,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+Z · Ctrl+Y', 'Undo · redo'],
   ['H · U', 'Hide selection · unhide all (editor only)'],
   ['L', 'Toggle the lighting preview'],
+  ['M · PageUp PageDown', 'Mission objectives in the viewport · previous / next objective'],
   ['[ ]', 'Grid size'],
   [', .', 'Rotate entities (Shift: 90°); turn a selected POI or block of buildings a quarter turn'],
   ['F', 'Focus the selection'],

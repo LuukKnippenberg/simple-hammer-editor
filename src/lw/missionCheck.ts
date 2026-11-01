@@ -7,7 +7,7 @@ import { GAME_ABILITIES } from './gameAbilities.ts';
 export interface MissionIssue { severity: 'error' | 'warning'; text: string; stage?: string }
 
 /** Classes whose death the mission build can listen to (see `deathOutput` in missionBuild.ts). */
-const MORTAL = /^(unit_|npc_|prop_physics|prop_dynamic|func_breakable|func_physbox|build_|wars_building)/;
+export const MORTAL = /^(unit_|npc_|prop_physics|prop_dynamic|func_breakable|func_physbox|build_|wars_building)/;
 const HAND_LOGIC = new Set(['wars_messagebox', 'wars_mission_objective']);
 
 /** Stages reachable from `from` by following transitions. */

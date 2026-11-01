@@ -32,3 +32,9 @@ export function buildMission(editor: Editor, g: MissionGraph): BuildReport {
   editor.changed();
   return report;
 }
+
+/** After an edit to `editor.mission`: marks the map unsaved (the graph is saved with it) and tells the mission views. */
+export function missionChanged(editor: Editor): void {
+  editor.dirty = true;
+  editor.emit('mission');
+}
