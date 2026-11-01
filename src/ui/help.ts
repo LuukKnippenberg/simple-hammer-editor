@@ -14,6 +14,7 @@ const SHORTCUTS: [string, string][] = [
   ['Enter · Esc', 'Generating: done · one step back (Tune → Place → menu)'],
   ['Click · Shift+click · drag', 'Select · add to selection · box select'],
   ['W · E · R', 'Gizmo: move · rotate (in steps, Shift: free) · resize'],
+  ['Hold V + drag', 'Snap move: grab a corner, edge or face of the selection and drop it on another (Shift: one axis, Ctrl: keep height, Esc cancels)'],
   ['Shift+1 – 4', 'Select objects · faces · edges · vertices (move them with the gizmo; brushes are rebuilt round their corners)'],
   ['X', 'Face mode: extrude the selected faces (move the mouse, click or Enter confirms, Esc cancels, Alt extends the brush)'],
   ['Ctrl+C · Ctrl+V', 'Copy · paste at the cursor'],
