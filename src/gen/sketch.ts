@@ -9,6 +9,7 @@ import { blockIntoDoc, blockUids, groupStreet, type BlockSpec } from './building
 import { buildRoads, centreline, defaultRoad, offsetLine, roadEntityNode, roadGround, type RoadGround, type RoadSpec } from './roads.ts';
 import { PROP_BOUNDS, standZ } from './props.ts';
 import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
+import { hideCoveredFaces } from '../geom/hidden.ts';
 import { Rng } from './rng.ts';
 import { MODEL_BOUNDS } from './poi/models.ts';
 import { KITS, type ParamValue } from '../lw/kits.ts';
@@ -497,6 +498,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
     }
   }
   // Walls: 48-thick concrete runs through wall cells, joined across neighbours.
+  const walls: KVNode[] = [];
   for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
     const i = y * s.w + x;
     if (s.features[i] !== Feature.Wall) continue;
@@ -505,10 +507,13 @@ export function generateFromSketch(s: Sketch): SketchResult {
     const cx = (x + 0.5) * SKETCH_CELL, cy = (y + 0.5) * SKETCH_CELL, t = 24, hgt = 160;
     const horiz = wall(-1, 0) || wall(1, 0), vert = wall(0, -1) || wall(0, 1);
     const mat = 'CONCRETE/CONCRETEWALL071A';
-    const add = (min: Vector3, max: Vector3) => solids.push(solidNode(doc, boxFaces(min, max, { top: mat, bottom: 'TOOLS/TOOLSNODRAW', sides: mat })));
+    const add = (min: Vector3, max: Vector3) => walls.push(solidNode(doc, boxFaces(min, max, { top: mat, bottom: 'TOOLS/TOOLSNODRAW', sides: mat })));
     if (horiz || !vert) add(new Vector3(wall(-1, 0) ? x * SKETCH_CELL : cx - t, cy - t, z - 16), new Vector3(wall(1, 0) ? (x + 1) * SKETCH_CELL : cx + t, cy + t, z + hgt));
     if (vert) add(new Vector3(cx - t, wall(0, -1) ? y * SKETCH_CELL : cy - t, z - 16), new Vector3(cx + t, wall(0, 1) ? (y + 1) * SKETCH_CELL : cy + t, z + hgt));
   }
+  // The runs' ends against each other and inside the crossings.
+  hideCoveredFaces(walls);
+  solids.push(...walls);
   // Parked cars in road cells: along the nearer kerb, facing the traffic on that side, on the carriageway and
   // clear of kerbs, other cars, lamps and trees.
   const parked: Box2[] = [];
@@ -591,6 +596,8 @@ export function generateFromSketch(s: Sketch): SketchResult {
     const ring = areaEdging(doc, s.shapes, SKETCH_CELL, flatHeight, patchSide, shift, new Rng(s.seed * 89 + 5));
     dressed.brushes.push(...ring.brushes);
     dressed.overlays.push(...ring.overlays);
+    // Edging pieces end to end and overlapping at the corners.
+    hideCoveredFaces(dressed.brushes);
     if (dressed.brushes.length) {
       const e = entity(doc, 'func_detail', new Vector3(), {});
       e.delete('origin');

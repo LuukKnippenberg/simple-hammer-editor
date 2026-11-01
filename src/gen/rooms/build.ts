@@ -8,6 +8,7 @@ import { roomLayout, type RoomBuildingSpec, type RoomLayout } from './model.ts';
 import { roomShell, STATION_STYLE, type RoomStyle } from './shell.ts';
 import { dressRoom } from './dressers.ts';
 import { cameraFaces, outerRelief, wallRelief, wallWear } from './relief.ts';
+import { hideCoveredFaces, overlaySides } from '../../geom/hidden.ts';
 
 /** Ties everything an interior building made to it (its func_detail, brush entities and point entities). */
 export const ROOMS_ID_KEY = 'she_rooms_id';
@@ -67,6 +68,9 @@ export function roomBuilding(doc: VmfDocument, spec: RoomBuildingSpec, style: Ro
       else points.push(pointEntity(doc, pe, uid));
     }
   }
+  // Never-visible faces to nodraw (the roof is never drawn: the walls under it stay as they are).
+  const drawn = [...shell.world, ...detail, ...relief, ...shell.glass, ...extra.filter((e) => /^func_(detail|brush)$/i.test(e.get('classname') ?? '') && e.get('rendermode') !== '10').flatMap((e) => e.childrenNamed('solid'))];
+  hideCoveredFaces(drawn, { keep: overlaySides(points), groundAt: () => layout.floor });
   const entities = [
     brushEntity(doc, 'func_detail', { [ROOMS_ID_KEY]: uid }, detail),
     brushEntity(doc, 'func_brush', { ...FUNC_BRUSH(`rooms_${uid}_roof`, false, true), [ROOMS_ID_KEY]: uid }, shell.roof),
