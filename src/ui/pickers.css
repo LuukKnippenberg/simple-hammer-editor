@@ -1,0 +1,105 @@
+/* Shared model / decal picker dialog, and the model and decal fields. */
+.picker {
+  width: min(1520px, 96vw); height: min(828px, 92vh); box-sizing: border-box; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; outline: none;
+}
+.picker-head { display: flex; align-items: center; gap: 12px; }
+.picker-head > b { font-size: 15px; }
+.picker-head-extra { display: flex; align-items: center; gap: 6px; }
+button.picker-x { width: 30px; height: 30px; padding: 0; margin-left: 8px; }
+.picker-body { flex: 1; display: flex; gap: 16px; min-height: 0; }
+.picker-nav { width: 220px; flex: none; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.picker-nav h3 {
+  margin: 14px 0 4px 8px; font: 600 11px var(--font-cond); letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-text);
+}
+.src { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: none; }
+.src:hover { background: var(--panel-2); }
+.src.on { background: var(--accent-tint); color: var(--accent-text); }
+.src .n { margin-left: auto; color: var(--muted); font-size: 11px; }
+.src.on .n { color: var(--accent-text); }
+.src-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-icon { width: 12px; text-align: center; flex: none; }
+.src-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.picker-note { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 12px 8px 0; }
+.picker-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.picker-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+input.picker-search { width: 300px; }
+.picker-chips, .picker-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.picker-status { color: var(--muted); font-size: 12px; }
+button.fchip, select.fchip-select {
+  font: 12px var(--font); letter-spacing: 0; text-transform: none; border: 1px solid var(--border); border-radius: 12px;
+  padding: 2px 10px; background: var(--panel-2); color: var(--text); white-space: nowrap;
+}
+button.fchip.on { border-color: var(--ok); color: var(--ok); background: #1d2a20; }
+.picker-grid {
+  flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-rows: max-content; gap: 10px;
+  overflow-y: auto; align-content: start; padding: 1px;
+}
+.picker-grid > p { grid-column: 1 / -1; }
+.ptile { border: 1px solid var(--border); border-radius: 6px; background: var(--chrome); overflow: hidden; position: relative; cursor: pointer; }
+.ptile:hover { border-color: var(--line-hover); }
+.ptile.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.ptile .th { height: 104px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 42%, #2a2d31, #16181a); }
+.ptile .th img { max-width: 100%; max-height: 100%; display: block; }
+.ptile .th img:not([src]) { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--muted); animation: spin 1s linear infinite; }
+.ptile .th img.missing { animation: none; border: none; width: 100%; height: 100%; background: repeating-conic-gradient(#3a3a3a 0 25%, #222 0 50%) 0 0 / 16px 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.ptile .nm { font-size: 11px; padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
+.ptile .sz { font-size: 10px; padding: 0 6px 4px; margin-top: -3px; color: var(--muted); }
+.ptile.on .nm { color: var(--accent-text); }
+.ptile .badge { position: absolute; top: 5px; left: 5px; font-size: 9px; color: var(--text); background: rgba(11, 12, 13, 0.82); border-radius: 3px; padding: 0 4px; }
+.ptile .fav { position: absolute; top: 4px; right: 6px; font-size: 12px; color: var(--accent); }
+.ptile .ov { position: absolute; top: 5px; right: 5px; font-size: 9px; color: var(--accent-2); background: rgba(11, 12, 13, 0.82); border-radius: 3px; padding: 0 4px; }
+.picker-keys { display: flex; gap: 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+.picker-keys kbd { font-size: 11px; padding: 0 5px; background: var(--bg); }
+.picker-detail { width: 340px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--border); padding-left: 16px; overflow-y: auto; }
+.pd { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.pd h3 { margin: 0 0 6px; font: 600 11px var(--font-cond); letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-text); }
+.preview { height: 260px; border-radius: 8px; background: radial-gradient(circle at 50% 40%, #2e3236, #121416); border: 1px solid var(--border); position: relative; display: flex; align-items: center; justify-content: center; flex: none; overflow: hidden; }
+.preview canvas { width: 100%; height: 100%; cursor: grab; display: block; }
+.preview canvas:active { cursor: grabbing; }
+.preview-hint { position: absolute; left: 10px; bottom: 8px; font-size: 11px; color: var(--text-2); pointer-events: none; }
+.preview-msg { position: absolute; color: var(--muted); font-size: 12px; pointer-events: none; }
+.preview-msg:empty { display: none; }
+.pd-name { font-size: 15px; font-weight: 600; }
+.pd-path { font: 12px var(--font-mono); color: var(--muted); margin-top: 2px; word-break: break-all; }
+.kv { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 8px; font-size: 12px; }
+.kv > span:nth-child(odd) { color: var(--muted); }
+.pd-foot { display: flex; gap: 8px; align-items: center; }
+button.star { font-size: 18px; color: var(--accent); border: none; padding: 0 4px; background: transparent; }
+.skins { display: flex; gap: 6px; flex-wrap: wrap; }
+button.sk { width: 40px; height: 40px; padding: 0; position: relative; border-radius: 5px; background: var(--panel-2); }
+button.sk img { width: 100%; height: 100%; display: block; }
+button.sk span { position: absolute; bottom: 0; left: 0; right: 0; font-size: 10px; text-align: center; color: #fff; text-shadow: 0 0 3px #000; }
+button.sk.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* Model field (inspector and Entity tool options). */
+.mf { display: flex; gap: 10px; padding: 6px 0 4px; }
+.mf-thumb {
+  width: 72px; height: 72px; flex: none; border-radius: 6px; background: radial-gradient(circle at 50% 40%, #2a2d31, #16181a);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.mf-thumb img { max-width: 100%; max-height: 100%; }
+.mf-thumb.small { width: 52px; height: 52px; }
+.mf-path { font: 12px var(--font-mono); word-break: break-all; }
+.mf-path b { font-weight: 700; }
+.mf-sub { color: var(--muted); font-size: 11px; }
+.mf-buttons { display: flex; gap: 6px; margin-top: 6px; position: relative; }
+.mf-ok { font-size: 12px; color: var(--ok); margin: 2px 0 6px; }
+.mf-warn { margin: 4px 0 8px; padding: 6px 8px; border-left: 3px solid var(--accent); background: #2a2318; font-size: 12px; line-height: 1.4; }
+.mf-warn .row { margin: 6px 0 0; flex-wrap: wrap; }
+.mf-stack { display: flex; flex: none; }
+.mf-stack .mf-thumb { width: 34px; height: 34px; border-radius: 5px; }
+.mf-stack .mf-thumb + .mf-thumb { margin-left: -10px; }
+.mf-multi { display: flex; align-items: center; gap: 8px; padding: 4px 0 6px; }
+.mf-multi > span { flex: 1; min-width: 0; font-size: 12px; }
+.mf-multi .mf-sub { display: block; }
+.seg-n { display: flex; gap: 3px; flex-wrap: wrap; }
+.seg-n button { padding: 1px 9px; font-size: 12px; }
+.menu {
+  position: absolute; z-index: 30; top: calc(100% + 3px); left: 0; min-width: 240px; max-height: 300px; overflow-y: auto; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.menu-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.menu-item:hover { background: var(--accent-tint); }
+.menu-item img { width: 28px; height: 28px; object-fit: contain; flex: none; }

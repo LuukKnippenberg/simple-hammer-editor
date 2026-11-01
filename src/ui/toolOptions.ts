@@ -13,6 +13,7 @@ import { multiblendRows, multiblendSets } from './blendUi.ts';
 import { h, toast } from './dom.ts';
 import { selectModeRows } from './partPanel.ts';
 import { entityToolOptions } from './entityToolOptions.ts';
+import { toolModelField } from './modelField.ts';
 
 const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema', generate: 'Generate' } as const;
 const HINTS = {
@@ -173,7 +174,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
       const kit = (editor.tools.tools.kit as KitTool).kit;
       rows.push(h('div', {}, kit.icon, ' ', kit.label));
     }
-    if (name === 'entity') rows.push(...entityToolOptions(editor, render));
+    if (name === 'entity') rows.push(...entityToolOptions(editor, render, () => toolModelField(editor)));
     box.classList.toggle('wide', name === 'entity' || name === 'decal');
     box.replaceChildren(...rows);
   };

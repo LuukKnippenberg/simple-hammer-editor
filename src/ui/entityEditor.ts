@@ -5,6 +5,7 @@ import { classChoices, classGroup, classHint } from '../edit/entityClasses.ts';
 import { KEY_GROUPS, classChangePlan, differsFromDefault, effectiveKeys, keyGroup, mergeSelection, type KeyDef, type KeyGroup, type MergedKey } from '../edit/entityKeys.ts';
 import { deleteSelection, duplicateSelection } from '../edit/actions.ts';
 import { ioSection } from './ioEditor.ts';
+import { modelGroups } from './modelField.ts';
 import { classDot } from './classPicker.ts';
 import { h, scrollIntoList } from './dom.ts';
 import './entities.css';
@@ -16,7 +17,7 @@ const isOpen = (label: string, byDefault = OPEN_BY_DEFAULT.has(label)) => groupO
 /** Short labels for keys whose FGD label is long. */
 const LABELS: Record<string, string> = { origin: 'Origin', angles: 'Angles', model: 'Model' };
 
-/** Extra groups other modules put at the top of the editor (the model field, a decal's texture). */
+/** Groups with their own editors at the top of the editor (the model field, a decal's texture). */
 export interface SpecialGroup {
   label: KeyGroup | 'Texture' | 'Sound and effects';
   /** Keys the group edits itself; they are left out of the generic groups. */
@@ -25,16 +26,12 @@ export interface SpecialGroup {
   summary: string;
   body: () => HTMLElement;
 }
-type SpecialProvider = (editor: Editor, ents: MapEntity[]) => SpecialGroup[];
-const providers: SpecialProvider[] = [];
-export function addSpecialGroups(p: SpecialProvider): void {
-  providers.push(p);
-}
+const specialGroups = (editor: Editor, ents: MapEntity[]): SpecialGroup[] => [...modelGroups(editor, ents)];
 
 const lookup = (cls: string) => fgdClass(cls);
 
 /** Applies `fn` to the entities as one undo step. */
-function edit(editor: Editor, label: string, ents: MapEntity[], fn: (e: MapEntity) => void): void {
+export function edit(editor: Editor, label: string, ents: MapEntity[], fn: (e: MapEntity) => void): void {
   const end = editor.history.begin(label, [], ents);
   for (const e of ents) fn(e);
   end();
@@ -142,7 +139,7 @@ function mixedPopover(anchor: HTMLElement, label: string, values: Map<string, nu
 }
 
 /** A key row: label, input, a dot when it differs from the default (right-click resets), ≠ when values differ. */
-function keyRow(editor: Editor, ents: MapEntity[], mk: MergedKey): HTMLElement {
+export function keyRow(editor: Editor, ents: MapEntity[], mk: MergedKey): HTMLElement {
   const def = mk.def;
   const label = LABELS[mk.name.toLowerCase()] ?? (def?.label && def.label !== def.name ? def.label : mk.name);
   if (def?.type === 'flags') {
@@ -253,7 +250,7 @@ export function entityEditor(editor: Editor, e: MapEntity, tail: SpecialGroup[] 
       sameClass.length > 1 ? h('button', { style: { marginLeft: 'auto' }, title: `Select every ${e.classname}`, onclick: () => editor.selection.set([], sameClass) }, `Select all ${sameClass.length}`) : null));
   const filter = h('input.key-filter', { placeholder: 'Filter keys…', 'aria-label': 'Filter keys' }) as HTMLInputElement;
   const body = h('div');
-  const specials = providers.flatMap((p) => p(editor, [e]));
+  const specials = specialGroups(editor, [e]);
   const render = () => {
     const q = filter.value.trim().toLowerCase();
     const keys = [...effectiveKeys(e.node.props, cls).values()].map((k) => ({ name: k.name, def: k.def, values: new Map([[k.value, 1]]) }));
@@ -290,7 +287,7 @@ export function multiEntityEditor(editor: Editor, ents: MapEntity[]): HTMLElemen
       h('button', { style: { marginLeft: 'auto' }, onclick: () => openChangeClass(editor, ents, root) }, 'Change class…')));
   const filter = h('input.key-filter', { placeholder: 'Filter keys…', 'aria-label': 'Filter keys' }) as HTMLInputElement;
   const body = h('div');
-  const specials = providers.flatMap((p) => p(editor, ents));
+  const specials = specialGroups(editor, ents);
   const merged = mergeSelection(ents.map((e) => ({ classname: e.classname, props: e.node.props })), lookup);
   const wars = ents.every((e) => classGroup(fgdClass(e.classname) ?? { name: e.classname, type: 'PointClass' }).id === 'wars');
   const render = () => {
