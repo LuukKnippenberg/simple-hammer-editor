@@ -2206,6 +2206,39 @@ Two fixes found on the way:
 ![In game: the parking rows on the square's paving](docs/screenshots/garden-polish-west.jpg)
 ![In game: the park set into the paving, the pond](docs/screenshots/garden-polish-park.jpg)
 
+### Polish: street details and the rail line
+
+From playing Garden District:
+
+- **Pavement and gutter textures follow the street.** They were world-aligned, so the square slab texture's
+  border strips crossed the pavement at random and the setts gutter showed scraps of setts and asphalt. A
+  pavement's texture now runs along the road and starts at the kerb: whole tiles across its width (one on a
+  normal pavement), so the slabs line up and their borders run along both edges; a rounded corner's quarter disc
+  carries on from its street. The setts gutter texture is a strip beside asphalt, and only that strip is shown
+  (`strip` in `streetMaterials.ts`).
+- **Bollards stay on the pavement.** The lookup of what lies under a point (`roadGround`) ignored rounded corners,
+  so a row of bollards ran on into the carriageway round the corner. It now knows the corner pieces, and a bollard
+  is only placed where it and the ground either side of it are pavement.
+- **Car parks run up to the pavement in their own asphalt.** The sketch tells a POI which sides face a street
+  (`streets`); a parking lot with its own surface grows over the gap a pavement leaves to its cells there and has
+  no kerb of its own on those sides. Garden District's two car parks now have their own asphalt, and the one on
+  the square reaches the boulevard and the north street.
+- **The station's tracks lead somewhere.** A **Railway** shape (Shapes layer: tracks, bend radius) builds a ballast
+  bed with the train hall's rails along each track; like a street it runs on out of the map through the
+  surroundings, which leave a gap for it. A train hall with a street door in an end wall that a track passes
+  through runs that track's rails to the wall and puts the buffers at the other end only. Garden District's hall
+  has an opening in its east wall and a rail line from there east through the city.
+
+Garden District rebuilt with these compiles without a leak (BSP 28.3 MB) and its mission still simulates to
+victory. `scripts/street-fixes-shots.mjs` takes the editor shots.
+
+![A crossing: slabs along the pavement, setts gutters, round corners, bollards on the pavement](docs/screenshots/fixes-01-corner.png)
+![The car park on the square, up to the pavements](docs/screenshots/fixes-03-parking.png)
+![In game: the round corner, bollards only on the pavement](docs/screenshots/fixes-game-corner.jpg)
+![In game: the car park on the square in its own asphalt](docs/screenshots/fixes-game-parking.jpg)
+![In game: the car park under the newer block](docs/screenshots/fixes-game-carpark.jpg)
+![In game: the tracks leave the train hall through its east wall](docs/screenshots/fixes-game-station.jpg)
+
 ## Development
 
 ```bash

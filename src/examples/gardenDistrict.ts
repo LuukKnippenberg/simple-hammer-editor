@@ -28,7 +28,7 @@ import { MODEL_BOUNDS } from '../gen/poi/models.ts';
 import { ATMOSPHERE_PRESETS, pathEntities, shotEntities, type EntitySpec } from '../lw/cinematics.ts';
 import { buildAtmosphere, buildFlyby, buildSendAlong, groundBelow } from '../lw/cinematicsAction.ts';
 import { Rng } from '../gen/rng.ts';
-import { roomLayout, type RoomBuildingSpec, type RoomSpec, type StreetDoor } from '../gen/rooms/model.ts';
+import { roomLayout, WALL, type RoomBuildingSpec, type RoomSpec, type StreetDoor } from '../gen/rooms/model.ts';
 import { ellipsePoints } from '../gen/sketchShapes.ts';
 import { applyRooms } from '../gen/rooms/action.ts';
 
@@ -82,9 +82,10 @@ const DETAIL_MEDIUM: Rect[] = [
 const POIS: SketchPoi[] = [
   // The park south of the square (the scrap piles lie in it).
   { type: 'park', x: 0, y: 0, w: 18, h: 11, seed: 21, params: { lights: false } },
-  // Parked cars in rows on the north half of the square, and the car park under the newer block.
-  { type: 'parking', x: 5, y: 30, w: 12, h: 6, seed: 22 },
-  { type: 'parking', x: 22, y: 13, w: 10, h: 7, seed: 23 },
+  // Car parks of their own asphalt, running up to the pavements: on the north-east corner of the square, and under
+  // the newer block.
+  { type: 'parking', x: 5, y: 30, w: 13, h: 7, seed: 22, params: { ground: 'own' } },
+  { type: 'parking', x: 22, y: 13, w: 10, h: 7, seed: 23, params: { ground: 'own' } },
   // The street market in front of the market's back row (turned so its long side runs along the street).
   { type: 'market', x: 36, y: 13, w: 6, h: 11, rotation: 90, seed: 24 },
 ];
@@ -142,6 +143,9 @@ export function buildGardenSketch(): Sketch {
     { kind: 'street', points: [[33.5, 38.5], [48, 26]], width: 256, pavement: 64 },
     { kind: 'street', points: [[19.5, 44], [24, 46.5], [29, 46.5], [33.5, 44.5]], width: 224, pavement: 64, radius: 384 },
     { kind: 'area', points: ellipsePoints(4.5, 12, 8.5, 16), surface: 'grass' },
+    // The rail line out of the station: from the train hall's east wall (its outer face) to the edge, and on east
+    // through the city beyond. Its two tracks line up with the hall's (see STATION_TRACKS).
+    { kind: 'railway', points: [[RAIL_FROM, RAIL_Y], [W, RAIL_Y]], tracks: 2 },
   ];
   s.markers = [
     m('sp_start', SPOTS.start[0], SPOTS.start[1], { faction: 'combine', squad: 'unit_stalker:1, unit_combine:4, unit_metropolice:4', yaw: 45 }),
@@ -167,6 +171,15 @@ export function customsSpec(z: number): RoomBuildingSpec {
 }
 
 /**
+ * Where the train hall's two tracks lie (world y): its platform is along the south wall (the side it is entered
+ * from), the tracks 368 and 576 in from that wall's inner face (see the train hall dresser).
+ */
+export const STATION_TRACKS = [Y(STATION_CELLS[1] + 4) + WALL / 2 + 368, Y(STATION_CELLS[1] + 4) + WALL / 2 + 576];
+/** The rail line's centre (cells) and where it starts: the east wall's outer face. */
+const RAIL_Y = ((STATION_TRACKS[0] + STATION_TRACKS[1]) / 2 + (H * C) / 2) / C;
+const RAIL_FROM = STATION_CELLS[2] + 1 + WALL / 2 / C;
+
+/**
  * The central station: the train hall along the north (kept 128 off the map's edges: walls on the edge of the
  * ground brushes cost vbsp t-junctions), the concourse and a waiting room on the street.
  */
@@ -174,7 +187,8 @@ export function stationSpec(z: number): RoomBuildingSpec {
   return {
     uid: 'station', seed: 2207, origin: { x: X(STATION_CELLS[0]), y: Y(STATION_CELLS[1]), z }, cell: C, height: 432,
     rooms: [room('hall', 'trainHall', 0, 4, 13, 10, 'Train hall'), room('concourse', 'concourse', 0, 0, 8, 4, 'Concourse'), room('waiting', 'waiting', 8, 0, 13, 4, 'Waiting room')],
-    doors: [door(3, 0, 's'), door(10, 0, 's', 1)],
+    // The tracks leave through an opening in the hall's east wall.
+    doors: [door(3, 0, 's'), door(10, 0, 's', 1), door(12, 6, 'e', 4)],
     links: [], bands: ['n', 'e'],
   };
 }

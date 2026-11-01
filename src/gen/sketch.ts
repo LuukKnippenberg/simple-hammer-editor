@@ -6,7 +6,7 @@ import type { ArchitectureName, BuildingQuality, FacadeStyle } from './buildings
 import type { YardStyle } from './yards.ts';
 import type { BlockDressing } from './streets.ts';
 import { blockIntoDoc, blockUids, groupStreet, type BlockSpec } from './buildingStore.ts';
-import { buildRoads, defaultRoad, roadEntityNode, roadGround, type RoadSpec } from './roads.ts';
+import { buildRoads, centreline, defaultRoad, offsetLine, roadEntityNode, roadGround, type RoadGround, type RoadSpec } from './roads.ts';
 import { PROP_BOUNDS, standZ } from './props.ts';
 import { addEnvironment, entity, finishDoc, terrainPatch } from './layout.ts';
 import { Rng } from './rng.ts';
@@ -16,7 +16,7 @@ import type { Editor } from '../editor.ts';
 import { levelForPois, type PoiPlacement } from './poi/mapgen.ts';
 import { dressEdges, surfaceEdges } from './surfaceEdges.ts';
 import type { RoadMaterials } from './streetMaterials.ts';
-import { areaAlpha, areaEdging, encodeCuts, insideDistance, shapeCuts, shapeRoads, boxesOverlap, type ShapeSurface, type SketchShape } from './sketchShapes.ts';
+import { areaAlpha, areaEdging, encodeCuts, insideDistance, shapeCuts, shapeRoads, boxesOverlap, TRACK_SPACING, type ShapeSurface, type SketchShape } from './sketchShapes.ts';
 import { bandWidth, buildSurroundings, extendEdgeRoads, FAR_LIGHTMAP, HILL_HEIGHT, outside, PLAIN_APRON, setLightmapScale, sideOf, styleOf, surroundRise, type SurroundSpec } from './surroundings.ts';
 
 /**
@@ -178,11 +178,20 @@ export function sketchPoiPlacements(s: Sketch): PoiPlacement[] {
 }
 
 /**
- * A POI's parameters with its `ground` set from the sketch where it isn't set: the surface most of its cells have
- * (paving or a road), so a park or a parking lot on a square takes the square's paving round it.
+ * A POI's parameters with what the sketch knows round it. `ground`, where it isn't set: the surface most of its cells
+ * have (paving or a road), so a park or a parking lot on a square takes the square's paving round it. `streets`: the
+ * (world) sides along which the cells just outside are mostly street, so a lot can run up to the pavement there.
  */
 function poiGround(s: Sketch, p: SketchPoi): Record<string, ParamValue> | undefined {
-  if (p.params?.ground !== undefined || s.theme !== 'city') return p.params;
+  if (s.theme !== 'city') return p.params;
+  const road = (x: number, y: number) => x >= 0 && y >= 0 && x < s.w && y < s.h && s.surface[y * s.w + x] === Surface.Road;
+  const along = (n: number, f: (k: number) => boolean) => Array.from({ length: n }, (_, k) => f(k)).filter(Boolean).length * 2 > n;
+  const sides = [
+    along(p.w, (k) => road(p.x + k, p.y - 1)) && 's', along(p.h, (k) => road(p.x + p.w, p.y + k)) && 'e',
+    along(p.w, (k) => road(p.x + k, p.y + p.h)) && 'n', along(p.h, (k) => road(p.x - 1, p.y + k)) && 'w',
+  ].filter(Boolean).join(',');
+  const params = sides ? { ...p.params, streets: sides } : p.params;
+  if (p.params?.ground !== undefined) return params;
   const n: Record<number, number> = {};
   for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) {
     if (x < 0 || y < 0 || x >= s.w || y >= s.h) continue;
@@ -191,7 +200,7 @@ function poiGround(s: Sketch, p: SketchPoi): Record<string, ParamValue> | undefi
   }
   const top = Number(Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0]);
   const ground = top === Surface.Paved ? 'paving' : top === Surface.Road ? 'asphalt' : undefined;
-  return ground ? { ...p.params, ground } : p.params;
+  return ground ? { ...params, ground } : params;
 }
 
 export function emptySketch(w: number, h: number, theme: SketchTheme = 'city'): Sketch {
@@ -445,6 +454,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
   const groundAt = (x: number, y: number) => onRoad(x, y)?.z ?? flatHeight(x, y);
   const carriageway = (x: number, y: number) => { const g = onRoad(x, y); return !!g && (g.kind === 'surface' || g.kind === 'rail'); };
   if (s.streets === 'sofia' && s.theme === 'city') ents.push(...sofiaStreets(doc, roads, onRoad, new Rng(s.seed * 61 + 5)));
+  for (const r of roads) if (r.tracks) ents.push(...railwayRails(doc, r, onRoad));
 
   // A block's cut option: the shape cuts over it, in world units.
   const blockCut = (box: Box3) => {
@@ -661,7 +671,7 @@ const BOLLARD = 'props_trainstation/trainstation_post001';
  * Sofia's side streets: cars parked along both kerbs where the carriageway is wide enough for them and a lane
  * between, bollards along the pavement edges, all kept clear of the junctions at the road pieces' ends.
  */
-function sofiaStreets(doc: VmfDocument, roads: RoadSpec[], top: (x: number, y: number) => { z: number } | null, rng: Rng): KVNode[] {
+function sofiaStreets(doc: VmfDocument, roads: RoadSpec[], top: (x: number, y: number) => RoadGround | null, rng: Rng): KVNode[] {
   const out: KVNode[] = [];
   const put = (model: string, x: number, y: number, yaw: number) => {
     const g = top(x, y);
@@ -689,8 +699,50 @@ function sofiaStreets(doc: VmfDocument, roads: RoadSpec[], top: (x: number, y: n
       if (r.pavement >= 96) {
         for (let t = 256; t < len - 256; t += 96) {
           const off = side * (r.width / 2 + 14);
-          put(BOLLARD, a.x + dir.x * t + n.x * off, a.y + dir.y * t + n.y * off, 0);
+          const x = a.x + dir.x * t + n.x * off, y = a.y + dir.y * t + n.y * off;
+          // Only on pavement: not where a crossing street or a rounded corner has taken it.
+          if (![-16, 0, 16].every((d) => top(x + dir.x * d, y + dir.y * d)?.kind === 'pavement')) continue;
+          put(BOLLARD, x, y, 0);
         }
+      }
+    }
+  }
+  return out;
+}
+
+const RAIL = 'pg_props/pg_obj/pg_rail_512';
+const RAIL_LENGTH = 512;
+
+/**
+ * Rails along each of a railway's tracks, as the train hall lays them. They start a little before the line's first
+ * point, so they run on through the wall of a station the line leaves from, and go to its far end (out in the
+ * surroundings, where extendEdgeRoads took it).
+ */
+function railwayRails(doc: VmfDocument, r: RoadSpec, top: (x: number, y: number) => RoadGround | null): KVNode[] {
+  const out: KVNode[] = [];
+  const line = centreline(r.points, r.radius);
+  const n = r.tracks ?? 1;
+  const b = MODEL_BOUNDS[RAIL];
+  for (let k = 0; k < n; k++) {
+    const pts = offsetLine(line, (k - (n - 1) / 2) * TRACK_SPACING);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], dir = new Vector2().subVectors(pts[i + 1], a);
+      const len = dir.length();
+      if (len < 1) continue;
+      dir.normalize();
+      const yaw = Math.round((Math.atan2(dir.y, dir.x) * 180) / Math.PI + 90);
+      // Whole lengths of rail from the start; the last one ends at the segment's end (overlapping the one before).
+      const starts: number[] = [];
+      if (len < RAIL_LENGTH / 2) starts.push(len / 2 - RAIL_LENGTH / 2);
+      else {
+        for (let t = i === 0 ? -48 : 0; t + RAIL_LENGTH < len; t += RAIL_LENGTH) starts.push(t);
+        starts.push(len - RAIL_LENGTH);
+      }
+      for (const t of starts) {
+        const x = a.x + dir.x * (t + RAIL_LENGTH / 2), y = a.y + dir.y * (t + RAIL_LENGTH / 2);
+        const g = top(x, y);
+        if (!g) continue;
+        out.push(entity(doc, 'prop_static', new Vector3(Math.round(x), Math.round(y), Math.round(g.z - (b ? b[2] : 0))), { model: `models/${RAIL}.mdl`, angles: `0 ${yaw} 0`, solid: '0' }));
       }
     }
   }

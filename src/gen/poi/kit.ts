@@ -44,6 +44,8 @@ export const GROUND_PARAM = {
 export const EDGE_WEAR = ['decals/leaves_ground01', 'decals/leaves_ground02', 'overlays/leaves_ground03', 'overlays/dirt01a', 'overlays/stain_01'];
 /** Extra width on each side of a gap that a route opens in a fence or wall (fence posts stick out). */
 const GAP_MARGIN = 32;
+/** How far short of its cells a street's pavement stops (see the sketch's roads). */
+export const STREET_GAP = 6;
 /** Pads and paths stand this far above the ground (keeps them clear of the ground's own faces). */
 const LIFT = 2;
 /** Longest pad piece: very long faces collect more t-junctions than vbsp can fix. */
@@ -197,6 +199,17 @@ export class PoiKit {
       const topSide = node.childrenNamed('side')[0].get('id')!;
       this.pads.push({ r: piece, top: topZ, sides: [topSide] });
     }
+  }
+
+  /**
+   * Whether a local side of the POI faces a street: the sketch sets `streets` to the world sides that do (`s,e,n,w`).
+   * A street's pavement stops STREET_GAP short of its cells, so a surface running up to it grows by that much.
+   */
+  facesStreet(side: 's' | 'e' | 'n' | 'w'): boolean {
+    const out = { s: [0, -1], e: [1, 0], n: [0, 1], w: [-1, 0] }[side];
+    const d = this.u.clone().multiplyScalar(out[0]).addScaledVector(this.v, out[1]);
+    const world = d.y < -0.5 ? 's' : d.x > 0.5 ? 'e' : d.y > 0.5 ? 'n' : 'w';
+    return this.str('streets').split(',').includes(world);
   }
 
   /** The material the POI's base takes: the ground around it when the `ground` parameter says so, else `own`. */

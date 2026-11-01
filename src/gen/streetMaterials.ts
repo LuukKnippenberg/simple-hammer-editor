@@ -4,7 +4,15 @@
  * say. The map sketch sets them for all its streets, the road panel per road.
  */
 
-export interface StreetMaterial { id: string; label: string; material: string }
+export interface StreetMaterial {
+  id: string;
+  label: string;
+  material: string;
+  /** Texture width in texels (512 when not given). */
+  width?: number;
+  /** A gutter texture with its strip along one side: the share of the width the strip takes (the rest is not shown). */
+  strip?: number;
+}
 
 export const CARRIAGEWAYS: StreetMaterial[] = [
   { id: 'asphalt', label: 'Asphalt', material: 'CONCRETE/CONCRETEFLOOR033A' },
@@ -12,6 +20,7 @@ export const CARRIAGEWAYS: StreetMaterial[] = [
   { id: 'setts', label: 'Setts', material: 'STONE/STONEFLOOR006B' },
   { id: 'cobbles', label: 'Cobbles', material: 'STONE/STONEFLOOR006A' },
   { id: 'concrete', label: 'Concrete', material: 'CONCRETE/CONCRETEFLOOR013A' },
+  { id: 'ballast', label: 'Ballast (railway)', material: 'NATURE/GRAVELFLOOR002B' },
 ];
 
 export const PAVEMENTS: StreetMaterial[] = [
@@ -31,7 +40,7 @@ export const KERBS: StreetMaterial[] = [
 
 export const GUTTERS: StreetMaterial[] = [
   { id: 'none', label: 'None', material: '' },
-  { id: 'setts', label: 'Setts', material: 'STONE/STONEFLOOR006B' },
+  { id: 'setts', label: 'Setts', material: 'STONE/STONEFLOOR006B', width: 256, strip: 0.3 },
   { id: 'cobbles', label: 'Cobbles', material: 'STONE/STONEFLOOR006A' },
   { id: 'concrete', label: 'Concrete', material: 'CONCRETE/CONCRETEFLOOR027A' },
 ];
@@ -57,6 +66,8 @@ export const STREET_PRESETS: { id: string; label: string; materials: RoadMateria
 ];
 
 const find = (list: StreetMaterial[], id: string | undefined) => (id ? list.find((m) => m.id === id) : undefined);
+/** The gutter choice with its texture layout. */
+export const gutterChoice = (id?: string) => find(GUTTERS, id);
 export const carriagewayMaterial = (id?: string) => find(CARRIAGEWAYS, id)?.material;
 export const pavementMaterial = (id?: string) => find(PAVEMENTS, id)?.material;
 export const kerbMaterial = (id?: string) => find(KERBS, id)?.material;

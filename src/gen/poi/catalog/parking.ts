@@ -1,4 +1,4 @@
-import { GROUND_PARAM, NODRAW, rect } from '../kit.ts';
+import { GROUND_PARAM, NODRAW, STREET_GAP, rect } from '../kit.ts';
 import type { PoiType } from '../types.ts';
 
 const ASPHALT = 'CONCRETE/CONCRETEFLOOR033A';
@@ -30,9 +30,12 @@ export const PARKING: PoiType = {
   gameplay: { capture: true, scrap: true },
   build(k) {
     const { W, D } = k;
-    // On a square or a street the lot is marked out on the ground that is already there.
-    k.pad(k.bounds, k.groundMaterial(ASPHALT));
+    // On a square or a street the lot is marked out on the ground that is already there. Its own surface runs up to
+    // the pavement on the sides that face a street, with no kerb of its own there.
     const own = !GROUND_KEYS.includes(k.str('ground'));
+    const open = { s: own && k.facesStreet('s'), e: own && k.facesStreet('e'), n: own && k.facesStreet('n'), w: own && k.facesStreet('w') };
+    const g = (side: keyof typeof open) => (open[side] ? STREET_GAP : 0);
+    k.pad(rect(-g('w'), -g('s'), W + g('e'), D + g('n')), k.groundMaterial(ASPHALT));
     // Bands across the depth: rows of bays face an aisle; back-to-back rows share their back line.
     const want = Math.max(1, Math.min(6, Math.round(k.num('rows', 4))));
     const bandsFor = (n: number) => {
@@ -105,7 +108,8 @@ export const PARKING: PoiType = {
         k.lamp((r.x0 + r.x1) / 2, r.y1 + 24, 180, { force: true, z: 8 });
       }
     }
-    k.perimeter('kerb', 6);
+    const all: [number, number][] = [[-1e5, 1e5]];
+    k.perimeter('kerb', 6, { extraGaps: { s: open.s ? all : [], e: open.e ? all : [], n: open.n ? all : [], w: open.w ? all : [] } });
     if (!own) k.edgeWear(rect(16, 16, W - 16, D - 16), 384, ['overlays/stain_01', 'overlays/stain_04', 'overlays/dirt01a']);
   },
 };

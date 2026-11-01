@@ -34,7 +34,21 @@ export interface AreaShape {
   surface: ShapeSurface;
 }
 
-export type SketchShape = StreetShape | AreaShape;
+/** A railway: tracks on a ballast bed, with rails along each track; it runs on out of the map like a street. */
+export interface RailwayShape {
+  kind: 'railway';
+  points: [number, number][];
+  /** Number of tracks side by side (default 2). */
+  tracks?: number;
+  radius?: number;
+}
+
+export type SketchShape = StreetShape | AreaShape | RailwayShape;
+
+/** Between the centres of two tracks side by side (as in the train hall). */
+export const TRACK_SPACING = 208;
+/** A railway's ballast bed: as wide as its tracks and this much more. */
+export const railwayWidth = (tracks = 2) => (Math.max(1, tracks) - 1) * TRACK_SPACING + 176;
 
 export const SHAPE_SURFACES: { id: ShapeSurface; label: string; color: string }[] = [
   { id: 'grass', label: 'Grass', color: '#5d7a3e' },
@@ -85,13 +99,25 @@ export function insideDistance(poly: Vector2[], x: number, y: number): number {
   return d;
 }
 
-/** The street shapes as roads (layout units). */
+/** The street and railway shapes as roads (layout units); a railway is a ballast bed with `tracks`. */
 export function shapeRoads(shapes: SketchShape[] | undefined, cell: number, ground: (x: number, y: number) => number, materials?: RoadMaterials): RoadSpec[] {
-  return (shapes ?? []).filter((s): s is StreetShape => s.kind === 'street' && s.points.length >= 2).map((s) => ({
-    ...defaultRoad('asphalt', s.points.map(([x, y]) => new Vector3(x * cell, y * cell, ground(x * cell, y * cell)))),
-    width: s.width, pavement: s.pavement, radius: s.radius ?? 0, lined: s.width >= 256, lift: 3,
-    ...(materials ? { materials: { ...materials, corner: 0 } } : {}),
-  }));
+  const pts = (s: StreetShape | RailwayShape) => s.points.map(([x, y]) => new Vector3(x * cell, y * cell, ground(x * cell, y * cell)));
+  return (shapes ?? []).flatMap((s): RoadSpec[] => {
+    if (s.points.length < 2) return [];
+    if (s.kind === 'street') {
+      return [{
+        ...defaultRoad('asphalt', pts(s)), width: s.width, pavement: s.pavement, radius: s.radius ?? 0, lined: s.width >= 256, lift: 3,
+        ...(materials ? { materials: { ...materials, corner: 0 } } : {}),
+      }];
+    }
+    if (s.kind === 'railway') {
+      return [{
+        ...defaultRoad('dirt', pts(s)), width: railwayWidth(s.tracks), pavement: 0, radius: s.radius ?? 0, lined: false, kerbs: false, lift: 2,
+        materials: { carriageway: 'ballast' }, tracks: Math.max(1, s.tracks ?? 2),
+      }];
+    }
+    return [];
+  });
 }
 
 /**
@@ -101,9 +127,9 @@ export function shapeRoads(shapes: SketchShape[] | undefined, cell: number, grou
 export function shapeCuts(shapes: SketchShape[] | undefined, cell: number, margin = 16): Vector2[][] {
   const out: Vector2[][] = [];
   for (const s of shapes ?? []) {
-    if (s.kind === 'street' && s.points.length >= 2) {
+    if ((s.kind === 'street' || s.kind === 'railway') && s.points.length >= 2) {
       const pts = centreline(s.points.map(([x, y]) => new Vector3(x * cell, y * cell, 0)), s.radius ?? 0);
-      const half = s.width / 2 + s.pavement + 8 + margin;
+      const half = s.kind === 'street' ? s.width / 2 + s.pavement + 8 + margin : railwayWidth(s.tracks) / 2 + margin;
       const p2 = pts.map((p) => new Vector2(p.x, p.y));
       const dir = (i: number) => new Vector2().subVectors(p2[i + 1], p2[i]).normalize();
       /** The turn at point i (radians), 0 at the ends. */

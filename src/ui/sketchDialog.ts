@@ -9,11 +9,11 @@ import { VmfDocument } from '../vmf/map.ts';
 import { drawSketchPois, sketchPoiInput, sketchPoiPanel } from './sketchPoiLayer.ts';
 import { placePois } from '../gen/poi/sketchPois.ts';
 import { SURROUND_STYLES, type EdgeSide, type SurroundStyle } from '../gen/surroundings.ts';
-import { SHAPE_SURFACES, ellipsePoints, type ShapeSurface } from '../gen/sketchShapes.ts';
+import { SHAPE_SURFACES, ellipsePoints, railwayWidth, type ShapeSurface } from '../gen/sketchShapes.ts';
 import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, STREET_PRESETS, type StreetMaterial } from '../gen/streetMaterials.ts';
 
 type Layer = 'height' | 'surface' | 'feature' | 'detail' | 'marker' | 'poi' | 'shape';
-type ShapeTool = 'street' | 'area' | 'round';
+type ShapeTool = 'street' | 'railway' | 'area' | 'round';
 type Shape = 'brush' | 'rect' | 'fill';
 const LEVEL_COLORS = ['#1d2f22', '#4f7a3a', '#a3a14e', '#c98a45', '#f0e2c0'];
 
@@ -45,7 +45,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
   let draft: [number, number][] = [];
   let roundFrom: [number, number] | null = null;
   let roundTo: [number, number] | null = null;
-  let streetWidth = 256, streetPavement = 64, streetRadius = 256;
+  let streetWidth = 256, streetPavement = 64, streetRadius = 256, railTracks = 2;
   let areaSurface: ShapeSurface = 'grass';
   /** Points snap to half cells. */
   const snapHalf = (v: number) => Math.round(v * 2) / 2;
@@ -133,6 +133,16 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
         ctx.stroke();
         ctx.strokeStyle = '#f2f2f2'; ctx.lineWidth = 1; ctx.setLineDash([6, 6]);
         ctx.stroke(); ctx.setLineDash([]);
+      } else if (sh.kind === 'railway') {
+        // The ballast bed with a sleeper pattern over it.
+        ctx.strokeStyle = active ? 'rgba(120,108,96,0.95)' : 'rgba(120,108,96,0.7)';
+        ctx.lineWidth = Math.max(2, (railwayWidth(sh.tracks) / 128) * PX);
+        ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
+        ctx.beginPath();
+        sh.points.forEach(([x, y], i) => (i ? ctx.lineTo(x * PX, cy(y)) : ctx.moveTo(x * PX, cy(y))));
+        ctx.stroke();
+        ctx.strokeStyle = '#3a3029'; ctx.lineWidth = Math.max(2, ctx.lineWidth * 0.7); ctx.setLineDash([2, 4]);
+        ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
       } else {
         ctx.fillStyle = SHAPE_SURFACES.find((q) => q.id === sh.surface)?.color ?? '#888';
         ctx.globalAlpha = active ? 0.9 : 0.7;
@@ -148,7 +158,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       ctx.strokeStyle = '#e8a33d'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
       ctx.beginPath();
       pending.forEach(([x, y], i) => (i ? ctx.lineTo(x * PX, cy(y)) : ctx.moveTo(x * PX, cy(y))));
-      if (shapeTool !== 'street' && pending.length > 2) ctx.closePath();
+      if (shapeTool !== 'street' && shapeTool !== 'railway' && pending.length > 2) ctx.closePath();
       ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
       ctx.fillStyle = '#e8a33d';
       for (const [x, y] of draft) { ctx.beginPath(); ctx.arc(x * PX, cy(y), 3, 0, Math.PI * 2); ctx.fill(); }
@@ -228,6 +238,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
   /** Ends the shape being drawn: a street needs two points, an area three. */
   const finishShape = () => {
     if (shapeTool === 'street' && draft.length >= 2) (s.shapes ??= []).push({ kind: 'street', points: draft, width: streetWidth, pavement: streetPavement, radius: streetRadius });
+    if (shapeTool === 'railway' && draft.length >= 2) (s.shapes ??= []).push({ kind: 'railway', points: draft, tracks: railTracks, radius: streetRadius });
     if (shapeTool === 'area' && draft.length >= 3) (s.shapes ??= []).push({ kind: 'area', points: draft, surface: areaSurface });
     draft = [];
     draw();
@@ -237,7 +248,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
     const [x2, y2] = a[(i + 1) % a.length];
     const dx = x2 - x, dy = y2 - y, len2 = dx * dx + dy * dy || 1;
     const t = Math.max(0, Math.min(1, ((fx - x) * dx + (fy - y) * dy) / len2));
-    return Math.hypot(fx - (x + t * dx), fy - (y + t * dy)) < (sh.kind === 'street' ? Math.max(1, sh.width / 256) : 1);
+    return Math.hypot(fx - (x + t * dx), fy - (y + t * dy)) < (sh.kind === 'street' ? Math.max(1, sh.width / 256) : sh.kind === 'railway' ? Math.max(1, railwayWidth(sh.tracks) / 256) : 1);
   }));
   canvas.addEventListener('dblclick', () => { if (layer === 'shape') finishShape(); });
   canvas.addEventListener('pointerdown', (e) => {
@@ -351,12 +362,17 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
           h('div.row', {}, h('label', {}, 'Width'), shapeNum(streetWidth, (v) => (streetWidth = v), 128, 640), h('span.unit', {}, 'units')),
           h('div.row', {}, h('label', {}, 'Pavement'), shapeNum(streetPavement, (v) => (streetPavement = v), 0, 192), h('span.unit', {}, 'each side')),
           h('div.row', {}, h('label', {}, 'Bends'), shapeNum(streetRadius, (v) => (streetRadius = v), 0, 1024, 64), h('span.unit', {}, 'radius')))
-        : swatches(SHAPE_SURFACES.map((q) => [q.id, q] as [ShapeSurface, { label: string; color: string }]), () => areaSurface, (v) => (areaSurface = v));
+        : shapeTool === 'railway'
+          ? h('div', {},
+            h('div.row', {}, h('label', {}, 'Tracks'), shapeNum(railTracks, (v) => (railTracks = v), 1, 4, 1)),
+            h('div.row', {}, h('label', {}, 'Bends'), shapeNum(streetRadius, (v) => (streetRadius = v), 0, 2048, 64), h('span.unit', {}, 'radius')))
+          : swatches(SHAPE_SURFACES.map((q) => [q.id, q] as [ShapeSurface, { label: string; color: string }]), () => areaSurface, (v) => (areaSurface = v));
       const hint = shapeTool === 'street' ? 'Click the street\'s points (half cells), double-click or Enter to finish. Bends are rounded by the radius; buildings are cut along it.'
+        : shapeTool === 'railway' ? 'Click the line\'s points, double-click or Enter to finish: tracks on ballast with rails. Lines that reach the edge run on out of the map; start one at a train hall\'s end opening to lead its tracks out.'
         : shapeTool === 'area' ? 'Click the outline\'s points, double-click or Enter to finish (it is kept convex). Buildings keep off it.'
           : 'Drag a rectangle: the area is the ellipse inside it. Buildings keep off it.';
       paint = h('div', {},
-        h('div.row', {}, h('label', {}, 'Draw'), seg<ShapeTool>([['street', 'Street'], ['area', 'Area'], ['round', 'Round area']], () => shapeTool, (v) => { shapeTool = v; draft = []; })),
+        h('div.row', {}, h('label', {}, 'Draw'), seg<ShapeTool>([['street', 'Street'], ['railway', 'Railway'], ['area', 'Area'], ['round', 'Round area']], () => shapeTool, (v) => { shapeTool = v; draft = []; })),
         settings,
         h('p.hint', {}, hint + ' Right-click a shape to remove it, Escape drops the one being drawn.'),
         h('div.row', {}, h('span.muted', {}, `${s.shapes?.length ?? 0} shapes`),

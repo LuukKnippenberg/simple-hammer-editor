@@ -275,9 +275,16 @@ const TRAIN_HALL: RoomDresser = {
       if (far) k.route([Math.round(d.mid), 0], [Math.round(d.mid), D], Math.max(160, d.to - d.from));
       else if (d.edge === 'w' || d.edge === 'e') k.route([0, pm], [W, pm], 112);
     }
+    // A track runs on out through an opening in an end wall wide enough for it (a street door there): its rails reach
+    // that wall, and the buffers stand at the other end (none when both ends are open).
+    const through = (ty: number, e: Side) => ctx.doors.some((d) => d.edge === e && d.from + 8 <= ty - 48 && ty + 48 <= d.to - 8);
     for (const ty of tracks) {
-      for (let x = 256; x + 256 <= W; x += 512) k.prop('pg_props/pg_obj/pg_rail_512', x, ty, 90, { force: true, noOccupy: true });
-      k.prop('pg_props/pg_gate_ii/pg_train_bumper', 72, ty, 0, { force: true });
+      const xs: number[] = [];
+      for (let x = 256; x + 256 <= W; x += 512) xs.push(x);
+      if (through(ty, 'e') && xs[xs.length - 1] + 256 < W) xs.push(W - 256);
+      for (const x of xs) k.prop('pg_props/pg_obj/pg_rail_512', x, ty, 90, { force: true, noOccupy: true });
+      if (!through(ty, 'w')) k.prop('pg_props/pg_gate_ii/pg_train_bumper', 72, ty, 0, { force: true });
+      else if (!through(ty, 'e')) k.prop('pg_props/pg_gate_ii/pg_train_bumper', W - 72, ty, 180, { force: true });
     }
     // A train at the platform: coaches nose to tail from the buffers; the other tracks sometimes have one too.
     tracks.forEach((ty, i) => {
