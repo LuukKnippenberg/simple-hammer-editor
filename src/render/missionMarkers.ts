@@ -1,10 +1,11 @@
 import {
   Box3, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color, DoubleSide, Group, LineBasicMaterial, LineSegments, Mesh,
-  MeshBasicMaterial, PlaneGeometry, Sprite, SpriteMaterial, Vector3, type Texture,
+  Matrix4, MeshBasicMaterial, PlaneGeometry, Sprite, SpriteMaterial, Vector3, Vector4, type Texture,
 } from 'three';
 import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import type { Locus } from '../lw/missionView.ts';
+import { layoutLabels, type LabelBox, type Rect } from './labelLayout.ts';
 
 /** One stage as the markers draw it: its number in play order, a label and where its conditions happen. */
 export interface MarkerStage {
@@ -76,6 +77,14 @@ export class MissionMarkers {
   private fills = new Group();
   private sprites = new Group();
   private labels = new Map<string, { tex: Texture; aspect: number }>();
+  /** The labels being shown, for laying them out on screen. */
+  private placed: { sprite: Sprite; at: Vector3; th: number; aspect: number; priority: number; group?: string }[] = [];
+  private leaders: LineSegments;
+  /** The camera and screen the labels were last laid out for. */
+  private seen = new Matrix4();
+  private seenSize = '';
+  /** Screen rects (canvas pixels) labels keep clear of, such as the Objectives panel. */
+  avoid: Rect[] = [];
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -88,13 +97,69 @@ export class MissionMarkers {
     this.bright = lines(0.95);
     this.dim = lines(0.4);
     this.group.name = 'mission-markers';
-    this.group.add(this.dim, this.bright, this.fills, this.sprites);
+    this.leaders = new LineSegments(new BufferGeometry(), new LineBasicMaterial({ color: 0xc2ccd6, depthTest: false, transparent: true, opacity: 0.7 }));
+    this.leaders.renderOrder = 11;
+    this.leaders.frustumCulled = false;
+    this.group.add(this.dim, this.bright, this.fills, this.sprites, this.leaders);
     this.group.visible = false;
     editor.scene.add(this.group);
+    editor.on('frame', () => this.layout());
   }
 
   hide(): void {
     this.group.visible = false;
+  }
+
+  /** Lays the labels out again on the next frame, as when the panel moved. */
+  relayout(): void {
+    this.seenSize = '';
+  }
+
+  /**
+   * Moves labels that would cover each other apart on screen (see `layoutLabels`), with a leader line back to
+   * where a moved one belongs. Runs when the camera or the screen changed since the last time.
+   */
+  private layout(): void {
+    if (!this.group.visible) return;
+    const cam = this.editor.activeCamera;
+    const dom = this.editor.renderer.domElement;
+    const W = dom.clientWidth, H = dom.clientHeight;
+    cam.updateMatrixWorld();
+    const m = new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+    const size = `${W}x${H}`;
+    if (size === this.seenSize && m.equals(this.seen)) return;
+    this.seen.copy(m);
+    this.seenSize = size;
+
+    // A label with sizeAttenuation off is th * projection[1][1] of the screen's half height tall.
+    const k = cam.projectionMatrix.elements[5] * H / 2;
+    const shown: { i: number; ndc: Vector3 }[] = [];
+    const boxes: LabelBox[] = [];
+    this.placed.forEach((p, i) => {
+      p.sprite.center.set(0.5, 0.5);
+      const clip = new Vector4(p.at.x, p.at.y, p.at.z, 1).applyMatrix4(m);
+      if (clip.w <= 0) return;
+      const ndc = new Vector3(clip.x, clip.y, clip.z).divideScalar(clip.w);
+      if (ndc.z < -1 || ndc.z > 1) return;
+      shown.push({ i, ndc });
+      boxes.push({ x: (ndc.x + 1) / 2 * W, y: (1 - ndc.y) / 2 * H, w: p.th * p.aspect * k, h: p.th * k, priority: p.priority, group: p.group });
+    });
+    const out = layoutLabels(boxes, this.avoid, { h: H });
+    const pos: number[] = [];
+    const inv = m.clone().invert();
+    const toWorld = (x: number, y: number, z: number) => new Vector3(x / W * 2 - 1, 1 - y / H * 2, z).applyMatrix4(inv);
+    out.forEach((o, j) => {
+      const { i, ndc } = shown[j];
+      const b = boxes[j];
+      this.placed[i].sprite.center.set(0.5 - o.dx / b.w, 0.5 + o.dy / b.h);
+      if (!o.leader) return;
+      const a = toWorld(b.x, b.y, ndc.z), e = toWorld(o.leader.x, o.leader.y, ndc.z);
+      pos.push(a.x, a.y, a.z, e.x, e.y, e.z);
+    });
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+    this.leaders.geometry.dispose();
+    this.leaders.geometry = g;
   }
 
   /** Redraws for these stages; `current` is the n of the stage being looked at. */
@@ -117,6 +182,8 @@ export class MissionMarkers {
     for (const s of this.sprites.children as Sprite[]) s.material.dispose();
     this.fills.clear();
     this.sprites.clear();
+    this.placed = [];
+    this.seenSize = '';
     if (this.labels.size > 300) this.labels.clear();
 
     const anchors: { n: number; at: Vector3 }[] = [];
@@ -168,14 +235,14 @@ export class MissionMarkers {
           }
           if (on && centers.length) {
             const tag = `${locus.base ? '⌂ ' : ''}${locus.name}${locus.entities.length > 1 ? ` ×${locus.entities.length}` : ''}`;
-            this.label(tag, defeat ? '#ff8f86' : '#ffd28a', false, centers[0].clone().add(new Vector3(0, 0, 40)), 1);
+            this.label(tag, defeat ? '#ff8f86' : '#ffd28a', false, centers[0].clone().add(new Vector3(0, 0, 40)), 1, 1000 + this.placed.length);
           }
           anchor ??= centers.reduce((a, b) => a.add(b), new Vector3()).divideScalar(centers.length || 1);
         }
       }
       if (anchor) {
         anchors.push({ n: s.n, at: anchor });
-        this.label(`${s.n} · ${s.title || '(untitled)'}`, on ? '#ffd28a' : '#c2ccd6', on, anchor.clone().add(new Vector3(0, 0, on ? 150 : 70)), on ? 1 : 0.7);
+        this.label(`${s.n} · ${s.title || '(untitled)'}`, on ? '#ffd28a' : '#c2ccd6', on, anchor.clone().add(new Vector3(0, 0, on ? 150 : 70)), on ? 1 : 0.7, on ? -1 : s.n, 'stage');
       }
     }
     // The order: a line from each stage's place to the next one's, with an arrowhead halfway.
@@ -200,8 +267,8 @@ export class MissionMarkers {
     this.group.visible = true;
   }
 
-  /** A label that keeps its size on screen. */
-  private label(text: string, color: string, big: boolean, at: Vector3, opacity: number): void {
+  /** A label that keeps its size on screen; `priority` and `group` are for `layoutLabels`. */
+  private label(text: string, color: string, big: boolean, at: Vector3, opacity: number, priority: number, group?: string): void {
     const key = `${text}|${color}|${big}`;
     let l = this.labels.get(key);
     if (!l) this.labels.set(key, (l = labelTexture(text, color, big)));
@@ -211,5 +278,6 @@ export class MissionMarkers {
     s.position.copy(at);
     s.renderOrder = big ? 13 : 12;
     this.sprites.add(s);
+    this.placed.push({ sprite: s, at, th, aspect: l.aspect, priority, group });
   }
 }

@@ -29,6 +29,16 @@ export function mountMissionViewport(editor: Editor, viewport: HTMLElement, hook
   const box = h('div.overlay.br.mission-vp', { hidden: true });
   viewport.append(box);
   const markers = new MissionMarkers(editor);
+  // Labels keep clear of the panel; its rect is read when it resizes, not every frame.
+  const canvas = editor.renderer.domElement;
+  const panelRect = () => {
+    const p = box.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+    markers.avoid = box.hidden || !p.width ? [] : [{ x0: p.left - c.left, y0: p.top - c.top, x1: p.right - c.left, y1: p.bottom - c.top }];
+    markers.relayout();
+  };
+  const watch = new ResizeObserver(panelRect);
+  watch.observe(box);
+  watch.observe(canvas);
   /** The stage being looked at, by id so edits that reorder the list keep it. */
   let currentId: string | null = null;
   let busy = '';
