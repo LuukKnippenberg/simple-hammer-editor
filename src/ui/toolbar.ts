@@ -6,6 +6,7 @@ import { deletePoi, duplicatePoi, selectedPois, turnPoi } from '../gen/poi/actio
 import { deleteBlock, duplicateBlock, selectedBlocks, turnBlock } from '../gen/buildingAction.ts';
 import { deleteRooms, selectedRooms } from '../gen/rooms/action.ts';
 import { h, toast } from './dom.ts';
+import { tip } from './tooltip.ts';
 
 const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'select', icon: '⬚', label: 'Select & move', key: '1' },
@@ -41,16 +42,17 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     for (const [n, b] of buttons) b.classList.toggle('active', n === editor.tools.current.name);
   });
   for (const t of TOOLS) {
-    const b = h('button', { title: `${t.label} (${t.key})`, onclick: () => setTool(t.name) }, t.icon);
+    // Q picks the Select tool too, as in Unity.
+    const b = h('button', { ...tip(t.label, `${t.name === 'select' ? 'Q ' : ''}${t.key.toUpperCase()}`), onclick: () => setTool(t.name) }, t.icon);
     buttons.set(t.name, b);
     bar.append(b);
   }
   buttons.get('select')!.classList.add('active');
 
   const sel = editor.tools.select;
-  const move = h('button', { title: 'Gizmo: move (W)', onclick: () => sel.setMode('translate') }, '✥');
-  const resize = h('button', { title: 'Gizmo: resize brushes (R)', onclick: () => sel.setMode('scale') }, '⤡');
-  const rotate = h('button', { title: 'Gizmo: rotate in steps (E)', onclick: () => sel.setMode('rotate') }, '⟳');
+  const move = h('button', { ...tip('Gizmo: move', 'W'), onclick: () => sel.setMode('translate') }, '✥');
+  const resize = h('button', { ...tip('Gizmo: resize brushes', 'R'), onclick: () => sel.setMode('scale') }, '⤡');
+  const rotate = h('button', { ...tip('Gizmo: rotate in steps', 'E'), onclick: () => sel.setMode('rotate') }, '⟳');
   const syncMode = () => {
     move.classList.toggle('active', sel.mode === 'translate');
     resize.classList.toggle('active', sel.mode === 'scale');
@@ -59,7 +61,7 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
   editor.on('toolchange', syncMode);
   syncMode();
 
-  const grid = h('button', { title: 'Grid size ([ and ])', style: { fontSize: '11px' } });
+  const grid = h('button', { ...tip('Grid size: click to cycle', '[ ]'), style: { fontSize: '11px' } });
   const syncGrid = () => (grid.textContent = String(editor.grid));
   const stepGrid = (d: number) => {
     const i = Math.max(0, Math.min(GRIDS.length - 1, GRIDS.indexOf(editor.grid) + d));
@@ -73,8 +75,8 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
   });
   syncGrid();
 
-  const undo = h('button', { title: 'Undo (Ctrl+Z)', onclick: () => editor.undo() }, '↶');
-  const redo = h('button', { title: 'Redo (Ctrl+Y)', onclick: () => editor.redo() }, '↷');
+  const undo = h('button', { ...tip('Undo', 'Ctrl+Z'), onclick: () => editor.undo() }, '↶');
+  const redo = h('button', { ...tip('Redo', 'Ctrl+Y'), onclick: () => editor.redo() }, '↷');
   const syncHistory = () => {
     undo.disabled = !editor.history.canUndo;
     redo.disabled = !editor.history.canRedo;
@@ -83,7 +85,7 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
   editor.on('document', syncHistory);
   syncHistory();
 
-  const helpBtn = h('button', { title: 'Keyboard shortcuts (?)', onclick: () => hooks.help() }, '?');
+  const helpBtn = h('button', { ...tip('Keyboard shortcuts', '?'), onclick: () => hooks.help() }, '?');
   bar.append(h('div', { style: { height: '10px' } }), move, resize, rotate, h('div', { style: { flex: '1' } }), grid, undo, redo, helpBtn);
 
   const focus = () => {
