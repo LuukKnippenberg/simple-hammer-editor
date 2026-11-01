@@ -58,6 +58,23 @@ type Key = keyof typeof FURNITURE;
 /** Wall lamp: a caged bulb whose plate is at the model origin, sticking out along +x. */
 export const LAMP = m('props_c17/light_cagelight01_on', [-1, -3, -11], [8, 3, 2]);
 const WARM = '255 214 170';
+/** Lamp brightness factors the panels offer. */
+export const LIGHT_LEVELS: [number, string][] = [[0.5, 'Dim'], [1, 'Normal'], [1.6, 'Bright'], [2.6, 'Very bright']];
+
+/**
+ * The light of a room's wall lamp: about half what the lamps had before (160–240 reaching 448, which blew out the
+ * walls next to them), a little more for a big room and less for a small one, falling off within the room so its
+ * far side stays dimmer than the wall by the lamp. The rooms are covered by light blockers, so the bounce off walls and floor adds to it.
+ * `roll` (0 to 1) varies the bulbs from room to room.
+ */
+export function roomLight(size: Vector2, roll: number, level = 1): Record<string, string> {
+  const area = size.x * size.y, reach = size.length() / 2;
+  const scale = Math.min(1.3, Math.max(0.75, Math.sqrt(area / (256 * 256))));
+  const brightness = Math.max(5, Math.round((90 + 40 * roll) * scale * level));
+  const fifty = Math.min(128, Math.max(80, Math.round((reach * 0.7) / 8) * 8));
+  const zero = Math.min(448, Math.max(288, Math.round((reach * 2.5) / 16) * 16));
+  return { _light: `${WARM} ${brightness}`, _lightHDR: '-1 -1 -1 1', _lightscaleHDR: '1', _fifty_percent_distance: String(fifty), _zero_percent_distance: String(zero) };
+}
 
 /** What goes in each kind of room: the first slot most often, later slots as the room and furnish level allow. */
 const ROOM_SETS: Record<RoomType, { wall: Key[][]; free?: Key[][] }> = {
@@ -80,6 +97,8 @@ const FLOOR_DECALS = ['decals/bloodstain_001', 'decals/bloodstain_002', 'decals/
 export interface DressingOptions {
   furnish?: 'none' | 'sparse' | 'full';
   lights?: boolean;
+  /** How bright the lamps are, as a factor of a believable bulb (default 1; `LIGHT_LEVELS`). */
+  lightLevel?: number;
   /** Stains, blood, paper and debris, 0 to 1 (default 0.5). */
   weathering?: number;
 }
@@ -264,12 +283,9 @@ export function dressInterior(plan: InteriorPlan, z0: number, rng: Rng, o: Dress
         const yaw = Math.round((Math.atan2(c.n.y, c.n.x) * 180) / Math.PI);
         out.entities.push({ classname: 'prop_static', origin: new Vector3(Math.round(c.p.x), Math.round(c.p.y), zLamp), keys: { model: LAMP.model, angles: `0 ${(yaw + 360) % 360} 0`, solid: '0' } });
         const lp = c.p.clone().addScaledVector(c.n, 16);
-        // Brighter and farther than a lamp in an open room would need: it is most of the room's light.
-        const brightness = rng.int(160, 240);
-        out.entities.push({
-          classname: 'light', origin: new Vector3(Math.round(lp.x), Math.round(lp.y), zLamp - 8),
-          keys: { _light: `${WARM} ${brightness}`, _lightHDR: '-1 -1 -1 1', _lightscaleHDR: '1', _fifty_percent_distance: '128', _zero_percent_distance: '448' },
-        });
+        // Drawn as it always was (160 to 240), so the grime dealt after it keeps its seed.
+        const roll = (rng.int(160, 240) - 160) / 80;
+        out.entities.push({ classname: 'light', origin: new Vector3(Math.round(lp.x), Math.round(lp.y), zLamp - 8), keys: roomLight(size, roll, o.lightLevel) });
         out.litRooms.push(r);
       }
     }

@@ -7,12 +7,14 @@ import { editPowerline, type PowerlineTool } from '../edit/powerlineTool.ts';
 import type { PoiTool } from '../edit/poiTool.ts';
 import { ARCHITECTURES, FACADE_STYLES, QUALITY, type ArchitectureName, type BuildingOptions } from '../gen/buildings.ts';
 import { INTERIOR_STYLES } from '../gen/styles.ts';
+import { LIGHT_LEVELS } from '../gen/interiorDressing.ts';
 import { ROAD_STYLES, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
 import { rebuildRoads } from '../gen/roadAction.ts';
 import { POLE_TYPES, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
 import { POI_TYPES, poiOf, poiParams } from '../gen/poi/registry.ts';
 import { LANDSCAPES } from '../gen/poi/types.ts';
 import { paramRow, rotationRow } from './poiPanel.ts';
+import { extrasRows } from './extrasOptions.ts';
 import { h } from './dom.ts';
 
 /**
@@ -24,7 +26,7 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   const box = h('div.overlay.tl.gen-panel', { hidden: true });
   viewport.append(box);
   const tool = editor.tools.tools.generate as GenerateTool;
-  let more = false;
+  let more = false, extrasOpen = false;
 
   const render = () => {
     const s = tool.session;
@@ -117,24 +119,31 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
     const cut = h('div.row', { title: 'Height the walls are cut off at; the RTS camera sees more floor when lower' }, h('label', {}, 'Cut height'), number('cutHeight', 96, 128, 8));
     const furnish = select('Furnish', 'furnish', [['full', 'Full'], ['sparse', 'Sparse'], ['none', 'None']], '', 'full');
     const lights = check('Lights', 'interiorLights', true, 'wall lamps');
+    const levelSel = h('select', { title: 'How bright the lamps inside the houses are' }, ...LIGHT_LEVELS.map(([v, l]) => h('option', { value: String(v) }, l))) as HTMLSelectElement;
+    levelSel.value = String(o.interiorLightLevel ?? 1);
+    // A number, left out at its default.
+    levelSel.addEventListener('change', () => { levelSel.blur(); set('interiorLightLevel', Number(levelSel.value) === 1 ? undefined : Number(levelSel.value)); });
+    const lightLevel = h('div.row', {}, h('label', {}, 'Light level'), levelSel);
     const wide = check('Wide doors', 'wideDoors', false, 'for large units');
     const main: HTMLElement[] = [], rest: HTMLElement[] = [];
     if (id === 'block') {
       main.push(arch, floors, roofs, quality, check('Courtyards', 'courtyards', true, 'blocks of 896+ units'), interiors);
       rest.push(facade, corners, detail, check('Towers', 'towers', true, 'domes and spires'), check('Annexes', 'annexes', true, 'sheds in yards'),
-        check('Alleys', 'alleys', false, 'with sky bridges'), check('Roof props', 'roofProps', true), weathering, interiorStyle, cut, furnish, lights, wide);
+        check('Alleys', 'alleys', false, 'with sky bridges'), weathering, interiorStyle, cut, furnish, lights, lightLevel, wide);
     } else if (id === 'building') {
       main.push(arch, floors, roofs, quality, facade, corners);
-      rest.push(detail, check('Towers', 'towers', true, 'on a corner'), check('Annexes', 'annexes', true, 'a shed in its yard'), check('Roof props', 'roofProps', true), weathering);
+      rest.push(detail, check('Towers', 'towers', true, 'on a corner'), check('Annexes', 'annexes', true, 'a shed in its yard'), weathering);
     } else {
-      main.push(interiorStyle, floors, furnish, lights, arch);
+      main.push(interiorStyle, floors, furnish, lights, lightLevel, arch);
       rest.push(cut, wide, weathering, detail);
     }
     const seedIn = h('input', { type: 'number', value: String(o.seed), title: 'The same seed and settings give the same buildings' }) as HTMLInputElement;
     seedIn.addEventListener('change', () => { seedIn.blur(); set('seed', parseInt(seedIn.value, 10) || 1); });
     const seed = h('div.row', {}, h('label', {}, 'Seed'), seedIn, h('button', { title: 'New seed', onclick: () => { if (tool.session?.step === 'tune') tool.reroll(); else { o.seed = Math.floor(Math.random() * 100000); render(); } } }, '🎲'));
     const toggle = h('button.gen-more', { onclick: () => { more = !more; render(); } }, `${more ? '▾' : '▸'} More options (${rest.length})`);
-    return [...main, toggle, ...(more ? rest : []), seed];
+    // Trees, lamps, cables and props round the buildings, under their own heading.
+    const extras = extrasRows(o, (k, v) => { if (v === undefined) delete o[k]; else o[k] = v as never; changed(); }, id, extrasOpen, (open) => { extrasOpen = open; render(); });
+    return [...main, toggle, ...(more ? rest : []), ...extras, seed];
   };
 
   const num = (value: number, set: (v: number) => void, step: number, min: number) => {

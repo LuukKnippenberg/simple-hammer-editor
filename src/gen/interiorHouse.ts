@@ -24,6 +24,8 @@ export interface InteriorHouseOptions {
   furnish?: 'none' | 'sparse' | 'full';
   /** Wall lamps with lights in most rooms (default on). */
   lights?: boolean;
+  /** Brightness of those lights, as a factor (default 1). */
+  lightLevel?: number;
   /** Stains, blood, posters and debris, 0 to 1 (default 0.5). */
   weathering?: number;
   wideDoors?: boolean;
@@ -52,7 +54,7 @@ export function interiorHouse(doc: VmfDocument, footprint: Vector2[], z0: number
   const rng = new Rng(opts.seed * 29 + 1);
   const shell = interiorShell(doc, plan, z0, shellMaterials(plan, style, rng), rng, style.stair, opts.eaves && !opts.wideDoors);
   // Furniture, lamps and grime draw from a third sequence.
-  const dressing = dressInterior(plan, z0, new Rng(opts.seed * 23 + 13), { furnish: opts.furnish, lights: opts.lights, weathering: opts.weathering });
+  const dressing = dressInterior(plan, z0, new Rng(opts.seed * 23 + 13), { furnish: opts.furnish, lights: opts.lights, lightLevel: opts.lightLevel, weathering: opts.weathering });
   // The light blockers compile as detail on their own (the material says so).
   return { world: [...shell.floors, ...shell.clip, ...shell.ceilings], detail: [...shell.walls, ...shell.fills, ...shell.blockers, ...shell.porch, ...shell.upper, ...shell.eaves], entities: dressing.entities, plan };
 }

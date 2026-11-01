@@ -9,6 +9,7 @@ import type { FeatureEntity } from './facadeFeatures.ts';
 import { Rng } from './rng.ts';
 import { BUILDING_HANDLE, findHandle, isGeneratorHandle, newHandle, type HandleRect } from './handle.ts';
 import { shiftCuts } from './sketchShapes.ts';
+import { resolveExtras } from './extras.ts';
 
 /**
  * Stored blocks of buildings. A generated block keeps its footprint and options on its func_detail in the
@@ -252,7 +253,7 @@ export function dressingOf(b: BlockSpec): BlockDressing {
 
 /**
  * The street dressing of a group of blocks, tagged with the group: cables across the streets between them,
- * lamps and trees. `groundAt` gives the height lamps and trees stand at (null: none there). It is dealt from
+ * lamps and trees, as each block's extras options ask. `groundAt` gives the height lamps and trees stand at (null: none there). It is dealt from
  * the group's seed, unless a generator passes its own sequence (Sketch and Generate map do, so their maps stay
  * as they were; a rebuild then deals the group's dressing anew).
  */
@@ -260,7 +261,7 @@ export function groupStreet(blocks: BlockSpec[], groundAt?: (x: number, y: numbe
   const lead = blocks[0];
   if (!lead || lead.street === 'none') return [];
   const ds = blocks.map((b, i) => known[i] ?? dressingOf(b));
-  return streetDressing(ds, rng ?? new Rng(lead.groupSeed * 3 + 1), { groundAt: lead.street === 'ground' ? groundAt : undefined })
+  return streetDressing(ds, rng ?? new Rng(lead.groupSeed * 3 + 1), { groundAt: lead.street === 'ground' ? groundAt : undefined, extras: blocks.map((b) => resolveExtras(b.options)) })
     .map((e) => ({ ...e, keys: { ...ropeNames(e.keys, lead.group), [GROUP_KEY]: lead.group } }));
 }
 
