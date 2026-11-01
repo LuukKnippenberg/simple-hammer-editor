@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Box3, Ray, Vector2, Vector3 } from 'three';
+import { Box3, OrthographicCamera, PerspectiveCamera, Ray, Vector2, Vector3 } from 'three';
+import { toScreen } from '../src/edit/parts.ts';
 import {
-  boxShape, constrain, dragPlaneNormal, findTargets, fmtNum, fmtVec, handlesOf, nearestHandle, resolveSnap,
+  boxShape, constrain, dragPlaneNormal, findTargets, fmtNum, fmtVec, handlesOf, nearestHandle, overlayParts, resolveSnap, syncCamera,
   type Handle, type SnapShape, type SnapView, type Target,
 } from '../src/edit/snapMove.ts';
 
@@ -173,5 +174,56 @@ describe('modifiers and labels', () => {
     expect(fmtVec(v(-22, -360, -0))).toBe('−22 −360 0');
     expect(fmtNum(12.3456)).toBe('12.35');
     expect(fmtNum(7.0000001)).toBe('7');
+  });
+});
+
+describe('overlay', () => {
+  it('shows the handles and card only while V is held, the chip only while dragging', () => {
+    expect(overlayParts(true, false)).toEqual({ canvas: true, card: true, chip: false });
+    expect(overlayParts(true, true)).toEqual({ canvas: true, card: true, chip: true });
+    // Every way out (drop with V up, Esc then V up, blur, another tool) ends with nothing on screen.
+    expect(overlayParts(false, false)).toEqual({ canvas: false, card: false, chip: false });
+    expect(overlayParts(false, true)).toEqual({ canvas: false, card: false, chip: false });
+  });
+
+  it('projects with the camera where it is now, not where it was last rendered', () => {
+    const cam = new PerspectiveCamera(70, 1, 4, 60000);
+    cam.position.set(0, -500, 0);
+    cam.lookAt(0, 0, 0);
+    const size = new Vector2(800, 800), p = v(0, 0, 0);
+    syncCamera(cam);
+    expect(toScreen(cam, size, p)!.x).toBeCloseTo(400);
+    // The camera flies sideways; nothing has rendered yet.
+    cam.position.x = 200;
+    cam.updateMatrix();
+    expect(toScreen(cam, size, p)!.x).toBeCloseTo(400);
+    syncCamera(cam);
+    expect(toScreen(cam, size, p)!.x).toBeLessThan(300);
+  });
+
+  it('the camera key changes when it moves, turns or zooms, and only then', () => {
+    const cam = new PerspectiveCamera(70, 1, 4, 60000);
+    cam.position.set(0, -500, 300);
+    const k0 = syncCamera(cam);
+    expect(syncCamera(cam)).toBe(k0);
+    cam.position.z = 310;
+    const k1 = syncCamera(cam);
+    expect(k1).not.toBe(k0);
+    cam.rotation.z = 0.2;
+    const k2 = syncCamera(cam);
+    expect(k2).not.toBe(k1);
+    const top = new OrthographicCamera(-100, 100, 100, -100, 1, 1000);
+    const t0 = syncCamera(top);
+    top.zoom = 2;
+    top.updateProjectionMatrix();
+    expect(syncCamera(top)).not.toBe(t0);
+  });
+
+  it('handles behind the camera are not drawn', () => {
+    const cam = new PerspectiveCamera(70, 1, 4, 60000);
+    cam.position.set(0, -500, 0);
+    cam.lookAt(0, 0, 0);
+    syncCamera(cam);
+    expect(toScreen(cam, new Vector2(800, 800), v(0, -1000, 0))).toBeNull();
   });
 });

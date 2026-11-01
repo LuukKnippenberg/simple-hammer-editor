@@ -10,7 +10,7 @@ import { partVerts, toScreen } from './parts.ts';
 import type { SelectTool } from './tools.ts';
 import {
   ALL_KINDS, boxNearCursor, boxShape, constrain, dragPlaneNormal, findTargets, fmtVec, handlesOf, nearestHandle, REACH,
-  resolveSnap, type Handle, type HandleKind, type SnapKind, type SnapKinds, type SnapShape, type SnapView, type Target,
+  overlayParts, resolveSnap, syncCamera, type Handle, type HandleKind, type SnapKind, type SnapKinds, type SnapShape, type SnapView, type Target,
 } from './snapMove.ts';
 import './snapMove.css';
 
@@ -74,6 +74,8 @@ export class SnapMoveTool {
   private shift = false;
   private ctrl = false;
   private queued = false;
+  /** The camera as last drawn (see syncCamera): when it moves, the target is looked up again. */
+  private camKey = '';
   private canvas: HTMLCanvasElement;
   private card: HTMLElement;
   private chip: HTMLElement;
@@ -85,10 +87,11 @@ export class SnapMoveTool {
       const saved = JSON.parse(localStorage.getItem(KINDS_KEY) ?? 'null');
       if (saved) for (const k of Object.keys(ALL_KINDS) as (keyof SnapKinds)[]) if (typeof saved[k] === 'boolean') this.kinds[k] = saved[k];
     } catch { /* storage blocked: defaults */ }
-    this.canvas = h('canvas.snap-canvas', { hidden: true });
+    this.canvas = h('canvas.snap-canvas');
     this.card = this.buildCard();
-    this.chip = h('div.snap-chip', { hidden: true });
+    this.chip = h('div.snap-chip');
     editor.container.append(this.canvas, this.card, this.chip);
+    this.applyOverlay();
 
     window.addEventListener('keydown', (e) => this.keyDown(e), true);
     window.addEventListener('keyup', (e) => this.keyUp(e), true);
@@ -108,7 +111,22 @@ export class SnapMoveTool {
     editor.on('frame', () => this.frame());
     const rebuild = () => { if (this.held && !this.grab) this.collectHandles(); };
     editor.on('selection', rebuild);
-    editor.on('change', rebuild);
+    // Something else changed the map mid-drag (undo, a panel): put the drag back rather than fight it.
+    editor.on('change', () => (this.grab ? this.cancel() : rebuild()));
+    editor.on('document', () => this.release());
+  }
+
+  /**
+   * Shows or hides the canvas, card and chip for the current state, inline: the stylesheet's
+   * `#viewport canvas { display: block }` outranks a [hidden] rule, which left the last drawing on screen.
+   */
+  private applyOverlay(): void {
+    const v = overlayParts(this.held, !!this.grab);
+    const show = (el: HTMLElement, on: boolean) => { el.hidden = !on; el.style.display = on ? '' : 'none'; };
+    show(this.canvas, v.canvas);
+    show(this.card, v.card);
+    show(this.chip, v.chip);
+    if (!v.canvas) this.canvas.getContext('2d')?.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
   private buildCard(): HTMLElement {
@@ -125,7 +143,7 @@ export class SnapMoveTool {
       sync();
       return b;
     });
-    return h('div.overlay.tl.snap-card', { hidden: true },
+    return h('div.overlay.tl.snap-card', {},
       h('div.snap-card-head', {}, h('span.caps', {}, 'Snap move'), h('kbd', {}, 'V'), h('span.muted', {}, 'held')),
       h('p.hint', {}, 'Grab a corner, edge or face of the selection and drop it on another one. Release V or Esc to cancel.'),
       h('div.snap-card-label.caps', {}, 'Snap to'),
@@ -146,7 +164,8 @@ export class SnapMoveTool {
       this.shift = e.shiftKey;
       this.ctrl = e.ctrlKey;
       this.queued = true;
-    } else if (e.key === 'Escape' && this.grab) {
+    } else if (this.grab && (e.key === 'Escape' || ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || e.code === 'KeyY')))) {
+      // Undo mid-drag would restore the map underneath the drag: it cancels the drag instead.
       e.preventDefault();
       e.stopImmediatePropagation();
       this.cancel();
@@ -169,8 +188,8 @@ export class SnapMoveTool {
     this.select.cancelMarquee();
     this.select.syncGizmo();
     this.collectHandles();
-    this.card.hidden = false;
-    this.canvas.hidden = false;
+    this.camKey = '';
+    this.applyOverlay();
     this.queued = true;
     this.editor.emit('snapmove');
   }
@@ -181,7 +200,7 @@ export class SnapMoveTool {
     if (this.grab) this.cancel();
     this.held = false;
     this.hoverHandle = null;
-    this.card.hidden = this.canvas.hidden = this.chip.hidden = true;
+    this.applyOverlay();
     this.editor.status = '';
     this.select.syncGizmo();
     this.editor.emit('snapmove');
@@ -260,12 +279,14 @@ export class SnapMoveTool {
     const ed = this.editor;
     const r = ed.renderer.domElement.getBoundingClientRect();
     const size = new Vector2(r.width, r.height), cam = ed.activeCamera;
+    syncCamera(cam);
     this.cursor.set(this.client.x - r.left, this.client.y - r.top);
     return { project: (p) => toScreen(cam, size, p), ray: ed.raycaster(ed.ndcFromEvent({ clientX: this.client.x, clientY: this.client.y })).ray };
   }
 
   private pointerDown(e: PointerEvent): void {
-    if (!this.held || e.button !== 0 || e.target !== this.editor.renderer.domElement) return;
+    // Alt+left drag orbits the camera, as without V.
+    if (!this.held || e.button !== 0 || e.altKey || e.target !== this.editor.renderer.domElement) return;
     // V held: the press grabs a handle; it never selects, box-selects or reaches the gizmo or camera.
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -309,7 +330,7 @@ export class SnapMoveTool {
     this.chip.replaceChildren(
       h('span.caps.from', {}, KIND_LABEL[g.handle.kind]), h('span.arrow', {}, '→'), h('span.caps.to', {}, KIND_LABEL[onto]),
       h('span.mono', {}, `Δ ${fmtVec(g.delta)}`), ...(label && onto !== 'grid' ? [h('span.name', {}, label)] : []));
-    this.chip.hidden = false;
+    this.applyOverlay();
     this.editor.emit('snapmove');
   }
 
@@ -318,7 +339,7 @@ export class SnapMoveTool {
     this.grab = null;
     this.info = null;
     this.found = { best: null, candidates: [] };
-    this.chip.hidden = true;
+    this.applyOverlay();
     this.select.snapEnd();
     this.editor.status = this.held ? this.idleStatus() : '';
     if (this.held) this.collectHandles();
@@ -330,7 +351,7 @@ export class SnapMoveTool {
     this.grab = null;
     this.info = null;
     this.found = { best: null, candidates: [] };
-    this.chip.hidden = true;
+    this.applyOverlay();
     this.select.snapCancel();
     this.editor.status = this.held ? this.idleStatus() : '';
     if (this.held) this.collectHandles();
@@ -344,6 +365,12 @@ export class SnapMoveTool {
   private frame(): void {
     if (!this.held) return;
     if (this.editor.tools.current !== this.select) return this.release();
+    // The camera moved (fly, orbit, pan, zoom): the cursor now points somewhere else.
+    const key = syncCamera(this.editor.activeCamera);
+    if (key !== this.camKey) {
+      this.camKey = key;
+      this.queued = true;
+    }
     if (this.queued) {
       this.queued = false;
       if (this.grab) this.step();
