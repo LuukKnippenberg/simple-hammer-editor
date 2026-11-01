@@ -12,6 +12,7 @@ page.on('dialog', (dlg) => dlg.accept());
 const d = driver(page);
 await d.open('repo:phase3_arena.vmf');
 await page.click('#topbar button:has-text("New")');
+await page.dblclick('.newmap [data-template="empty"]');
 const W = 40, H = 32;
 await d.eval(async ([W, H]) => {
   const { emptySketch, Surface, Feature } = await import('/src/gen/sketch.ts');

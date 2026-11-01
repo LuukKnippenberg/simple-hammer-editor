@@ -12,6 +12,7 @@ page.on('dialog', (dlg) => dlg.accept());
 const d = driver(page);
 await d.open('repo:phase3_arena.vmf');
 await page.click('#topbar button:has-text("New")');
+await page.dblclick('.newmap [data-template="empty"]');
 await d.eval(async () => {
   const { emptySketch, streetGrid, SOFIA_GRID } = await import('/src/gen/sketch.ts');
   const s = emptySketch(40, 32, 'city');

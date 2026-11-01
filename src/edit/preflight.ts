@@ -158,10 +158,15 @@ export function runChecks(editor: Editor): Check[] {
 
   const starts = count('info_start_wars');
   const mission = count('wars_player_setup') + count('wars_mission_objective') > 0;
+  // Overrun can be played alone; the lobby counts a slot per start with its own owner number (settingsinfo.py).
+  const minStarts = count('overrun_wave_spawnpoint') ? 1 : 2;
+  const owners = ents.filter((e) => e.classname === 'info_start_wars').map((e) => e.get('ownernumber') ?? '');
+  const numbered = owners.every((o) => Number(o) >= 2) && new Set(owners).size === owners.length;
   checks.push({
-    id: 'starts', label: mission ? 'Mission setup' : 'Player starts (info_start_wars)', severity: 'warning', ok: mission || starts >= 2,
+    id: 'starts', label: mission ? 'Mission setup' : 'Player starts (info_start_wars)', severity: 'warning', ok: mission || (starts >= minStarts && numbered),
     detail: mission
       ? 'Singleplayer mission: the player spawns at its info_player_wars; no multiplayer starts needed.'
+      : !numbered ? `${starts} found, but each needs its own Owner Number (Player 0, Player 1, ...): the lobby only counts numbered starts.`
       : `${starts} found. Place one per player with the Entity tool ("Player start").`,
   });
 

@@ -141,10 +141,13 @@ export const KITS: Kit[] = [
     ],
     place(editor, at, p) {
       const yaw = Number(p.yaw) || 0;
-      const n = editor.doc.entities.filter((e) => e.classname === 'info_start_wars').length;
+      // Each start needs its own owner number: the lobby makes one slot per number (settingsinfo.py).
+      const used = new Set(editor.doc.entities.filter((e) => e.classname === 'info_start_wars').map((e) => e.get('ownernumber')));
+      let owner = 2;
+      while (used.has(String(owner))) owner++;
       return [
-        add(editor, 'info_start_wars', v(at.x, at.y, at.z + 8), { angles: `0 ${yaw} 0`, ...(p.team ? { groupname: String(p.team) } : {}) }),
-        add(editor, 'info_player_wars', cameraSpawnFor(at), { angles: '65 135 0', ownernumber: String(2 + n) }),
+        add(editor, 'info_start_wars', v(at.x, at.y, at.z + 8), { angles: `0 ${yaw} 0`, ownernumber: String(owner), ...(p.team ? { groupname: String(p.team) } : {}) }),
+        add(editor, 'info_player_wars', cameraSpawnFor(at), { angles: '65 135 0', ownernumber: String(owner) }),
       ];
     },
   },
