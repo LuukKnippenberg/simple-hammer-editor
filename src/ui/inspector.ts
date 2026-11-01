@@ -8,6 +8,8 @@ import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, s
 import { blockFinder, blockOf } from '../gen/buildingStore.ts';
 import { ARCHITECTURES, FACADE_STYLES, QUALITY, type ArchitectureName, type BuildingOptions, type BuildingQuality, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
 import { INTERIOR_STYLES, type InteriorStyleName } from '../gen/styles.ts';
+import { LIGHT_LEVELS } from '../gen/interiorDressing.ts';
+import { EXTRA_KEYS, extrasRows } from './extrasOptions.ts';
 import type { CornerOption } from '../gen/buildingPlan.ts';
 import type { RoofOption } from '../gen/roofs.ts';
 import { entityEditor, multiEntityEditor } from './entityEditor.ts';
@@ -304,6 +306,8 @@ function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
 }
 
 const LAYOUT_LABEL = { block: 'Block of buildings', single: 'Building', house: 'Simple interior building' } as const;
+/** The Extras group stays folded or open while the panel re-renders. */
+let extrasOpen = false;
 
 function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElement {
   const minF = h('input', { type: 'number', value: '3', min: '1', max: '12' }) as HTMLInputElement;
@@ -318,7 +322,6 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
   });
   const style = h('select', {}, h('option', { value: '' }, 'From architecture'), ...Object.keys(FACADE_STYLES).map((k) => h('option', { value: k }, k))) as HTMLSelectElement;
   const alleys = h('input', { type: 'checkbox', checked: false }) as HTMLInputElement;
-  const props = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const corners = h('select', {},
     h('option', { value: '' }, 'From architecture'), h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'chamfer' }, 'Cut (45°)'),
     h('option', { value: 'round' }, 'Rounded'), h('option', { value: 'square' }, 'Square')) as HTMLSelectElement;
@@ -344,10 +347,22 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
   const cut = h('input', { type: 'number', value: '112', min: '96', max: '128', step: '8', title: 'Height the walls are cut off at; the RTS camera sees more floor when lower' }) as HTMLInputElement;
   const furnish = h('select', {}, h('option', { value: 'full' }, 'Full'), h('option', { value: 'sparse' }, 'Sparse'), h('option', { value: 'none' }, 'None')) as HTMLSelectElement;
   const lights = h('input', { type: 'checkbox', checked: true, title: 'Wall lamps with lights in most rooms' }) as HTMLInputElement;
+  const lightLevel = h('select', { title: 'How bright the lamps inside the houses are' }, ...LIGHT_LEVELS.map(([v, l]) => h('option', { value: String(v) }, l))) as HTMLSelectElement;
+  lightLevel.value = '1';
   const wideDoors = h('input', { type: 'checkbox', checked: false, title: '128-wide doorways so the antlion guard fits through' }) as HTMLInputElement;
   const courtyards = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const annexes = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
   const stored = blockOf(block);
+  // Trees, lamps, cables and props round the buildings: the same Extras group as the Generate panel. Every key is
+  // kept (undefined = default), so a value set back to its default also overrides the stored one on Regenerate.
+  const extra = {} as Pick<BuildingOptions, (typeof EXTRA_KEYS)[number]>;
+  for (const k of EXTRA_KEYS) (extra as Record<string, unknown>)[k] = stored?.options[k];
+  extra.roofProps = stored?.options.roofProps ?? true;
+  const kind = ({ block: 'block', single: 'building', house: 'house' } as const)[stored?.options.layout ?? 'block'];
+  const extrasBox = h('div');
+  const renderExtras = () => extrasBox.replaceChildren(...extrasRows(extra as BuildingOptions,
+    (k, v) => { extra[k] = v as never; renderExtras(); }, kind, extrasOpen, (open) => { extrasOpen = open; renderExtras(); }));
+  renderExtras();
   if (stored) {
     const o = stored.options;
     arch.value = o.architecture ?? 'mixed';
@@ -362,13 +377,13 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
     courtyards.checked = o.courtyards ?? true;
     annexes.checked = o.annexes ?? true;
     alleys.checked = o.alleys;
-    props.checked = o.roofProps;
     weathering.value = String(o.weathering ?? 0.5);
     interiors.value = o.interiors ?? '';
     interiorStyle.value = o.interiorStyle ?? '';
     cut.value = String(o.cutHeight ?? 112);
     furnish.value = o.furnish ?? 'full';
     lights.checked = o.interiorLights ?? true;
+    lightLevel.value = String(o.interiorLightLevel ?? 1);
     wideDoors.checked = o.wideDoors ?? false;
     seed.value = String(o.seed);
   }
@@ -377,13 +392,15 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
     return {
       seed: parseInt(seed.value, 10) || 1,
       minFloors: lo, maxFloors: Math.max(lo, parseInt(maxF.value, 10) || lo),
-      alleys: alleys.checked, roofProps: props.checked, style: (style.value || undefined) as FacadeStyle | undefined,
+      ...extra, alleys: alleys.checked, style: (style.value || undefined) as FacadeStyle | undefined,
       architecture: arch.value as ArchitectureName, weathering: parseFloat(weathering.value),
       corners: (corners.value || undefined) as CornerOption | undefined, courtyards: courtyards.checked, annexes: annexes.checked,
       detail: Number(detail.value) as DetailLevel, quality: quality.value as BuildingQuality, roofs: roofs.value as RoofOption, towers: towers.checked,
       interiors: (interiors.value || undefined) as BuildingOptions['interiors'], interiorStyle: (interiorStyle.value || undefined) as InteriorStyleName | undefined,
       cutHeight: Math.max(96, Math.min(128, parseInt(cut.value, 10) || 112)), furnish: furnish.value as BuildingOptions['furnish'],
       interiorLights: lights.checked, wideDoors: wideDoors.checked,
+      // A number, left out at its default.
+      interiorLightLevel: Number(lightLevel.value) === 1 ? undefined : Number(lightLevel.value),
     };
   };
   const go = () => {
@@ -402,14 +419,15 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
     h('div.row', {}, h('label', {}, 'Courtyards'), courtyards, h('span.hint', {}, 'blocks of 896+ units')),
     h('div.row', {}, h('label', {}, 'Annexes'), annexes, h('span.hint', {}, 'sheds in yards')),
     h('div.row', {}, h('label', {}, 'Alleys'), alleys, h('span.hint', {}, 'with sky bridges')),
-    h('div.row', {}, h('label', {}, 'Roof props'), props),
     h('div.row', {}, h('label', {}, 'Weathering'), weathering),
     h('div.row', {}, h('label', {}, 'Interiors'), interiors),
     h('div.row', {}, h('label', {}, 'Interior style'), interiorStyle),
     h('div.row', {}, h('label', {}, 'Cut height'), cut),
     h('div.row', {}, h('label', {}, 'Furnish'), furnish),
     h('div.row', {}, h('label', {}, 'Lights'), lights),
+    h('div.row', {}, h('label', {}, 'Light level'), lightLevel),
     h('div.row', {}, h('label', {}, 'Wide doors'), wideDoors, h('span.hint', {}, 'for large units')),
+    extrasBox,
     h('div.row', {}, h('label', {}, 'Seed'), seed, reroll),
   ];
   if (block && stored) {

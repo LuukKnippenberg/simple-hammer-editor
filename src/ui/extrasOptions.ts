@@ -8,6 +8,8 @@ export type ExtrasFor = 'block' | 'building' | 'house';
 /** The defaults each extras option falls back to; a value set back to its default is left out of the block. */
 const DEFAULTS = { extras: true, trees: 'normal', lamps: true, lampSpacing: LAMP_SPACING, cables: true, clutter: true, awnings: true, yardProps: true } as const;
 type ExtraKey = keyof typeof DEFAULTS | 'roofProps';
+/** Every option the Extras group sets. */
+export const EXTRA_KEYS = [...Object.keys(DEFAULTS), 'roofProps'] as ExtraKey[];
 
 /**
  * The "Extras" group of a building generator's options: a heading with the master switch that folds open to one
