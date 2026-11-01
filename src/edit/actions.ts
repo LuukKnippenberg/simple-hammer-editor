@@ -41,10 +41,10 @@ function nextControlPointName(editor: Editor): string {
 /**
  * Places an entity. A control point also gets its trigger_capture_area, which is what makes it capturable.
  */
-export function placeEntity(editor: Editor, classname: string, origin: Vector3, keys: Record<string, string> = {}): MapEntity[] {
+export function placeEntity(editor: Editor, classname: string, origin: Vector3, keys: Record<string, string> = {}, opts: { captureArea?: boolean } = {}): MapEntity[] {
   const doc = editor.doc;
   const created: MapEntity[] = [];
-  if (classname === 'control_point') {
+  if (classname === 'control_point' && opts.captureArea !== false) {
     const name = keys.targetname ?? nextControlPointName(editor);
     created.push(doc.addEntity(entityNode(editor, classname, origin, { targetname: name, ...keys })));
     const trig = new KVNode('entity');

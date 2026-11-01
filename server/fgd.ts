@@ -8,6 +8,8 @@ export interface FgdKey {
   default: string;
   description: string;
   choices?: { value: string; label: string }[];
+  /** The class that declares the key (a base class such as Targetname or Wars, or the class itself). */
+  base?: string;
 }
 
 export interface FgdClass {
@@ -196,7 +198,7 @@ export function loadFgd(file: string, searchDirs: string[]): Map<string, FgdClas
     if (!c || stack.includes(name)) return [];
     const keys = new Map<string, FgdKey>();
     for (const b of c.bases) for (const k of resolve(b, [...stack, name])) keys.set(k.name.toLowerCase(), k);
-    for (const k of c.keys) keys.set(k.name.toLowerCase(), k);
+    for (const k of c.keys) keys.set(k.name.toLowerCase(), { ...k, base: c.name });
     return [...keys.values()];
   };
   const resolveIO = (name: string, which: 'inputs' | 'outputs', stack: string[] = []): FgdIO[] => {

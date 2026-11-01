@@ -7,9 +7,8 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity, MapSolid, TexAxis } from '../vmf/map.ts';
 import { boxSolid, remapSolid, rotateSolid, translateSolid } from './brushes.ts';
 import { angleAbout, rotateEntity, snapAngle } from './rotate.ts';
-import { placeEntity } from './actions.ts';
 import { KITS, recordKit, type ParamValue } from '../lw/kits.ts';
-import { moveOverlayBasis, placeDecal } from './decals.ts';
+import { moveOverlayBasis } from './decals.ts';
 import { shapeSolids, type ShapeKind } from './shapes.ts';
 import { RoadTool } from './roadTool.ts';
 import { GroundTool } from './groundTool.ts';
@@ -33,6 +32,7 @@ import { moveFaces, moveVertices, sideThrough, topology } from './brushEdit.ts';
 import { nearestPart, partCentre, partsOf, partVerts, samePart, SELECT_MODES, type Part, type PartMode, type SelectMode } from './parts.ts';
 import { PartOverlay } from './partOverlay.ts';
 import { Extruder } from './extrude.ts';
+import { DecalTool, EntityTool } from './entityTool.ts';
 
 export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema' | 'generate';
 
@@ -691,29 +691,6 @@ export class PaintTool implements Tool {
   }
 }
 
-/** Click a surface to place the entity class chosen in the Entities tab. */
-export class EntityTool implements Tool {
-  name: ToolName = 'entity';
-  private editor: Editor;
-  constructor(editor: Editor) {
-    this.editor = editor;
-  }
-  activate(): void {}
-  deactivate(): void {}
-  down(): void {}
-  move(): void {}
-  up(_e: PointerEvent, ndc: Vector2): void {
-    const hit = pickSurface(this.editor, ndc);
-    if (!hit) return;
-    const g = this.editor.grid;
-    const origin = new Vector3(snap(hit.point.x, g), snap(hit.point.y, g), Math.round(hit.point.z));
-    const keys: Record<string, string> = {};
-    const cls = this.editor.entityClass;
-    if (cls.startsWith('prop_')) keys.model = this.editor.entityModel;
-    placeEntity(this.editor, cls, origin, keys);
-  }
-}
-
 /** Places the Lambda Wars kit chosen in the Mission tab (capture point, wave, message, ...). */
 export class KitTool implements Tool {
   name: ToolName = 'kit';
@@ -743,22 +720,6 @@ export class KitTool implements Tool {
     const kit = this.kit;
     const created = recordKit(this.editor, `Place ${kit.label}`, () => kit.place(this.editor, at, this.paramsFor(kit.id)));
     this.editor.selection.set([], created.filter((e) => !e.solids.length).slice(0, 1));
-  }
-}
-
-/** Click a surface to place the decal or overlay chosen in the Materials tab. */
-export class DecalTool implements Tool {
-  name: ToolName = 'decal';
-  private editor: Editor;
-  constructor(editor: Editor) {
-    this.editor = editor;
-  }
-  activate(): void {}
-  deactivate(): void {}
-  down(): void {}
-  move(): void {}
-  up(_e: PointerEvent, ndc: Vector2): void {
-    void placeDecal(this.editor, ndc, this.editor.decal);
   }
 }
 

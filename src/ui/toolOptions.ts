@@ -12,13 +12,14 @@ import { materialThumbnail } from '../assets/thumbnails.ts';
 import { multiblendRows, multiblendSets } from './blendUi.ts';
 import { h, toast } from './dom.ts';
 import { selectModeRows } from './partPanel.ts';
+import { entityToolOptions } from './entityToolOptions.ts';
 
 const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema', generate: 'Generate' } as const;
 const HINTS = {
   select: 'Click to select · Shift adds · drag the gizmo · W move / E rotate / R resize',
   block: 'Drag on a surface to draw a block',
   paint: 'Click a face · Shift: whole brush · Ctrl: pick material',
-  entity: 'Click a surface to place',
+  entity: 'Click a surface to place · Alt+click an entity to copy its class',
   kit: 'Click a surface to place · settings in the Mission tab',
   decal: 'Click a wall or floor to place · pick decals in the Materials tab',
   road: 'Click points · snaps onto roads to join them · Enter or double-click builds · Backspace removes a point',
@@ -172,10 +173,8 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
       const kit = (editor.tools.tools.kit as KitTool).kit;
       rows.push(h('div', {}, kit.icon, ' ', kit.label));
     }
-    if (name === 'entity') {
-      rows.push(h('div', {}, h('span.muted', {}, 'Class '), editor.entityClass));
-      if (editor.entityClass.startsWith('prop_')) rows.push(h('div', {}, h('span.muted', {}, 'Model '), editor.entityModel));
-    }
+    if (name === 'entity') rows.push(...entityToolOptions(editor, render));
+    box.classList.toggle('wide', name === 'entity' || name === 'decal');
     box.replaceChildren(...rows);
   };
   for (const ev of ['toolchange', 'material', 'entityclass', 'kit', 'decal', 'roadstyle', 'selection']) editor.on(ev, render);
