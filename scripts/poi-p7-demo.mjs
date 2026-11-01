@@ -9,6 +9,7 @@ page.on('dialog', (dlg) => dlg.accept());
 const d = driver(page);
 await d.open('repo:phase3_arena.vmf');
 await page.click('#topbar button:has-text("New")');
+await page.dblclick('.newmap [data-template="empty"]');
 await page.click('#topbar button:has-text("Sketch")');
 await page.waitForTimeout(500);
 const N = 48;

@@ -14,6 +14,7 @@ const shotsOnly = process.argv.includes('--shots');
 if (!shotsOnly) {
 await d.open('repo:phase3_arena.vmf');
 await page.click('#topbar button:has-text("New")');
+await page.dblclick('.newmap [data-template="empty"]');
 
 // 1. The layout as a sketch.
 await d.eval(async () => {

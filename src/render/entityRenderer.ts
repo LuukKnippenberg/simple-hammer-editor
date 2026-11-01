@@ -38,6 +38,7 @@ export function entityStyle(cls: string): { color: number; size: number } {
   if (c === 'info_player_wars' || c === 'info_player_start') return { color: 0x2fb36b, size: 32 };
   if (c === 'control_point' || c.startsWith('control_point')) return { color: 0xffa630, size: 48 };
   if (c.startsWith('scrap_marker')) return { color: 0xd8c040, size: 28 };
+  if (c.startsWith('overrun_')) return { color: 0xe05a4f, size: 48 };
   if (c.startsWith('light')) return { color: 0xffe68a, size: 20 };
   if (c.startsWith('env_') || c === 'shadow_control' || c === 'color_correction' || c === 'postprocess_controller') return { color: 0x56c2e6, size: 20 };
   if (c.startsWith('logic_') || c.startsWith('math_') || c.startsWith('filter_')) return { color: 0xb0b0b0, size: 16 };

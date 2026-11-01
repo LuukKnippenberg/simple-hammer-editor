@@ -1,7 +1,8 @@
 import type { Editor } from '../editor.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
-import { Vector3, type MeshLambertMaterial } from 'three';
+import { mountNewMapDialog } from './newMapDialog.ts';
+import type { MeshLambertMaterial } from 'three';
 
 /** Top bar: map picker, open-file, and view toggles. */
 export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLElement): void {
@@ -40,13 +41,8 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     });
   });
 
-  const newMap = () => {
-    if (editor.dirty && !confirm('Discard unsaved changes?')) return;
-    editor.loadDocument(VmfDocument.empty(), 'untitled.vmf');
-    editor.dirty = true;
-    select.value = '';
-    editor.setView(new Vector3(-1200, -1200, 1100), new Vector3(0, 0, 0));
-  };
+  // New asks what kind of map to start from (newMapDialog.ts).
+  const newMap = mountNewMapDialog(editor, () => (select.value = '')).open;
   const save = async (name?: string) => {
     try {
       const r = await editor.save(name);
@@ -89,7 +85,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
   bar.append(
     h('div.brand', {}, 'Simple ', h('span', {}, 'Hammer'), ' Editor'),
     select,
-    h('button', { onclick: () => newMap(), title: 'Start an empty map' }, 'New'),
+    h('button', { onclick: () => newMap(), title: 'Start a new map: a game mode template or an empty map' }, 'New'),
     h('button', { onclick: () => fileInput.click(), title: 'Open a .vmf from disk' }, 'Open file…'),
     fileInput,
     h('button', { onclick: () => save(), title: 'Save to maps/ (Ctrl+S)' }, 'Save'),
