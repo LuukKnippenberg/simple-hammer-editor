@@ -8,6 +8,7 @@ import { UNITS } from '../../lw/kits.ts';
 import { Rng } from '../rng.ts';
 import { modelInfo } from './models.ts';
 import { interiorHouse, type InteriorHouseOptions } from '../interiorHouse.ts';
+import { subtract } from '../roads.ts';
 import type { PoiEntity, PoiOutput, PoiSpec, PoiType, Rect } from './types.ts';
 
 /**
@@ -77,6 +78,13 @@ export interface PropOptions {
   noOccupy?: boolean;
 }
 
+/** Edges built from brushes: width, default height and materials. */
+const BRUSH_EDGES = {
+  wall: { w: 16, h: 64, mat: { top: 'CONCRETE/CONCRETEFLOOR027A', bottom: NODRAW, sides: 'BRICK/BRICKWALL045A' } },
+  kerb: { w: 12, h: 8, mat: { top: 'CONCRETE/CONCRETEFLOOR027A', bottom: NODRAW, sides: 'CONCRETE/CONCRETEFLOOR027A' } },
+  railing: { w: 4, h: 40, mat: { top: 'METAL/METALRAIL001A', bottom: NODRAW, sides: 'METAL/METALRAIL001A' } },
+};
+
 /** Edge kinds: models along a line, or brushes. */
 export type EdgeKind = 'fence' | 'chainlink' | 'wood' | 'border' | 'barbed' | 'farm' | 'rail' | 'wall' | 'hedge' | 'kerb' | 'railing' | 'combine';
 
@@ -99,6 +107,8 @@ export class PoiKit {
   /** Footprints of what has been placed (local). */
   readonly occupied: Rect[] = [];
   private pads: { r: Rect; top: number; sides: string[] }[] = [];
+  /** Pieces of the paths laid so far (local, counter-clockwise): later paths are cut by them. */
+  private paths: Vector2[][] = [];
   private origin: Vector2;
   private u: Vector2;
   private v: Vector2;
@@ -444,28 +454,56 @@ export class PoiKit {
   }
 
   /**
-   * A path along a local polyline: a strip of `material` (one convex brush per segment, discs at the bends)
-   * raised `top` above the ground, reserved as a route by squares along it.
+   * A path along a local polyline: a strip of `material` raised `top` above the ground, one convex brush per
+   * segment, reserved as a route by squares along it. A polyline that ends where it starts is a closed loop.
+   * Neighbouring pieces are mitred at the bends so they share an edge, and the parts of a path lying on an earlier
+   * one are cut away: two path tops at the same height over each other z-fight.
    */
   path(points: [number, number][], material: string, width = ROUTE_WIDTH, top = 4): void {
     const h = width / 2;
-    for (let i = 0; i + 1 < points.length; i++) {
-      const [a, b] = [points[i], points[i + 1]];
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (len < 1) continue;
-      const n = [-(b[1] - a[1]) / len * h, (b[0] - a[0]) / len * h];
-      this.prism([[a[0] - n[0], a[1] - n[1]], [b[0] - n[0], b[1] - n[1]], [b[0] + n[0], b[1] + n[1]], [a[0] + n[0], a[1] + n[1]]], -6, top, { top: material, bottom: NODRAW, sides: NODRAW });
+    const pts = points.filter((p, i) => i === 0 || Math.hypot(p[0] - points[i - 1][0], p[1] - points[i - 1][1]) >= 1).map(([x, y]) => new Vector2(x, y));
+    const closed = pts.length > 3 && pts[0].distanceTo(pts[pts.length - 1]) < 1;
+    if (closed) pts.pop();
+    const n = pts.length, segs = closed ? n : n - 1;
+    if (segs < 1) return;
+    const left = (i: number) => { const d = pts[(i + 1) % n].clone().sub(pts[i]).normalize(); return new Vector2(-d.y, d.x); };
+    // Where the path's two edges cross point j: square across at the ends, along the bisector at a bend (kept
+    // within twice the half width at sharp ones).
+    const corners = pts.map((p, j) => {
+      const prev = j > 0 || closed ? left((j - 1 + n) % n) : null, next = j < n - 1 || closed ? left(j) : null;
+      let m = (prev ?? next)!, s = h;
+      if (prev && next && prev.dot(next) > -0.99) {
+        m = prev.clone().add(next).normalize();
+        s = h / Math.max(0.5, m.dot(next));
+      }
+      return [p.clone().addScaledVector(m, s).round(), p.clone().addScaledVector(m, -s).round()];
+    });
+    const mats = { top: material, bottom: NODRAW, sides: NODRAW };
+    const laid: Vector2[][] = [];
+    for (let i = 0; i < segs; i++) {
+      const [a, b] = [pts[i], pts[(i + 1) % n]];
+      const [l0, r0] = corners[i], [l1, r1] = corners[(i + 1) % n];
+      const piece = [r0, r1, l1, l0];
+      laid.push(piece);
+      let polys = [piece];
+      for (const c of this.paths) polys = polys.flatMap((p) => subtract(p, c));
+      for (const poly of polys) {
+        const clean = convexClean(poly);
+        if (clean.length < 3 || polyArea(clean) < 4) continue;
+        this.out.detail.push(solidNode(this.doc, prismFaces(ccwPts(clean.map((q) => this.world(q.x, q.y))), this.z - 6, this.z + top, mats)));
+      }
       // Squares along the segment keep props off it.
+      const len = a.distanceTo(b);
       const steps = Math.max(1, Math.ceil(len / 48));
       for (let k = 0; k <= steps; k++) {
-        const x = a[0] + ((b[0] - a[0]) * k) / steps, y = a[1] + ((b[1] - a[1]) * k) / steps;
+        const x = a.x + ((b.x - a.x) * k) / steps, y = a.y + ((b.y - a.y) * k) / steps;
         this.reserved.push(rect(x - h, y - h, x + h, y + h));
       }
       // As routes: a straight strip, or (for a slanted segment) a square at each end, in pairs.
-      if (a[0] === b[0] || a[1] === b[1]) this.out.routes.push(this.worldRect(a[0] === b[0] ? rect(a[0] - h, a[1], a[0] + h, b[1]) : rect(a[0], a[1] - h, b[0], a[1] + h)));
-      else this.out.routes.push(this.worldRect(rect(a[0] - h, a[1] - h, a[0] + h, a[1] + h)), this.worldRect(rect(b[0] - h, b[1] - h, b[0] + h, b[1] + h)));
+      if (a.x === b.x || a.y === b.y) this.out.routes.push(this.worldRect(a.x === b.x ? rect(a.x - h, a.y, a.x + h, b.y) : rect(a.x, a.y - h, b.x, a.y + h)));
+      else this.out.routes.push(this.worldRect(rect(a.x - h, a.y - h, a.x + h, a.y + h)), this.worldRect(rect(b.x - h, b.y - h, b.x + h, b.y + h)));
     }
-    for (const p of points.slice(1, -1)) this.cylinder(p[0], p[1], h, -6, top, { top: material, bottom: NODRAW, sides: NODRAW }, 8);
+    this.paths.push(...laid);
   }
 
   /** A route across the POI through its middle: 'x' runs from the left edge to the right edge. */
@@ -571,11 +609,8 @@ export class PoiKit {
         if (o.fow) this.fowStrip(at(r0), at(r1), 48, kind === 'hedge' ? 160 : 128);
         continue;
       }
-      const spec = {
-        wall: { w: 16, h: o.height ?? 64, mat: { top: 'CONCRETE/CONCRETEFLOOR027A', bottom: NODRAW, sides: 'BRICK/BRICKWALL045A' } },
-        kerb: { w: 12, h: o.height ?? 8, mat: { top: 'CONCRETE/CONCRETEFLOOR027A', bottom: NODRAW, sides: 'CONCRETE/CONCRETEFLOOR027A' } },
-        railing: { w: 4, h: o.height ?? 40, mat: { top: 'METAL/METALRAIL001A', bottom: NODRAW, sides: 'METAL/METALRAIL001A' } },
-      }[kind as 'wall' | 'kerb' | 'railing'];
+      const b = BRUSH_EDGES[kind as keyof typeof BRUSH_EDGES];
+      const spec = { ...b, h: o.height ?? b.h };
       const p0 = at(r0), p1 = at(r1);
       const n = [-dir[1] * spec.w / 2, dir[0] * spec.w / 2];
       const quad: [number, number][] = [[p0[0] - n[0], p0[1] - n[1]], [p1[0] - n[0], p1[1] - n[1]], [p1[0] + n[0], p1[1] + n[1]], [p0[0] + n[0], p0[1] + n[1]]];
@@ -624,11 +659,14 @@ export class PoiKit {
   /** Edges around the whole POI with gaps where the routes leave it. `inset` moves the line inwards. */
   perimeter(kind: EdgeKind, inset = 16, o: { height?: number; fow?: boolean; extraGaps?: Partial<Record<'s' | 'e' | 'n' | 'w', [number, number][]>> } = {}): void {
     const W = this.W, D = this.D, i = inset;
-    const sides: { key: 's' | 'e' | 'n' | 'w'; a: [number, number]; b: [number, number]; axis: 'x' | 'y'; at: number }[] = [
-      { key: 's', a: [i, i], b: [W - i, i], axis: 'x', at: i },
-      { key: 'e', a: [W - i, i], b: [W - i, D - i], axis: 'y', at: W - i },
-      { key: 'n', a: [W - i, D - i], b: [i, D - i], axis: 'x', at: D - i },
-      { key: 'w', a: [i, D - i], b: [i, i], axis: 'y', at: i },
+    // Brush edges: the south and north runs reach over the corners and the east and west ones stop at them, so the
+    // pieces meet without overlapping (their tops would z-fight).
+    const e = (BRUSH_EDGES[kind as keyof typeof BRUSH_EDGES]?.w ?? 0) / 2;
+    const sides: { key: 's' | 'e' | 'n' | 'w'; a: [number, number]; b: [number, number]; axis: 'x' | 'y'; at: number; shift: number }[] = [
+      { key: 's', a: [i - e, i], b: [W - i + e, i], axis: 'x', at: i, shift: e },
+      { key: 'e', a: [W - i, i + e], b: [W - i, D - i - e], axis: 'y', at: W - i, shift: -e },
+      { key: 'n', a: [W - i + e, D - i], b: [i - e, D - i], axis: 'x', at: D - i, shift: e },
+      { key: 'w', a: [i, D - i - e], b: [i, i + e], axis: 'y', at: i, shift: -e },
     ];
     for (const s of sides) {
       const gaps: [number, number][] = [];
@@ -636,11 +674,12 @@ export class PoiKit {
         // A reserved strip that crosses this side's line opens a gap there.
         if (s.axis === 'x' ? r.y0 <= s.at && r.y1 >= s.at : r.x0 <= s.at && r.x1 >= s.at) {
           const [lo, hi] = s.axis === 'x' ? [r.x0, r.x1] : [r.y0, r.y1];
-          const from = s.key === 's' ? lo - i : s.key === 'n' ? (W - i) - hi : s.key === 'e' ? lo - i : (D - i) - hi;
+          const from = s.key === 's' ? lo - s.a[0] : s.key === 'n' ? s.a[0] - hi : s.key === 'e' ? lo - s.a[1] : s.a[1] - hi;
           gaps.push([from - GAP_MARGIN, from + (hi - lo) + GAP_MARGIN]);
         }
       }
-      gaps.push(...(o.extraGaps?.[s.key] ?? []));
+      // Extra gaps are measured from the corner.
+      gaps.push(...(o.extraGaps?.[s.key] ?? []).map(([g0, g1]): [number, number] => [g0 + s.shift, g1 + s.shift]));
       this.edge(kind, s.a, s.b, gaps, o);
     }
   }
@@ -835,6 +874,29 @@ function lowest(min: number[], max: number[], pitch: number, roll: number): numb
   let low = Infinity;
   for (const x of [min[0], max[0]]) for (const y of [min[1], max[1]]) for (const z of [min[2], max[2]]) low = Math.min(low, new Vector3(x, y, z).applyEuler(e).z);
   return low;
+}
+
+function polyArea(p: Vector2[]): number {
+  let a = 0;
+  p.forEach((q, i) => { const r = p[(i + 1) % p.length]; a += q.x * r.y - r.x * q.y; });
+  return Math.abs(a) / 2;
+}
+
+/** A convex polygon without repeated or collinear points (clipping leaves them; a brush face needs three apart). */
+function convexClean(p: Vector2[]): Vector2[] {
+  let out = p.filter((q, i) => q.distanceTo(p[(i + 1) % p.length]) > 0.01);
+  for (let changed = true; changed && out.length >= 3;) {
+    changed = false;
+    for (let i = 0; i < out.length; i++) {
+      const a = out[(i - 1 + out.length) % out.length], b = out[i], c = out[(i + 1) % out.length];
+      if (Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) < 0.01 * a.distanceTo(c)) {
+        out = out.filter((_, k) => k !== i);
+        changed = true;
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 function ccwPts(p: Vector2[]): Vector2[] {

@@ -76,7 +76,10 @@ export const PARK: PoiType = {
     const inset = k.str('ground') !== 'own' && k.str('ground') ? 96 : 0;
     if (inset) k.pad(k.bounds, k.groundMaterial(GRASS));
     const lawn = rect(inset, inset, W - inset, D - inset);
-    k.pad(lawn, GRASS, inset ? 4 : undefined);
+    // Every layer at its own height, so no two tops lie on one plane over each other: the paving 2 up, the lawn on
+    // it, the paths over the lawn. Never 3 or 6: a lawn drawn as a sketch area round the park lies 3 up, its edging 6.
+    const lawnTop = inset ? 4 : 2, pathTop = lawnTop + (inset ? 1 : 2);
+    k.pad(lawn, GRASS, lawnTop);
     const kind = k.str('feature');
     const fr = FEATURE_R[kind] ?? 96;
     const loopR = fr + 128;
@@ -86,7 +89,7 @@ export const PARK: PoiType = {
       const a = (i / 12) * Math.PI * 2;
       loop.push([Math.round(cx + Math.cos(a) * loopR), Math.round(cy + Math.sin(a) * loopR)]);
     }
-    k.path(loop, GRAVEL);
+    k.path(loop, GRAVEL, undefined, pathTop);
     const spokes: [number, number][][] = [];
     for (const [ex, ey, a] of [[0, cy, Math.PI], [W, cy, 0], [cx, 0, -Math.PI / 2], [cx, D, Math.PI / 2]] as [number, number, number][]) {
       const start: [number, number] = [Math.round(cx + Math.cos(a) * loopR), Math.round(cy + Math.sin(a) * loopR)];
@@ -96,7 +99,7 @@ export const PARK: PoiType = {
       const bend: [number, number] = [Math.round(mx - Math.sin(a) * side), Math.round(my + Math.cos(a) * side)];
       const pts: [number, number][] = [start, bend, [ex, ey]];
       spokes.push(pts);
-      k.path(pts, GRAVEL);
+      k.path(pts, GRAVEL, undefined, pathTop);
     }
     centre(k, kind, cx, cy);
     k.keepClear(rect(cx - fr, cy - fr, cx + fr, cy + fr));
