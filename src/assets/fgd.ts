@@ -7,6 +7,8 @@ export interface FgdKey {
   default: string;
   description: string;
   choices?: { value: string; label: string }[];
+  /** The class that declares the key (a base class such as Targetname or Wars, or the class itself). */
+  base?: string;
 }
 
 export interface FgdClass {

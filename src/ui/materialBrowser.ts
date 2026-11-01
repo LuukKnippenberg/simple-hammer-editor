@@ -1,9 +1,10 @@
 import type { Editor } from '../editor.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
 import { h } from './dom.ts';
+import { loadDecals, openDecalPicker } from './decalPicker.ts';
+import { recentDecals } from './recent.ts';
 
 /** Folders that hold model, UI or effect materials rather than brush textures. */
-const DECAL_DIRS = /^(decals|overlays)\//;
 const SKIP = /^(models|effects|vgui|sprites|particle|particles|console|debug|engine|editor|skybox|correction|perftest|voice|hud|cable|decals|overlays|fow|deferred|environment maps|shadertest|pg_tex)\//;
 
 /** Thumbnail grid of materials: the ones used in the map first, or a search over everything the game has. */
@@ -37,6 +38,7 @@ export function mountMaterialBrowser(editor: Editor): HTMLElement {
     observer.observe(img);
     const pick = () => {
       if (mode === 'decal') {
+        recentDecals.push(name);
         editor.decal.material = name;
         editor.tools.set('decal');
         editor.emit('toolchange');
@@ -64,18 +66,18 @@ export function mountMaterialBrowser(editor: Editor): HTMLElement {
     if (mode === 'decal') {
       if (!decalList) {
         grid.replaceChildren(h('p.hint', {}, 'Indexing decals…'));
-        void Promise.all([
-          fetch('/api/list?folder=materials/decals&ext=.vmt').then((r) => r.json()),
-          fetch('/api/list?folder=materials/overlays&ext=.vmt').then((r) => r.json()),
-        ]).then(([a, b]: string[][]) => {
-          decalList = [...a, ...b].map((p) => p.slice(10, -4)).filter((p) => DECAL_DIRS.test(p) && !/subrect|_model|shot\d|\/blood\d|flesh/.test(p));
+        // The same list as the decal picker (no blood, impacts or engine decals).
+        void loadDecals().then((list) => {
+          decalList = list;
           render();
         });
         return;
       }
       const words = q.split(/\s+/).filter(Boolean);
       list = decalList.filter((m) => words.every((w) => m.includes(w))).slice(0, 300);
-      grid.replaceChildren(h('p.hint', {}, `${list.length} decals${q ? ' matching' : ''}. Click one to use the decal tool (6).`), ...list.map(tile));
+      grid.replaceChildren(h('p.hint', {}, `${list.length} decals${q ? ' matching' : ''}. Click one to use the decal tool (6). `,
+        h('a', { href: '#', onclick: (e: Event) => { e.preventDefault(); void openDecalPicker(editor, { current: editor.decal.material, subtitle: 'for the Decal tool', mode: editor.decal.mode, useLabel: 'Use decal', onPick: (m, dm) => { editor.decal.material = m; editor.decal.mode = dm; editor.emit('decal'); } }); } }, 'Open the decal picker…')),
+        ...list.map(tile));
       return;
     }
     if (!q) list = usedInMap();
@@ -97,6 +99,8 @@ export function mountMaterialBrowser(editor: Editor): HTMLElement {
     );
   };
 
+  // The Decal tool's options and picker change the decal too.
+  editor.on('decal', () => renderCurrent());
   const renderCurrent = () => {
     const img = h('img') as HTMLImageElement;
     const name = mode === 'decal' ? editor.decal.material : editor.currentMaterial.toLowerCase();
@@ -112,6 +116,12 @@ export function mountMaterialBrowser(editor: Editor): HTMLElement {
   });
   editor.on('document', render);
   editor.on('material', renderCurrent);
+  // The sidebar opens this panel for the Paint and Decal tools: show the list that tool uses.
+  editor.on('toolchange', () => {
+    const t = editor.tools.current.name;
+    const want = t === 'decal' ? 'decal' : t === 'paint' ? 'brush' : mode;
+    if (want !== mode) { mode = want; renderMode(); renderCurrent(); render(); }
+  });
   renderMode();
   render();
   renderCurrent();

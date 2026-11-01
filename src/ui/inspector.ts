@@ -1,6 +1,5 @@
 import { Box3, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
-import { fgdClass } from '../assets/fgd.ts';
 import { applyMaterial, BRUSH_CLASSES, deleteSelection, duplicateSelection, moveToWorld, tieToEntity } from '../edit/actions.ts';
 import { remapSolid } from '../edit/brushes.ts';
 import type { MapEntity } from '../vmf/map.ts';
@@ -11,7 +10,7 @@ import { ARCHITECTURES, FACADE_STYLES, QUALITY, type ArchitectureName, type Buil
 import { INTERIOR_STYLES, type InteriorStyleName } from '../gen/styles.ts';
 import type { CornerOption } from '../gen/buildingPlan.ts';
 import type { RoofOption } from '../gen/roofs.ts';
-import { ioSection } from './ioEditor.ts';
+import { entityEditor, multiEntityEditor } from './entityEditor.ts';
 import { ROAD_STYLES, centreline, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
 import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, type StreetMaterial } from '../gen/streetMaterials.ts';
 import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
@@ -83,7 +82,8 @@ export function mountInspector(editor: Editor): HTMLElement {
     const solids = sel.allSolids();
     const ents = [...sel.entities];
     const summary = [solids.length && `${solids.length} brush${solids.length > 1 ? 'es' : ''}`, ents.length && `${ents.length} entit${ents.length > 1 ? 'ies' : 'y'}`].filter(Boolean).join(', ');
-    panel.append(h('div.section', {}, h('h3', {}, 'Selection'), h('div', {}, summary),
+    // Entities alone get their own header card (entityEditor.ts) with these buttons.
+    if (solids.length) panel.append(h('div.section', {}, h('h3', {}, 'Selection'), h('div', {}, summary),
       h('div.row', { style: { marginTop: '6px' } },
         h('button', { onclick: () => duplicateSelection(editor) }, 'Duplicate'),
         h('button', { onclick: () => deleteSelection(editor) }, 'Delete'))));
@@ -127,15 +127,15 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (ents.length === 1 && ents[0].classname === 'env_soundscape') panel.append(soundscapePanel(editor, ents[0]));
     if (ents.length === 1 && ents[0].classname === 'ambient_generic') panel.append(ambientPanel(editor, ents[0]));
     const fits = ents.length === 1 ? presetsFor(ents[0].get('model')) : [];
-    if (fits.length) {
-      panel.append(h('div.section', {}, h('h3', {}, 'Sound and effects'),
-        h('p.hint', {}, 'Bring this prop to life:'),
-        h('div.row', {}, ...fits.map((p) => h('button', { onclick: () => addPreset(editor, p, ents[0].origin!, ents[0].angles.y, ents[0]) }, `${p.icon} ${p.label}`)))));
-    }
+    // Shown as the last group of the entity editor.
+    const effects = fits.length ? [{ label: 'Sound and effects' as const, keys: [], summary: fits.map((p) => `${p.icon} ${p.label}`).join(' '), body: () => h('div', {},
+      h('p.hint', {}, 'Bring this prop to life:'),
+      h('div.row', {}, ...fits.map((p) => h('button', { onclick: () => addPreset(editor, p, ents[0].origin!, ents[0].angles.y, ents[0]) }, `${p.icon} ${p.label}`)))) }] : [];
     const line = ents.length === 1 ? powerlineOf(editor.doc.entities, ents[0]) : null;
     if (line) panel.append(powerlinePanel(editor, ents[0], line.spec, line.members.length));
     panel.append(...cinemaInspector(editor, ents));
-    if (ents.length === 1) panel.append(entityEditor(editor, ents[0]), ioSection(editor, ents[0]));
+    if (ents.length === 1) panel.append(entityEditor(editor, ents[0], effects));
+    else if (ents.length > 1) panel.append(multiEntityEditor(editor, ents));
     if (solids.length) panel.append(brushEditor(editor));
     if (looseWorld.length && !partOf.size) panel.append(buildingPanel(editor));
     if (looseWorld.length === 1 && !partOf.size) {
@@ -181,47 +181,6 @@ function brushEditor(editor: Editor): HTMLElement {
       h('div.row', {}, h('span.mat-name', { title: m, onclick: () => editor.setMaterial(m) }, m.toLowerCase()), h('span.muted', {}, `×${n}`))),
     h('button.primary', { style: { marginTop: '6px' }, onclick: () => applyMaterial(editor, solids, editor.currentMaterial) }, `Apply ${editor.currentMaterial.toLowerCase()}`),
   );
-}
-
-function entityEditor(editor: Editor, e: MapEntity): HTMLElement {
-  const cls = fgdClass(e.classname);
-  const section = h('div.section', {}, h('h3', {}, e.classname), cls?.description ? h('p.hint', {}, cls.description.slice(0, 200)) : null);
-  const commit = (key: string, value: string) => {
-    if (e.get(key) === value) return;
-    const end = editor.history.begin(`Edit ${key}`, [], [e]);
-    e.set(key, value);
-    end();
-    editor.changed();
-  };
-  const shown = new Set<string>();
-  const field = (key: string, label: string, value: string, choices?: { value: string; label: string }[], title = '') => {
-    shown.add(key.toLowerCase());
-    let input: HTMLInputElement | HTMLSelectElement;
-    if (choices?.length) {
-      input = h('select', {}, ...choices.map((c) => h('option', { value: c.value }, c.label)));
-      if (!choices.some((c) => c.value === value)) input.append(h('option', { value }, value));
-      input.value = value;
-    } else {
-      input = h('input', { value });
-    }
-    input.addEventListener('change', () => commit(key, input.value));
-    section.append(h('div.row', { title: title || key }, h('label', {}, label), input));
-  };
-  field('origin', 'Origin', e.get('origin') ?? '');
-  if (e.get('angles') !== undefined || cls?.keys.some((k) => k.name.toLowerCase() === 'angles')) field('angles', 'Angles', e.get('angles') ?? '0 0 0');
-  for (const k of cls?.keys ?? []) {
-    if (shown.has(k.name.toLowerCase()) || k.type === 'flags') continue;
-    field(k.name, k.label, e.get(k.name) ?? k.default, k.choices, k.description);
-  }
-  // Keys the FGD does not describe.
-  for (const [k, v] of e.node.props) {
-    if (shown.has(k.toLowerCase()) || ['id', 'classname'].includes(k.toLowerCase())) continue;
-    field(k, k, v);
-  }
-  const newKey = h('input', { placeholder: 'key' }) as HTMLInputElement;
-  const newVal = h('input', { placeholder: 'value' }) as HTMLInputElement;
-  section.append(h('div.row', {}, newKey, newVal, h('button', { onclick: () => newKey.value && commit(newKey.value, newVal.value) }, '+')));
-  return section;
 }
 
 /** A road's style and sizes; changes rebuild all roads, so crossings stay open. */

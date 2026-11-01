@@ -30,3 +30,11 @@ export function toast(container: HTMLElement, text: string, ms = 2500): void {
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => (el!.style.opacity = '0'), ms);
 }
+
+/** Scrolls `list` (vertically only) so `el` is visible; scrollIntoView would also scroll the page sideways. */
+export function scrollIntoList(el: Element | null, list: HTMLElement): void {
+  if (!el) return;
+  const r = el.getBoundingClientRect(), l = list.getBoundingClientRect();
+  if (r.top < l.top) list.scrollTop -= l.top - r.top;
+  else if (r.bottom > l.bottom) list.scrollTop += r.bottom - l.bottom;
+}

@@ -1,65 +1,83 @@
 import type { Editor } from '../editor.ts';
-import { fgdClasses } from '../assets/fgd.ts';
-import { h } from './dom.ts';
+import { fgdClass, fgdClasses, type FgdClass } from '../assets/fgd.ts';
+import { CLASS_GROUPS, FEATURED, classGroup, classHint, classLabel, isPointClass, searchClasses } from '../edit/entityClasses.ts';
+import { tieToEntity } from '../edit/actions.ts';
+import { classChip, classDot } from './classPicker.ts';
+import { recentClasses } from './recent.ts';
+import { h, toast } from './dom.ts';
 
-/** The entities a Lambda Wars map needs most, with a short explanation each. */
-const FEATURED: { cls: string; label: string; hint: string }[] = [
-  { cls: 'info_start_wars', label: 'Player start', hint: 'Base location of one player. Place one per player slot.' },
-  { cls: 'control_point', label: 'Control point', hint: 'Capturable flag; a capture area trigger is added around it.' },
-  { cls: 'scrap_marker', label: 'Scrap (large)', hint: 'Resource node rebels harvest.' },
-  { cls: 'scrap_marker_small', label: 'Scrap (small)', hint: 'Small resource node.' },
-  { cls: 'info_player_wars', label: 'Spectator spawn', hint: 'Where the player camera spawns.' },
-  { cls: 'prop_static', label: 'Static prop', hint: 'Decoration model (set the model below).' },
-  { cls: 'prop_dynamic', label: 'Dynamic prop', hint: 'Model that can animate or be toggled.' },
-  { cls: 'light_environment', label: 'Sun light', hint: 'One per map: sun and ambient light.' },
-  { cls: 'env_fog_controller', label: 'Fog', hint: 'Map fog colour and distances.' },
-  { cls: 'light', label: 'Point light', hint: 'Local light source.' },
-  { cls: 'light_spot', label: 'Spot light', hint: 'Cone light; aim it with the angles.' },
-  { cls: 'light_deferred', label: 'Dynamic light', hint: 'Lambda Wars deferred light (radius, colour, optional shadows).' },
-];
+/** Groups opened by hand, kept while the editor runs. */
+const open = new Set(['wars', 'props']);
 
-/** Picks the class the Entity tool places, plus the model for props. */
+/** Picks the class the Entity tool places: search, the class being placed, recent classes and every FGD class by group. */
 export function mountEntityPalette(editor: Editor, useTool: () => void): HTMLElement {
-  const list = h('div');
-  const search = h('input', { placeholder: 'All entity classes…', style: { width: '100%' } }) as HTMLInputElement;
-  const results = h('div');
-  const model = h('input', { value: editor.entityModel, style: { width: '100%' } }) as HTMLInputElement;
-  const models = h('datalist', { id: 'model-list' });
-  model.setAttribute('list', 'model-list');
-  model.addEventListener('change', () => {
-    editor.entityModel = model.value.trim();
-    editor.emit('entityclass');
-  });
+  const search = h('input', { placeholder: 'Search all entity classes…', 'aria-label': 'Search entity classes', style: { width: '100%' } }) as HTMLInputElement;
+  const placing = h('div.placing');
+  const recent = h('div');
+  const groups = h('div');
 
-  const choose = (cls: string) => {
-    editor.entityClass = cls;
+  const choose = (c: FgdClass | string) => {
+    const cls = typeof c === 'string' ? fgdClass(c) ?? { name: c, type: 'PointClass', description: '' } : c;
+    if (!isPointClass(cls)) {
+      // Brush entities are made from brushes: tie the selected ones.
+      const brushes = [...editor.selection.solids].filter((s) => !s.entity);
+      if (!brushes.length) return toast(editor.container, `${cls.name} is a brush entity: select brushes first, then pick it`);
+      tieToEntity(editor, cls.name);
+      return toast(editor.container, `Tied ${brushes.length} brush${brushes.length > 1 ? 'es' : ''} to ${cls.name}`);
+    }
+    editor.entityClass = cls.name;
+    recentClasses.push(cls.name);
     useTool();
     editor.emit('entityclass');
-    render();
   };
-  const item = (cls: string, label: string, hint: string) =>
-    h('div.ent-item' + (editor.entityClass === cls ? '.active' : '') as 'div', { onclick: () => choose(cls), title: cls },
-      h('b', {}, label), h('span.muted', {}, ` ${cls}`), hint ? h('div.hint', {}, hint) : null);
+  const item = (cls: string, label = classLabel(cls), hint = '') =>
+    h(editor.entityClass === cls ? 'div.ent-item.active' : 'div.ent-item', { onclick: () => choose(cls), title: classHint(fgdClass(cls), cls) },
+      classDot(cls), h('span.ent-name', {}, label === cls ? h('b', {}, cls) : h('span', {}, h('b', {}, label), h('span.muted', {}, ` ${cls}`))),
+      hint ? h('div.hint', {}, hint) : null);
 
   const render = () => {
-    list.replaceChildren(...FEATURED.map((f) => item(f.cls, f.label, f.hint)));
-    const q = search.value.trim().toLowerCase();
-    const matches = q ? fgdClasses().filter((c) => !/solid/i.test(c.type) && c.name.toLowerCase().includes(q)).slice(0, 40) : [];
-    results.replaceChildren(...matches.map((c) => item(c.name, c.name, c.description.slice(0, 80))));
-    // Suggest the models already used in this map.
-    const used = new Set<string>();
-    for (const e of editor.doc.entities) {
-      const m = e.get('model');
-      if (m?.endsWith('.mdl')) used.add(m);
+    const cls = fgdClass(editor.entityClass);
+    placing.replaceChildren(
+      h('h3', {}, 'Placing'),
+      h('div.placing-name', {}, classDot(editor.entityClass, 14), h('b', {}, classLabel(editor.entityClass)),
+        classLabel(editor.entityClass) !== editor.entityClass ? h('span.muted', {}, editor.entityClass) : null),
+      h('p.hint', {}, classHint(cls, editor.entityClass) || 'Click a surface with the Entity tool (4) to place it.'));
+    recent.replaceChildren(...recentClasses.items.length ? [h('h3', {}, 'Recent'),
+      h('div.chips', {}, ...recentClasses.items.map((r) => classChip(r, () => choose(r), r === editor.entityClass)))] : []);
+
+    const q = search.value.trim();
+    const all = fgdClasses();
+    if (q) {
+      const found = searchClasses(all, q, 60);
+      groups.replaceChildren(h('h3', {}, `${found.length} match${found.length === 1 ? '' : 'es'}`),
+        ...found.map((c) => item(c.name, classLabel(c.name), `${classGroup(c).label} · ${classHint(c)}`)));
+      return;
     }
-    models.replaceChildren(...[...used].sort().map((m) => h('option', { value: m })));
+    const byGroup = new Map<string, FgdClass[]>();
+    for (const c of all) {
+      const g = classGroup(c).id;
+      byGroup.set(g, [...byGroup.get(g) ?? [], c]);
+    }
+    const featured = new Set(FEATURED.map((f) => f.cls));
+    const section = (id: string, label: string, color: string, pattern: string, items: HTMLElement[]) => {
+      const isOpen = open.has(id);
+      const head = h('div.gh', { onclick: () => { if (isOpen) open.delete(id); else open.add(id); render(); } },
+        h('span.tw', {}, isOpen ? '▾' : '▸'), h('span.dot', { style: { background: color } }), h('b', {}, label),
+        h('span.n', {}, isOpen ? String(items.length) : pattern));
+      return h('div', {}, head, isOpen ? h('div.gbody', {}, ...items) : null);
+    };
+    groups.replaceChildren(
+      ...CLASS_GROUPS.map((g) => {
+        const list = (byGroup.get(g.id) ?? []).sort((a, b) => Number(featured.has(b.name)) - Number(featured.has(a.name)) || a.name.localeCompare(b.name));
+        if (!list.length) return null;
+        return section(g.id, g.label, g.color, g.pattern, list.map((c) => item(c.name)));
+      }).filter((x): x is HTMLDivElement => !!x),
+      section('az', 'All classes A–Z', '#646b74', 'from the FGD', all.slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => item(c.name))),
+    );
   };
   search.addEventListener('input', render);
-  editor.on('document', render);
+  editor.on('entityclass', render);
   editor.on('fgd', render);
   render();
-  return h('div', {},
-    h('div.section', {}, h('h3', {}, 'Place entity (tool 4)'), list),
-    h('div.section', {}, h('h3', {}, 'Prop model'), model, models),
-    h('div.section', {}, h('h3', {}, 'Search classes'), search, results));
+  return h('div.ent-palette', {}, search, placing, recent, groups);
 }

@@ -69,16 +69,28 @@ function snapOut(box: Box3, g = 64): Box3 {
   );
 }
 
+/**
+ * Why vbsp would drop a prop_static with this model: no $staticprop, a physics prop_data block, or a
+ * model moved after compiling (vbsp loads the .vvd by the compiled-in name and stops). Null when fine.
+ */
+export async function staticPropProblem(path: string): Promise<'missing' | 'physics' | 'notstatic' | 'moved' | null> {
+  const m = path.toLowerCase().replace(/\\/g, '/');
+  const mdl = await loadModel(m);
+  if (!mdl) return 'missing';
+  if (mdl.physicsOnly) return 'physics';
+  if (!mdl.isStatic) return 'notstatic';
+  const name = mdl.internalName.replace(/\.mdl$/, '');
+  if (name && `models/${name}.mdl` !== m && !(await fetchGameFile(`models/${name}.vvd`))) return 'moved';
+  return null;
+}
+
 /** prop_static entities whose model was not compiled as a static prop (vbsp deletes these). */
 export async function nonStaticProps(editor: Editor): Promise<MapEntity[]> {
   const props = editor.doc.entities.filter((e) => e.classname === 'prop_static' && e.get('model'));
   const models = new Map<string, boolean>();
   await Promise.all([...new Set(props.map((e) => e.get('model')!.toLowerCase()))].map(async (m) => {
-    const mdl = await loadModel(m);
-    // Moved models keep their old compiled-in name; vbsp then can't find the .vvd and stops.
-    const name = mdl?.internalName.replace(/\.mdl$/, '');
-    const moved = !!mdl && !!name && `models/${name}.mdl` !== m && !(await fetchGameFile(`models/${name}.vvd`));
-    models.set(m, !mdl || (mdl.isStatic && !moved));
+    const problem = await staticPropProblem(m);
+    models.set(m, !problem || problem === 'missing');
   }));
   return props.filter((e) => models.get(e.get('model')!.toLowerCase()) === false);
 }

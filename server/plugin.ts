@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { loadConfig, saveInstall, type EditorConfig } from './config.ts';
 import { AssetFS, contentDir } from './assets.ts';
 import { loadFgd, type FgdClass } from './fgd.ts';
+import { modelIndex, type ModelEntry } from './models.ts';
 import { compileMap, launchGame, safeMapName } from './compile.ts';
 import { BLEND_FOLDER, blendVmt, safeBlendName, type BlendDef } from '../src/edit/multiblend.ts';
 
@@ -45,6 +46,7 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
       let assets!: AssetFS;
       const listCache = new Map<string, string[]>();
       let fgd: FgdClass[] | null = null;
+      let models: ModelEntry[] | null = null;
       let compiling = false;
       const load = () => {
         cfg = loadConfig(server.config.root);
@@ -52,6 +54,7 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
         assets = new AssetFS(cfg);
         listCache.clear();
         fgd = null;
+        models = null;
         console.log(`[assets] install ${cfg.install}: ${assets.sources.length} sources indexed in ${Date.now() - t0} ms`);
       };
       load();
@@ -112,6 +115,15 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
             fgd = file ? [...loadFgd(file, cfg.sdkBinDir ? [cfg.sdkBinDir] : []).values()] : [];
           }
           send(res, 200, JSON.stringify(fgd));
+        },
+
+        '/api/models': (_req, res) => {
+          if (!models) {
+            const t0 = Date.now();
+            models = modelIndex(assets);
+            console.log(`[assets] ${models.length} models indexed in ${Date.now() - t0} ms`);
+          }
+          send(res, 200, JSON.stringify(models));
         },
 
         '/api/maps': (_req, res) => {

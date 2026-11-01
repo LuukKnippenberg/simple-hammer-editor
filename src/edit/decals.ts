@@ -1,10 +1,10 @@
 import { Raycaster, Vector2, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
 import type { MapEntity, MapSide } from '../vmf/map.ts';
-import { fmt, vecStr } from '../vmf/map.ts';
+import { parseVec, vecStr } from '../vmf/map.ts';
 import { buildBrushFaces } from '../geom/brush.ts';
-import { decalBasis } from '../render/decalRenderer.ts';
 import { entityNode } from './actions.ts';
+import { overlayKeys } from './overlays.ts';
 
 export interface DecalSettings {
   material: string;
@@ -13,6 +13,9 @@ export interface DecalSettings {
   /** Overlay size in units (width; height follows the texture's aspect). */
   size: number;
   rotation: number;
+  /** Overlays: mirror the texture along U or V. */
+  flipU?: boolean;
+  flipV?: boolean;
 }
 
 /** Brush sides coplanar with `side` whose face lies within `radius` of `center` (the faces an overlay covers). */
@@ -49,20 +52,11 @@ export async function placeDecalRay(editor: Editor, ray: Raycaster, s: DecalSett
   if (s.mode === 'decal') {
     created = editor.doc.addEntity(entityNode(editor, 'infodecal', hit.point.clone().addScaledVector(n, 1).round(), { texture: material }));
   } else {
-    const { s: sAxis, t: tAxis } = decalBasis(n);
-    const r = (s.rotation * Math.PI) / 180;
-    const U = sAxis.clone().multiplyScalar(Math.cos(r)).addScaledVector(tAxis, Math.sin(r));
-    const V = new Vector3().crossVectors(n, U).normalize();
-    const w = s.size / 2, h = (s.size * (info.height / info.width || 1)) / 2;
+    const w = s.size, h = s.size * (info.height / info.width || 1);
     const center = hit.point.clone();
-    const sides = overlaySides(editor, hit.side, center, Math.hypot(w, h));
-    const v3 = (v: Vector3) => vecStr(new Vector3(+fmt(v.x), +fmt(v.y), +fmt(v.z)));
+    const sides = overlaySides(editor, hit.side, center, Math.hypot(w, h) / 2);
     created = editor.doc.addEntity(entityNode(editor, 'info_overlay', center.clone().round(), {
-      material, sides: sides.map((x) => x.id).join(' '),
-      BasisOrigin: v3(center), BasisNormal: v3(n), BasisU: v3(U), BasisV: v3(V),
-      StartU: '0', StartV: '0', EndU: '1', EndV: '1',
-      uv0: `${fmt(-w)} ${fmt(-h)} 0`, uv1: `${fmt(-w)} ${fmt(h)} 0`, uv2: `${fmt(w)} ${fmt(h)} 0`, uv3: `${fmt(w)} ${fmt(-h)} 0`,
-      fademindist: '-1',
+      material, ...overlayKeys(center, n, w, h, s.rotation, sides.map((x) => x.id), { u: s.flipU, v: s.flipV }),
     }));
   }
   editor.history.added('Place decal', [], [created]);
@@ -77,4 +71,53 @@ export function moveOverlayBasis(e: MapEntity, d: Vector3): void {
   if (!b) return;
   const p = b.trim().split(/\s+/).map(Number);
   e.set('BasisOrigin', vecStr(new Vector3(p[0] + d.x, p[1] + d.y, p[2] + d.z)));
+}
+
+/** The brush face an infodecal sits on: the nearest hit of short rays along the axes, as the engine looks. */
+export function decalSurface(editor: Editor, origin: Vector3): { point: Vector3; normal: Vector3; side: MapSide } | null {
+  let best: { point: Vector3; normal: Vector3; side: MapSide; d: number } | null = null;
+  for (const dir of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+    const hit = editor.world.raycast(new Raycaster(origin, new Vector3(...dir), 0, 24));
+    if (hit && (!best || hit.distance < best.d)) best = { point: hit.point, normal: hit.normal.clone().normalize(), side: hit.side, d: hit.distance };
+  }
+  return best;
+}
+
+/**
+ * Turns infodecals into info_overlays (texture size, unturned, on the face they sit on) or overlays into
+ * infodecals (projected at the overlay's centre). Names are kept; one undo step. Returns how many changed.
+ */
+export async function convertDecals(editor: Editor, ents: MapEntity[], to: 'overlay' | 'decal'): Promise<number> {
+  const from = to === 'overlay' ? 'infodecal' : 'info_overlay';
+  const todo = ents.filter((e) => e.classname === from);
+  const made: MapEntity[] = [], gone: MapEntity[] = [];
+  for (const e of todo) {
+    const material = (e.get(to === 'overlay' ? 'texture' : 'material') ?? '').toLowerCase();
+    const name = e.get('targetname');
+    const keep: Record<string, string> = name ? { targetname: name } : {};
+    if (to === 'overlay') {
+      const at = e.origin;
+      const hit = at && decalSurface(editor, at);
+      if (!hit) continue;
+      const info = editor.decals.info(material);
+      await info.ready;
+      const sides = overlaySides(editor, hit.side, hit.point, Math.hypot(info.width, info.height) / 2);
+      made.push(editor.doc.addEntity(entityNode(editor, 'info_overlay', hit.point.clone().round(), {
+        ...keep, material, ...overlayKeys(hit.point, hit.normal, info.width, info.height, 0, sides.map((x) => x.id)),
+      })));
+    } else {
+      const c = parseVec(e.get('BasisOrigin') ?? vecStr(e.origin ?? new Vector3()));
+      const n = parseVec(e.get('BasisNormal') ?? '0 0 1').normalize();
+      made.push(editor.doc.addEntity(entityNode(editor, 'infodecal', c.addScaledVector(n, 1).round(), { ...keep, texture: material })));
+    }
+    gone.push(e);
+  }
+  if (!made.length) return 0;
+  editor.history.group(to === 'overlay' ? 'Decals to overlays' : 'Overlays to decals', () => {
+    editor.history.added('', [], made);
+    editor.history.remove('', [], gone);
+  });
+  editor.selection.set([], [...[...editor.selection.entities].filter((e) => !gone.includes(e)), ...made]);
+  editor.changed();
+  return made.length;
 }

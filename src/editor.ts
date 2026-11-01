@@ -57,7 +57,7 @@ export class Editor {
   grid = 16;
   currentMaterial = 'CONCRETE/CONCRETEFLOOR001A';
   entityClass = 'info_start_wars';
-  entityModel = 'models/props_c17/oildrum001.mdl';
+  entityModel = 'models/props_c17/oildrum001_static.mdl';
   decal: import('./edit/decals.ts').DecalSettings = { material: 'decals/decal_posters001a', mode: 'decal', size: 128, rotation: 0 };
   lastAutosave: Date | null = null;
   /** The 2D sketch the map was generated from (saved as maps/<name>.sketch.json). */
