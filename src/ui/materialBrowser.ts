@@ -112,6 +112,12 @@ export function mountMaterialBrowser(editor: Editor): HTMLElement {
   });
   editor.on('document', render);
   editor.on('material', renderCurrent);
+  // The sidebar opens this panel for the Paint and Decal tools: show the list that tool uses.
+  editor.on('toolchange', () => {
+    const t = editor.tools.current.name;
+    const want = t === 'decal' ? 'decal' : t === 'paint' ? 'brush' : mode;
+    if (want !== mode) { mode = want; renderMode(); renderCurrent(); render(); }
+  });
   renderMode();
   render();
   renderCurrent();
