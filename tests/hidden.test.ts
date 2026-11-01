@@ -89,7 +89,7 @@ describe('hideCoveredFaces', () => {
   });
 
   it('hides nothing behind glass, water, tool or all-nodraw brushes, but nodraws their own covered faces', () => {
-    for (const m of ['GLASS/GLASSWINDOW029A', 'NATURE/WATER_COAST01', 'TOOLS/TOOLSBLOCKLIGHT', 'TOOLS/TOOLSPLAYERCLIP', NODRAW]) {
+    for (const m of ['GLASS/GLASSWINDOW029A', 'NATURE/WATER_COAST01', 'METAL/METALRAIL001A', 'METAL/METALBAR001C_WHITE', 'TOOLS/TOOLSBLOCKLIGHT', 'TOOLS/TOOLSPLAYERCLIP', NODRAW]) {
       const wall = box(V(0, 0, 0), V(64, 64, 64)), pane = box(V(64, 0, 0), V(72, 64, 64), m);
       hideCoveredFaces([wall, pane]);
       expect(nodraw(wall)).toEqual([]);

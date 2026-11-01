@@ -14,10 +14,11 @@ import { polygonArea } from './hull.ts';
 export const NODRAW = 'TOOLS/TOOLSNODRAW';
 
 /**
- * A brush with any of these materials lets the view through (glass, water, fences) or is no surface at all (clip,
- * trigger, light-blocking tool brushes): it hides nothing behind it. Black and sky faces are opaque.
+ * A brush with any of these materials lets the view through (glass, water, alpha-tested railings, bars, fences and
+ * signs: the ones the generators use, checked against their VMTs) or is no surface at all (clip, trigger,
+ * light-blocking tool brushes): it hides nothing behind it. Black and sky faces are opaque.
  */
-const SEE_THROUGH = /^glass\/|water|fence|grate|chainlink|^tools\/tools(?!nodraw|black|skybox)/i;
+const SEE_THROUGH = /^glass\/|water|fence|grate|chainlink|mesh|wire|metalrail|metalbar|billboard|^tools\/tools(?!nodraw|black|skybox)/i;
 /** Faces of these materials keep them: tool textures stay as they are. */
 const KEEP = /^tools\//i;
 

@@ -16,7 +16,7 @@ describe('interior houses in the building generator', () => {
   it('without interiors the output is byte-identical to before', () => {
     // Hashes of the generator without interiors (recorded after the facade, kerb and wall-prop fixes, the vent decal
     // removal and nodraw on covered faces).
-    const golden = { mixed: 'f2c79082b3de231114c50138f6112978b1d41755', sheds: '51595b6ab42d6366e37d1a64960d8cc157088377', brick: 'fe10ee0e0a6b3e77568f64339a6f737d2e512f66' };
+    const golden = { mixed: '75b7674241fac5477423850ca78cd24695476f67', sheds: '51595b6ab42d6366e37d1a64960d8cc157088377', brick: 'fe10ee0e0a6b3e77568f64339a6f737d2e512f66' };
     for (const [arch, seed] of [['mixed', 5], ['sheds', 9], ['brick', 13]] as const) {
       for (const interiors of [undefined, 'none'] as const) {
         const doc = VmfDocument.empty();
