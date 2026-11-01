@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Box2, Vector2 } from 'three';
 import { planInterior, wallBox } from '../src/gen/interiorPlan.ts';
-import { dressInterior, roomInterior, STATIC_MODELS } from '../src/gen/interiorDressing.ts';
+import { dressInterior, roomInterior, roomLight, STATIC_MODELS } from '../src/gen/interiorDressing.ts';
 import { interiorHouse } from '../src/gen/interiorHouse.ts';
 import { rectPoly } from '../src/gen/buildingPlan.ts';
 import { Rng } from '../src/gen/rng.ts';
@@ -52,6 +52,33 @@ describe('interior dressing', () => {
       expect(dressInterior(plan, 0, new Rng(seed), { lights: false }).entities.some((e) => e.classname === 'light')).toBe(false);
     }
     expect(lit).toBeGreaterThan(0);
+  });
+
+  it('lamps light a room like a bulb: dim enough, falling off within the room, brighter for big rooms', () => {
+    const level = (k: Record<string, string>) => Number(k._light.split(' ')[3]);
+    for (const { fp, seed } of CASES) {
+      const plan = planInterior(fp, new Rng(seed));
+      for (const l of dressInterior(plan, 0, new Rng(seed), {}).entities.filter((e) => e.classname === 'light')) {
+        // Well under the 160–240 the lamps had (blown out under the light blockers).
+        expect(level(l.keys)).toBeGreaterThanOrEqual(60);
+        expect(level(l.keys)).toBeLessThanOrEqual(170);
+        expect(Number(l.keys._fifty_percent_distance)).toBeLessThan(Number(l.keys._zero_percent_distance));
+      }
+    }
+    expect(level(roomLight(new Vector2(448, 320), 0.5))).toBeGreaterThan(level(roomLight(new Vector2(160, 160), 0.5)));
+    expect(Number(roomLight(new Vector2(448, 320), 0.5)._fifty_percent_distance)).toBeGreaterThan(Number(roomLight(new Vector2(160, 160), 0.5)._fifty_percent_distance));
+  });
+
+  it('the light level scales the lamps and changes nothing else', () => {
+    for (const { fp, seed } of CASES.slice(0, 12)) {
+      const plan = planInterior(fp, new Rng(seed));
+      const normal = dressInterior(plan, 0, new Rng(seed), {}).entities, dim = dressInterior(plan, 0, new Rng(seed), { lightLevel: 0.5 }).entities;
+      expect(dim.length).toBe(normal.length);
+      dim.forEach((e, i) => {
+        if (e.classname !== 'light') expect(e).toEqual(normal[i]);
+        else expect(Number(e.keys._light.split(' ')[3])).toBeLessThan(Number(normal[i].keys._light.split(' ')[3]));
+      });
+    }
   });
 
   it('furnish none places no furniture; the plan never depends on furnishing', () => {

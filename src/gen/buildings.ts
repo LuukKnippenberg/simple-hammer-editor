@@ -87,6 +87,8 @@ export interface BuildingOptions extends ExtrasOptions {
   cutHeight?: number;
   furnish?: 'none' | 'sparse' | 'full';
   interiorLights?: boolean;
+  /** Brightness of the interior lights, as a factor of a believable bulb (default 1). */
+  interiorLightLevel?: number;
   /** 128-wide doorways so the antlion guard fits through. */
   wideDoors?: boolean;
   /**
@@ -707,7 +709,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, options: Bu
     const h = interiorHouse(doc, fp, z0, {
       seed: intRng.int(1, 1e9), storeys: Math.max(...parts.map((p) => p.floors)) >= 2 ? 2 : 1,
       style: opts.interiorStyle ?? intRng.pick(arch.interiorStyles), cutHeight: opts.cutHeight, furnish: opts.furnish,
-      lights: opts.interiorLights, wideDoors: opts.wideDoors, weathering: opts.weathering, eaves: level >= 2,
+      lights: opts.interiorLights, lightLevel: opts.interiorLightLevel, wideDoors: opts.wideDoors, weathering: opts.weathering, eaves: level >= 2,
       noEntrance: [...others, ...plan.walls.map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(9))],
     });
     out.solids.push(...h.world);
