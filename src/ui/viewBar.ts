@@ -83,7 +83,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
 
   const wr = editor.world;
   bar.append(
-    h('div.brand', {}, 'Simple ', h('span', {}, 'Hammer'), ' Editor'),
+    h('div.brand', { title: 'Simple Hammer Editor' }, h('img', { src: '/lambdawars-wordmark.png', alt: 'Lambda Wars', width: 123, height: 22 }), h('span', {}, 'Map editor')),
     select,
     h('button', { onclick: () => newMap(), title: 'Start a new map: a game mode template or an empty map' }, 'New'),
     h('button', { onclick: () => fileInput.click(), title: 'Open a .vmf from disk' }, 'Open file…'),

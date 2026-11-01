@@ -86,10 +86,10 @@ export function mountNewMapDialog(editor: Editor, onCreated: () => void): { open
     const ctx = canvas.getContext('2d')!;
     const W = canvas.width;
     ctx.clearRect(0, 0, W, W);
-    ctx.fillStyle = '#111316';
+    ctx.fillStyle = '#0b0c0d';
     ctx.fillRect(0, 0, W, W);
     if (o.kind === 'empty') {
-      ctx.fillStyle = '#8b939c';
+      ctx.fillStyle = '#a3a7a9';
       ctx.font = '12px Segoe UI, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('Empty map', W / 2, W / 2);
@@ -101,7 +101,7 @@ export function mountNewMapDialog(editor: Editor, onCreated: () => void): { open
     const px = (x: number) => pad + (x + plan.size / 2) * s, py = (y: number) => pad + (plan.size / 2 - y) * s;
     ctx.fillStyle = '#3f5530';
     ctx.fillRect(pad, pad, W - 2 * pad, W - 2 * pad);
-    ctx.strokeStyle = '#d9dde2';
+    ctx.strokeStyle = '#ece9e2';
     ctx.setLineDash([4, 3]);
     ctx.strokeRect(pad + 0.5, pad + 0.5, W - 2 * pad - 1, W - 2 * pad - 1);
     ctx.setLineDash([]);

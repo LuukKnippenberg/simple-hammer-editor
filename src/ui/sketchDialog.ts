@@ -155,12 +155,12 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
     }
     const pending = roundFrom && roundTo ? ellipsePoints(roundFrom[0], roundFrom[1], roundTo[0], roundTo[1]) : draft;
     if (active && pending.length) {
-      ctx.strokeStyle = '#e8a33d'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#e9952a'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
       ctx.beginPath();
       pending.forEach(([x, y], i) => (i ? ctx.lineTo(x * PX, cy(y)) : ctx.moveTo(x * PX, cy(y))));
       if (shapeTool !== 'street' && shapeTool !== 'railway' && pending.length > 2) ctx.closePath();
       ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
-      ctx.fillStyle = '#e8a33d';
+      ctx.fillStyle = '#e9952a';
       for (const [x, y] of draft) { ctx.beginPath(); ctx.arc(x * PX, cy(y), 3, 0, Math.PI * 2); ctx.fill(); }
     }
     if (layer === 'detail') {
@@ -182,7 +182,7 @@ export function mountSketchDialog(editor: Editor): { open(): void; dialog: HTMLE
       ctx.lineWidth = 1;
     }
     if (preview) {
-      ctx.strokeStyle = '#e8a33d';
+      ctx.strokeStyle = '#e9952a';
       ctx.setLineDash([4, 3]);
       const x0 = Math.min(preview.x0, preview.x1), x1 = Math.max(preview.x0, preview.x1), y0 = Math.min(preview.y0, preview.y1), y1 = Math.max(preview.y0, preview.y1);
       ctx.strokeRect(x0 * PX, Y(y1), (x1 - x0 + 1) * PX, (y1 - y0 + 1) * PX);

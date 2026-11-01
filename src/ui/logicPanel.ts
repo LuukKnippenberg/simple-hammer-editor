@@ -90,7 +90,7 @@ export function mountLogicPanel(editor: Editor): { panel: HTMLElement; openGraph
     const root = svg('svg', { width, height, class: 'logic-svg' });
     const defs = svg('defs', {});
     const marker = svg('marker', { id: 'arrow', viewBox: '0 0 10 10', refX: 10, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
-    marker.append(svg('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: '#e8a33d' }));
+    marker.append(svg('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: '#e9952a' }));
     defs.append(marker);
     root.append(defs);
     for (const e of es) {
