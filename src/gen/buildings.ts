@@ -15,6 +15,7 @@ import { greenYard, type YardStyle } from './yards.ts';
 import { outlineOf } from './interiorPlan.ts';
 import type { InteriorStyleName } from './styles.ts';
 import { boxesOverlap, convexOverlap, cutBack, decodeCuts } from './sketchShapes.ts';
+import { hideCoveredFaces } from '../geom/hidden.ts';
 
 export { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle };
 
@@ -794,5 +795,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, options: Bu
       }
     }
   }
+  // Wall caps under roofs, parts and wings against each other, relief backs on walls, bottoms on the ground.
+  hideCoveredFaces([...out.solids, ...out.detail], { groundAt: () => z0 });
   return out;
 }

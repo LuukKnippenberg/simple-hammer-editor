@@ -2,6 +2,7 @@ import { Vector2, Vector3 } from 'three';
 import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import type { MapEntity, TexAxis, VmfDocument } from '../vmf/map.ts';
 import { planeBrush, type PlaneSpec } from './roofs.ts';
+import { hideCoveredFaces } from '../geom/hidden.ts';
 import { carriagewayMaterial, decodeMaterials, encodeMaterials, gutterChoice, gutterMaterial, kerbMaterial, pavementMaterial, type RoadMaterials } from './streetMaterials.ts';
 
 /**
@@ -360,7 +361,7 @@ export function buildRoads(doc: VmfDocument, roads: RoadSpec[]): KVNode[][] {
   // Corner pieces lie inside the corner squares, which are cut out of everything else: they cut nothing themselves.
   const of = (kind: Kind) => all.flat().filter((p) => p.kind === kind && !p.corner);
   const surfaces = of('surface'), kerbs = of('kerb'), pavements = of('pavement');
-  return roads.map((r, i) => {
+  const built = roads.map((r, i) => {
     const out: KVNode[] = [];
     for (const piece of all[i]) {
       // Corner fillets were fitted into the corner squares already.
@@ -379,6 +380,9 @@ export function buildRoads(doc: VmfDocument, roads: RoadSpec[]): KVNode[][] {
     }
     return out;
   });
+  // Kerbs against pavements, pieces meeting along a road and in its bends: those faces are never seen.
+  hideCoveredFaces(built.flat());
+  return built;
 }
 
 /** Arc steps of a rounded corner. */
