@@ -10,6 +10,8 @@ const SHORTCUTS: [string, string][] = [
   ['P', 'Point of interest tool: drag a rectangle to fill it (type and settings in the POI tab)'],
   ['Click · Shift+click · drag', 'Select · add to selection · box select'],
   ['W · E · R', 'Gizmo: move · rotate (in steps, Shift: free) · resize'],
+  ['Shift+1 – 4', 'Select objects · faces · edges · vertices (move them with the gizmo; brushes are rebuilt round their corners)'],
+  ['X', 'Face mode: extrude the selected faces (move the mouse, click or Enter confirms, Esc cancels, Alt extends the brush)'],
   ['Ctrl+C · Ctrl+V', 'Copy · paste at the cursor'],
   ['Ctrl+D · Delete', 'Duplicate · delete'],
   ['Ctrl+T', 'Tie selected brushes to a trigger_once'],

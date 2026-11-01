@@ -58,7 +58,7 @@ export class Hover {
       box = ed.world.solidBounds(hit.solid);
     }
     const selected = (hit?.solid && ed.selection.solids.has(hit.solid)) || (hit?.entity && ed.selection.entities.has(hit.entity));
-    this.helper.visible = !!box && !selected && ed.tools.current.name === 'select';
+    this.helper.visible = !!box && !selected && ed.tools.current.name === 'select' && ed.selection.mode === 'object';
     if (box) this.helper.box.copy(box);
     if (label !== this.label) {
       this.label = label;

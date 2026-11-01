@@ -27,6 +27,11 @@ import { blockOfSolid, blockOwner } from '../gen/buildingStore.ts';
 import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE, ROOMS_HANDLE } from '../gen/handle.ts';
 import { roomsHandleDragged } from '../gen/rooms/action.ts';
 import { roomsOwner } from '../gen/rooms/store.ts';
+import type { KVNode } from '../vmf/keyvalues.ts';
+import { moveFaces, moveVertices, sideThrough, topology } from './brushEdit.ts';
+import { nearestPart, partCentre, partsOf, partVerts, samePart, SELECT_MODES, type Part, type PartMode, type SelectMode } from './parts.ts';
+import { PartOverlay } from './partOverlay.ts';
+import { Extruder } from './extrude.ts';
 
 export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema';
 
@@ -73,7 +78,10 @@ const MODE_LABELS: Record<GizmoMode, string> = { translate: 'Move', scale: 'Resi
 
 export type GizmoMode = 'translate' | 'scale' | 'rotate';
 
-/** Click to select (Shift adds), then drag the gizmo to move (W) or resize (R) on the grid, or rotate (E) in steps. */
+/**
+ * Click to select (Shift adds), then drag the gizmo to move (W) or resize (R) on the grid, or rotate (E) in steps.
+ * In the face, edge and vertex modes (Shift+2/3/4) the same works on parts of brushes; X extrudes faces.
+ */
 export class SelectTool implements Tool {
   name: ToolName = 'select';
   readonly gizmo: TransformControls;
@@ -88,6 +96,13 @@ export class SelectTool implements Tool {
   rotateStep = 15;
   rotateSnap = true;
   private shift = false;
+  readonly overlay = new PartOverlay();
+  readonly extruder: Extruder;
+  /** A drag of faces, edges or vertices: the brushes as they were, and each part's corners at the start. */
+  private sub: { pivot: Vector3; snaps: [MapSolid, KVNode][]; parts: Part[]; corners: Vector3[][]; axis: Vector3 | null; ok: boolean } | null = null;
+  private pointer = new Vector2();
+  private hovered: { part: Part | null; solid: MapSolid | null } = { part: null, solid: null };
+  private hoverQueued: Vector2 | null = null;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -103,11 +118,117 @@ export class SelectTool implements Tool {
     this.gizmo.addEventListener('objectChange', () => this.dragUpdate());
     this.gizmo.addEventListener('mouseUp', () => this.dragEnd());
     // Captured on the window so it is current before the gizmo handles the same move.
-    window.addEventListener('pointermove', (e) => (this.shift = e.shiftKey), true);
+    window.addEventListener('pointermove', (e) => {
+      this.shift = e.shiftKey;
+      this.pointer.set(e.clientX, e.clientY);
+      this.extruder.pointer(this.pointer, e.altKey);
+    }, true);
+    this.extruder = new Extruder(editor);
+    editor.scene.add(this.overlay.group);
+    // While extruding, a click confirms and a right click cancels (before the gizmo or camera see it).
+    window.addEventListener('pointerdown', (e) => {
+      if (!this.extruder.active || !(e.target instanceof Node) || !editor.container.contains(e.target)) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      if (e.button === 0) this.extruder.confirm();
+      else this.extruder.cancel();
+      this.syncGizmo();
+    }, true);
+    window.addEventListener('keyup', (e) => { if (e.key === 'Alt') this.extruder.pointer(this.pointer, false); });
+    // Shift+1-4 pick the selection mode from any tool (e.code: with Shift, e.key is a symbol).
+    window.addEventListener('keydown', (e) => {
+      if (isTyping(e) || !e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+      const m = SELECT_MODES.find((x) => e.code === `Digit${x.key}`);
+      if (!m) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (editor.tools.current !== this) editor.tools.set('select');
+      this.setSelectMode(m.mode);
+    }, true);
     editor.selection.onChange = () => {
       this.syncGizmo();
+      this.drawParts();
       editor.emit('selection');
     };
+    editor.on('frame', () => this.hoverFrame());
+  }
+
+  get selectMode(): SelectMode {
+    return this.editor.selection.mode;
+  }
+
+  /** Object, face, edge or vertex selection. */
+  setSelectMode(mode: SelectMode): void {
+    this.extruder.cancel();
+    this.cancelMarquee();
+    this.hovered = { part: null, solid: null };
+    this.overlay.setHover(null);
+    this.editor.selection.setMode(mode);
+    this.drawParts();
+    this.editor.emit('toolchange');
+  }
+
+  /** Starts extruding the selected faces from the cursor (X). */
+  startExtrude(): void {
+    if (!this.extruder.start(this.pointer)) return;
+    this.hovered = { part: null, solid: null };
+    this.overlay.setHover(null);
+    this.syncGizmo();
+  }
+
+  private drawParts(): void {
+    const sel = this.editor.selection;
+    const brushes = [...sel.editing];
+    if (this.hovered.solid) brushes.push(this.hovered.solid);
+    this.overlay.update(this.editor.tools?.current === this ? sel.mode : 'object', sel.parts, brushes);
+  }
+
+  /** The face, edge or vertex under the cursor (sub-object modes). */
+  pickPart(ndc: Vector2): { part: Part | null; solid: MapSolid | null } {
+    const ed = this.editor;
+    const mode = ed.selection.mode as PartMode;
+    const hit = ed.world.raycast(ed.raycaster(ndc));
+    const solid = hit && !hit.solid.isDisplacement ? hit.solid : null;
+    const side = solid ? solid.sides.indexOf(hit!.side) : -1;
+    if (mode === 'face') return { part: solid && side >= 0 ? { solid, kind: 'face', side, verts: [] } : null, solid };
+    const r = ed.renderer.domElement.getBoundingClientRect();
+    const size = new Vector2(r.width, r.height);
+    const cursor = new Vector2(((ndc.x + 1) / 2) * size.x, ((1 - ndc.y) / 2) * size.y);
+    const part = nearestPart(mode, cursor, ed.activeCamera, size, solid && side >= 0 ? { solid, side } : null, [...ed.selection.editing]);
+    return { part, solid: part?.solid ?? solid };
+  }
+
+  hoverAt(ndc: Vector2): void {
+    if (this.selectMode !== 'object') this.hoverQueued = ndc.clone();
+  }
+
+  /** At most one hover pick per frame. */
+  private hoverFrame(): void {
+    const ndc = this.hoverQueued;
+    this.hoverQueued = null;
+    if (!ndc || this.extruder.active || this.sub || this.editor.tools.current !== this) return;
+    const h = this.pickPart(ndc);
+    const solidChanged = h.solid !== this.hovered.solid;
+    const partChanged = !(h.part && this.hovered.part ? samePart(h.part, this.hovered.part) : h.part === this.hovered.part);
+    this.hovered = h;
+    if (partChanged) this.overlay.setHover(h.part);
+    if (solidChanged) this.drawParts();
+  }
+
+  key(e: KeyboardEvent): boolean {
+    if (this.extruder.active) {
+      if (e.key === 'Escape') this.extruder.cancel();
+      else if (e.key === 'Enter') this.extruder.confirm();
+      else if (e.key === 'Alt') this.extruder.pointer(this.pointer, true);
+      else return false;
+      this.syncGizmo();
+      return true;
+    }
+    if (e.code === 'KeyX' && !e.shiftKey && this.selectMode === 'face') {
+      this.startExtrude();
+      return true;
+    }
+    return false;
   }
 
   setMode(mode: GizmoMode): void {
@@ -115,23 +236,36 @@ export class SelectTool implements Tool {
     this.gizmo.setMode(mode);
     // Point entities only move.
     this.gizmo.showX = this.gizmo.showY = this.gizmo.showZ = true;
+    this.syncGizmo();
     this.editor.emit('toolchange');
   }
 
   activate(): void {
     this.syncGizmo();
+    this.drawParts();
   }
   deactivate(): void {
+    this.extruder.cancel();
     this.gizmo.enabled = false;
     this.gizmo.getHelper().visible = false;
+    this.overlay.setHover(null);
+    this.overlay.update('object', [], []);
   }
 
   syncGizmo(): void {
     const sel = this.editor.selection;
-    const active = this.editor.tools.current === this && !sel.isEmpty;
+    const active = this.editor.tools.current === this && !this.extruder.active && (sel.mode === 'object' ? !sel.isEmpty : sel.parts.length > 0);
     this.gizmo.enabled = active;
     this.gizmo.getHelper().visible = active;
-    if (!active || this.start) return;
+    // A disabled gizmo misses pointer moves; drop the axis it was hovering, or the next click would drag it.
+    if (!active && !this.gizmo.dragging) this.gizmo.axis = null;
+    // Faces move along their normals: hide the axes that would only slide them along themselves.
+    const normals = sel.mode === 'face' && this.mode === 'translate'
+      ? sel.parts.map((p) => topology(p.solid).faces.find((f) => f.side === p.side)?.normal).filter((n): n is Vector3 => !!n) : null;
+    this.gizmo.showX = !normals || normals.some((n) => Math.abs(n.x) > 0.01);
+    this.gizmo.showY = !normals || normals.some((n) => Math.abs(n.y) > 0.01);
+    this.gizmo.showZ = !normals || normals.some((n) => Math.abs(n.z) > 0.01);
+    if (!active || this.start || this.sub) return;
     this.proxy.position.copy(sel.bounds().getCenter(new Vector3()));
     this.proxy.scale.set(1, 1, 1);
     this.proxy.quaternion.identity();
@@ -180,6 +314,15 @@ export class SelectTool implements Tool {
       const v = p.clone().project(cam);
       return v.z < 1 && v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.y;
     };
+    if (ed.selection.mode !== 'object') {
+      // Parts whose centre is in the box, of the brushes being edited and those with their centre in it.
+      const sel = ed.selection, mode = sel.mode as PartMode;
+      const brushes = new Set([...sel.editing, ...ed.world.visibleSolids().filter(([s, box]) => !s.isDisplacement && inside(box.getCenter(new Vector3()))).map(([s]) => s)]);
+      const picked = [...brushes].flatMap((s) => partsOf(s, mode)).filter((p) => inside(partCentre(p)));
+      if (e.shiftKey) sel.setParts([...sel.parts, ...picked.filter((p) => !sel.parts.some((q) => samePart(p, q)))]);
+      else sel.setParts(picked);
+      return;
+    }
     const solids = ed.world.visibleSolids().filter(([, box]) => inside(box.getCenter(new Vector3()))).map(([s]) => s);
     const ents = ed.doc.entities.filter((en) => !en.solids.length && en.origin && !ed.hidden.has(en) && ed.entities.showMarkers && inside(en.origin));
     if (e.shiftKey) {
@@ -192,8 +335,16 @@ export class SelectTool implements Tool {
   up(e: PointerEvent, ndc: Vector2): void {
     if (this.marquee) return this.finishMarquee(e);
     if (this.downAt.distanceTo(new Vector2(e.clientX, e.clientY)) > 4 || this.gizmo.dragging) return;
-    const hit = pickObject(this.editor, ndc, { handles: true });
     const sel = this.editor.selection;
+    if (sel.mode !== 'object') {
+      // Parts of brushes only; entities and generator handles are picked in object mode.
+      const { part } = this.pickPart(ndc);
+      if (!part) { if (!e.shiftKey) sel.clear(); return; }
+      if (e.shiftKey) sel.togglePart(part);
+      else sel.setParts([part], [part.solid]);
+      return;
+    }
+    const hit = pickObject(this.editor, ndc, { handles: true });
     if (!hit) {
       if (!e.shiftKey) sel.clear();
       return;
@@ -221,6 +372,7 @@ export class SelectTool implements Tool {
   }
 
   private dragStart(): void {
+    if (this.selectMode !== 'object') return this.partDragStart();
     const sel = this.editor.selection;
     const solids = sel.allSolids();
     const ents = sel.pointEntities();
@@ -262,6 +414,7 @@ export class SelectTool implements Tool {
   }
 
   private dragUpdate(): void {
+    if (this.sub) return this.partDragUpdate();
     if (!this.start) return;
     const g = this.editor.grid;
     if (this.mode === 'translate') {
@@ -309,6 +462,7 @@ export class SelectTool implements Tool {
   }
 
   private dragEnd(): void {
+    if (this.sub) return this.partDragEnd();
     if (!this.start) {
       // A refused rotate drag: put the gizmo back.
       this.syncGizmo();
@@ -335,6 +489,89 @@ export class SelectTool implements Tool {
     this.endHistory = null;
     this.editor.changed();
     this.syncGizmo();
+  }
+
+  private partDragStart(): void {
+    const sel = this.editor.selection;
+    if (this.mode === 'rotate' && !GIZMO_AXES[this.gizmo.axis ?? '']) return;
+    const solids = [...new Set(sel.parts.map((p) => p.solid))];
+    this.sub = {
+      pivot: this.proxy.position.clone(),
+      snaps: solids.map((s) => [s, s.node.clone()]),
+      parts: sel.parts.map((p) => ({ ...p, verts: p.verts.map((v) => v.clone()) })),
+      corners: sel.parts.map((p) => partVerts(p).map((v) => v.clone())),
+      axis: GIZMO_AXES[this.gizmo.axis ?? ''] ?? null,
+      ok: true,
+    };
+    this.lastKey = '';
+    const what = sel.mode === 'vertex' ? 'vertices' : `${sel.mode}s`;
+    this.endHistory = this.editor.history.begin(`${MODE_LABELS[this.mode]} ${what}`, solids);
+  }
+
+  private restoreParts(): void {
+    for (const [s, node] of this.sub!.snaps) { s.node.items = node.clone().items; s.reload(); }
+  }
+
+  /** Moves the parts: faces move their planes; anything else moves corners and rebuilds the brush round them. */
+  private partDragUpdate(): void {
+    const sub = this.sub!, ed = this.editor, sel = ed.selection, g = ed.grid;
+    let move: (v: Vector3) => Vector3;
+    let d: Vector3 | null = null;
+    if (this.mode === 'translate') {
+      const raw = this.proxy.position.clone().sub(sub.pivot);
+      const off = new Vector3(snap(raw.x, g), snap(raw.y, g), snap(raw.z, g));
+      d = off;
+      move = (v) => v.add(off);
+    } else if (this.mode === 'rotate') {
+      if (!sub.axis) return;
+      const deg = snapAngle(angleAbout(this.proxy.quaternion, sub.axis), this.rotateSnap && !this.shift ? this.rotateStep : 0);
+      const q = new Quaternion().setFromAxisAngle(sub.axis, (deg * Math.PI) / 180);
+      move = (v) => v.sub(sub.pivot).applyQuaternion(q).add(sub.pivot).round();
+      ed.status = `Rotate ${Math.round(deg * 100) / 100}°`;
+    } else {
+      const k = this.proxy.scale.clone();
+      move = (v) => { v.sub(sub.pivot).multiply(k).add(sub.pivot); return v.set(snap(v.x, g), snap(v.y, g), snap(v.z, g)); };
+    }
+    const corners = sub.corners.map((vs) => vs.map((v) => move(v.clone())));
+    const key = corners.flat().map((v) => `${v.x},${v.y},${v.z}`).join(';');
+    if (key === this.lastKey) return;
+    this.lastKey = key;
+    this.restoreParts();
+    const planes = sel.mode === 'face' && d;
+    let ok = true;
+    for (const [s] of sub.snaps) {
+      const mine = sub.parts.map((p, i) => (p.solid === s ? i : -1)).filter((i) => i >= 0);
+      if (planes) ok = moveFaces(s, mine.map((i): [number, Vector3] => [sub.parts[i].side, d!.clone()])) && ok;
+      else ok = moveVertices(ed.doc, s, mine.flatMap((i) => sub.corners[i]), move) && ok;
+    }
+    sub.ok = ok;
+    if (!ok) {
+      this.restoreParts();
+      sel.parts = sub.parts.map((p) => ({ ...p }));
+      ed.status = 'Refused: the brush would collapse or lose a face';
+    } else {
+      // The parts follow: corners to where they went; faces rebuilt round their corners to the side through them.
+      sel.parts = sub.parts.map((p, i) => (p.kind !== 'face' ? { ...p, verts: corners[i] } : planes ? { ...p } : { ...p, side: sideThrough(p.solid, corners[i]) }));
+      if (d) ed.status = `Move ${d.x} ${d.y} ${d.z}`;
+    }
+    ed.changed(true);
+  }
+
+  private partDragEnd(): void {
+    const sub = this.sub!, ed = this.editor;
+    ed.status = '';
+    if (!sub.ok) {
+      this.restoreParts();
+      ed.selection.parts = sub.parts;
+      toast(ed.container, 'Not moved: the brush would collapse or lose a face', 2200);
+    } else if (this.lastKey) {
+      this.endHistory?.();
+    }
+    this.sub = null;
+    this.endHistory = null;
+    ed.changed();
+    this.syncGizmo();
+    this.drawParts();
   }
 }
 

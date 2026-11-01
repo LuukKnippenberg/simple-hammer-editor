@@ -14,6 +14,7 @@ import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
 import { multiblendRows, multiblendSets } from './blendUi.ts';
 import { h, toast } from './dom.ts';
+import { selectModeRows } from './partPanel.ts';
 
 const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema' } as const;
 const HINTS = {
@@ -38,6 +39,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
   const render = () => {
     const name = editor.tools.current.name;
     const rows: (HTMLElement | string)[] = [h('b', {}, NAMES[name]), h('div.hint', {}, HINTS[name])];
+    if (name === 'select') rows.push(...selectModeRows(editor, render));
     if (name === 'select' && (editor.tools.tools.select as SelectTool).mode === 'rotate') {
       const tool = editor.tools.tools.select as SelectTool;
       const step = h('input', { type: 'number', value: String(tool.rotateStep), step: '5', min: '1', max: '180', disabled: !tool.rotateSnap }) as HTMLInputElement;
