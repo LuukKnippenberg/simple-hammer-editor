@@ -5,6 +5,7 @@ import { boxSolid } from '../edit/brushes.ts';
 import { MODEL_BOUNDS } from './poi/models.ts';
 import type { FeatureEntity } from './facadeFeatures.ts';
 import type { Rng } from './rng.ts';
+import { resolveExtras, type Extras } from './extras.ts';
 
 /**
  * What fills the courtyards and back yards of a block: low sheds (the old default), or green yards as in the
@@ -45,9 +46,11 @@ const TREE_IN = 128;
 
 /**
  * A green yard on `yard` (open ground inside a block) at height z0: lawn, trees, benches, and a playground or
- * parking when there is room. `keepClear` are boxes nothing may stand in (doors, gateways).
+ * parking when there is room. `keepClear` are boxes nothing may stand in (doors, gateways). `extras` thins or
+ * doubles the trees and drops the trees or the other props (what is dropped still takes its spot, so the rest
+ * stays where it was).
  */
-export function greenYard(doc: VmfDocument, yard: Box2, z0: number, rng: Rng, keepClear: Box2[] = []): { solids: KVNode[]; entities: FeatureEntity[] } {
+export function greenYard(doc: VmfDocument, yard: Box2, z0: number, rng: Rng, keepClear: Box2[] = [], extras: Extras = resolveExtras({})): { solids: KVNode[]; entities: FeatureEntity[] } {
   const size = yard.getSize(new Vector2());
   const solids: KVNode[] = [], entities: FeatureEntity[] = [];
   if (size.x < 2 * INSET + 64 || size.y < 2 * INSET + 64) return { solids, entities };
@@ -59,7 +62,7 @@ export function greenYard(doc: VmfDocument, yard: Box2, z0: number, rng: Rng, ke
     const r = radius(model);
     if (!free(p, r)) return false;
     taken.push({ p, r });
-    entities.push(prop(model, p.x, p.y, z0, yaw));
+    if (extras.keep(TREES.includes(model) ? 'trees' : 'yardProps')) entities.push(prop(model, p.x, p.y, z0, yaw));
     return true;
   };
   const long = size.x >= size.y ? 'x' : 'y';
@@ -95,7 +98,8 @@ export function greenYard(doc: VmfDocument, yard: Box2, z0: number, rng: Rng, ke
     solids.push(boxSolid(doc, new Vector3(lawn.min.x, lawn.min.y, z0 - 8), new Vector3(lawn.max.x, lawn.max.y, z0 + 2), { top: LAWN, bottom: NODRAW, sides: NODRAW }));
   }
   // Trees along the edges of the lawn, a bench or two and a bin.
-  const trees = Math.max(1, Math.min(8, Math.round(((lawn.max.x - lawn.min.x) * (lawn.max.y - lawn.min.y)) / (320 * 320))));
+  const d = extras.trees;
+  const trees = Math.max(1, Math.min(Math.round(8 * d), Math.round(((lawn.max.x - lawn.min.x) * (lawn.max.y - lawn.min.y) * d) / (320 * 320))));
   for (let k = 0, tries = 0; k < trees && tries < trees * 6; tries++) {
     const edge = rng.int(0, 3);
     const t = rng.range(0.1, 0.9);

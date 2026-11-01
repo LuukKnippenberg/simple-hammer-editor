@@ -13,6 +13,7 @@ import { POLE_TYPES, type PoleType, type PowerlineSpec } from '../gen/powerlines
 import { POI_TYPES, poiOf, poiParams } from '../gen/poi/registry.ts';
 import { LANDSCAPES } from '../gen/poi/types.ts';
 import { paramRow, rotationRow } from './poiPanel.ts';
+import { extrasRows } from './extrasOptions.ts';
 import { h } from './dom.ts';
 
 /**
@@ -24,7 +25,7 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   const box = h('div.overlay.tl.gen-panel', { hidden: true });
   viewport.append(box);
   const tool = editor.tools.tools.generate as GenerateTool;
-  let more = false;
+  let more = false, extrasOpen = false;
 
   const render = () => {
     const s = tool.session;
@@ -122,10 +123,10 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
     if (id === 'block') {
       main.push(arch, floors, roofs, quality, check('Courtyards', 'courtyards', true, 'blocks of 896+ units'), interiors);
       rest.push(facade, corners, detail, check('Towers', 'towers', true, 'domes and spires'), check('Annexes', 'annexes', true, 'sheds in yards'),
-        check('Alleys', 'alleys', false, 'with sky bridges'), check('Roof props', 'roofProps', true), weathering, interiorStyle, cut, furnish, lights, wide);
+        check('Alleys', 'alleys', false, 'with sky bridges'), weathering, interiorStyle, cut, furnish, lights, wide);
     } else if (id === 'building') {
       main.push(arch, floors, roofs, quality, facade, corners);
-      rest.push(detail, check('Towers', 'towers', true, 'on a corner'), check('Annexes', 'annexes', true, 'a shed in its yard'), check('Roof props', 'roofProps', true), weathering);
+      rest.push(detail, check('Towers', 'towers', true, 'on a corner'), check('Annexes', 'annexes', true, 'a shed in its yard'), weathering);
     } else {
       main.push(interiorStyle, floors, furnish, lights, arch);
       rest.push(cut, wide, weathering, detail);
@@ -134,7 +135,9 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
     seedIn.addEventListener('change', () => { seedIn.blur(); set('seed', parseInt(seedIn.value, 10) || 1); });
     const seed = h('div.row', {}, h('label', {}, 'Seed'), seedIn, h('button', { title: 'New seed', onclick: () => { if (tool.session?.step === 'tune') tool.reroll(); else { o.seed = Math.floor(Math.random() * 100000); render(); } } }, '🎲'));
     const toggle = h('button.gen-more', { onclick: () => { more = !more; render(); } }, `${more ? '▾' : '▸'} More options (${rest.length})`);
-    return [...main, toggle, ...(more ? rest : []), seed];
+    // Trees, lamps, cables and props round the buildings, under their own heading.
+    const extras = extrasRows(o, (k, v) => { if (v === undefined) delete o[k]; else o[k] = v as never; changed(); }, id, extrasOpen, (open) => { extrasOpen = open; render(); });
+    return [...main, toggle, ...(more ? rest : []), ...extras, seed];
   };
 
   const num = (value: number, set: (v: number) => void, step: number, min: number) => {

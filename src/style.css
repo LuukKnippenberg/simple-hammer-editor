@@ -428,6 +428,11 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .gen-panel .row .hint { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gen-summary { font-weight: 600; margin: 2px 0 8px; color: var(--accent-text); }
 .gen-more { display: block; width: 100%; text-align: left; margin: 4px 0; padding: 3px 6px; color: var(--muted); background: transparent; border-style: dashed; }
+.gen-extras-head { margin-top: 4px; padding-top: 5px; border-top: 1px solid var(--border); }
+.gen-panel .gen-extras-head label { flex: 0 0 58px; font-weight: 600; cursor: pointer; }
+.gen-fold { flex: none; width: 20px; padding: 0; color: var(--muted); background: transparent; border: none; }
+.gen-panel .gen-extra { padding-left: 14px; }
+.gen-panel .gen-extra label { flex: 0 0 70px; }
 .gen-actions { display: flex; gap: 6px; margin-top: 8px; }
 .gen-actions button.primary { margin-left: auto; }
 .gen-actions kbd { font-size: 10px; padding: 0 4px; margin-left: 2px; background: transparent; }

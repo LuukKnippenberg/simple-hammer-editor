@@ -15,6 +15,8 @@ import { greenYard, type YardStyle } from './yards.ts';
 import { outlineOf } from './interiorPlan.ts';
 import type { InteriorStyleName } from './styles.ts';
 import { boxesOverlap, convexOverlap, cutBack, decodeCuts } from './sketchShapes.ts';
+import { resolveExtras, type ExtraCategory, type ExtrasOptions } from './extras.ts';
+import { WALL_MOUNT } from './powerlines.ts';
 
 export { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle };
 
@@ -34,7 +36,8 @@ const ROOF_PROPS = [
   'models/props_rooftop/antenna01a.mdl', 'models/props_rooftop/roof_dish001.mdl', 'models/props_rooftop/rooftopcluser01a.mdl',
 ];
 
-export interface BuildingOptions {
+/** A block's options; what it adds beyond the buildings (trees, lamps, cables, clutter) is in `ExtrasOptions`. */
+export interface BuildingOptions extends ExtrasOptions {
   seed: number;
   minFloors: number;
   maxFloors: number;
@@ -303,7 +306,7 @@ function cornerBlock(doc: VmfDocument, poly: Vector2[], i: number, width: number
 function partSolids(
   doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel, roof: { kind: RoofKind; material: string },
   street: {
-    isStreet?: (a: Vector2, b: Vector2) => boolean; rng: Rng; entities: FeatureEntity[];
+    isStreet?: (a: Vector2, b: Vector2) => boolean; rng: Rng; entities: FeatureEntity[]; keep: (c: ExtraCategory) => boolean;
     oriels: boolean; balconies: boolean; roofHuts: boolean; weathering: number; anchors: Anchor[];
   },
   neighbours: Neighbour[] = [],
@@ -393,7 +396,10 @@ function partSolids(
     // A TV antenna on some ridges.
     if (main && level >= 1 && deco.chance(0.35)) {
       const c = new Box2().setFromPoints(poly).getCenter(new Vector2());
-      if (inside(poly, c)) street.entities.push({ classname: 'prop_static', origin: new Vector3(Math.round(c.x), Math.round(c.y), Math.round(r.heightAt(c) + 100)), keys: { model: 'models/props_rooftop/antenna04a.mdl', angles: `0 ${deco.int(0, 359)} 0`, solid: '0' } });
+      if (inside(poly, c)) {
+        const antenna = { classname: 'prop_static', origin: new Vector3(Math.round(c.x), Math.round(c.y), Math.round(r.heightAt(c) + 100)), keys: { model: 'models/props_rooftop/antenna04a.mdl', angles: `0 ${deco.int(0, 359)} 0`, solid: '0' } };
+        if (street.keep('clutter')) street.entities.push(antenna);
+      }
     }
   } else if (main) {
     // Parapet: one brush per edge between the cornice line and 4 units inside the wall; none on walls a
@@ -435,8 +441,10 @@ function partSolids(
         z0, floors: part.floors, windows, trim: s.trim, plain: s.plain, level, oriels: street.oriels, balconies: street.balconies,
       }, street.rng);
       detail.push(...f.solids);
-      street.entities.push(...f.entities);
-      if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors, { windows, ground: groundTiles[i], taken: [...f.taken, ...pilasters[i]] }));
+      if (street.keep('awnings')) street.entities.push(...f.entities);
+      // Cable brackets go with the cables; their anchors stay, so the street pass deals its cables as always.
+      if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors, { windows, ground: groundTiles[i], taken: [...f.taken, ...pilasters[i]] })
+        .filter((e) => street.keep(e.keys.model === WALL_MOUNT.model ? 'cables' : 'clutter')));
       // Weathering: stains running down from under the cornice and the ledges. An infodecal lands on every
       // brush face it covers, so each stays clear of the bands, the brackets and what stands on the wall
       // (oriels, balconies, columns, quoins).
@@ -612,7 +620,9 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, options: Bu
     const off = (v: Vector2) => Math.abs((d.x * (v.y - p.y) - d.y * (v.x - p.x)) / len);
     return off(a) < 3 && off(b) < 3;
   }));
+  const extras = resolveExtras(opts);
   const street = {
+    keep: extras.keep,
     isStreet: (a: Vector2, b: Vector2) => onLine(a, b, 'x', area.min.x) || onLine(a, b, 'x', area.max.x) || onLine(a, b, 'y', area.min.y) || onLine(a, b, 'y', area.max.y) || alongCut(a, b),
     rng: new Rng(opts.seed * 7 + 11),
     entities: out.entities,
@@ -632,7 +642,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, options: Bu
     const yardRng = new Rng(opts.seed * 43 + 19);
     const gates = plan.walls.filter((w) => w.gate).map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(96));
     for (const y of plan.yards) {
-      const g = greenYard(doc, y, footprint.min.z, yardRng, gates);
+      const g = greenYard(doc, y, footprint.min.z, yardRng, gates, extras);
       out.solids.push(...g.solids);
       out.entities.push(...g.entities);
     }
@@ -755,11 +765,9 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, options: Bu
       for (let i = 0; i < n; i++) {
         const p = new Vector2(Math.round(rng.range(box.min.x + 48, box.max.x - 48)), Math.round(rng.range(box.min.y + 48, box.max.y - 48)));
         if (!inside(cleanPolygon(offsetPolygon(main.poly, -40)), p)) continue;
-        out.entities.push({
-          classname: 'prop_static',
-          origin: new Vector3(p.x, p.y, top),
-          keys: { model: rng.pick(ROOF_PROPS), angles: `0 ${rng.int(0, 3) * 90} 0`, solid: '6' },
-        });
+        const prop = { classname: 'prop_static', origin: new Vector3(p.x, p.y, top), keys: { model: rng.pick(ROOF_PROPS), angles: `0 ${rng.int(0, 3) * 90} 0`, solid: '6' } };
+        // Extras off: dealt all the same, so the walls and bridges dealt after them keep their seeds.
+        if (extras.keep('roofProps')) out.entities.push(prop);
       }
     }
   });
