@@ -7,6 +7,7 @@ import {
   type Condition, type ConditionKind, type GateOp, type MissionGraph, type Stage, type Transition,
 } from '../lw/mission.ts';
 import { GAME_ABILITIES, type GameAbilityKind } from '../lw/gameAbilities.ts';
+import { missionChanged } from '../lw/missionAction.ts';
 import { h } from './dom.ts';
 
 const NODE_W = 240;
@@ -50,8 +51,7 @@ export function mountMissionFlow(editor: Editor, hooks: MissionFlowHooks = {}): 
 
   const graph = (): MissionGraph => (editor.mission ??= emptyMission());
   const changed = () => {
-    editor.dirty = true;
-    editor.emit('mission');
+    missionChanged(editor);
     render();
   };
   const endPos = (id: string) => {

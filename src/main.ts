@@ -24,6 +24,7 @@ import { setSoundscapeController } from './ui/soundUi.ts';
 import { audio } from './audio/engine.ts';
 import { mountMissionPanel } from './ui/missionPanel.ts';
 import { mountMissionFlow } from './ui/missionFlow.ts';
+import { mountMissionViewport } from './ui/missionViewport.ts';
 import { pickArea } from './edit/areaPick.ts';
 import { buildMission } from './lw/missionAction.ts';
 import { checkMission } from './lw/missionCheck.ts';
@@ -89,7 +90,9 @@ const missionFlow = mountMissionFlow(editor, {
   },
   check: () => (editor.mission ? checkMission(editor.mission, editor.doc) : []),
 });
-tabs.add('Mission', mountMissionPanel(editor, () => missionFlow.open()));
+// Objectives panel in the viewport (M): step through the mission and retarget it from the view.
+const missionView = mountMissionViewport(editor, viewport, { openFlow: () => missionFlow.open() });
+tabs.add('Mission', mountMissionPanel(editor, () => missionFlow.open(), () => missionView.toggle()));
 tabs.add('POI', mountPoiPanel(editor, () => tabs.show('POI')));
 tabs.add('Cinema', mountCinemaPanel(editor));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[aria-label^="Entity"]')?.click()));
@@ -135,6 +138,7 @@ declare global {
       audio: typeof audio;
       sketch: typeof sketchDialog;
       missionFlow: typeof missionFlow;
+      missionView: typeof missionView;
       setView(pos: [number, number, number], target: [number, number, number]): void;
       /** Page coordinates of a world point (for scripted mouse input). */
       project(p: [number, number, number]): [number, number];
@@ -154,6 +158,7 @@ window.__editor = {
   audio,
   sketch: sketchDialog,
   missionFlow,
+  missionView,
   setView(pos, target) {
     editor.camera.position.set(...pos);
     editor.controls.lookAt(new Vector3(...target));
