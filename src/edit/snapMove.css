@@ -1,0 +1,32 @@
+/* Snap move (hold V with the Select tool): handle overlay, viewport card, cursor chip, Moving section. */
+.snap-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.snap-canvas[hidden], .snap-card[hidden], .snap-chip[hidden], .snap-moving[hidden] { display: none; }
+
+.snap-card { pointer-events: auto; width: 300px; padding: 10px 12px; z-index: 6; background: rgba(11, 12, 13, 0.92); }
+.snap-card-head { display: flex; align-items: center; gap: 8px; }
+.snap-card-head .caps { font-size: 13px; letter-spacing: 0.18em; color: var(--accent-text); }
+.snap-card .hint { font-size: 13px; margin: 4px 0 8px; }
+.snap-card-label { font-size: 11px; letter-spacing: 0.16em; color: var(--faint); margin-bottom: 5px; }
+.snap-kinds { display: flex; gap: 4px; flex-wrap: wrap; }
+.snap-kind {
+  height: 24px; padding: 0 9px; border-radius: 3px; font: 600 12px var(--font-cond); letter-spacing: 0.1em; text-transform: uppercase;
+  background: transparent; border: 1px solid var(--border); color: var(--faint);
+}
+.snap-kind.on { background: var(--accent-tint); border-color: transparent; color: var(--accent-text); }
+.snap-keys { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.snap-card kbd, .snap-keys kbd { font-size: 11px; padding: 0 5px; }
+
+.snap-chip {
+  position: absolute; z-index: 6; pointer-events: none; display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+  border-radius: 4px; background: rgba(11, 12, 13, 0.9); border: 1px solid rgba(143, 207, 152, 0.5); white-space: nowrap; font-size: 12px;
+}
+.snap-chip .caps, .snap-moving .caps { font-size: 12px; }
+.snap-chip .from, .snap-moving .from { color: var(--accent-text); }
+.snap-chip .to, .snap-moving .to { color: var(--ok); }
+.snap-chip .arrow { color: var(--faint); }
+.snap-chip .mono, .snap-moving .mono { font: 12px var(--font-mono); color: var(--text-2); }
+.snap-chip .name { color: var(--muted); }
+
+.snap-moving h3 { color: var(--accent-text); }
+.snap-moving-grid { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 6px 10px; font-size: 13px; }
+.snap-moving-grid > .k { color: var(--muted); }

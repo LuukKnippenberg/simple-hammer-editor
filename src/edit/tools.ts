@@ -33,6 +33,7 @@ import { nearestPart, partCentre, partsOf, partVerts, samePart, SELECT_MODES, ty
 import { PartOverlay } from './partOverlay.ts';
 import { Extruder } from './extrude.ts';
 import { DecalTool, EntityTool } from './entityTool.ts';
+import { SnapMoveTool } from './snapMoveTool.ts';
 
 export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema' | 'generate';
 
@@ -104,6 +105,10 @@ export class SelectTool implements Tool {
   private pointer = new Vector2();
   private hovered: { part: Part | null; solid: MapSolid | null } = { part: null, solid: null };
   private hoverQueued: Vector2 | null = null;
+  /** The offset of a snap move in progress (see snapBegin). */
+  private snapD: Vector3 | null = null;
+  /** Snap move (hold V): grab a corner, edge or face of the selection and drop it onto another. */
+  readonly snapMove: SnapMoveTool;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -152,6 +157,7 @@ export class SelectTool implements Tool {
       editor.emit('selection');
     };
     editor.on('frame', () => this.hoverFrame());
+    this.snapMove = new SnapMoveTool(editor, this);
   }
 
   get selectMode(): SelectMode {
@@ -207,7 +213,7 @@ export class SelectTool implements Tool {
   private hoverFrame(): void {
     const ndc = this.hoverQueued;
     this.hoverQueued = null;
-    if (!ndc || this.extruder.active || this.sub || this.editor.tools.current !== this) return;
+    if (!ndc || this.extruder.active || this.sub || this.snapMove.held || this.editor.tools.current !== this) return;
     const h = this.pickPart(ndc);
     const solidChanged = h.solid !== this.hovered.solid;
     const partChanged = !(h.part && this.hovered.part ? samePart(h.part, this.hovered.part) : h.part === this.hovered.part);
@@ -255,7 +261,7 @@ export class SelectTool implements Tool {
 
   syncGizmo(): void {
     const sel = this.editor.selection;
-    const active = this.editor.tools.current === this && !this.extruder.active && (sel.mode === 'object' ? !sel.isEmpty : sel.parts.length > 0);
+    const active = this.editor.tools.current === this && !this.extruder.active && !this.snapMove?.held && (sel.mode === 'object' ? !sel.isEmpty : sel.parts.length > 0);
     this.gizmo.enabled = active;
     this.gizmo.getHelper().visible = active;
     // A disabled gizmo misses pointer moves; drop the axis it was hovering, or the next click would drag it.
@@ -372,13 +378,69 @@ export class SelectTool implements Tool {
     return h ? { entity: h } : null;
   }
 
+  /** Snap move drags translate by `snapD`, whatever the gizmo mode. */
+  private get dragMode(): GizmoMode {
+    return this.snapD ? 'translate' : this.mode;
+  }
+
+  /** Starts a move driven by snap move (V) instead of the gizmo; false when nothing can move. */
+  snapBegin(): boolean {
+    this.snapD = new Vector3();
+    this.dragStart();
+    if (this.start || this.sub) return true;
+    this.snapD = null;
+    return false;
+  }
+
+  /** Moves the selection (or its parts) by `d` from where it started. */
+  snapStep(d: Vector3): void {
+    if (!this.snapD) return;
+    this.snapD.copy(d);
+    this.dragUpdate();
+  }
+
+  /** Drops it: one undo step, like a gizmo drag. Not moved at all: no step. */
+  snapEnd(): void {
+    if (!this.snapD) return;
+    if (this.snapD.lengthSq() === 0) return this.snapCancel();
+    this.dragEnd();
+    this.snapD = null;
+  }
+
+  /** Puts it back where it was, without an undo step. */
+  snapCancel(): void {
+    if (!this.snapD) return;
+    if (this.sub) {
+      this.restoreParts();
+      this.editor.selection.parts = this.sub.parts;
+      this.sub = null;
+    } else if (this.start) {
+      this.restore();
+      // restore() only resets the planes in memory; write them back to the brush nodes.
+      for (const [s] of this.start.solids) s.commit();
+      for (const [e, o] of this.start.ents) {
+        const prev = e.origin ?? o;
+        e.origin = o.clone();
+        moveOverlayBasis(e, o.clone().sub(prev));
+      }
+      this.start = null;
+    }
+    this.snapD = null;
+    this.endHistory = null;
+    this.lastKey = '';
+    this.editor.status = '';
+    this.editor.changed();
+    this.syncGizmo();
+    this.drawParts();
+  }
+
   private dragStart(): void {
     if (this.selectMode !== 'object') return this.partDragStart();
     const sel = this.editor.selection;
     const solids = sel.allSolids();
     const ents = sel.pointEntities();
     const brushEnts = [...sel.entities].filter((e) => e.solids.length);
-    if (this.mode === 'rotate') {
+    if (this.dragMode === 'rotate') {
       // Generated things are rebuilt from their handles, which only move and resize.
       if ([...sel.entities].some((e) => isGeneratorHandle(e))) {
         toast(this.editor.container, 'POIs, buildings and interiors turn with , and . (rotate works on brushes and entities)', 2500);
@@ -396,7 +458,7 @@ export class SelectTool implements Tool {
       keys: ents.map((e) => [e, TURNED_KEYS.map((k) => e.get(k))]),
     };
     this.lastKey = '';
-    this.endHistory = this.editor.history.begin(MODE_LABELS[this.mode], solids, [...ents, ...brushEnts]);
+    this.endHistory = this.editor.history.begin(this.snapD ? 'Snap move' : MODE_LABELS[this.dragMode], solids, [...ents, ...brushEnts]);
   }
 
   private restore(): void {
@@ -407,7 +469,7 @@ export class SelectTool implements Tool {
         side.vaxis = { ...sides[i].v, axis: sides[i].v.axis.clone() };
       });
     }
-    if (this.mode !== 'rotate') return;
+    if (this.dragMode !== 'rotate') return;
     for (const [e, values] of this.start!.keys) {
       TURNED_KEYS.forEach((k, i) => (values[i] === undefined ? e.node.delete(k) : e.node.set(k, values[i]!)));
       e.version++;
@@ -418,9 +480,9 @@ export class SelectTool implements Tool {
     if (this.sub) return this.partDragUpdate();
     if (!this.start) return;
     const g = this.editor.grid;
-    if (this.mode === 'translate') {
+    if (this.dragMode === 'translate') {
       const raw = this.proxy.position.clone().sub(this.start.pivot);
-      const d = new Vector3(snap(raw.x, g), snap(raw.y, g), snap(raw.z, g));
+      const d = this.snapD?.clone() ?? new Vector3(snap(raw.x, g), snap(raw.y, g), snap(raw.z, g));
       const key = `${d.x},${d.y},${d.z}`;
       if (key === this.lastKey) return;
       this.lastKey = key;
@@ -431,7 +493,7 @@ export class SelectTool implements Tool {
         e.origin = o.clone().add(d);
         moveOverlayBasis(e, e.origin.clone().sub(prev));
       }
-    } else if (this.mode === 'rotate') {
+    } else if (this.dragMode === 'rotate') {
       const axis = this.start.axis;
       if (!axis) return;
       const deg = snapAngle(angleAbout(this.proxy.quaternion, axis), this.rotateSnap && !this.shift ? this.rotateStep : 0);
@@ -474,9 +536,9 @@ export class SelectTool implements Tool {
     const sel = this.editor.selection;
     const handle = sel.entities.size === 1 && !sel.solids.size ? [...sel.entities][0] : null;
     const kind = kindOf(handle);
-    if (handle && kind && this.mode !== 'rotate') {
+    if (handle && kind && this.dragMode !== 'rotate') {
       // A dragged generator handle: what it stands for is rebuilt to fit, in the same undo step as the drag.
-      const mode = this.mode;
+      const mode = this.dragMode;
       const what = kind === POI_HANDLE ? 'POI' : kind === ROOMS_HANDLE ? 'interior building' : 'buildings';
       this.editor.history.group(mode === 'translate' ? `Move ${what}` : `Resize ${what}`, () => {
         this.endHistory?.();
@@ -494,7 +556,7 @@ export class SelectTool implements Tool {
 
   private partDragStart(): void {
     const sel = this.editor.selection;
-    if (this.mode === 'rotate' && !GIZMO_AXES[this.gizmo.axis ?? '']) return;
+    if (this.dragMode === 'rotate' && !GIZMO_AXES[this.gizmo.axis ?? '']) return;
     const solids = [...new Set(sel.parts.map((p) => p.solid))];
     this.sub = {
       pivot: this.proxy.position.clone(),
@@ -506,7 +568,7 @@ export class SelectTool implements Tool {
     };
     this.lastKey = '';
     const what = sel.mode === 'vertex' ? 'vertices' : `${sel.mode}s`;
-    this.endHistory = this.editor.history.begin(`${MODE_LABELS[this.mode]} ${what}`, solids);
+    this.endHistory = this.editor.history.begin(`${this.snapD ? 'Snap move' : MODE_LABELS[this.dragMode]} ${what}`, solids);
   }
 
   private restoreParts(): void {
@@ -518,12 +580,12 @@ export class SelectTool implements Tool {
     const sub = this.sub!, ed = this.editor, sel = ed.selection, g = ed.grid;
     let move: (v: Vector3) => Vector3;
     let d: Vector3 | null = null;
-    if (this.mode === 'translate') {
+    if (this.dragMode === 'translate') {
       const raw = this.proxy.position.clone().sub(sub.pivot);
-      const off = new Vector3(snap(raw.x, g), snap(raw.y, g), snap(raw.z, g));
+      const off = this.snapD?.clone() ?? new Vector3(snap(raw.x, g), snap(raw.y, g), snap(raw.z, g));
       d = off;
       move = (v) => v.add(off);
-    } else if (this.mode === 'rotate') {
+    } else if (this.dragMode === 'rotate') {
       if (!sub.axis) return;
       const deg = snapAngle(angleAbout(this.proxy.quaternion, sub.axis), this.rotateSnap && !this.shift ? this.rotateStep : 0);
       const q = new Quaternion().setFromAxisAngle(sub.axis, (deg * Math.PI) / 180);

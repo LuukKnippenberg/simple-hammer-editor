@@ -31,6 +31,7 @@ import { roomType } from '../gen/rooms/types.ts';
 import { openRoomsDialog } from './roomsDialog.ts';
 import { openGenerateMenu } from './generateMenu.ts';
 import { partInspector } from './partPanel.ts';
+import { snapMoveSection } from './snapMovePanel.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -148,7 +149,7 @@ export function mountInspector(editor: Editor): HTMLElement {
   editor.on('change', render);
   editor.on('fgd', render);
   render();
-  return panel;
+  return h('div', {}, snapMoveSection(editor), panel);
 }
 
 function brushEditor(editor: Editor): HTMLElement {
