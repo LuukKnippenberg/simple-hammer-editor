@@ -97,6 +97,9 @@ export class MissionMarkers {
     this.bright = lines(0.95);
     this.dim = lines(0.4);
     this.group.name = 'mission-markers';
+    // A group's renderOrder sorts before its children's and the nearest group counts: all of these above the decals'
+    // group (3), or decals draw over the labels.
+    for (const g of [this.group, this.fills, this.sprites]) g.renderOrder = 10;
     this.leaders = new LineSegments(new BufferGeometry(), new LineBasicMaterial({ color: 0xc2ccd6, depthTest: false, transparent: true, opacity: 0.7 }));
     this.leaders.renderOrder = 11;
     this.leaders.frustumCulled = false;
@@ -272,7 +275,7 @@ export class MissionMarkers {
     const key = `${text}|${color}|${big}`;
     let l = this.labels.get(key);
     if (!l) this.labels.set(key, (l = labelTexture(text, color, big)));
-    const s = new Sprite(new SpriteMaterial({ map: l.tex, depthTest: false, transparent: true, opacity, sizeAttenuation: false }));
+    const s = new Sprite(new SpriteMaterial({ map: l.tex, depthTest: false, depthWrite: false, transparent: true, opacity, sizeAttenuation: false }));
     const th = big ? 0.036 : 0.026;
     s.scale.set(th * l.aspect, th, 1);
     s.position.copy(at);
