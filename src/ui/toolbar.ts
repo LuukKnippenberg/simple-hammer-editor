@@ -16,7 +16,7 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'paint', icon: '🖌', label: 'Paint: click a face (Shift: whole brush, Ctrl: pick material)', key: '3' },
   { name: 'entity', icon: '⚑', label: 'Entity: click to place the class chosen in the Entities tab', key: '4' },
   { name: 'kit', icon: '⚔', label: 'Lambda Wars kit: click to place the kit chosen in the Mission tab', key: '5' },
-  { name: 'decal', icon: '◩', label: 'Decal: click a surface to place the decal chosen in the Materials tab', key: '6' },
+  { name: 'decal', icon: '◩', label: 'Decal: click a surface to place a decal or overlay (choose it in the tool options)', key: '6' },
   { name: 'ground', icon: '⛰', label: 'Ground: paint and sculpt terrain', key: '8' },
   { name: 'sound', icon: '🔊', label: 'Sound: place soundscape zones and local sounds', key: '0' },
   { name: 'cinema', icon: '🎬', label: 'Cinema: paths, particles and screens (camera shots and atmosphere are in the Cinema tab)', key: 'c' },

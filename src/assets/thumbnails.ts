@@ -3,10 +3,22 @@ import { fetchGameFile } from './fetch.ts';
 import { parseVtf } from './vtf.ts';
 import { decodeDxt } from './textures.ts';
 
-const cache = new Map<string, Promise<string | null>>();
+const cache = new Map<string, Promise<MaterialPreview | null>>();
+
+/** A data-URL preview and the full size of a material's base texture. */
+export interface MaterialPreview {
+  url: string;
+  width: number;
+  height: number;
+}
 
 /** A small data-URL preview of a material's base texture, decoded on the CPU from a low mip level. */
 export function materialThumbnail(name: string, size = 64): Promise<string | null> {
+  return materialPreview(name, size).then((p) => p?.url ?? null);
+}
+
+/** The preview plus the texture's size in pixels (decal tiles show it). */
+export function materialPreview(name: string, size = 64): Promise<MaterialPreview | null> {
   const key = name.toLowerCase();
   let p = cache.get(key);
   if (!p) {
@@ -28,7 +40,7 @@ export function materialThumbnail(name: string, size = 64): Promise<string | nul
       // Brush previews ignore alpha; decals keep it so their shape shows.
       if (!/^(decals|overlays)\//.test(key)) for (let i = 3; i < data.length; i += 4) data[i] = 255;
       ctx.putImageData(new ImageData(data, mip.width, mip.height), 0, 0);
-      return canvas.toDataURL();
+      return { url: canvas.toDataURL(), width: img.width, height: img.height };
     })().catch(() => null);
     cache.set(key, p);
   }

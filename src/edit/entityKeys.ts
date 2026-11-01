@@ -18,7 +18,7 @@ export interface ClassDef {
 /** Keys an entity carries that are not keyvalues to edit. */
 const INTERNAL = new Set(['id', 'classname']);
 
-export const KEY_GROUPS = ['Model', 'Transform', 'Lambda Wars', 'Properties', 'Flags', 'Rendering', 'Fading', 'Lighting', 'Parent & global', 'Scripting', 'Other keys'] as const;
+export const KEY_GROUPS = ['Model', 'Transform', 'Lambda Wars', 'Properties', 'Flags', 'Rendering', 'Fading', 'Lighting', 'Faces', 'Basis', 'Parent & global', 'Scripting', 'Other keys'] as const;
 export type KeyGroup = (typeof KEY_GROUPS)[number];
 
 const BY_NAME: [RegExp, KeyGroup][] = [
@@ -28,6 +28,8 @@ const BY_NAME: [RegExp, KeyGroup][] = [
   [/^(fademindist|fademaxdist|fadescale|screenspacefade)$/, 'Fading'],
   [/^(lightingorigin|disablevertexlighting|disableselfshadowing|ignorenormals|disableshadows|disablereceiveshadows|disableflashlight)$/, 'Lighting'],
   [/^(rendercolor|renderamt|rendermode|renderfx|(min|max)(dx|cpu|gpu)level)$/, 'Rendering'],
+  [/^sides$/, 'Faces'],
+  [/^(basis(origin|normal|u|v)|uv[0-3]|(start|end)[uv])$/, 'Basis'],
   [/^(parentname|globalname)$/, 'Parent & global'],
   [/^(vscripts|thinkfunction|responsecontext|damagefilter)$/, 'Scripting'],
 ];

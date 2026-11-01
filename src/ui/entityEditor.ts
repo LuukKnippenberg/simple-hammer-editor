@@ -2,10 +2,11 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { fgdClass, fgdClasses, type FgdClass } from '../assets/fgd.ts';
 import { classChoices, classGroup, classHint } from '../edit/entityClasses.ts';
-import { KEY_GROUPS, classChangePlan, differsFromDefault, effectiveKeys, keyGroup, mergeSelection, type KeyDef, type KeyGroup, type MergedKey } from '../edit/entityKeys.ts';
+import { KEY_GROUPS, classChangePlan, differsFromDefault, effectiveKeys, keyGroup, mergeSelection, type KeyDef, type MergedKey } from '../edit/entityKeys.ts';
 import { deleteSelection, duplicateSelection } from '../edit/actions.ts';
 import { ioSection } from './ioEditor.ts';
 import { modelGroups } from './modelField.ts';
+import { decalGroups } from './decalField.ts';
 import { classDot } from './classPicker.ts';
 import { h, scrollIntoList } from './dom.ts';
 import './entities.css';
@@ -19,14 +20,18 @@ const LABELS: Record<string, string> = { origin: 'Origin', angles: 'Angles', mod
 
 /** Groups with their own editors at the top of the editor (the model field, a decal's texture). */
 export interface SpecialGroup {
-  label: KeyGroup | 'Texture' | 'Sound and effects';
+  label: string;
+  /** Open when first shown (else by the label's default). */
+  open?: boolean;
+  /** A link at the right of the group's head (Select those 2). */
+  link?: { text: string; onclick: () => void };
   /** Keys the group edits itself; they are left out of the generic groups. */
   keys: string[];
   /** Shown next to a closed group. */
   summary: string;
   body: () => HTMLElement;
 }
-const specialGroups = (editor: Editor, ents: MapEntity[]): SpecialGroup[] => [...modelGroups(editor, ents)];
+const specialGroups = (editor: Editor, ents: MapEntity[]): SpecialGroup[] => [...modelGroups(editor, ents), ...decalGroups(editor, ents)];
 
 const lookup = (cls: string) => fgdClass(cls);
 
@@ -180,6 +185,11 @@ function group(label: string, summary: string, body: () => (HTMLElement | null)[
   return wrap;
 }
 
+function specialGroup(s: SpecialGroup): HTMLElement {
+  const link = s.link ? h('a', { href: '#', onclick: (e: Event) => { e.preventDefault(); s.link!.onclick(); } }, s.link.text) : undefined;
+  return group(s.label, s.summary, () => [s.body()], false, link, s.open);
+}
+
 /** Keys merged over the entities, in their groups, filtered by `q`. */
 function keyGroups(editor: Editor, ents: MapEntity[], keys: MergedKey[], q: string, skip: Set<string>, warsClass: boolean, modelFirst = true): HTMLElement[] {
   const by = new Map<string, MergedKey[]>();
@@ -257,10 +267,10 @@ export function entityEditor(editor: Editor, e: MapEntity, tail: SpecialGroup[] 
     const skip = new Set(specials.flatMap((s) => s.keys.map((k) => k.toLowerCase())));
     const conns = e.node.children.find((c) => c.name.toLowerCase() === 'connections')?.props.length ?? 0;
     body.replaceChildren(
-      ...specials.filter(() => !q).map((s) => group(s.label, s.summary, () => [s.body()])),
+      ...specials.filter(() => !q).map((s) => specialGroup(s)),
       ...keyGroups(editor, [e], keys, q, skip, classGroup(cls ?? { name: e.classname, type: 'PointClass' }).id === 'wars', !cls?.studio),
       q ? h('span') : group('Outputs', String(conns), () => [ioSection(editor, e)]),
-      ...tail.filter(() => !q).map((s) => group(s.label, s.summary, () => [s.body()])),
+      ...tail.filter(() => !q).map((s) => specialGroup(s)),
       h('p.hint', {}, h('span.chg.inline'), ' differs from the FGD default · right-click a key to reset it'));
   };
   filter.addEventListener('input', render);
@@ -275,7 +285,7 @@ export function multiEntityEditor(editor: Editor, ents: MapEntity[]): HTMLElemen
   for (const e of ents) counts.set(e.classname, [...counts.get(e.classname) ?? [], e]);
   const root = h('div.section.ent-editor');
   const head = h('div.ent-head', {},
-    h('div.ent-title', {}, `${ents.length} entities`),
+    h('div.ent-title', {}, `${ents.length} ${ents.every((e) => /^(infodecal|info_overlay)$/.test(e.classname)) ? 'decals' : 'entities'}`),
     h('div.chips', {}, ...[...counts].map(([c, list]) => h('button.cchip', {
       title: 'Click: keep only these · Shift-click: drop them',
       onclick: (ev: MouseEvent) => editor.selection.set([], ev.shiftKey ? ents.filter((e) => e.classname !== c) : list),
@@ -295,7 +305,7 @@ export function multiEntityEditor(editor: Editor, ents: MapEntity[]): HTMLElemen
     const skip = new Set(specials.flatMap((s) => s.keys.map((k) => k.toLowerCase())));
     body.replaceChildren(
       h('div.shared-head', {}, h('span', {}, `Shared by all ${ents.length}`), h('span.legend', {}, h('span.ne', {}, '≠'), ' mixed values')),
-      ...specials.filter(() => !q).map((s) => group(s.label, s.summary, () => [s.body()])),
+      ...specials.filter(() => !q).map((s) => specialGroup(s)),
       ...keyGroups(editor, ents, merged.shared, q, skip, wars, ents.some((e) => !fgdClass(e.classname)?.studio)),
       ...merged.only.map((o) => {
         const these = ents.filter((e) => e.classname === o.classname);

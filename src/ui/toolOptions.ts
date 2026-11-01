@@ -14,6 +14,7 @@ import { h, toast } from './dom.ts';
 import { selectModeRows } from './partPanel.ts';
 import { entityToolOptions } from './entityToolOptions.ts';
 import { toolModelField } from './modelField.ts';
+import { decalToolOptions } from './decalField.ts';
 
 const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema', generate: 'Generate' } as const;
 const HINTS = {
@@ -22,7 +23,7 @@ const HINTS = {
   paint: 'Click a face · Shift: whole brush · Ctrl: pick material',
   entity: 'Click a surface to place · Alt+click an entity to copy its class',
   kit: 'Click a surface to place · settings in the Mission tab',
-  decal: 'Click a wall or floor to place · pick decals in the Materials tab',
+  decal: 'Click a wall or floor to place · Tab next recent decal',
   road: 'Click points · snaps onto roads to join them · Enter or double-click builds · Backspace removes a point',
   ground: 'Drag on terrain to paint or sculpt · with terrain selected, only that changes',
   powerline: 'Click points along the route · Enter or double-click places poles and wires',
@@ -78,22 +79,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
       void materialThumbnail(editor.currentMaterial).then((u) => u && (img.src = u));
       rows.push(h('div.current-mat.small', {}, img, h('span', {}, editor.currentMaterial.toLowerCase())));
     }
-    if (name === 'decal') {
-      const d = editor.decal;
-      const img = h('img') as HTMLImageElement;
-      void materialThumbnail(d.material).then((u) => u && (img.src = u));
-      const mode = h('select', {}, h('option', { value: 'decal' }, 'Decal (infodecal)'), h('option', { value: 'overlay' }, 'Overlay (sized, rotated)')) as HTMLSelectElement;
-      mode.value = d.mode;
-      mode.addEventListener('change', () => { d.mode = mode.value as 'decal' | 'overlay'; mode.blur(); render(); });
-      rows.push(h('div.current-mat.small', {}, img, h('span', {}, d.material)), h('div.row', {}, h('label', {}, 'Type'), mode));
-      if (d.mode === 'overlay') {
-        const size = h('input', { type: 'number', value: String(d.size), step: '16', min: '8' }) as HTMLInputElement;
-        size.addEventListener('change', () => { d.size = Math.max(8, parseFloat(size.value) || 128); size.blur(); });
-        const rot = h('input', { type: 'number', value: String(d.rotation), step: '15' }) as HTMLInputElement;
-        rot.addEventListener('change', () => { d.rotation = parseFloat(rot.value) || 0; rot.blur(); });
-        rows.push(h('div.row', {}, h('label', {}, 'Size'), size), h('div.row', {}, h('label', {}, 'Rotate'), rot));
-      }
-    }
+    if (name === 'decal') rows.push(...decalToolOptions(editor, render));
     if (name === 'ground') {
       const tool = editor.tools.tools.ground as GroundTool;
       const modes: [GroundMode, string][] = [['paint', 'Paint'], ['erase', 'Erase'], ['raise', 'Raise'], ['lower', 'Lower'], ['smooth', 'Smooth'], ['flatten', 'Flatten']];

@@ -103,3 +103,35 @@ button.sk.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent);
 .menu-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 12px; }
 .menu-item:hover { background: var(--accent-tint); }
 .menu-item img { width: 28px; height: 28px; object-fit: contain; flex: none; }
+
+/* Decals: backdrops behind the alpha, preview with a scale bar, overlay budget, the tool's recent strip. */
+.bd-concrete { background-color: #8f8c85 !important; background-image: radial-gradient(#7f7c75 1px, transparent 1.2px), radial-gradient(#9b988f 1px, transparent 1.2px) !important; background-size: 7px 7px, 11px 11px !important; background-position: 0 0, 3px 5px !important; }
+.bd-checker { background: repeating-conic-gradient(#3a3a3a 0 25%, #222 0 50%) 0 0 / 12px 12px !important; }
+.bd-brick { background: repeating-linear-gradient(0deg, #7a5340 0 7px, #5a3d30 7px 9px) !important; }
+.bd-dark { background: var(--panel) !important; }
+button.bdc { width: 28px; height: 28px; padding: 0; border-radius: 5px; border: 1px solid var(--border); }
+button.bdc.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.decal-picker .ptile .th { height: 108px; }
+.decal-picker .ptile .th img { max-width: 84%; max-height: 84%; }
+.decal-preview { height: 260px; flex: none; border-radius: 8px; border: 1px solid var(--border); position: relative; display: flex; align-items: center; justify-content: center; }
+.decal-preview img { max-width: 86%; max-height: 80%; }
+.scale { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #0b0c0d; text-shadow: 0 0 2px rgba(255, 255, 255, 0.6); }
+.scale span { height: 4px; background: #0b0c0d; border-radius: 1px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); }
+.budget { font-size: 12px; }
+.budget-row { display: flex; justify-content: space-between; color: var(--muted); margin-bottom: 4px; }
+.budget-row b { color: var(--text); font-weight: 600; }
+.budget-bar { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
+.budget-bar > div { height: 100%; }
+.mf-thumb img.missing, .strip-th img.missing { display: none; }
+.df { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.df-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strip { display: flex; gap: 4px; margin-bottom: 8px; }
+.strip-th { width: 36px; height: 36px; border-radius: 5px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none; overflow: hidden; }
+.strip-th img { max-width: 90%; max-height: 90%; }
+.strip-th.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+button.strip-th.more { background: var(--panel-2); color: var(--muted); font: 11px var(--font); letter-spacing: 0; padding: 0; }
+.menu-th { width: 28px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex: none; overflow: hidden; }
+.menu-th img { max-width: 90%; max-height: 90%; }
+.mf-thumb.bd-concrete img, .mf-thumb.bd-checker img, .mf-thumb.bd-brick img, .mf-thumb.bd-dark img { max-width: 88%; max-height: 88%; }
+.seg button.active { background: var(--accent-tint); border-color: rgba(233, 149, 42, 0.45); color: var(--accent-text); }
+.picker-tools .seg button { white-space: nowrap; flex: none; padding: 2px 9px; font-size: 12px; }
