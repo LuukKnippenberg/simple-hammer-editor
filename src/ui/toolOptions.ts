@@ -17,7 +17,7 @@ import { h, toast } from './dom.ts';
 
 const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema' } as const;
 const HINTS = {
-  select: 'Click to select · Shift adds · drag the gizmo · M move / R resize / O rotate',
+  select: 'Click to select · Shift adds · drag the gizmo · W move / E rotate / R resize',
   block: 'Drag on a surface to draw a block',
   paint: 'Click a face · Shift: whole brush · Ctrl: pick material',
   entity: 'Click a surface to place',

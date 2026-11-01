@@ -22,6 +22,8 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'cinema', icon: '🎬', label: 'Cinema: paths, particles and screens (camera shots and atmosphere are in the Cinema tab)', key: 'c' },
 ];
 const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
+/** Keys that fly the camera while the right mouse button is held (and are shortcuts otherwise). */
+const FLY_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Space']);
 
 /** Left tool palette, grid size, undo/redo, and the global keyboard shortcuts. */
 export function setToolButtons(editor: Editor, name: ToolName): void {
@@ -46,9 +48,9 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
   buttons.get('select')!.classList.add('active');
 
   const sel = editor.tools.select;
-  const move = h('button', { title: 'Gizmo: move (M)', onclick: () => sel.setMode('translate') }, '✥');
+  const move = h('button', { title: 'Gizmo: move (W)', onclick: () => sel.setMode('translate') }, '✥');
   const resize = h('button', { title: 'Gizmo: resize brushes (R)', onclick: () => sel.setMode('scale') }, '⤡');
-  const rotate = h('button', { title: 'Gizmo: rotate in steps (O)', onclick: () => sel.setMode('rotate') }, '⟳');
+  const rotate = h('button', { title: 'Gizmo: rotate in steps (E)', onclick: () => sel.setMode('rotate') }, '⟳');
   const syncMode = () => {
     move.classList.toggle('active', sel.mode === 'translate');
     resize.classList.toggle('active', sel.mode === 'scale');
@@ -92,6 +94,8 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
   window.addEventListener('keydown', (e) => {
     if (isTyping(e)) return;
     const ctrl = e.ctrlKey || e.metaKey;
+    // While the right mouse button is held these keys fly the camera, as in Unity.
+    if (!ctrl && FLY_KEYS.has(e.code) && (editor.controls.isLooking || editor.topView.panning)) return;
     const k = e.key.toLowerCase();
     // Selected POI handles act for their whole POI.
     const pois = selectedPois(editor);
@@ -131,9 +135,10 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     else if (ctrl) return;
     else if (k === 'delete' || k === 'backspace') deleteSelection(editor);
     else if (k === 'escape') editor.selection.clear();
-    else if (k === 'm') sel.setMode('translate');
+    else if (k === 'q') setTool('select');
+    else if (k === 'w') sel.setMode('translate');
+    else if (k === 'e') sel.setMode('rotate');
     else if (k === 'r') sel.setMode('scale');
-    else if (k === 'o') sel.setMode('rotate');
     else if (k === 'f') focus();
     else if (k === 't') editor.setView3dOrTop(editor.view === 'top' ? '3d' : 'top');
     else if (k === 'h') editor.hideSelection();

@@ -73,7 +73,7 @@ const MODE_LABELS: Record<GizmoMode, string> = { translate: 'Move', scale: 'Resi
 
 export type GizmoMode = 'translate' | 'scale' | 'rotate';
 
-/** Click to select (Shift adds), then drag the gizmo to move (M) or resize (R) on the grid, or rotate (O) in steps. */
+/** Click to select (Shift adds), then drag the gizmo to move (W) or resize (R) on the grid, or rotate (E) in steps. */
 export class SelectTool implements Tool {
   name: ToolName = 'select';
   readonly gizmo: TransformControls;

@@ -3,7 +3,7 @@ import { dragDelta, isTyping, lockForShiftDrag, unlockAfterDrag } from './camera
 
 /**
  * Orthographic top-down view (north up), like Hammer's 2D top view.
- * Right or middle drag pans, the wheel zooms towards the cursor, WASD / arrows pan.
+ * Right or middle drag pans, the wheel zooms towards the cursor, arrows pan (WASD too while a drag button is held).
  */
 export class TopView {
   readonly camera = new OrthographicCamera(-1, 1, 1, -1, 1, 80000);
@@ -13,7 +13,8 @@ export class TopView {
   readonly center = new Vector2();
   private dom: HTMLElement;
   private aspect = 1;
-  private panning = false;
+  /** A pan button is held: WASD pan instead of acting as shortcuts. */
+  panning = false;
   private last = new Vector2();
   private keys = new Set<string>();
   onChange: () => void = () => {};
@@ -94,10 +95,11 @@ export class TopView {
     if (!this.enabled) return false;
     const k = this.keys;
     const d = new Vector2();
-    if (k.has('KeyW') || k.has('ArrowUp')) d.y += 1;
-    if (k.has('KeyS') || k.has('ArrowDown')) d.y -= 1;
-    if (k.has('KeyD') || k.has('ArrowRight')) d.x += 1;
-    if (k.has('KeyA') || k.has('ArrowLeft')) d.x -= 1;
+    const p = this.panning;
+    if ((p && k.has('KeyW')) || k.has('ArrowUp')) d.y += 1;
+    if ((p && k.has('KeyS')) || k.has('ArrowDown')) d.y -= 1;
+    if ((p && k.has('KeyD')) || k.has('ArrowRight')) d.x += 1;
+    if ((p && k.has('KeyA')) || k.has('ArrowLeft')) d.x -= 1;
     if (!d.lengthSq()) return false;
     const fast = k.has('ShiftLeft') || k.has('ShiftRight') ? 3 : 1;
     this.center.addScaledVector(d.normalize(), this.zoom * 1.2 * fast * dt);

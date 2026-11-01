@@ -41,7 +41,7 @@ export function mountInspector(editor: Editor): HTMLElement {
       panel.append(
         h('div.section', {}, h('h3', {}, 'Selection'),
           h('p.hint', {}, 'Click a brush or entity to select it. Shift-click adds to the selection.'),
-          h('p.hint', {}, 'Tools: 1 select · 2 block · 3 paint · 4 entity. M move · R resize · O rotate · F focus · Ctrl+D duplicate · Del delete · [ ] grid.')),
+          h('p.hint', {}, 'Tools: 1 select · 2 block · 3 paint · 4 entity. Q select · W move · E rotate · R resize · F focus · Ctrl+D duplicate · Del delete · [ ] grid.')),
         h('div.section', {}, h('h3', {}, 'Interior building'),
           h('p.hint', {}, 'A building made of rooms (train hall, customs, rations, waiting room, hallway, concourse), each furnished for its type. Built in front of the camera; select a block brush first to build it there.'),
           h('button', { onclick: () => openRoomsDialog(editor) }, '🏛 Interior building…')),
@@ -53,7 +53,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (pois.length) {
       panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
         h('div', {}, pois.length > 1 ? `${pois.length} points of interest` : 'Point of interest'),
-        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
+        h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         pois.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicatePoi(editor, pois[0]) }, 'Duplicate')) : null));
       if (pois.length === 1) { const p = poiEditor(editor, pois[0]); if (p) panel.append(p); }
       return;
@@ -63,7 +63,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (blocks.length) {
       panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
         h('div', {}, blocks.length > 1 ? `${blocks.length} blocks of buildings` : 'Block of buildings'),
-        h('p.hint', {}, 'Drag the gizmo to move (M) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
+        h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
       if (blocks.length === 1) panel.append(buildingPanel(editor, blocks[0]));
       return;
@@ -316,7 +316,7 @@ function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
   const spec = one ? roomsOf(one) : null;
   const out = h('div.section', {}, h('h3', {}, 'Selection'),
     h('div', {}, details.length > 1 ? `${details.length} interior buildings` : '🏛 Interior building'),
-    h('p.hint', {}, 'Drag the gizmo to move it (M); it is rebuilt where it lands. Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'));
+    h('p.hint', {}, 'Drag the gizmo to move it (W); it is rebuilt where it lands. Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'));
   if (!one || !spec) return out;
   const issues = roomLayout(spec).issues;
   out.append(

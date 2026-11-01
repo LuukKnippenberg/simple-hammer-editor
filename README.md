@@ -33,12 +33,13 @@ Maps are listed from this repo's `maps/` folder and from the game's `mapsrc/` fo
 | Input | Action |
 |---|---|
 | Right mouse drag | Look around |
-| W A S D, E / Space, Q | Fly (hold Shift for faster) |
+| Right mouse held + W A S D, E / Space, Q | Fly (hold Shift for faster); the arrow keys fly without the right button |
 | Middle mouse drag | Pan |
 | Alt + left drag | Orbit around the point under the cursor |
 | Mouse wheel | Zoom towards the cursor |
 | 1 / 2 / 3 / 4 | Select, Block, Paint, Entity tool |
-| M / R | Gizmo: move / resize |
+| Q | Select tool |
+| W / E / R | Gizmo: move / rotate (15° steps, adjustable; Shift: free) / resize |
 | Shift + click | Add to selection |
 | Ctrl + D, Delete | Duplicate, delete |
 | Ctrl + Z, Ctrl + Y | Undo, redo |
@@ -1667,7 +1668,7 @@ It is the easy way to work with a POI as one object:
 - **Select**: with the Select tool, a click on the handle, or on anything the POI made, selects the whole POI;
   the Selection tab then shows only its settings. Other tools ignore handles, so they still reach the ground
   and props inside. Hide the handles (**Handles** in the view bar) to pick single props and brushes.
-- **Move** (M) and **resize** (R): drag the gizmo; when the drag ends the POI is rebuilt to fit, in the same
+- **Move** (W) and **resize** (R): drag the gizmo; when the drag ends the POI is rebuilt to fit, in the same
   undo step. A moved POI stands on the ground at its new spot (unless it was also lifted or lowered); a resize
   is clamped to the type's sizes.
 - **Turn**: the comma and period keys turn it a quarter turn around its centre. **Ctrl+D** builds a copy next
@@ -1692,7 +1693,7 @@ so it shows beside the walls (`she_building_handle`).
   tab then shows the Building panel's controls filled in from the stored options, with **Regenerate** (with the
   changed settings), **Re-roll** (new seed) and **Delete**. With the handles hidden, a click picks one brush, and
   the panel offers **Select whole block**.
-- **Move** (M) and **resize** (R) with the gizmo: the block is rebuilt to fit when the drag ends, in the same undo
+- **Move** (W) and **resize** (R) with the gizmo: the block is rebuilt to fit when the drag ends, in the same undo
   step as the drag. A move keeps the block's level unless the handle was lifted or lowered. A resize keeps the
   level and at least 128 × 128; its height is ignored. Comma and period turn the footprint a quarter turn around
   its centre (the buildings are generated anew for it). **Ctrl+D** builds a copy 256 units along +x (same

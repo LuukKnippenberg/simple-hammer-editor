@@ -1,14 +1,15 @@
 import { h } from './dom.ts';
 
 const SHORTCUTS: [string, string][] = [
-  ['Right drag · WASD · E/Q', 'Look and fly (3D view)'],
+  ['Right drag (+ WASD · E/Q)', 'Look; hold the right button to fly with WASD, E up, Q down (arrows fly any time)'],
   ['Middle drag · Alt+left drag', 'Pan · orbit'],
   ['T', 'Toggle the top view (right drag pans, wheel zooms)'],
+  ['Q', 'Select tool'],
   ['1 – 6', 'Select · Block · Paint · Entity · Lambda Wars kit · Decal tool'],
   ['7 – 0', 'Road · Ground · Powerline · Sound tool (Enter builds a road or line, Backspace removes a point)'],
   ['P', 'Point of interest tool: drag a rectangle to fill it (type and settings in the POI tab)'],
   ['Click · Shift+click · drag', 'Select · add to selection · box select'],
-  ['M · R · O', 'Gizmo: move · resize · rotate (in steps, Shift: free)'],
+  ['W · E · R', 'Gizmo: move · rotate (in steps, Shift: free) · resize'],
   ['Ctrl+C · Ctrl+V', 'Copy · paste at the cursor'],
   ['Ctrl+D · Delete', 'Duplicate · delete'],
   ['Ctrl+T', 'Tie selected brushes to a trigger_once'],

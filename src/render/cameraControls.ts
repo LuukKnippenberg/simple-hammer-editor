@@ -2,7 +2,8 @@ import { PerspectiveCamera, Vector3, Raycaster, Vector2, Box3 } from 'three';
 
 /**
  * Editor camera for a Z-up world.
- * - Right mouse drag: look around. WASD flies, E/Space up, Q down, Shift is faster.
+ * - Right mouse drag: look around; while it is held WASD flies, E/Space up, Q down (as in Unity, so the same
+ *   letters pick the gizmo mode otherwise). Arrow keys fly at any time. Shift is faster.
  * - Middle mouse drag: pan. Alt + left drag: orbit around the point under the cursor.
  * - Wheel: dolly towards the cursor.
  */
@@ -44,6 +45,11 @@ export class CameraControls {
 
   get isNavigating(): boolean {
     return this.mode !== 'none';
+  }
+
+  /** The right mouse button is held: the letter keys fly instead of acting as shortcuts. */
+  get isLooking(): boolean {
+    return this.mode === 'look';
   }
 
   forward(): Vector3 {
@@ -143,12 +149,13 @@ export class CameraControls {
     const f = this.forward();
     const right = new Vector3().crossVectors(f, this.camera.up).normalize();
     const move = new Vector3();
-    if (k.has('KeyW') || k.has('ArrowUp')) move.add(f);
-    if (k.has('KeyS') || k.has('ArrowDown')) move.sub(f);
-    if (k.has('KeyD') || k.has('ArrowRight')) move.add(right);
-    if (k.has('KeyA') || k.has('ArrowLeft')) move.sub(right);
-    if (k.has('KeyE') || k.has('Space')) move.z += 1;
-    if (k.has('KeyQ')) move.z -= 1;
+    const fly = this.mode === 'look';
+    if ((fly && k.has('KeyW')) || k.has('ArrowUp')) move.add(f);
+    if ((fly && k.has('KeyS')) || k.has('ArrowDown')) move.sub(f);
+    if ((fly && k.has('KeyD')) || k.has('ArrowRight')) move.add(right);
+    if ((fly && k.has('KeyA')) || k.has('ArrowLeft')) move.sub(right);
+    if (fly && (k.has('KeyE') || k.has('Space'))) move.z += 1;
+    if (fly && k.has('KeyQ')) move.z -= 1;
     if (move.lengthSq() === 0) return false;
     const fast = k.has('ShiftLeft') || k.has('ShiftRight') ? 3 : 1;
     this.camera.position.addScaledVector(move.normalize(), this.speed * fast * dt);
