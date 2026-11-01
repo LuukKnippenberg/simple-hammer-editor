@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry, LineBasicMaterial, LineSegments, Plane, Vector2, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
+import type { MapEntity } from '../vmf/map.ts';
 import type { Tool, ToolName } from './tools.ts';
 import { pickSurface, snap } from './tools.ts';
 import type { ParamValue } from '../lw/kits.ts';
@@ -24,6 +25,8 @@ export class PoiTool implements Tool {
   seed = Math.floor(Math.random() * 100000);
   landscape: Landscape | null = null;
   params: Record<string, Record<string, ParamValue>> = {};
+  /** Called with each POI it places (the Generate flow's Tune step). */
+  onBuilt?: (detail: MapEntity) => void;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -84,10 +87,11 @@ export class PoiTool implements Tool {
     this.preview.visible = false;
     this.editor.status = '';
     if (!t || !r || !start) return;
-    generatePoi(this.editor, t, r, start.z, { rotation: this.rotation, seed: this.seed, landscape: this.landscape ?? t.landscapes[0], params: this.paramsFor(t) });
+    const e = generatePoi(this.editor, t, r, start.z, { rotation: this.rotation, seed: this.seed, landscape: this.landscape ?? t.landscapes[0], params: this.paramsFor(t) });
     // The next one gets a new layout.
     this.seed = Math.floor(Math.random() * 100000);
     this.editor.emit('poi');
+    this.onBuilt?.(e);
   }
 
   key(e: KeyboardEvent): boolean {

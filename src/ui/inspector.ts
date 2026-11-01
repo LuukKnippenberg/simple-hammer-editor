@@ -30,6 +30,7 @@ import { roomsOf } from '../gen/rooms/store.ts';
 import { roomLayout } from '../gen/rooms/model.ts';
 import { roomType } from '../gen/rooms/types.ts';
 import { openRoomsDialog } from './roomsDialog.ts';
+import { openGenerateMenu } from './generateMenu.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -42,6 +43,8 @@ export function mountInspector(editor: Editor): HTMLElement {
         h('div.section', {}, h('h3', {}, 'Selection'),
           h('p.hint', {}, 'Click a brush or entity to select it. Shift-click adds to the selection.'),
           h('p.hint', {}, 'Tools: 1 select · 2 block · 3 paint · 4 entity. Q select · W move · E rotate · R resize · F focus · Ctrl+D duplicate · Del delete · [ ] grid.')),
+        h('div.section', {}, h('h3', {}, 'Generate'),
+          h('p.hint', {}, 'Buildings, blocks of buildings, interior buildings, roads, powerlines and points of interest are in the Generate menu: the wand at the bottom of the tool rail, or G. Select a block brush first to fill it.')),
         h('div.section', {}, h('h3', {}, 'Interior building'),
           h('p.hint', {}, 'A building made of rooms (train hall, customs, rations, waiting room, hallway, concourse), each furnished for its type. Built in front of the camera; select a block brush first to build it there.'),
           h('button', { onclick: () => openRoomsDialog(editor) }, '🏛 Interior building…')),
@@ -62,7 +65,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     const blocks = selectedBlocks(editor);
     if (blocks.length) {
       panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
-        h('div', {}, blocks.length > 1 ? `${blocks.length} blocks of buildings` : 'Block of buildings'),
+        h('div', {}, blocks.length > 1 ? `${blocks.length} blocks of buildings` : LAYOUT_LABEL[blockOf(blocks[0])?.options.layout ?? 'block']),
         h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
       if (blocks.length === 1) panel.append(buildingPanel(editor, blocks[0]));
@@ -81,6 +84,13 @@ export function mountInspector(editor: Editor): HTMLElement {
       h('div.row', { style: { marginTop: '6px' } },
         h('button', { onclick: () => duplicateSelection(editor) }, 'Duplicate'),
         h('button', { onclick: () => deleteSelection(editor) }, 'Delete'))));
+    // Block brushes: what the Generate menu can fill them with.
+    const blockBrushes = [...sel.solids].filter((s) => !s.entity && !s.isDisplacement);
+    if (blockBrushes.length && !ents.length && !blockBrushes.some(blockFinder(editor.doc))) {
+      panel.append(h('div.section.gen-box', {}, h('h3', {}, 'Generate'),
+        h('p.hint', {}, `Fill ${blockBrushes.length > 1 ? 'these blocks' : 'this block'} with a building, a block of buildings, an interior building or a point of interest.`),
+        h('button.primary', { onclick: () => openGenerateMenu() }, 'Generate… ', h('kbd', {}, 'G'))));
+    }
 
     // A brush picked out of a brush entity (func_detail, triggers, ...): offer the whole entity.
     const owners = new Set([...sel.solids].map((s) => s.entity).filter((e): e is MapEntity => !!e && !sel.entities.has(e)));
@@ -330,6 +340,8 @@ function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
   return out;
 }
 
+const LAYOUT_LABEL = { block: 'Block of buildings', single: 'Building', house: 'Simple interior building' } as const;
+
 function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElement {
   const minF = h('input', { type: 'number', value: '3', min: '1', max: '12' }) as HTMLInputElement;
   const maxF = h('input', { type: 'number', value: '6', min: '1', max: '12' }) as HTMLInputElement;
@@ -440,7 +452,7 @@ function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElem
   if (block && stored) {
     const r = stored.rect;
     const rebuild = (label: string) => regenerateBlock(editor, block, { options: read() }, label);
-    return h('div.section', {}, h('h3', {}, '🏢 Buildings'),
+    return h('div.section', {}, h('h3', {}, stored.options.layout === 'house' ? '🏚 Simple interior building' : stored.options.layout === 'single' ? '🏠 Building' : '🏢 Buildings'),
       h('p.hint', {}, `${r.x1 - r.x0} × ${r.y1 - r.y0} units. Change the settings and press Regenerate.`),
       ...rows,
       h('div.row', {},

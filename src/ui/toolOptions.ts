@@ -1,21 +1,18 @@
 import type { Editor } from '../editor.ts';
 import type { BlockTool, KitTool, SelectTool } from '../edit/tools.ts';
-import type { RoadTool } from '../edit/roadTool.ts';
-import { ROAD_STYLES, type RoadStyle } from '../gen/roads.ts';
+import { GENERATE_TOOLS } from '../edit/generateTool.ts';
 import { makeTerrain, type GroundTool } from '../edit/groundTool.ts';
-import type { PowerlineTool } from '../edit/powerlineTool.ts';
 import type { SoundTool, SoundToolMode } from '../edit/soundTool.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 import { soundBrowser } from './soundBrowser.ts';
 import { SOUND_PRESETS } from '../lw/soundPresets.ts';
 import { cinemaToolOptions } from './cinemaPanel.ts';
-import { POLE_TYPES, type PoleType } from '../gen/powerlines.ts';
 import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
 import { multiblendRows, multiblendSets } from './blendUi.ts';
 import { h, toast } from './dom.ts';
 
-const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema' } as const;
+const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema', generate: 'Generate' } as const;
 const HINTS = {
   select: 'Click to select · Shift adds · drag the gizmo · W move / E rotate / R resize',
   block: 'Drag on a surface to draw a block',
@@ -29,6 +26,7 @@ const HINTS = {
   sound: 'Click to place · turn on Audio in the top bar to hear the map',
   poi: 'Drag a rectangle (or click) to place · pick the type and settings in the POI tab',
   cinema: 'Click to place · a selected path end keeps extending its path · Esc starts a new path',
+  generate: 'Drag a rectangle on the ground',
 } as const;
 
 /** Small panel in the viewport corner with the active tool's settings. */
@@ -37,6 +35,9 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
   viewport.append(box);
   const render = () => {
     const name = editor.tools.current.name;
+    // Generators have their own panel (generatePanel.ts).
+    box.hidden = GENERATE_TOOLS.has(name);
+    if (box.hidden) return;
     const rows: (HTMLElement | string)[] = [h('b', {}, NAMES[name]), h('div.hint', {}, HINTS[name])];
     if (name === 'select' && (editor.tools.tools.select as SelectTool).mode === 'rotate') {
       const tool = editor.tools.tools.select as SelectTool;
@@ -89,23 +90,6 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
         rows.push(h('div.row', {}, h('label', {}, 'Size'), size), h('div.row', {}, h('label', {}, 'Rotate'), rot));
       }
     }
-    if (name === 'road') {
-      const tool = editor.tools.tools.road as RoadTool;
-      const style = h('select', {}, ...Object.entries(ROAD_STYLES).map(([k, s]) => h('option', { value: k }, s.label))) as HTMLSelectElement;
-      style.value = tool.style;
-      style.addEventListener('change', () => { tool.setStyle(style.value as RoadStyle); style.blur(); });
-      const num = (value: number, set: (v: number) => void, step: number, min: number) => {
-        const i = h('input', { type: 'number', value: String(value), step: String(step), min: String(min) }) as HTMLInputElement;
-        i.addEventListener('change', () => { set(Math.max(min, parseFloat(i.value) || min)); i.blur(); });
-        return i;
-      };
-      rows.push(
-        h('div.row', {}, h('label', {}, 'Style'), style),
-        h('div.row', {}, h('label', {}, 'Width'), num(tool.width, (v) => (tool.width = v), 32, 64)),
-        h('div.row', {}, h('label', {}, 'Pavement'), num(tool.pavement, (v) => (tool.pavement = v), 16, 0)),
-        h('div.row', {}, h('label', {}, 'Corners'), num(tool.radius, (v) => (tool.radius = v), 32, 0)),
-      );
-    }
     if (name === 'ground') {
       const tool = editor.tools.tools.ground as GroundTool;
       const modes: [GroundMode, string][] = [['paint', 'Paint'], ['erase', 'Erase'], ['raise', 'Raise'], ['lower', 'Lower'], ['smooth', 'Smooth'], ['flatten', 'Flatten']];
@@ -143,20 +127,6 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
           title: 'Replace the selected floor brushes with displacement terrain in this ground set',
           onclick: () => { const n = makeTerrain(editor, floors, tool.set); render(); toast(editor.container, `Made ${n} terrain patches`); },
         }, floors.length ? `Turn ${floors.length} selected floor${floors.length > 1 ? 's' : ''} into terrain` : 'Select a floor brush to turn it into terrain'));
-    }
-    if (name === 'powerline') {
-      const tool = editor.tools.tools.powerline as PowerlineTool;
-      const pole = h('select', {}, ...Object.entries(POLE_TYPES).map(([k, p]) => h('option', { value: k }, p.label))) as HTMLSelectElement;
-      pole.value = tool.pole;
-      pole.addEventListener('change', () => { tool.pole = pole.value as PoleType; pole.blur(); });
-      const spacing = h('input', { type: 'number', value: String(tool.spacing), step: '64', min: '192' }) as HTMLInputElement;
-      spacing.addEventListener('change', () => { tool.spacing = Math.max(192, Number(spacing.value) || 640); spacing.blur(); });
-      const sag = h('input', { type: 'range', min: 0, max: 0.15, step: 0.01, value: tool.slack }) as HTMLInputElement;
-      sag.addEventListener('input', () => (tool.slack = Number(sag.value)));
-      const feeds = h('input', { type: 'checkbox', checked: tool.feeds }) as HTMLInputElement;
-      feeds.addEventListener('change', () => (tool.feeds = feeds.checked));
-      rows.push(h('div.row', {}, h('label', {}, 'Poles'), pole), h('div.row', {}, h('label', {}, 'Spacing'), spacing), h('div.row', {}, h('label', {}, 'Sag'), sag),
-        h('div.row', {}, h('label', {}, 'House feeds'), feeds));
     }
     if (name === 'sound') {
       const tool = editor.tools.tools.sound as SoundTool;

@@ -17,6 +17,7 @@ import { PowerlineTool } from './powerlineTool.ts';
 import { SoundTool } from './soundTool.ts';
 import { PoiTool } from './poiTool.ts';
 import { CinemaTool } from './cinemaTool.ts';
+import { GenerateTool } from './generateTool.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { toast } from '../ui/dom.ts';
 import { handleDragged } from '../gen/poi/action.ts';
@@ -28,7 +29,7 @@ import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE, ROO
 import { roomsHandleDragged } from '../gen/rooms/action.ts';
 import { roomsOwner } from '../gen/rooms/store.ts';
 
-export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema';
+export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema' | 'generate';
 
 export interface Tool {
   name: ToolName;
@@ -536,6 +537,7 @@ export class ToolManager {
     this.tools = {
       select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor),
       kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor), ground: new GroundTool(editor), powerline: new PowerlineTool(editor), sound: new SoundTool(editor), poi: new PoiTool(editor), cinema: new CinemaTool(editor),
+      generate: new GenerateTool(editor),
     };
     this.current = this.select;
     const dom = editor.renderer.domElement;

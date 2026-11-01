@@ -77,6 +77,8 @@ export class PowerlineTool implements Tool {
   spacing = 640;
   slack = 0.04;
   feeds = true;
+  /** Called with the first pole of each powerline it builds (the Generate flow's Tune step). */
+  onBuilt?: (pole: MapEntity) => void;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -135,6 +137,7 @@ export class PowerlineTool implements Tool {
     if (pts.length < 2) return;
     const created = addPowerline(this.editor, { points: pts, pole: this.pole, spacing: this.spacing, slack: this.slack, feeds: this.feeds });
     this.editor.selection.set([], created.slice(0, 1));
+    if (created[0]) this.onBuilt?.(created[0]);
   }
 
   private redraw(): void {

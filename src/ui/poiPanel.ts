@@ -9,7 +9,7 @@ import { h, toast } from './dom.ts';
 
 const ROTATIONS: Rotation[] = [0, 90, 180, 270];
 
-function paramRow(p: KitParam, value: ParamValue, set: (v: ParamValue) => void): HTMLElement {
+export function paramRow(p: KitParam, value: ParamValue, set: (v: ParamValue) => void): HTMLElement {
   let input: HTMLInputElement | HTMLSelectElement;
   if (p.type === 'select') {
     input = h('select', {}, ...(p.options ?? []).map((o) => h('option', { value: o.value }, o.label))) as HTMLSelectElement;
@@ -25,7 +25,7 @@ function paramRow(p: KitParam, value: ParamValue, set: (v: ParamValue) => void):
   return h('div.row', { title: p.hint ?? '' }, h('label', {}, p.label), input);
 }
 
-function rotationRow(value: Rotation, set: (r: Rotation) => void): HTMLElement {
+export function rotationRow(value: Rotation, set: (r: Rotation) => void): HTMLElement {
   return h('div.row', { title: 'Turns the layout; the arrow in the preview points to the POI\'s back' }, h('label', {}, 'Rotation'),
     h('div.seg', {}, ...ROTATIONS.map((r) => {
       const b = h('button', { onclick: () => set(r) }, `${r}°`);

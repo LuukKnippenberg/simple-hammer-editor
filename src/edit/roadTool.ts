@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry, Group, LineBasicMaterial, LineSegments, Vector2, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
+import type { MapEntity } from '../vmf/map.ts';
 import type { Tool, ToolName } from './tools.ts';
 import { pickSurface, snap } from './tools.ts';
 import { ROAD_STYLES, centreline, defaultRoad, offsetLine, snapToRoads, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
@@ -22,6 +23,8 @@ export class RoadTool implements Tool {
   width = ROAD_STYLES.asphalt.width;
   pavement = ROAD_STYLES.asphalt.pavement;
   radius = 256;
+  /** Called with each road it builds (the Generate flow's Tune step). */
+  onBuilt?: (road: MapEntity) => void;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -100,7 +103,10 @@ export class RoadTool implements Tool {
     this.redraw();
     if (spec.points.length < 2) return;
     const e = rebuildRoads(this.editor, `Draw ${ROAD_STYLES[spec.style].label.toLowerCase()}`, { add: spec });
-    if (e) this.editor.selection.set([], [e]);
+    if (e) {
+      this.editor.selection.set([], [e]);
+      this.onBuilt?.(e);
+    }
   }
 
   private redraw(): void {

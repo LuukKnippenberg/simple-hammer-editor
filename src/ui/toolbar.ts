@@ -7,7 +7,9 @@ import { deleteBlock, duplicateBlock, selectedBlocks, turnBlock } from '../gen/b
 import { deleteRooms, selectedRooms } from '../gen/rooms/action.ts';
 import { h, toast } from './dom.ts';
 import { tip } from './tooltip.ts';
+import { mountGenerateButton } from './generateMenu.ts';
 
+/** The rail's tools. Roads, powerlines and points of interest are in the Generate menu below them (keys 7, 9, P). */
 const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'select', icon: '⬚', label: 'Select & move', key: '1' },
   { name: 'block', icon: '▣', label: 'Block: drag on a surface to create a brush', key: '2' },
@@ -15,11 +17,8 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'entity', icon: '⚑', label: 'Entity: click to place the class chosen in the Entities tab', key: '4' },
   { name: 'kit', icon: '⚔', label: 'Lambda Wars kit: click to place the kit chosen in the Mission tab', key: '5' },
   { name: 'decal', icon: '◩', label: 'Decal: click a surface to place the decal chosen in the Materials tab', key: '6' },
-  { name: 'road', icon: '🛣', label: 'Road: click points, Enter or double-click to build', key: '7' },
   { name: 'ground', icon: '⛰', label: 'Ground: paint and sculpt terrain', key: '8' },
-  { name: 'powerline', icon: '⚡', label: 'Powerline: click points, Enter or double-click to build', key: '9' },
   { name: 'sound', icon: '🔊', label: 'Sound: place soundscape zones and local sounds', key: '0' },
-  { name: 'poi', icon: '⛲', label: 'Point of interest: drag a rectangle to fill it with the type chosen in the POI tab', key: 'p' },
   { name: 'cinema', icon: '🎬', label: 'Cinema: paths, particles and screens (camera shots and atmosphere are in the Cinema tab)', key: 'c' },
 ];
 const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
@@ -48,6 +47,8 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     bar.append(b);
   }
   buttons.get('select')!.classList.add('active');
+  // Everything the editor builds, in one menu (G).
+  bar.append(h('div.rail-sep'), mountGenerateButton(editor));
 
   const sel = editor.tools.select;
   const move = h('button', { ...tip('Gizmo: move', 'W'), onclick: () => sel.setMode('translate') }, '✥');
