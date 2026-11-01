@@ -122,3 +122,8 @@ button.icon { padding: 1px 6px; flex: none; }
 .kchip.drop { border-color: #5a2f2f; color: var(--danger); text-decoration: line-through; }
 .kchip.add { border-color: #2e4250; color: var(--accent-2); }
 .cc-foot { display: flex; gap: 6px; margin-top: 10px; align-items: center; }
+/* Narrow panels: the undo hint on its own line, buttons on the next. */
+.cc-foot { flex-wrap: wrap; }
+.cc-foot > span.muted { flex: 1 0 100% !important; }
+.cc-foot button:first-of-type { margin-left: auto; }
+.cc-foot button { white-space: nowrap; }
