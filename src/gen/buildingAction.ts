@@ -55,16 +55,18 @@ export function buildingsFromSelection(editor: Editor, opts: Omit<BuildingOption
  * Builds (or rebuilds) a block from its spec and swaps the result in for its old parts; with `dress`, the
  * group's street dressing is rebuilt too. One undo step. Returns the block's func_detail.
  */
-export function applyBlock(editor: Editor, spec: BlockSpec, label: string, existing: MapEntity | null = null, dress = true): { detail: MapEntity; buildings: number; dressing: BlockDressing } {
+export function applyBlock(editor: Editor, spec: BlockSpec, label: string, existing: MapEntity | null = null, dress = true): { detail: MapEntity; buildings: number; houses: number; ring: boolean; dressing: BlockDressing } {
   const doc = editor.doc;
   let detail = existing;
-  let buildings = 0;
+  let buildings = 0, houses = 0, ring = false;
   let dressing!: BlockDressing;
   editor.history.group(label, () => {
     const old = existing ? blockMembers(doc, existing.get(BLOCK_ID_KEY) ?? spec.uid) : { detail: null, entities: [], world: [], handle: null };
     if (old.entities.length || old.world.length) editor.history.remove('Remove old block parts', old.world, old.entities);
     const out = generateBuildings(doc, footprintOf(spec), spec.options);
     buildings = out.buildings;
+    houses = out.interiorHouses;
+    ring = !!out.ring;
     dressing = out.dressing;
     rememberDressing(spec, out.dressing);
     if (detail) {
@@ -89,7 +91,7 @@ export function applyBlock(editor: Editor, spec: BlockSpec, label: string, exist
     if (dress) dressGroup(editor, spec.group, [], { [spec.uid]: out.dressing });
   });
   editor.changed();
-  return { detail: detail!, buildings, dressing };
+  return { detail: detail!, buildings, houses, ring, dressing };
 }
 
 /**

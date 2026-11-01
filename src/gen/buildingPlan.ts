@@ -62,6 +62,11 @@ export interface PlanOptions {
   annexes: boolean;
   /** Share of a ring's side lots left open (0–1), so the courtyard opens onto the street (default 0). */
   openings?: number;
+  /**
+   * One building on the whole lot instead of a block: `building` may still be an L round a back yard,
+   * `house` is a plain rectangle (for an enterable house).
+   */
+  single?: 'building' | 'house';
 }
 
 const G = 64;
@@ -158,7 +163,7 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
   const annex = (box: Box2): Part => ({ poly: rectPoly(box), floors: rng.int(1, 2), kind: 'annex', cornerEdges: [] });
 
   const minSide = Math.min(size.x, size.y);
-  if (o.courtyards && minSide >= 896 && rng.chance(0.8)) {
+  if (!o.single && o.courtyards && minSide >= 896 && rng.chance(0.8)) {
     // Perimeter block: corner buildings, lots along each side, a courtyard in the middle.
     const depth = Math.min(rng.pick([256, 320, 384]), snap((minSide - 256) / 2));
     const inner = new Box2(area.min.clone().addScalar(depth), area.max.clone().subScalar(depth));
@@ -222,7 +227,7 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
   // Row block: lots along the long axis.
   const axis = size.x >= size.y ? 'x' : 'y';
   const other = axis === 'x' ? 'y' : 'x';
-  const cuts = splitSpan(area.min[axis], area.max[axis], rng, 256, 768);
+  const cuts = o.single ? [area.min[axis], area.max[axis]] : splitSpan(area.min[axis], area.max[axis], rng, 256, 768);
   for (let i = 0; i + 1 < cuts.length; i++) {
     const box = area.clone();
     box.min[axis] = cuts[i];
@@ -237,7 +242,7 @@ export function planBlock(area: Box2, rng: Rng, o: PlanOptions): BlockPlan {
     const corner = i === 0 || i + 2 === cuts.length;
     const floors = floorsFor(corner);
     const deep = bsize[other] >= 448 && bsize[axis] >= 320;
-    if (deep && rng.chance(0.55)) {
+    if (deep && o.single !== 'house' && rng.chance(0.55)) {
       // L shape: the front range along one street, a wing along one side, a yard in the back corner.
       const front = box.clone(), wing = box.clone(), yard = box.clone();
       const frontDepth = rng.pick([256, 320]);

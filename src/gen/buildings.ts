@@ -86,7 +86,14 @@ export interface BuildingOptions {
   interiorLights?: boolean;
   /** 128-wide doorways so the antlion guard fits through. */
   wideDoors?: boolean;
+  /**
+   * What the lot becomes: a city block (default), one building on the whole lot, or one enterable house
+   * (1–2 floors, its yard round it).
+   */
+  layout?: BuildingLayout;
 }
+
+export type BuildingLayout = 'block' | 'single' | 'house';
 
 export interface GeneratedBuildings {
   /** World brushes: the building shells. */
@@ -98,6 +105,8 @@ export interface GeneratedBuildings {
   buildings: number;
   /** How many of them are enterable interior houses. */
   interiorHouses: number;
+  /** Laid out as a ring of buildings round a courtyard. */
+  ring?: boolean;
   /** For the street pass across blocks (`streetDressing`): outline, cable anchors, yards. */
   dressing: BlockDressing;
 }
@@ -533,6 +542,19 @@ const boxPoly = (b: Box2) => [b.min.clone(), new Vector2(b.max.x, b.min.y), b.ma
 const cutsInto = (poly: Vector2[], cuts: Vector2[][]) => cuts.some((c) => convexOverlap(ccw(poly), c));
 
 /**
+ * The options a layout implies: a house has 1–2 floors, square corners and is enterable; a single building
+ * has no courtyard and no enterable houses of its own.
+ */
+export function layoutOptions(o: BuildingOptions): BuildingOptions {
+  if (o.layout === 'house') {
+    const lo = Math.min(2, Math.max(1, o.minFloors));
+    return { ...o, minFloors: lo, maxFloors: Math.max(lo, Math.min(2, o.maxFloors)), corners: 'square', courtyards: false, annexes: false, alleys: false, interiors: 'all' };
+  }
+  if (o.layout === 'single') return { ...o, courtyards: false, interiors: 'none', alleys: false };
+  return o;
+}
+
+/**
  * Cuts a block's plan along streets and squares drawn over it: every wing loses what lies in a cut; a wing cut in
  * two becomes two buildings; slivers too small to build are dropped, and so are the yards, sheds, walls and lots
  * a cut runs through.
@@ -561,7 +583,8 @@ export function cutPlan(plan: ReturnType<typeof planBlock>, cuts: Vector2[][]): 
   plan.walls = plan.walls.filter((w) => !cutsInto(boxPoly(new Box2().setFromPoints([w.a, w.b]).expandByScalar(8)), cuts));
 }
 
-export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: BuildingOptions): GeneratedBuildings {
+export function generateBuildings(doc: VmfDocument, footprint: Box3, options: BuildingOptions): GeneratedBuildings {
+  const opts = layoutOptions(options);
   const rng = new Rng(opts.seed);
   const g = FLOOR;
   const area = new Box2(
@@ -570,7 +593,9 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   );
   const out: GeneratedBuildings = { solids: [], detail: [], entities: [], buildings: 0, interiorHouses: 0, dressing: { area, z0: footprint.min.z, anchors: [], yards: [], obstacles: [] } };
   const z0 = footprint.min.z;
-  const quality = QUALITY[opts.quality ?? 'high'];
+  const house = opts.layout === 'house';
+  // A house is enterable whatever the quality asks for elsewhere.
+  const quality = house ? { ...QUALITY[opts.quality ?? 'high'], interiors: true } : QUALITY[opts.quality ?? 'high'];
   const level = Math.min(opts.detail ?? 2, quality.maxDetail) as DetailLevel;
   // Decoration draws from its own sequence, so the layout and textures don't change with the detail level.
   const deco = new Rng(opts.seed * 31 + 7);
@@ -597,9 +622,10 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, opts: Build
   const plan = planBlock(area, rng, {
     minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
     corners: opts.corners ?? arch.corners, courtyards: opts.courtyards ?? true, annexes: (opts.annexes ?? true) && opts.yards !== 'green',
-    openings: opts.openYards,
+    openings: opts.openYards, single: opts.layout === 'single' ? 'building' : house ? 'house' : undefined,
   });
   if (cuts.length) cutPlan(plan, cuts);
+  out.ring = !!plan.ring;
   if (opts.yards === 'green') {
     // Dressed here (lawns, trees, playgrounds, parking), so the street pass leaves them alone. Its own sequence,
     // so the buildings don't change with it.

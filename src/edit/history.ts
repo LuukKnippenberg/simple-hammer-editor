@@ -61,6 +61,23 @@ export class History {
     this.onChange();
   }
 
+  /** How many steps can be undone: a mark for `squash`. */
+  get depth(): number {
+    return this.undoStack.length;
+  }
+
+  /** Merges the steps recorded since `depth` into one undo step (a generate and every tweak after it). */
+  squash(depth: number, label: string): void {
+    if (this.collecting || this.undoStack.length - depth < 2) return;
+    const ops = this.undoStack.splice(depth);
+    this.undoStack.push({
+      label,
+      undo: () => { for (let i = ops.length - 1; i >= 0; i--) ops[i].undo(); },
+      redo: () => { for (const op of ops) op.redo(); },
+    });
+    this.onChange();
+  }
+
   private push(op: Op): void {
     if (this.collecting) {
       this.collecting.push(op);
