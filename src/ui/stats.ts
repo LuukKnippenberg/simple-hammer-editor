@@ -30,6 +30,7 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
       `<span>entities <b>${editor.doc.entities.length}</b></span>` +
       `<span>${editor.view === 'top' ? 'top view' : '3D view'}</span>` +
       `<span>grid <b>${editor.grid}</b></span>` +
+      (editor.tools.current.name === 'select' && editor.selection.mode !== 'object' ? `<span><b>${editor.selection.mode}</b> mode</span>` : '') +
       (editor.hidden.size ? `<span>hidden <b>${editor.hidden.size}</b></span>` : '') +
       (editor.lastAutosave ? `<span>autosaved <b>${editor.lastAutosave.toLocaleTimeString()}</b></span>` : '') +
       (hoverLabel() ? `<span class="hover-label">${hoverLabel()}</span>` : '') +

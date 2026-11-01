@@ -31,6 +31,7 @@ import { roomLayout } from '../gen/rooms/model.ts';
 import { roomType } from '../gen/rooms/types.ts';
 import { openRoomsDialog } from './roomsDialog.ts';
 import { openGenerateMenu } from './generateMenu.ts';
+import { partInspector } from './partPanel.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -38,6 +39,8 @@ export function mountInspector(editor: Editor): HTMLElement {
   const render = () => {
     const sel = editor.selection;
     panel.replaceChildren();
+    // Faces, edges or vertices (Shift+2/3/4).
+    if (sel.mode !== 'object') return void panel.append(partInspector(editor));
     if (sel.isEmpty) {
       panel.append(
         h('div.section', {}, h('h3', {}, 'Selection'),
