@@ -415,7 +415,7 @@ function partSolids(
       }
     }
   }
-  // Street fronts: oriels, balconies, awnings and vents on walls that face the street; steps at a cut-corner entrance.
+  // Street fronts: oriels, balconies and awnings on walls that face the street; steps at a cut-corner entrance.
   const isStreet = street.isStreet;
   if (main && isStreet) {
     poly.forEach((a, i) => {

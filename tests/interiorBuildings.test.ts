@@ -14,8 +14,8 @@ const block = (w: number, h: number) => new Box3(new Vector3(0, 0, 0), new Vecto
 
 describe('interior houses in the building generator', () => {
   it('without interiors the output is byte-identical to before', () => {
-    // Hashes of the generator without interiors (recorded after the facade, kerb and wall-prop fixes).
-    const golden = { mixed: '8fff0994e882f04bc806548675eed6ea249f18c9', sheds: 'd9e799fe43d81c7390e2550bfc76a03b4d4750e9', brick: '908bf3ba55e70fee6d3a9d781180a272d73097cb' };
+    // Hashes of the generator without interiors (recorded after the facade, kerb and wall-prop fixes and the vent decal removal).
+    const golden = { mixed: '59f69e95e8ac6a8a75f5475419a2232e67daf447', sheds: '6356cb88375b75c3d1fd8aa4d1fa080df8bbbed2', brick: '7613067103cd317ee74e9bb956aa2e5763c592f7' };
     for (const [arch, seed] of [['mixed', 5], ['sheds', 9], ['brick', 13]] as const) {
       for (const interiors of [undefined, 'none'] as const) {
         const doc = VmfDocument.empty();

@@ -34,7 +34,7 @@ describe('facade features', () => {
     for (const s of [...balcony(doc, wall, 200, 120, 136, tile), ...entranceSteps(doc, wallOf(new Vector2(0, 0), new Vector2(90, 90)), 0)]) expect(valid(s)).toBe(true);
   });
 
-  it('long street walls get oriels or balconies, awnings and vents', () => {
+  it('long street walls get oriels or balconies and awnings, no vent decals', () => {
     let oriels = 0, balconies = 0, awnings = 0;
     for (let seed = 1; seed <= 20; seed++) {
       const doc = VmfDocument.empty();
@@ -44,7 +44,7 @@ describe('facade features', () => {
       if (mats.some((m) => m.includes('W') && m.includes('NODRAW') && !m.includes('METALRAIL'))) oriels++;
       if (mats.some((m) => m.includes('METALRAIL'))) balconies++;
       awnings += r.entities.filter((e) => e.keys.model?.includes('awning')).length;
-      expect(r.entities.some((e) => e.classname === 'infodecal')).toBe(true);
+      expect(r.entities.some((e) => e.classname === 'infodecal')).toBe(false);
     }
     expect(oriels).toBeGreaterThan(5);
     expect(balconies).toBeGreaterThan(5);

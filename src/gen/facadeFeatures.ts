@@ -10,7 +10,6 @@ const NODRAW: FacadeTile = { material: 'TOOLS/TOOLSNODRAW', bays: 0 };
 const RAILING: FacadeTile = { material: 'METAL/METALRAIL001A', bays: 0, widthPx: 256 };
 const STEP: FacadeTile = { material: 'BUILDING_TEMPLATE/BUILDING_TEMPLATE003A', bays: 0 };
 const AWNINGS = [{ model: 'models/props_c17/awning001a.mdl', width: 130 }, { model: 'models/props_c17/awning002a.mdl', width: 66 }];
-const VENT = 'decals/decalmetalvent005a';
 
 export type OrielShape = 'rect' | 'angled' | 'round';
 
@@ -120,14 +119,14 @@ export interface StreetFacadeOptions {
   windows: FacadeTile;
   trim: FacadeTile;
   plain: FacadeTile;
-  /** 2: oriels and balconies; 1: awnings and vents only. */
+  /** 2: oriels and balconies; 1: awnings only. */
   level: number;
   oriels?: boolean;
   balconies?: boolean;
 }
 
 /**
- * Bays, balconies, shopfront awnings and basement vents along one street wall. Oriels and balconies sit
+ * Bays, balconies and shopfront awnings along one street wall. Oriels and balconies sit
  * on whole window bays and never overlap each other. `taken` holds the parts of the wall they cover (x along
  * the wall from `w.a`, y height), which wall props keep clear of.
  */
@@ -181,7 +180,7 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
     }
   }
   if (o.level >= 1) {
-    // Awnings over some shop windows, vents at the foot of the wall.
+    // Awnings over some shop windows.
     if (rng.chance(0.45)) {
       const wide = rng.chance(0.5);
       const a = AWNINGS[wide ? 0 : 1];
@@ -192,10 +191,6 @@ export function streetFacade(doc: VmfDocument, w: Wall, o: StreetFacadeOptions, 
         cover((k + step / 2) * bay - a.width / 2, (k + step / 2) * bay + a.width / 2, o.z0 + 78, o.z0 + 122);
         entities.push({ classname: 'prop_static', origin: new Vector3(Math.round(p.x), Math.round(p.y), o.z0 + 100), keys: { model: a.model, angles: `0 ${yaw} 0`, solid: '0' } });
       }
-    }
-    for (let k = 1; k < bays; k += 3) {
-      const p = w.a.clone().addScaledVector(w.dir, (k + 0.5) * bay).addScaledVector(w.out, 6);
-      entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), o.z0 + 10), keys: { texture: VENT } });
     }
   }
   return { solids, entities, taken };

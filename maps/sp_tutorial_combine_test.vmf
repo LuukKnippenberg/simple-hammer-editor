@@ -102087,14 +102087,6 @@ entity
 }
 entity
 {
-	"id" "3650"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-768 -3078 10"
-}
-entity
-{
 	"id" "3651"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -102110,14 +102102,6 @@ entity
 	"texture" "decals/decalstain002a"
 	"she_building_id" "u2smd0"
 	"origin" "-863 -3074 550"
-}
-entity
-{
-	"id" "3653"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-1030 -2944 10"
 }
 entity
 {
@@ -102141,43 +102125,11 @@ entity
 }
 entity
 {
-	"id" "3656"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-224 -3078 10"
-}
-entity
-{
 	"id" "3657"
 	"classname" "infodecal"
 	"texture" "decals/decalstain008a"
 	"she_building_id" "u2smd0"
 	"origin" "-214 -3074 104"
-}
-entity
-{
-	"id" "3658"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "6 -2848 10"
-}
-entity
-{
-	"id" "3659"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "6 -2272 10"
-}
-entity
-{
-	"id" "3660"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-288 -2042 10"
 }
 entity
 {
@@ -102188,14 +102140,6 @@ entity
 	"solid" "6"
 	"she_building_id" "u2smd0"
 	"origin" "-201 -2288 640"
-}
-entity
-{
-	"id" "3662"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-848 -2042 10"
 }
 entity
 {
@@ -102219,14 +102163,6 @@ entity
 }
 entity
 {
-	"id" "3665"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-1030 -2320 10"
-}
-entity
-{
 	"id" "3666"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/satellitedish02.mdl"
@@ -102234,14 +102170,6 @@ entity
 	"solid" "0"
 	"she_building_id" "u2smd0"
 	"origin" "-1042 -2272 296"
-}
-entity
-{
-	"id" "3667"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-512 -3078 10"
 }
 entity
 {
@@ -102282,14 +102210,6 @@ entity
 	"solid" "6"
 	"she_building_id" "u2smd0"
 	"origin" "-412 -2818 384"
-}
-entity
-{
-	"id" "3672"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-512 -2042 10"
 }
 entity
 {
@@ -102343,14 +102263,6 @@ entity
 }
 entity
 {
-	"id" "3678"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "-1030 -2560 10"
-}
-entity
-{
 	"id" "3679"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -102388,14 +102300,6 @@ entity
 	"solid" "0"
 	"she_building_id" "u2smd0"
 	"origin" "-160 -2560 636"
-}
-entity
-{
-	"id" "3683"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "u2smd0"
-	"origin" "6 -2560 10"
 }
 entity
 {
@@ -121298,14 +121202,6 @@ entity
 }
 entity
 {
-	"id" "5587"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "960 -3078 10"
-}
-entity
-{
 	"id" "5588"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -121334,14 +121230,6 @@ entity
 }
 entity
 {
-	"id" "5591"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "1030 -2880 10"
-}
-entity
-{
 	"id" "5592"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -121359,14 +121247,6 @@ entity
 	"solid" "0"
 	"she_building_id" "m6ttl5"
 	"origin" "1031 -2944 66"
-}
-entity
-{
-	"id" "5594"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "1030 -2160 10"
 }
 entity
 {
@@ -121398,14 +121278,6 @@ entity
 }
 entity
 {
-	"id" "5598"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "816 -2042 10"
-}
-entity
-{
 	"id" "5599"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -121433,30 +121305,6 @@ entity
 	"solid" "0"
 	"she_building_id" "m6ttl5"
 	"origin" "512 -2944 708"
-}
-entity
-{
-	"id" "5602"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "352 -3078 10"
-}
-entity
-{
-	"id" "5603"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "544 -3078 10"
-}
-entity
-{
-	"id" "5604"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "736 -3078 10"
 }
 entity
 {
@@ -121528,30 +121376,6 @@ entity
 }
 entity
 {
-	"id" "5612"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "672 -2042 10"
-}
-entity
-{
-	"id" "5613"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "480 -2042 10"
-}
-entity
-{
-	"id" "5614"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "288 -2042 10"
-}
-entity
-{
 	"id" "5615"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -121559,30 +121383,6 @@ entity
 	"solid" "0"
 	"she_building_id" "m6ttl5"
 	"origin" "320 -2006 316"
-}
-entity
-{
-	"id" "5616"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "-6 -2400 10"
-}
-entity
-{
-	"id" "5617"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "-6 -2592 10"
-}
-entity
-{
-	"id" "5618"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "-6 -2784 10"
 }
 entity
 {
@@ -121611,14 +121411,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "m6ttl5"
 	"origin" "-2 -2440 88"
-}
-entity
-{
-	"id" "5622"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "m6ttl5"
-	"origin" "1030 -2624 10"
 }
 entity
 {
@@ -135536,38 +135328,6 @@ entity
 }
 entity
 {
-	"id" "7079"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "1312 -3078 10"
-}
-entity
-{
-	"id" "7080"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "1018 -2848 10"
-}
-entity
-{
-	"id" "7081"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "1824 -3078 10"
-}
-entity
-{
-	"id" "7082"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "2054 -2848 10"
-}
-entity
-{
 	"id" "7083"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -135628,14 +135388,6 @@ entity
 }
 entity
 {
-	"id" "7089"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "1200 -2042 10"
-}
-entity
-{
 	"id" "7090"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -135661,14 +135413,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "l3thgx"
 	"origin" "1233 -2046 88"
-}
-entity
-{
-	"id" "7093"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "1018 -2320 10"
 }
 entity
 {
@@ -135710,22 +135454,6 @@ entity
 }
 entity
 {
-	"id" "7098"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "1440 -3078 10"
-}
-entity
-{
-	"id" "7099"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "1632 -3078 10"
-}
-entity
-{
 	"id" "7100"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -135751,14 +135479,6 @@ entity
 	"solid" "0"
 	"she_building_id" "l3thgx"
 	"origin" "1009 -2560 100"
-}
-entity
-{
-	"id" "7103"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "1018 -2560 10"
 }
 entity
 {
@@ -135807,14 +135527,6 @@ entity
 	"solid" "0"
 	"she_building_id" "l3thgx"
 	"origin" "2063 -2560 100"
-}
-entity
-{
-	"id" "7109"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l3thgx"
-	"origin" "2054 -2560 10"
 }
 entity
 {
@@ -143690,38 +143402,6 @@ entity
 }
 entity
 {
-	"id" "7909"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2144 -3078 10"
-}
-entity
-{
-	"id" "7910"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2336 -3078 10"
-}
-entity
-{
-	"id" "7911"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2528 -3078 10"
-}
-entity
-{
-	"id" "7912"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2720 -3078 10"
-}
-entity
-{
 	"id" "7913"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -143747,30 +143427,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "uy10cu"
 	"origin" "2512 -3074 346"
-}
-entity
-{
-	"id" "7916"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2950 -2784 10"
-}
-entity
-{
-	"id" "7917"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2042 -2848 10"
-}
-entity
-{
-	"id" "7918"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2042 -3040 10"
 }
 entity
 {
@@ -143862,38 +143518,6 @@ entity
 }
 entity
 {
-	"id" "7928"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2950 -2656 10"
-}
-entity
-{
-	"id" "7929"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2950 -2464 10"
-}
-entity
-{
-	"id" "7930"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2950 -2272 10"
-}
-entity
-{
-	"id" "7931"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2950 -2080 10"
-}
-entity
-{
 	"id" "7932"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -143919,14 +143543,6 @@ entity
 	"texture" "decals/decalstain008a"
 	"she_building_id" "uy10cu"
 	"origin" "2946 -2199 234"
-}
-entity
-{
-	"id" "7935"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2848 -2042 10"
 }
 entity
 {
@@ -143967,14 +143583,6 @@ entity
 	"solid" "0"
 	"she_building_id" "uy10cu"
 	"origin" "2033 -2624 100"
-}
-entity
-{
-	"id" "7940"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "uy10cu"
-	"origin" "2042 -2592 10"
 }
 entity
 {
@@ -152831,43 +152439,11 @@ entity
 }
 entity
 {
-	"id" "8792"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-928 -2054 10"
-}
-entity
-{
-	"id" "8793"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-736 -2054 10"
-}
-entity
-{
 	"id" "8794"
 	"classname" "infodecal"
 	"texture" "decals/decalstain008a"
 	"she_building_id" "14ujsb"
 	"origin" "-859 -2050 362"
-}
-entity
-{
-	"id" "8795"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-672 -1658 10"
-}
-entity
-{
-	"id" "8796"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-864 -1658 10"
 }
 entity
 {
@@ -152891,22 +152467,6 @@ entity
 }
 entity
 {
-	"id" "8799"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-1030 -1824 10"
-}
-entity
-{
-	"id" "8800"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-1030 -2016 10"
-}
-entity
-{
 	"id" "8801"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -152914,22 +152474,6 @@ entity
 	"solid" "0"
 	"she_building_id" "14ujsb"
 	"origin" "-1066 -1792 316"
-}
-entity
-{
-	"id" "8802"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-403 -2054 10"
-}
-entity
-{
-	"id" "8803"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-58 -2054 10"
 }
 entity
 {
@@ -152973,14 +152517,6 @@ entity
 }
 entity
 {
-	"id" "8808"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "6 -1856 10"
-}
-entity
-{
 	"id" "8809"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -153016,14 +152552,6 @@ entity
 	"solid" "0"
 	"she_building_id" "14ujsb"
 	"origin" "-296 -1649 100"
-}
-entity
-{
-	"id" "8813"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "14ujsb"
-	"origin" "-296 -1658 10"
 }
 entity
 {
@@ -159734,14 +159262,6 @@ entity
 }
 entity
 {
-	"id" "9471"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hvxaet"
-	"origin" "272 -2054 10"
-}
-entity
-{
 	"id" "9472"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -159759,14 +159279,6 @@ entity
 	"solid" "0"
 	"she_building_id" "hvxaet"
 	"origin" "224 -2048 364"
-}
-entity
-{
-	"id" "9474"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hvxaet"
-	"origin" "160 -1658 10"
 }
 entity
 {
@@ -159800,14 +159312,6 @@ entity
 }
 entity
 {
-	"id" "9478"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hvxaet"
-	"origin" "-6 -1856 10"
-}
-entity
-{
 	"id" "9479"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -159833,22 +159337,6 @@ entity
 	"solid" "0"
 	"she_building_id" "hvxaet"
 	"origin" "672 -1856 778"
-}
-entity
-{
-	"id" "9482"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hvxaet"
-	"origin" "512 -2054 10"
-}
-entity
-{
-	"id" "9483"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hvxaet"
-	"origin" "896 -2054 10"
 }
 entity
 {
@@ -159900,14 +159388,6 @@ entity
 }
 entity
 {
-	"id" "9489"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hvxaet"
-	"origin" "1030 -1824 10"
-}
-entity
-{
 	"id" "9490"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -159935,22 +159415,6 @@ entity
 	"solid" "0"
 	"she_building_id" "hvxaet"
 	"origin" "789 -1649 100"
-}
-entity
-{
-	"id" "9493"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hvxaet"
-	"origin" "848 -1658 10"
-}
-entity
-{
-	"id" "9494"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hvxaet"
-	"origin" "496 -1658 10"
 }
 entity
 {
@@ -168162,14 +167626,6 @@ entity
 }
 entity
 {
-	"id" "10290"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ylgyzb"
-	"origin" "1184 -2054 10"
-}
-entity
-{
 	"id" "10291"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -168198,14 +167654,6 @@ entity
 }
 entity
 {
-	"id" "10294"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ylgyzb"
-	"origin" "1200 -1658 10"
-}
-entity
-{
 	"id" "10295"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -168223,14 +167671,6 @@ entity
 	"solid" "0"
 	"she_building_id" "ylgyzb"
 	"origin" "1248 -1664 236"
-}
-entity
-{
-	"id" "10297"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ylgyzb"
-	"origin" "1018 -1984 10"
 }
 entity
 {
@@ -168274,22 +167714,6 @@ entity
 }
 entity
 {
-	"id" "10302"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ylgyzb"
-	"origin" "1517 -2054 10"
-}
-entity
-{
-	"id" "10303"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ylgyzb"
-	"origin" "1862 -2054 10"
-}
-entity
-{
 	"id" "10304"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -168330,14 +167754,6 @@ entity
 }
 entity
 {
-	"id" "10308"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ylgyzb"
-	"origin" "2054 -1728 10"
-}
-entity
-{
 	"id" "10309"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -168355,22 +167771,6 @@ entity
 	"solid" "0"
 	"she_building_id" "ylgyzb"
 	"origin" "1813 -1649 100"
-}
-entity
-{
-	"id" "10311"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ylgyzb"
-	"origin" "1872 -1658 10"
-}
-entity
-{
-	"id" "10312"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ylgyzb"
-	"origin" "1520 -1658 10"
 }
 entity
 {
@@ -184495,30 +183895,6 @@ entity
 }
 entity
 {
-	"id" "11928"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2272 -2054 10"
-}
-entity
-{
-	"id" "11929"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2042 -1888 10"
-}
-entity
-{
-	"id" "11930"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2880 -2054 10"
-}
-entity
-{
 	"id" "11931"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -184534,14 +183910,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "yntkzm"
 	"origin" "2850 -2050 346"
-}
-entity
-{
-	"id" "11933"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2950 -1856 10"
 }
 entity
 {
@@ -184575,14 +183943,6 @@ entity
 }
 entity
 {
-	"id" "11937"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2208 -1018 10"
-}
-entity
-{
 	"id" "11938"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -184611,14 +183971,6 @@ entity
 }
 entity
 {
-	"id" "11941"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2042 -1120 10"
-}
-entity
-{
 	"id" "11942"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -184626,14 +183978,6 @@ entity
 	"solid" "0"
 	"she_building_id" "yntkzm"
 	"origin" "2006 -1216 316"
-}
-entity
-{
-	"id" "11943"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2496 -1018 10"
 }
 entity
 {
@@ -184695,14 +184039,6 @@ entity
 }
 entity
 {
-	"id" "11950"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2042 -1472 10"
-}
-entity
-{
 	"id" "11951"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -184760,14 +184096,6 @@ entity
 	"solid" "0"
 	"she_building_id" "yntkzm"
 	"origin" "2816 -1536 580"
-}
-entity
-{
-	"id" "11957"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "yntkzm"
-	"origin" "2950 -1600 10"
 }
 entity
 {
@@ -190062,30 +189390,6 @@ entity
 }
 entity
 {
-	"id" "12463"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "1504 -1670 10"
-}
-entity
-{
-	"id" "12464"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "1696 -1670 10"
-}
-entity
-{
-	"id" "12465"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "1888 -1670 10"
-}
-entity
-{
 	"id" "12466"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -190124,22 +189428,6 @@ entity
 }
 entity
 {
-	"id" "12470"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "2054 -1568 10"
-}
-entity
-{
-	"id" "12471"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "2054 -1376 10"
-}
-entity
-{
 	"id" "12472"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -190167,30 +189455,6 @@ entity
 	"solid" "0"
 	"she_building_id" "1myoc4"
 	"origin" "2055 -1431 66"
-}
-entity
-{
-	"id" "12475"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "1952 -1274 10"
-}
-entity
-{
-	"id" "12476"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "1760 -1274 10"
-}
-entity
-{
-	"id" "12477"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "1568 -1274 10"
 }
 entity
 {
@@ -190231,14 +189495,6 @@ entity
 	"solid" "0"
 	"she_building_id" "1myoc4"
 	"origin" "1393 -1504 100"
-}
-entity
-{
-	"id" "12482"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1myoc4"
-	"origin" "1402 -1504 10"
 }
 entity
 {
@@ -195625,14 +194881,6 @@ entity
 }
 entity
 {
-	"id" "13012"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nzxppb"
-	"origin" "1856 -1286 10"
-}
-entity
-{
 	"id" "13013"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -195663,14 +194911,6 @@ entity
 }
 entity
 {
-	"id" "13016"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nzxppb"
-	"origin" "2054 -1112 10"
-}
-entity
-{
 	"id" "13017"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -195698,14 +194938,6 @@ entity
 	"solid" "0"
 	"she_building_id" "nzxppb"
 	"origin" "2055 -1191 66"
-}
-entity
-{
-	"id" "13020"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nzxppb"
-	"origin" "1658 -1000 10"
 }
 entity
 {
@@ -195744,22 +194976,6 @@ entity
 	"solid" "0"
 	"she_building_id" "nzxppb"
 	"origin" "2063 -602 100"
-}
-entity
-{
-	"id" "13025"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nzxppb"
-	"origin" "2054 -659 10"
-}
-entity
-{
-	"id" "13026"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nzxppb"
-	"origin" "2054 -314 10"
 }
 entity
 {
@@ -195813,14 +195029,6 @@ entity
 }
 entity
 {
-	"id" "13032"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nzxppb"
-	"origin" "1856 -250 10"
-}
-entity
-{
 	"id" "13033"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -195866,14 +195074,6 @@ entity
 	"solid" "0"
 	"she_building_id" "nzxppb"
 	"origin" "1649 -608 100"
-}
-entity
-{
-	"id" "13038"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nzxppb"
-	"origin" "1658 -552 10"
 }
 entity
 {
@@ -205761,22 +204961,6 @@ entity
 }
 entity
 {
-	"id" "14014"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1258ng"
-	"origin" "-848 -1158 10"
-}
-entity
-{
-	"id" "14015"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1258ng"
-	"origin" "-496 -1158 10"
-}
-entity
-{
 	"id" "14016"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -205821,14 +205005,6 @@ entity
 }
 entity
 {
-	"id" "14021"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1258ng"
-	"origin" "-250 -896 10"
-}
-entity
-{
 	"id" "14022"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -205864,14 +205040,6 @@ entity
 	"texture" "decals/decalstain010a"
 	"she_building_id" "1258ng"
 	"origin" "-254 -784 582"
-}
-entity
-{
-	"id" "14026"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1258ng"
-	"origin" "-1030 -872 10"
 }
 entity
 {
@@ -205933,22 +205101,6 @@ entity
 }
 entity
 {
-	"id" "14033"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1258ng"
-	"origin" "-250 -531 10"
-}
-entity
-{
-	"id" "14034"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1258ng"
-	"origin" "-250 -186 10"
-}
-entity
-{
 	"id" "14035"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -205994,14 +205146,6 @@ entity
 	"solid" "0"
 	"she_building_id" "1258ng"
 	"origin" "-416 -113 100"
-}
-entity
-{
-	"id" "14040"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1258ng"
-	"origin" "-416 -122 10"
 }
 entity
 {
@@ -210581,22 +209725,6 @@ entity
 }
 entity
 {
-	"id" "14498"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "320 -1158 10"
-}
-entity
-{
-	"id" "14499"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "704 -1158 10"
-}
-entity
-{
 	"id" "14500"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -210624,22 +209752,6 @@ entity
 	"solid" "0"
 	"she_building_id" "5hs0x0"
 	"origin" "783 -896 100"
-}
-entity
-{
-	"id" "14503"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "774 -960 10"
-}
-entity
-{
-	"id" "14504"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "774 -576 10"
 }
 entity
 {
@@ -210699,22 +209811,6 @@ entity
 }
 entity
 {
-	"id" "14511"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "-6 -576 10"
-}
-entity
-{
-	"id" "14512"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "-6 -960 10"
-}
-entity
-{
 	"id" "14513"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -210752,22 +209848,6 @@ entity
 	"solid" "0"
 	"she_building_id" "5hs0x0"
 	"origin" "384 -256 836"
-}
-entity
-{
-	"id" "14517"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "448 -122 10"
-}
-entity
-{
-	"id" "14518"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "64 -122 10"
 }
 entity
 {
@@ -210818,14 +209898,6 @@ entity
 	"solid" "0"
 	"she_building_id" "5hs0x0"
 	"origin" "279 -121 66"
-}
-entity
-{
-	"id" "14524"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5hs0x0"
-	"origin" "-6 -320 10"
 }
 entity
 {
@@ -226536,22 +225608,6 @@ entity
 }
 entity
 {
-	"id" "16107"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2208 -1030 10"
-}
-entity
-{
-	"id" "16108"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2042 -800 10"
-}
-entity
-{
 	"id" "16109"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -226570,14 +225626,6 @@ entity
 }
 entity
 {
-	"id" "16111"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2816 -1030 10"
-}
-entity
-{
 	"id" "16112"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -226585,14 +225633,6 @@ entity
 	"solid" "0"
 	"she_building_id" "opmcq6"
 	"origin" "2752 -1066 316"
-}
-entity
-{
-	"id" "16113"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2950 -768 10"
 }
 entity
 {
@@ -226616,14 +225656,6 @@ entity
 }
 entity
 {
-	"id" "16116"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2950 -304 10"
-}
-entity
-{
 	"id" "16117"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -226641,14 +225673,6 @@ entity
 	"solid" "0"
 	"she_building_id" "opmcq6"
 	"origin" "2944 -352 364"
-}
-entity
-{
-	"id" "16119"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2672 -122 10"
 }
 entity
 {
@@ -226680,14 +225704,6 @@ entity
 }
 entity
 {
-	"id" "16123"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2272 -122 10"
-}
-entity
-{
 	"id" "16124"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -226708,14 +225724,6 @@ entity
 }
 entity
 {
-	"id" "16126"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2042 -352 10"
-}
-entity
-{
 	"id" "16127"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -226733,14 +225741,6 @@ entity
 	"solid" "0"
 	"she_building_id" "opmcq6"
 	"origin" "2048 -384 364"
-}
-entity
-{
-	"id" "16129"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2560 -1030 10"
 }
 entity
 {
@@ -226782,14 +225782,6 @@ entity
 }
 entity
 {
-	"id" "16134"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2432 -122 10"
-}
-entity
-{
 	"id" "16135"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -226807,14 +225799,6 @@ entity
 	"solid" "0"
 	"she_building_id" "opmcq6"
 	"origin" "2496 -110 424"
-}
-entity
-{
-	"id" "16137"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2042 -640 10"
 }
 entity
 {
@@ -226843,14 +225827,6 @@ entity
 	"solid" "0"
 	"she_building_id" "opmcq6"
 	"origin" "2784 -576 754"
-}
-entity
-{
-	"id" "16141"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "opmcq6"
-	"origin" "2950 -512 10"
 }
 entity
 {
@@ -242871,22 +241847,6 @@ entity
 }
 entity
 {
-	"id" "17738"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3680 -518 10"
-}
-entity
-{
-	"id" "17739"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3488 -518 10"
-}
-entity
-{
 	"id" "17740"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -242904,22 +241864,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kzuq45"
 	"origin" "-3520 -554 316"
-}
-entity
-{
-	"id" "17742"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3846 -224 10"
-}
-entity
-{
-	"id" "17743"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3846 -416 10"
 }
 entity
 {
@@ -242953,22 +241897,6 @@ entity
 }
 entity
 {
-	"id" "17747"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3104 -518 10"
-}
-entity
-{
-	"id" "17748"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-2912 -518 10"
-}
-entity
-{
 	"id" "17749"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -242996,22 +241924,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kzuq45"
 	"origin" "-2880 -512 364"
-}
-entity
-{
-	"id" "17752"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-2810 -416 10"
-}
-entity
-{
-	"id" "17753"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-2810 -224 10"
 }
 entity
 {
@@ -243063,14 +241975,6 @@ entity
 }
 entity
 {
-	"id" "17759"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-2810 320 10"
-}
-entity
-{
 	"id" "17760"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -243089,14 +241993,6 @@ entity
 }
 entity
 {
-	"id" "17762"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3136 518 10"
-}
-entity
-{
 	"id" "17763"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -243104,14 +242000,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kzuq45"
 	"origin" "-3072 554 316"
-}
-entity
-{
-	"id" "17764"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3648 518 10"
 }
 entity
 {
@@ -243130,14 +242018,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "kzuq45"
 	"origin" "-3556 514 346"
-}
-entity
-{
-	"id" "17767"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3846 192 10"
 }
 entity
 {
@@ -243179,14 +242059,6 @@ entity
 }
 entity
 {
-	"id" "17772"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3360 -518 10"
-}
-entity
-{
 	"id" "17773"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -243204,14 +242076,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kzuq45"
 	"origin" "-3264 -554 316"
-}
-entity
-{
-	"id" "17775"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-3846 -64 10"
 }
 entity
 {
@@ -243250,14 +242114,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kzuq45"
 	"origin" "-3008 0 727"
-}
-entity
-{
-	"id" "17780"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kzuq45"
-	"origin" "-2810 64 10"
 }
 entity
 {
@@ -259580,14 +258436,6 @@ entity
 }
 entity
 {
-	"id" "19398"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-2624 -518 10"
-}
-entity
-{
 	"id" "19399"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -259625,14 +258473,6 @@ entity
 	"solid" "0"
 	"she_building_id" "w3blnq"
 	"origin" "-2560 -519 66"
-}
-entity
-{
-	"id" "19403"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-2822 -320 10"
 }
 entity
 {
@@ -259686,14 +258526,6 @@ entity
 }
 entity
 {
-	"id" "19409"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-2080 -518 10"
-}
-entity
-{
 	"id" "19410"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -259714,14 +258546,6 @@ entity
 }
 entity
 {
-	"id" "19412"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-1786 -288 10"
-}
-entity
-{
 	"id" "19413"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/antenna04a.mdl"
@@ -259729,14 +258553,6 @@ entity
 	"solid" "0"
 	"she_building_id" "w3blnq"
 	"origin" "-1984 320 799"
-}
-entity
-{
-	"id" "19414"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-1786 320 10"
 }
 entity
 {
@@ -259757,14 +258573,6 @@ entity
 	"solid" "0"
 	"she_building_id" "w3blnq"
 	"origin" "-1750 400 316"
-}
-entity
-{
-	"id" "19417"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-1984 518 10"
 }
 entity
 {
@@ -259806,14 +258614,6 @@ entity
 }
 entity
 {
-	"id" "19422"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-2624 518 10"
-}
-entity
-{
 	"id" "19423"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -259831,14 +258631,6 @@ entity
 	"solid" "0"
 	"she_building_id" "w3blnq"
 	"origin" "-2704 554 316"
-}
-entity
-{
-	"id" "19425"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-2822 320 10"
 }
 entity
 {
@@ -259890,14 +258682,6 @@ entity
 }
 entity
 {
-	"id" "19431"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-2240 -518 10"
-}
-entity
-{
 	"id" "19432"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -259946,14 +258730,6 @@ entity
 }
 entity
 {
-	"id" "19437"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-2368 518 10"
-}
-entity
-{
 	"id" "19438"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -259961,14 +258737,6 @@ entity
 	"solid" "0"
 	"she_building_id" "w3blnq"
 	"origin" "-2304 554 316"
-}
-entity
-{
-	"id" "19439"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "w3blnq"
-	"origin" "-2822 -64 10"
 }
 entity
 {
@@ -269372,14 +268140,6 @@ entity
 }
 entity
 {
-	"id" "20409"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "heg0d1"
-	"origin" "-1018 -224 10"
-}
-entity
-{
 	"id" "20410"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -269407,14 +268167,6 @@ entity
 	"solid" "0"
 	"she_building_id" "heg0d1"
 	"origin" "-1536 -192 882"
-}
-entity
-{
-	"id" "20413"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "heg0d1"
-	"origin" "-1798 -256 10"
 }
 entity
 {
@@ -269468,14 +268220,6 @@ entity
 }
 entity
 {
-	"id" "20419"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "heg0d1"
-	"origin" "-1798 216 10"
-}
-entity
-{
 	"id" "20420"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -269503,14 +268247,6 @@ entity
 	"solid" "0"
 	"she_building_id" "heg0d1"
 	"origin" "-1799 48 66"
-}
-entity
-{
-	"id" "20423"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "heg0d1"
-	"origin" "-1018 80 10"
 }
 entity
 {
@@ -274242,14 +272978,6 @@ entity
 }
 entity
 {
-	"id" "20893"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "t27wv2"
-	"origin" "-64 -518 10"
-}
-entity
-{
 	"id" "20894"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -274275,14 +273003,6 @@ entity
 	"texture" "decals/decalstain002a"
 	"she_building_id" "t27wv2"
 	"origin" "-158 -514 314"
-}
-entity
-{
-	"id" "20897"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "t27wv2"
-	"origin" "6 -352 10"
 }
 entity
 {
@@ -274334,14 +273054,6 @@ entity
 }
 entity
 {
-	"id" "20903"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "t27wv2"
-	"origin" "-262 -352 10"
-}
-entity
-{
 	"id" "20904"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -274382,22 +273094,6 @@ entity
 }
 entity
 {
-	"id" "20908"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "t27wv2"
-	"origin" "6 -19 10"
-}
-entity
-{
-	"id" "20909"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "t27wv2"
-	"origin" "6 326 10"
-}
-entity
-{
 	"id" "20910"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -274431,22 +273127,6 @@ entity
 	"texture" "decals/decalstain010a"
 	"she_building_id" "t27wv2"
 	"origin" "2 -64 582"
-}
-entity
-{
-	"id" "20914"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "t27wv2"
-	"origin" "-262 336 10"
-}
-entity
-{
-	"id" "20915"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "t27wv2"
-	"origin" "-262 -16 10"
 }
 entity
 {
@@ -276886,14 +275566,6 @@ entity
 }
 entity
 {
-	"id" "21156"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1gy7si"
-	"origin" "1856 -262 10"
-}
-entity
-{
 	"id" "21157"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -276919,14 +275591,6 @@ entity
 	"texture" "decals/decalstain008a"
 	"she_building_id" "1gy7si"
 	"origin" "1832 -258 342"
-}
-entity
-{
-	"id" "21160"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "1gy7si"
-	"origin" "1856 -122 10"
 }
 entity
 {
@@ -285569,30 +284233,6 @@ entity
 }
 entity
 {
-	"id" "21998"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-800 -134 10"
-}
-entity
-{
-	"id" "21999"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-608 -134 10"
-}
-entity
-{
-	"id" "22000"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-416 -134 10"
-}
-entity
-{
 	"id" "22001"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -285669,38 +284309,6 @@ entity
 }
 entity
 {
-	"id" "22009"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-250 -32 10"
-}
-entity
-{
-	"id" "22010"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-250 160 10"
-}
-entity
-{
-	"id" "22011"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-250 352 10"
-}
-entity
-{
-	"id" "22012"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-250 544 10"
-}
-entity
-{
 	"id" "22013"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -285726,30 +284334,6 @@ entity
 	"texture" "decals/decalstain010a"
 	"she_building_id" "rl8d26"
 	"origin" "-254 -42 454"
-}
-entity
-{
-	"id" "22016"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-1030 480 10"
-}
-entity
-{
-	"id" "22017"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-1030 288 10"
-}
-entity
-{
-	"id" "22018"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-1030 96 10"
 }
 entity
 {
@@ -285808,22 +284392,6 @@ entity
 	"texture" "decals/decalstain008a"
 	"she_building_id" "rl8d26"
 	"origin" "-1026 76 362"
-}
-entity
-{
-	"id" "22025"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-250 672 10"
-}
-entity
-{
-	"id" "22026"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-250 864 10"
 }
 entity
 {
@@ -285887,30 +284455,6 @@ entity
 }
 entity
 {
-	"id" "22033"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-352 902 10"
-}
-entity
-{
-	"id" "22034"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-544 902 10"
-}
-entity
-{
-	"id" "22035"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-736 902 10"
-}
-entity
-{
 	"id" "22036"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -285928,14 +284472,6 @@ entity
 	"solid" "0"
 	"she_building_id" "rl8d26"
 	"origin" "-576 938 316"
-}
-entity
-{
-	"id" "22038"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "rl8d26"
-	"origin" "-1030 608 10"
 }
 entity
 {
@@ -291169,22 +289705,6 @@ entity
 }
 entity
 {
-	"id" "22552"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "134 45 10"
-}
-entity
-{
-	"id" "22553"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "134 390 10"
-}
-entity
-{
 	"id" "22554"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -291232,22 +289752,6 @@ entity
 	"solid" "0"
 	"she_building_id" "jehnjn"
 	"origin" "135 187 66"
-}
-entity
-{
-	"id" "22559"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "-6 275 10"
-}
-entity
-{
-	"id" "22560"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "-6 -70 10"
 }
 entity
 {
@@ -291327,22 +289831,6 @@ entity
 }
 entity
 {
-	"id" "22569"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "134 544 10"
-}
-entity
-{
-	"id" "22570"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "134 736 10"
-}
-entity
-{
 	"id" "22571"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -291360,30 +289848,6 @@ entity
 	"solid" "0"
 	"she_building_id" "jehnjn"
 	"origin" "170 768 316"
-}
-entity
-{
-	"id" "22573"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "32 902 10"
-}
-entity
-{
-	"id" "22574"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "-6 800 10"
-}
-entity
-{
-	"id" "22575"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "jehnjn"
-	"origin" "-6 608 10"
 }
 entity
 {
@@ -303922,22 +302386,6 @@ entity
 }
 entity
 {
-	"id" "23869"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-3680 506 10"
-}
-entity
-{
-	"id" "23870"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-3846 672 10"
-}
-entity
-{
 	"id" "23871"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -303986,22 +302434,6 @@ entity
 }
 entity
 {
-	"id" "23876"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-2810 1376 10"
-}
-entity
-{
-	"id" "23877"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-3040 1542 10"
-}
-entity
-{
 	"id" "23878"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/roof_vent004.mdl"
@@ -304009,30 +302441,6 @@ entity
 	"solid" "6"
 	"she_building_id" "x2w34j"
 	"origin" "-2985 1394 640"
-}
-entity
-{
-	"id" "23879"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-3680 1542 10"
-}
-entity
-{
-	"id" "23880"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-3846 1312 10"
-}
-entity
-{
-	"id" "23881"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-3392 506 10"
 }
 entity
 {
@@ -304086,14 +302494,6 @@ entity
 }
 entity
 {
-	"id" "23887"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-3264 1542 10"
-}
-entity
-{
 	"id" "23888"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -304131,14 +302531,6 @@ entity
 	"solid" "0"
 	"she_building_id" "x2w34j"
 	"origin" "-2801 960 100"
-}
-entity
-{
-	"id" "23892"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "x2w34j"
-	"origin" "-2810 960 10"
 }
 entity
 {
@@ -320838,14 +319230,6 @@ entity
 }
 entity
 {
-	"id" "25579"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-1952 506 10"
-}
-entity
-{
 	"id" "25580"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -320863,14 +319247,6 @@ entity
 	"solid" "0"
 	"she_building_id" "o37a4w"
 	"origin" "-1883 470 316"
-}
-entity
-{
-	"id" "25582"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-1786 672 10"
 }
 entity
 {
@@ -320922,14 +319298,6 @@ entity
 }
 entity
 {
-	"id" "25588"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-2688 1542 10"
-}
-entity
-{
 	"id" "25589"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -320950,14 +319318,6 @@ entity
 }
 entity
 {
-	"id" "25591"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-2822 1280 10"
-}
-entity
-{
 	"id" "25592"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -320975,22 +319335,6 @@ entity
 	"solid" "0"
 	"she_building_id" "o37a4w"
 	"origin" "-2834 1344 552"
-}
-entity
-{
-	"id" "25594"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-2400 506 10"
-}
-entity
-{
-	"id" "25595"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-2208 506 10"
 }
 entity
 {
@@ -321021,22 +319365,6 @@ entity
 	"solid" "6"
 	"she_building_id" "o37a4w"
 	"origin" "-2436 769 640"
-}
-entity
-{
-	"id" "25599"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-2208 1542 10"
-}
-entity
-{
-	"id" "25600"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-2400 1542 10"
 }
 entity
 {
@@ -321085,22 +319413,6 @@ entity
 	"solid" "0"
 	"she_building_id" "o37a4w"
 	"origin" "-2831 1088 100"
-}
-entity
-{
-	"id" "25606"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-2822 1120 10"
-}
-entity
-{
-	"id" "25607"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "o37a4w"
-	"origin" "-2822 928 10"
 }
 entity
 {
@@ -328966,30 +327278,6 @@ entity
 }
 entity
 {
-	"id" "26396"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1696 506 10"
-}
-entity
-{
-	"id" "26397"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1504 506 10"
-}
-entity
-{
-	"id" "26398"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1312 506 10"
-}
-entity
-{
 	"id" "26399"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -329018,14 +327306,6 @@ entity
 }
 entity
 {
-	"id" "26402"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1018 736 10"
-}
-entity
-{
 	"id" "26403"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -329043,22 +327323,6 @@ entity
 	"solid" "0"
 	"she_building_id" "mtr4lg"
 	"origin" "-982 832 316"
-}
-entity
-{
-	"id" "26405"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1798 800 10"
-}
-entity
-{
-	"id" "26406"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1798 608 10"
 }
 entity
 {
@@ -329090,14 +327354,6 @@ entity
 }
 entity
 {
-	"id" "26410"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1616 1542 10"
-}
-entity
-{
 	"id" "26411"
 	"classname" "prop_static"
 	"model" "models/props_c17/awning002a.mdl"
@@ -329105,14 +327361,6 @@ entity
 	"solid" "0"
 	"she_building_id" "mtr4lg"
 	"origin" "-1807 1216 100"
-}
-entity
-{
-	"id" "26412"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1798 1216 10"
 }
 entity
 {
@@ -329162,14 +327410,6 @@ entity
 }
 entity
 {
-	"id" "26418"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1018 1472 10"
-}
-entity
-{
 	"id" "26419"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -329177,14 +327417,6 @@ entity
 	"solid" "0"
 	"she_building_id" "mtr4lg"
 	"origin" "-982 1408 316"
-}
-entity
-{
-	"id" "26420"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "mtr4lg"
-	"origin" "-1192 1542 10"
 }
 entity
 {
@@ -332227,14 +330459,6 @@ entity
 }
 entity
 {
-	"id" "26719"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "scepb6"
-	"origin" "-64 506 10"
-}
-entity
-{
 	"id" "26720"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -332242,22 +330466,6 @@ entity
 	"solid" "0"
 	"she_building_id" "scepb6"
 	"origin" "-128 470 316"
-}
-entity
-{
-	"id" "26721"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "scepb6"
-	"origin" "6 704 10"
-}
-entity
-{
-	"id" "26722"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "scepb6"
-	"origin" "6 1088 10"
 }
 entity
 {
@@ -332307,14 +330515,6 @@ entity
 }
 entity
 {
-	"id" "26728"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "scepb6"
-	"origin" "-144 1158 10"
-}
-entity
-{
 	"id" "26729"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/satellitedish02.mdl"
@@ -332322,22 +330522,6 @@ entity
 	"solid" "0"
 	"she_building_id" "scepb6"
 	"origin" "-96 1170 296"
-}
-entity
-{
-	"id" "26730"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "scepb6"
-	"origin" "-262 915 10"
-}
-entity
-{
-	"id" "26731"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "scepb6"
-	"origin" "-262 570 10"
 }
 entity
 {
@@ -336255,22 +334439,6 @@ entity
 }
 entity
 {
-	"id" "27109"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5yyngd"
-	"origin" "-832 890 10"
-}
-entity
-{
-	"id" "27110"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5yyngd"
-	"origin" "-448 890 10"
-}
-entity
-{
 	"id" "27111"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -336321,14 +334489,6 @@ entity
 }
 entity
 {
-	"id" "27116"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5yyngd"
-	"origin" "-250 1088 10"
-}
-entity
-{
 	"id" "27117"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -336364,22 +334524,6 @@ entity
 	"texture" "decals/decalstain001a"
 	"she_building_id" "5yyngd"
 	"origin" "-254 1003 550"
-}
-entity
-{
-	"id" "27121"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5yyngd"
-	"origin" "-448 1158 10"
-}
-entity
-{
-	"id" "27122"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5yyngd"
-	"origin" "-832 1158 10"
 }
 entity
 {
@@ -336428,14 +334572,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "5yyngd"
 	"origin" "-921 1154 346"
-}
-entity
-{
-	"id" "27128"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5yyngd"
-	"origin" "-1030 960 10"
 }
 entity
 {
@@ -338243,22 +336379,6 @@ entity
 }
 entity
 {
-	"id" "27311"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "8p8deg"
-	"origin" "96 890 10"
-}
-entity
-{
-	"id" "27312"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "8p8deg"
-	"origin" "134 992 10"
-}
-entity
-{
 	"id" "27313"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -338284,22 +336404,6 @@ entity
 	"texture" "decals/decalstain008a"
 	"she_building_id" "8p8deg"
 	"origin" "130 1045 104"
-}
-entity
-{
-	"id" "27316"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "8p8deg"
-	"origin" "32 1158 10"
-}
-entity
-{
-	"id" "27317"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "8p8deg"
-	"origin" "-6 1056 10"
 }
 entity
 {
@@ -341401,22 +339505,6 @@ entity
 }
 entity
 {
-	"id" "27635"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hkx2le"
-	"origin" "-890 1344 10"
-}
-entity
-{
-	"id" "27636"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hkx2le"
-	"origin" "-890 1728 10"
-}
-entity
-{
 	"id" "27637"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -341477,22 +339565,6 @@ entity
 }
 entity
 {
-	"id" "27643"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hkx2le"
-	"origin" "-1030 1600 10"
-}
-entity
-{
-	"id" "27644"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hkx2le"
-	"origin" "-1030 1216 10"
-}
-entity
-{
 	"id" "27645"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -341510,14 +339582,6 @@ entity
 	"solid" "0"
 	"she_building_id" "hkx2le"
 	"origin" "-1066 1264 316"
-}
-entity
-{
-	"id" "27647"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hkx2le"
-	"origin" "-890 1984 10"
 }
 entity
 {
@@ -341556,14 +339620,6 @@ entity
 	"texture" "decals/decalstain008a"
 	"she_building_id" "hkx2le"
 	"origin" "-894 1833 104"
-}
-entity
-{
-	"id" "27652"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "hkx2le"
-	"origin" "-1030 1984 10"
 }
 entity
 {
@@ -349687,14 +347743,6 @@ entity
 }
 entity
 {
-	"id" "28436"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "y5cyxx"
-	"origin" "3648 1146 10"
-}
-entity
-{
 	"id" "28437"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -349720,14 +347768,6 @@ entity
 	"texture" "decals/decalstain008a"
 	"she_building_id" "y5cyxx"
 	"origin" "3513 1150 490"
-}
-entity
-{
-	"id" "28440"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "y5cyxx"
-	"origin" "3846 1472 10"
 }
 entity
 {
@@ -349781,14 +347821,6 @@ entity
 }
 entity
 {
-	"id" "28446"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "y5cyxx"
-	"origin" "3450 1472 10"
-}
-entity
-{
 	"id" "28447"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -349834,14 +347866,6 @@ entity
 	"solid" "0"
 	"she_building_id" "y5cyxx"
 	"origin" "3855 1920 100"
-}
-entity
-{
-	"id" "28452"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "y5cyxx"
-	"origin" "3846 1856 10"
 }
 entity
 {
@@ -349891,14 +347915,6 @@ entity
 }
 entity
 {
-	"id" "28458"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "y5cyxx"
-	"origin" "3680 2182 10"
-}
-entity
-{
 	"id" "28459"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -349926,14 +347942,6 @@ entity
 	"solid" "0"
 	"she_building_id" "y5cyxx"
 	"origin" "3441 1888 100"
-}
-entity
-{
-	"id" "28462"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "y5cyxx"
-	"origin" "3450 1944 10"
 }
 entity
 {
@@ -365009,14 +363017,6 @@ entity
 }
 entity
 {
-	"id" "30016"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-3648 1530 10"
-}
-entity
-{
 	"id" "30017"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -365027,14 +363027,6 @@ entity
 }
 entity
 {
-	"id" "30018"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-3846 1600 10"
-}
-entity
-{
 	"id" "30019"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -365042,14 +363034,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kn2zcm"
 	"origin" "-3882 1664 316"
-}
-entity
-{
-	"id" "30020"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-2880 1530 10"
 }
 entity
 {
@@ -365070,14 +363054,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kn2zcm"
 	"origin" "-2944 1518 424"
-}
-entity
-{
-	"id" "30023"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-2810 1728 10"
 }
 entity
 {
@@ -365111,14 +363087,6 @@ entity
 }
 entity
 {
-	"id" "30027"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-2810 2400 10"
-}
-entity
-{
 	"id" "30028"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -365144,14 +363112,6 @@ entity
 	"texture" "decals/decalstain010a"
 	"she_building_id" "kn2zcm"
 	"origin" "-2814 2442 454"
-}
-entity
-{
-	"id" "30031"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-2912 2566 10"
 }
 entity
 {
@@ -365185,14 +363145,6 @@ entity
 }
 entity
 {
-	"id" "30035"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-3392 1530 10"
-}
-entity
-{
 	"id" "30036"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -365220,14 +363172,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kn2zcm"
 	"origin" "-3328 2432 882"
-}
-entity
-{
-	"id" "30039"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-3264 2566 10"
 }
 entity
 {
@@ -365269,14 +363213,6 @@ entity
 }
 entity
 {
-	"id" "30044"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-3846 2112 10"
-}
-entity
-{
 	"id" "30045"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -365314,14 +363250,6 @@ entity
 	"solid" "0"
 	"she_building_id" "kn2zcm"
 	"origin" "-2801 1984 100"
-}
-entity
-{
-	"id" "30049"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "kn2zcm"
-	"origin" "-2810 1984 10"
 }
 entity
 {
@@ -380428,14 +378356,6 @@ entity
 }
 entity
 {
-	"id" "31573"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-2720 1530 10"
-}
-entity
-{
 	"id" "31574"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -380464,14 +378384,6 @@ entity
 }
 entity
 {
-	"id" "31577"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-2822 1696 10"
-}
-entity
-{
 	"id" "31578"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -380487,30 +378399,6 @@ entity
 	"texture" "decals/decalstain008a"
 	"she_building_id" "etmbqv"
 	"origin" "-2818 1575 362"
-}
-entity
-{
-	"id" "31580"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-1952 1530 10"
-}
-entity
-{
-	"id" "31581"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-1786 1760 10"
-}
-entity
-{
-	"id" "31582"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-1786 2496 10"
 }
 entity
 {
@@ -380541,14 +378429,6 @@ entity
 	"solid" "0"
 	"she_building_id" "etmbqv"
 	"origin" "-1785 2409 66"
-}
-entity
-{
-	"id" "31586"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-1984 2566 10"
 }
 entity
 {
@@ -380590,14 +378470,6 @@ entity
 }
 entity
 {
-	"id" "31591"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-2704 2566 10"
-}
-entity
-{
 	"id" "31592"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/satellitedish02.mdl"
@@ -380605,14 +378477,6 @@ entity
 	"solid" "0"
 	"she_building_id" "etmbqv"
 	"origin" "-2656 2578 296"
-}
-entity
-{
-	"id" "31593"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-2822 2352 10"
 }
 entity
 {
@@ -380646,14 +378510,6 @@ entity
 }
 entity
 {
-	"id" "31597"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-2368 1530 10"
-}
-entity
-{
 	"id" "31598"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -380684,14 +378540,6 @@ entity
 }
 entity
 {
-	"id" "31601"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-2240 2566 10"
-}
-entity
-{
 	"id" "31602"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -380719,14 +378567,6 @@ entity
 	"solid" "0"
 	"she_building_id" "etmbqv"
 	"origin" "-2409 2567 66"
-}
-entity
-{
-	"id" "31605"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "etmbqv"
-	"origin" "-1786 1984 10"
 }
 entity
 {
@@ -394041,22 +391881,6 @@ entity
 }
 entity
 {
-	"id" "32878"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1427 1530 10"
-}
-entity
-{
-	"id" "32879"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1082 1530 10"
-}
-entity
-{
 	"id" "32880"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -394084,22 +391908,6 @@ entity
 	"solid" "0"
 	"she_building_id" "ekf5iy"
 	"origin" "-1393 1529 66"
-}
-entity
-{
-	"id" "32883"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1018 1728 10"
-}
-entity
-{
-	"id" "32884"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1018 2112 10"
 }
 entity
 {
@@ -394189,22 +391997,6 @@ entity
 }
 entity
 {
-	"id" "32894"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1798 2131 10"
-}
-entity
-{
-	"id" "32895"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1798 1786 10"
-}
-entity
-{
 	"id" "32896"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -394253,14 +392045,6 @@ entity
 }
 entity
 {
-	"id" "32901"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1018 2400 10"
-}
-entity
-{
 	"id" "32902"
 	"classname" "prop_static"
 	"model" "models/props_c17/awning002a.mdl"
@@ -394301,30 +392085,6 @@ entity
 }
 entity
 {
-	"id" "32906"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1120 2566 10"
-}
-entity
-{
-	"id" "32907"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1312 2566 10"
-}
-entity
-{
-	"id" "32908"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1504 2566 10"
-}
-entity
-{
 	"id" "32909"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -394358,14 +392118,6 @@ entity
 	"texture" "decals/decalstain010a"
 	"she_building_id" "ekf5iy"
 	"origin" "-1476 2562 582"
-}
-entity
-{
-	"id" "32913"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "ekf5iy"
-	"origin" "-1798 2336 10"
 }
 entity
 {
@@ -397502,30 +395254,6 @@ entity
 }
 entity
 {
-	"id" "33234"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-928 2170 10"
-}
-entity
-{
-	"id" "33235"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-890 2272 10"
-}
-entity
-{
-	"id" "33236"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-890 2464 10"
-}
-entity
-{
 	"id" "33237"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -397561,22 +395289,6 @@ entity
 	"solid" "0"
 	"she_building_id" "k6pyht"
 	"origin" "-1039 2368 100"
-}
-entity
-{
-	"id" "33241"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-1030 2400 10"
-}
-entity
-{
-	"id" "33242"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-1030 2208 10"
 }
 entity
 {
@@ -397618,22 +395330,6 @@ entity
 }
 entity
 {
-	"id" "33247"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-890 2669 10"
-}
-entity
-{
-	"id" "33248"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-890 3014 10"
-}
-entity
-{
 	"id" "33249"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -397659,22 +395355,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "k6pyht"
 	"origin" "-894 2978 88"
-}
-entity
-{
-	"id" "33252"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-1030 2899 10"
-}
-entity
-{
-	"id" "33253"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "k6pyht"
-	"origin" "-1030 2554 10"
 }
 entity
 {
@@ -404244,14 +401924,6 @@ entity
 }
 entity
 {
-	"id" "33898"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "4xjey1"
-	"origin" "3648 2170 10"
-}
-entity
-{
 	"id" "33899"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -404280,14 +401952,6 @@ entity
 }
 entity
 {
-	"id" "33902"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "4xjey1"
-	"origin" "3846 2448 10"
-}
-entity
-{
 	"id" "33903"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -404305,14 +401969,6 @@ entity
 	"solid" "0"
 	"she_building_id" "4xjey1"
 	"origin" "3840 2400 364"
-}
-entity
-{
-	"id" "33905"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "4xjey1"
-	"origin" "3450 2336 10"
 }
 entity
 {
@@ -404363,22 +402019,6 @@ entity
 	"solid" "0"
 	"she_building_id" "4xjey1"
 	"origin" "3855 2899 100"
-}
-entity
-{
-	"id" "33911"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "4xjey1"
-	"origin" "3846 2669 10"
-}
-entity
-{
-	"id" "33912"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "4xjey1"
-	"origin" "3846 3014 10"
 }
 entity
 {
@@ -404438,14 +402078,6 @@ entity
 }
 entity
 {
-	"id" "33919"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "4xjey1"
-	"origin" "3680 3078 10"
-}
-entity
-{
 	"id" "33920"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -404471,14 +402103,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "4xjey1"
 	"origin" "3771 3074 454"
-}
-entity
-{
-	"id" "33923"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "4xjey1"
-	"origin" "3450 2816 10"
 }
 entity
 {
@@ -411532,22 +409156,6 @@ entity
 }
 entity
 {
-	"id" "34641"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "pp7ua3"
-	"origin" "-3360 3078 10"
-}
-entity
-{
-	"id" "34642"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "pp7ua3"
-	"origin" "-3552 3078 10"
-}
-entity
-{
 	"id" "34643"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -411586,14 +409194,6 @@ entity
 }
 entity
 {
-	"id" "34647"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "pp7ua3"
-	"origin" "-3846 2848 10"
-}
-entity
-{
 	"id" "34648"
 	"classname" "infodecal"
 	"texture" "decals/decalstain008a"
@@ -411609,14 +409209,6 @@ entity
 	"solid" "0"
 	"she_building_id" "pp7ua3"
 	"origin" "-3744 2545 100"
-}
-entity
-{
-	"id" "34650"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "pp7ua3"
-	"origin" "-3744 2554 10"
 }
 entity
 {
@@ -411645,14 +409237,6 @@ entity
 	"texture" "decals/decalstain008a"
 	"she_building_id" "pp7ua3"
 	"origin" "-3621 2558 362"
-}
-entity
-{
-	"id" "34654"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "pp7ua3"
-	"origin" "-3846 2656 10"
 }
 entity
 {
@@ -411704,14 +409288,6 @@ entity
 }
 entity
 {
-	"id" "34660"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "pp7ua3"
-	"origin" "-2810 2896 10"
-}
-entity
-{
 	"id" "34661"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -411729,14 +409305,6 @@ entity
 	"solid" "0"
 	"she_building_id" "pp7ua3"
 	"origin" "-2816 2848 364"
-}
-entity
-{
-	"id" "34663"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "pp7ua3"
-	"origin" "-3104 3078 10"
 }
 entity
 {
@@ -411767,14 +409335,6 @@ entity
 	"solid" "0"
 	"she_building_id" "pp7ua3"
 	"origin" "-3157 3079 66"
-}
-entity
-{
-	"id" "34667"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "pp7ua3"
-	"origin" "-3072 2554 10"
 }
 entity
 {
@@ -418850,14 +416410,6 @@ entity
 }
 entity
 {
-	"id" "35383"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "b17s0x"
-	"origin" "-2624 2554 10"
-}
-entity
-{
 	"id" "35384"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -418883,14 +416435,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "b17s0x"
 	"origin" "-2409 2558 582"
-}
-entity
-{
-	"id" "35387"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "b17s0x"
-	"origin" "-2496 3078 10"
 }
 entity
 {
@@ -418932,14 +416476,6 @@ entity
 }
 entity
 {
-	"id" "35392"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "b17s0x"
-	"origin" "-2822 2624 10"
-}
-entity
-{
 	"id" "35393"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -418968,14 +416504,6 @@ entity
 }
 entity
 {
-	"id" "35396"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "b17s0x"
-	"origin" "-2112 3078 10"
-}
-entity
-{
 	"id" "35397"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -418993,14 +416521,6 @@ entity
 	"solid" "0"
 	"she_building_id" "b17s0x"
 	"origin" "-2176 3114 316"
-}
-entity
-{
-	"id" "35399"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "b17s0x"
-	"origin" "-2112 2554 10"
 }
 entity
 {
@@ -422116,14 +419636,6 @@ entity
 }
 entity
 {
-	"id" "35724"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "g0ippp"
-	"origin" "-1018 2896 10"
-}
-entity
-{
 	"id" "35725"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -422141,22 +419653,6 @@ entity
 	"solid" "0"
 	"she_building_id" "g0ippp"
 	"origin" "-1024 2848 236"
-}
-entity
-{
-	"id" "35727"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "g0ippp"
-	"origin" "-1344 3078 10"
-}
-entity
-{
-	"id" "35728"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "g0ippp"
-	"origin" "-1728 3078 10"
 }
 entity
 {
@@ -422226,14 +419722,6 @@ entity
 }
 entity
 {
-	"id" "35736"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "g0ippp"
-	"origin" "-1798 2912 10"
-}
-entity
-{
 	"id" "35737"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -422269,14 +419757,6 @@ entity
 	"texture" "decals/wallstain01a"
 	"she_building_id" "g0ippp"
 	"origin" "-1794 2952 314"
-}
-entity
-{
-	"id" "35741"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "g0ippp"
-	"origin" "-1798 2608 10"
 }
 entity
 {
@@ -426606,22 +424086,6 @@ entity
 }
 entity
 {
-	"id" "36188"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nnkbqd"
-	"origin" "-320 3078 10"
-}
-entity
-{
-	"id" "36189"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nnkbqd"
-	"origin" "-704 3078 10"
-}
-entity
-{
 	"id" "36190"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -426659,14 +424123,6 @@ entity
 	"solid" "0"
 	"she_building_id" "nnkbqd"
 	"origin" "-768 3079 66"
-}
-entity
-{
-	"id" "36194"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nnkbqd"
-	"origin" "-902 2912 10"
 }
 entity
 {
@@ -426718,14 +424174,6 @@ entity
 }
 entity
 {
-	"id" "36200"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nnkbqd"
-	"origin" "64 2554 10"
-}
-entity
-{
 	"id" "36201"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -426756,14 +424204,6 @@ entity
 }
 entity
 {
-	"id" "36204"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nnkbqd"
-	"origin" "134 2752 10"
-}
-entity
-{
 	"id" "36205"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -426781,14 +424221,6 @@ entity
 	"solid" "0"
 	"she_building_id" "nnkbqd"
 	"origin" "170 2960 316"
-}
-entity
-{
-	"id" "36207"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "nnkbqd"
-	"origin" "-64 3078 10"
 }
 entity
 {
@@ -429178,14 +426610,6 @@ entity
 }
 entity
 {
-	"id" "36455"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "dejmjs"
-	"origin" "518 3008 10"
-}
-entity
-{
 	"id" "36456"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -429211,14 +426635,6 @@ entity
 	"solid" "0"
 	"she_building_id" "dejmjs"
 	"origin" "320 3087 100"
-}
-entity
-{
-	"id" "36459"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "dejmjs"
-	"origin" "320 3078 10"
 }
 entity
 {
@@ -429257,14 +426673,6 @@ entity
 	"texture" "decals/decalstain005a"
 	"she_building_id" "dejmjs"
 	"origin" "426 3074 474"
-}
-entity
-{
-	"id" "36464"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "dejmjs"
-	"origin" "122 2880 10"
 }
 entity
 {
@@ -434022,14 +431430,6 @@ entity
 }
 entity
 {
-	"id" "36999"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l82nxi"
-	"origin" "2336 2554 10"
-}
-entity
-{
 	"id" "37000"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -434068,14 +431468,6 @@ entity
 }
 entity
 {
-	"id" "37004"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l82nxi"
-	"origin" "2170 2624 10"
-}
-entity
-{
 	"id" "37005"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -434086,14 +431478,6 @@ entity
 }
 entity
 {
-	"id" "37006"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l82nxi"
-	"origin" "2170 2880 10"
-}
-entity
-{
 	"id" "37007"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -434101,22 +431485,6 @@ entity
 	"solid" "0"
 	"she_building_id" "l82nxi"
 	"origin" "2134 2944 316"
-}
-entity
-{
-	"id" "37008"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l82nxi"
-	"origin" "2672 2554 10"
-}
-entity
-{
-	"id" "37009"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l82nxi"
-	"origin" "3024 2554 10"
 }
 entity
 {
@@ -434170,14 +431538,6 @@ entity
 }
 entity
 {
-	"id" "37015"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l82nxi"
-	"origin" "3206 2752 10"
-}
-entity
-{
 	"id" "37016"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -434206,14 +431566,6 @@ entity
 }
 entity
 {
-	"id" "37019"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l82nxi"
-	"origin" "3206 3008 10"
-}
-entity
-{
 	"id" "37020"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -434231,14 +431583,6 @@ entity
 	"solid" "0"
 	"she_building_id" "l82nxi"
 	"origin" "3207 2944 66"
-}
-entity
-{
-	"id" "37022"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "l82nxi"
-	"origin" "3056 3078 10"
 }
 entity
 {
@@ -436905,14 +434249,6 @@ entity
 }
 entity
 {
-	"id" "37286"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5p8psq"
-	"origin" "3392 2554 10"
-}
-entity
-{
 	"id" "37287"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -436943,14 +434279,6 @@ entity
 }
 entity
 {
-	"id" "37290"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5p8psq"
-	"origin" "3462 2752 10"
-}
-entity
-{
 	"id" "37291"
 	"classname" "prop_static"
 	"model" "models/props_c17/utilitypolemount01a.mdl"
@@ -436976,14 +434304,6 @@ entity
 	"texture" "decals/decalstain002a"
 	"she_building_id" "5p8psq"
 	"origin" "3458 2847 550"
-}
-entity
-{
-	"id" "37294"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"she_building_id" "5p8psq"
-	"origin" "3194 2880 10"
 }
 entity
 {

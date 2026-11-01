@@ -162857,33 +162857,12 @@ entity
 }
 entity
 {
-	"id" "15092"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"origin" "2182 600 10"
-}
-entity
-{
-	"id" "15093"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"origin" "2182 968 10"
-}
-entity
-{
 	"id" "15094"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
 	"angles" "0 90 0"
 	"solid" "0"
 	"origin" "2176 539 236"
-}
-entity
-{
-	"id" "15095"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"origin" "2016 1158 10"
 }
 entity
 {
@@ -162905,13 +162884,6 @@ entity
 }
 entity
 {
-	"id" "15098"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"origin" "1696 1158 10"
-}
-entity
-{
 	"id" "15099"
 	"classname" "prop_static"
 	"model" "models/props_rooftop/gutter_pipe_256.mdl"
@@ -162927,13 +162899,6 @@ entity
 	"angles" "0 180 0"
 	"solid" "0"
 	"origin" "1643 1152 236"
-}
-entity
-{
-	"id" "15101"
-	"classname" "infodecal"
-	"texture" "decals/decalmetalvent005a"
-	"origin" "1530 1008 10"
 }
 entity
 {
