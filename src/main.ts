@@ -5,6 +5,7 @@ import { mountDocumentPanel } from './ui/documentPanel.ts';
 import { mountToolbar } from './ui/toolbar.ts';
 import { installTooltips } from './ui/tooltip.ts';
 import { mountSidebar } from './ui/sidebar.ts';
+import { mountPanelFollow } from './ui/panelFollow.ts';
 import { mountInspector } from './ui/inspector.ts';
 import { mountMaterialBrowser } from './ui/materialBrowser.ts';
 import { mountEntityPalette } from './ui/entityPalette.ts';
@@ -95,7 +96,7 @@ const missionFlow = mountMissionFlow(editor, {
 // Objectives panel in the viewport (M): step through the mission and retarget it from the view.
 const missionView = mountMissionViewport(editor, viewport, { openFlow: () => missionFlow.open() });
 tabs.add('Mission', mountMissionPanel(editor, () => missionFlow.open(), () => missionView.toggle()));
-tabs.add('POI', mountPoiPanel(editor, () => tabs.show('POI')));
+tabs.add('POI', mountPoiPanel(editor, () => tabs.follow('POI')));
 tabs.add('Cinema', mountCinemaPanel(editor));
 tabs.add('Entities', mountEntityPalette(editor, () => document.querySelector<HTMLButtonElement>('#toolbar button[aria-label^="Entity"]')?.click()));
 const mapPanel = h('div');
@@ -122,9 +123,8 @@ sounds.update();
 editor.on('soundscape', () => sounds.update(soundscapes.active?.entity ?? null));
 new GameplayOverlay(editor);
 new CinematicsRenderer(editor);
-editor.on('selection', () => {
-  if (!editor.selection.isEmpty && editor.tools.current.name === 'select') tabs.show('Selection');
-});
+// Panels follow the tool and the selection; badges on the rail show selection, mission and logic state.
+mountPanelFollow(editor, tabs);
 
 /** Hooks for scripted screenshots and debugging from the console. */
 declare global {

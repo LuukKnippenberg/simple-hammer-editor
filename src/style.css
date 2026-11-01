@@ -77,20 +77,52 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .tip { border-color: var(--line); }
 @keyframes tip-in { from { opacity: 0; transform: translateX(-3px); } }
 
-#sidebar {
-  width: 330px; background: var(--panel); border-left: 1px solid var(--border);
-  overflow-y: auto; padding: 8px;
-}
+/* Sidebar: the panel column and, on its right, the labelled rail of panels (grouped by dividers). */
+#sidebar { width: 400px; flex: none; background: var(--panel); border-left: 1px solid var(--border); display: flex; min-height: 0; }
 #sidebar:empty { display: none; }
-#sidebar { padding: 0; display: flex; flex-direction: column; }
-.tabs { display: flex; border-bottom: 1px solid var(--border); flex: none; }
-.tabs button {
-  flex: 1; border: none; border-radius: 0; background: transparent; color: var(--muted); padding: 7px 2px;
-  border-bottom: 2px solid transparent;
+.panel-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.panel-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 0 10px; flex: none; }
+.panel-title {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-cond); font-weight: 600; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint);
 }
-.tabs button.active { color: var(--text); border-bottom-color: var(--accent); background: transparent; }
-.tabs button:hover { color: #fff; }
-.tab-body { flex: 1; overflow-y: auto; padding: 8px; }
+.panel-head .pin { width: 26px; height: 24px; padding: 0; flex: none; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--muted); }
+.panel-head .pin.active { color: var(--accent-text); border-color: var(--accent); background: var(--accent-tint); }
+.panel-head .pin.active svg path { fill: currentColor; }
+.tab-body { flex: 1; overflow-y: auto; padding: 4px 8px 8px; }
+.rail {
+  width: 56px; flex: none; display: flex; flex-direction: column; padding: 4px 0; overflow-y: auto; overflow-x: hidden;
+  background: var(--chrome); border-left: 1px solid var(--border); scrollbar-width: none;
+}
+.rail-item {
+  position: relative; flex: 0 1 50px; min-height: 38px; width: 100%; padding: 0; border: none; border-radius: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  background: transparent; color: var(--muted);
+  font-family: var(--font-cond); font-weight: 600; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.rail-item svg { flex: none; }
+.rail-item:hover { color: #fff; background: var(--field); border: none; }
+.rail-item.active { color: var(--accent-text); background: rgba(233, 149, 42, 0.12); box-shadow: inset -2px 0 0 var(--accent); }
+.rail-label { white-space: nowrap; line-height: 1; }
+.rail-div { height: 1px; flex: none; background: var(--border); margin: 4px 10px; }
+.rail-badge {
+  position: absolute; top: 5px; right: 9px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px;
+  font: 500 9px/14px var(--font-mono); letter-spacing: 0; text-align: center; color: var(--bg); background: var(--accent-text);
+}
+.rail-badge[hidden] { display: none; }
+.rail-badge.danger { background: var(--danger); }
+/* Narrow windows: an icon-only rail and a slimmer sidebar keep the viewport usable. */
+@media (max-width: 1279px) {
+  #sidebar { width: 360px; }
+  .rail { width: 44px; }
+  .rail-item { flex-basis: 40px; min-height: 32px; }
+  .rail-label { display: none; }
+  .rail-badge { top: 3px; right: 4px; }
+}
+@media (max-height: 620px) {
+  .rail-item { min-height: 32px; }
+  .rail-label { display: none; }
+}
 .hint { color: var(--muted); font-size: 12px; margin: 4px 0; line-height: 1.45; }
 .muted { color: var(--muted); }
 button:disabled { opacity: 0.35; cursor: default; }
@@ -243,7 +275,6 @@ kbd { font: 12px var(--font-mono); background: var(--panel-2); border: 1px solid
 .kits .kit { display: flex; align-items: center; gap: 6px; text-align: left; font-size: 12px; }
 .kits .kit .icon { width: 18px; text-align: center; }
 .row textarea { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; resize: vertical; }
-.tabs button { flex: 1 1 auto; min-width: 0; font-size: 11.5px; padding: 7px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 label.check { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; }
 .row input[type='range'] { flex: 1; }
 

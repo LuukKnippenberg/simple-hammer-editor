@@ -75,12 +75,12 @@ await d.key('l');
 await shot('sofia-12-lit-overview', [-3400, -5600, 3600], [0, 200, 0], 1500);
 await shot('sofia-13-lit-largo', [-64, -900, 900], [-64, 1800, 300], 1200);
 await d.key('l');
-await page.click('.tabs button:text("Logic")');
+await page.click('.rail-item[aria-label^="Logic"]');
 await page.click('button:text("Open logic graph")');
 await page.waitForTimeout(600);
 await d.shot('sofia-14-logic-graph');
 await page.click('.modal-backdrop:not([hidden]) .modal-head button');
-await page.click('.tabs button:text("Mission")');
+await page.click('.rail-item[aria-label^="Mission"]');
 await d.shot('sofia-15-mission-summary');
 
 // 4. Compile through the compile dialog (checks, then vbsp/vvis/vrad and the navmesh).
