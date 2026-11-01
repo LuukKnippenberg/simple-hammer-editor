@@ -5,6 +5,7 @@ import { solidNode, prismFaces, worldAlignedAxes, type FaceSpec } from '../edit/
 import { frustumFaces } from '../edit/shapes.ts';
 import { Rng } from './rng.ts';
 import type { RoadSpec } from './roads.ts';
+import { hideCoveredFaces } from '../geom/hidden.ts';
 
 /**
  * What lies beyond the playable area, so the map doesn't end in a void at its edge (the RTS camera at the edge looks
@@ -288,5 +289,7 @@ export function buildSurroundings(o: SurroundInput): SurroundOutput {
     }
     out.top = Math.max(out.top, HILL_HEIGHT + 800);
   }
+  // Facades against the next building, flat tops under the hipped roofs, bottoms.
+  hideCoveredFaces(out.brushes, { groundAt: o.ground });
   return out;
 }

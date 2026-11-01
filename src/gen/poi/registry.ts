@@ -3,6 +3,7 @@ import { UNITS } from '../../lw/kits.ts';
 import type { MapEntity, VmfDocument } from '../../vmf/map.ts';
 import { EXTRA_UNITS, PoiKit } from './kit.ts';
 import { decodePoi, newPoiUid, poiKeyOf } from './spec.ts';
+import { drawnEntitySolids, hideCoveredFaces, overlaySides } from '../../geom/hidden.ts';
 import type { Landscape, PoiOutput, PoiSpec, PoiType, Rect, Rotation } from './types.ts';
 
 /** Every POI type. Each POI phase adds its types by registering them here (see ./catalogue.ts). */
@@ -77,6 +78,9 @@ export function buildPoi(doc: VmfDocument, spec: PoiSpec, ground: (x: number, y:
   if (!t) throw new Error(`Unknown POI type ${spec.type}`);
   const k = new PoiKit(doc, { ...spec, params: { ...defaultParams(t), ...spec.params } }, t, ground);
   t.build(k);
+  // Never-visible faces to nodraw. Bottoms only where there is no water, which would reflect them.
+  const o = k.out;
+  hideCoveredFaces([...o.world, ...o.detail, ...drawnEntitySolids(o.entities)], { keep: overlaySides(o.entities), groundAt: o.waterLevel === undefined ? ground : undefined });
   if (k.flag('level') || k.cuts.length) k.out.terrain = { rect: k.worldRect(k.bounds), z: spec.z, paint: k.flag('level'), cuts: k.cuts };
   return k.out;
 }

@@ -147,12 +147,18 @@ export function hideCoveredFaces(solids: KVNode[], o: HideOptions = {}): number 
   }
 }
 
-/** Side ids the overlays among `entities` lie on (they must keep their faces drawn). */
-export function overlaySides(entities: KVNode[]): number[] {
+/** Side ids the overlays among `entities` (nodes, or generator entities with `keys`) lie on: they keep their faces. */
+export function overlaySides(entities: (KVNode | { classname: string; keys: Record<string, string> })[]): number[] {
   const ids: number[] = [];
   for (const e of entities) {
-    if ((e.get('classname') ?? '').toLowerCase() !== 'info_overlay') continue;
-    for (const s of (e.get('sides') ?? '').trim().split(/\s+/)) if (s) ids.push(Number(s));
+    const get = (k: string) => ('keys' in e ? (k === 'classname' ? e.classname : e.keys[k]) : e.get(k));
+    if ((get('classname') ?? '').toLowerCase() !== 'info_overlay') continue;
+    for (const s of (get('sides') ?? '').trim().split(/\s+/)) if (s) ids.push(Number(s));
   }
   return ids;
+}
+
+/** The brushes of generator brush entities that are drawn (func_detail, and func_brush unless rendermode 10). */
+export function drawnEntitySolids(entities: { classname: string; keys: Record<string, string>; solids?: KVNode[] }[]): KVNode[] {
+  return entities.filter((e) => /^func_(detail|brush)$/i.test(e.classname) && e.keys.rendermode !== '10').flatMap((e) => e.solids ?? []);
 }
