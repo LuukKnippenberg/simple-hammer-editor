@@ -1,4 +1,4 @@
-import { Box3, Vector2, Vector3 } from 'three';
+import { Box3, Quaternion, Vector2, Vector3 } from 'three';
 import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import { fmt, vecStr, type MapSolid, type TexAxis, type VmfDocument } from '../vmf/map.ts';
 import { buildBrushFaces } from '../geom/brush.ts';
@@ -98,6 +98,24 @@ export function translateSolid(solid: MapSolid, d: Vector3, textureLock = true):
     if (textureLock) {
       side.uaxis.shift -= d.dot(side.uaxis.axis) / (side.uaxis.scale || 1);
       side.vaxis.shift -= d.dot(side.vaxis.axis) / (side.vaxis.scale || 1);
+    }
+  }
+  solid.commit();
+}
+
+/**
+ * Turns a brush by `rotation` about `pivot`. With texture lock the texture axes turn with the faces and the
+ * offsets are corrected, so every point of a face keeps its texel (Hammer's texture lock).
+ */
+export function rotateSolid(solid: MapSolid, pivot: Vector3, rotation: Quaternion, textureLock = true): void {
+  for (const side of solid.sides) {
+    for (const p of side.plane) p.sub(pivot).applyQuaternion(rotation).add(pivot);
+    if (textureLock) {
+      for (const t of [side.uaxis, side.vaxis]) {
+        const axis = t.axis.clone().applyQuaternion(rotation);
+        t.shift += (pivot.dot(t.axis) - pivot.dot(axis)) / (t.scale || 1);
+        t.axis = axis;
+      }
     }
   }
   solid.commit();

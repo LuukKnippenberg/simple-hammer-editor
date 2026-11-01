@@ -1,11 +1,12 @@
 import {
   BoxGeometry, EdgesGeometry, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Object3D, Plane,
-  Vector2, Vector3, Box3,
+  Quaternion, Vector2, Vector3, Box3,
 } from 'three';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import type { Editor } from '../editor.ts';
 import type { MapEntity, MapSolid, TexAxis } from '../vmf/map.ts';
-import { boxSolid, remapSolid, translateSolid } from './brushes.ts';
+import { boxSolid, remapSolid, rotateSolid, translateSolid } from './brushes.ts';
+import { angleAbout, rotateEntity, snapAngle } from './rotate.ts';
 import { placeEntity } from './actions.ts';
 import { KITS, recordKit, type ParamValue } from '../lw/kits.ts';
 import { moveOverlayBasis, placeDecal } from './decals.ts';
@@ -17,6 +18,7 @@ import { SoundTool } from './soundTool.ts';
 import { PoiTool } from './poiTool.ts';
 import { CinemaTool } from './cinemaTool.ts';
 import { isTyping } from '../render/cameraControls.ts';
+import { toast } from '../ui/dom.ts';
 import { handleDragged } from '../gen/poi/action.ts';
 import { handleOf } from '../gen/poi/handle.ts';
 import { POI_ID_KEY } from '../gen/poi/spec.ts';
@@ -64,17 +66,28 @@ export function pickSurface(editor: Editor, ndc: Vector2): { point: Vector3; nor
 
 interface SideState { plane: Vector3[]; u: TexAxis; v: TexAxis }
 
-/** Click to select (Shift adds), then drag the gizmo to move (M) or resize (R) on the grid. */
+/** Entity keys a rotation changes, restored before each step of a drag. */
+const TURNED_KEYS = ['origin', 'angles', 'BasisOrigin', 'BasisU', 'BasisV', 'BasisNormal'];
+const GIZMO_AXES: Record<string, Vector3> = { X: new Vector3(1, 0, 0), Y: new Vector3(0, 1, 0), Z: new Vector3(0, 0, 1) };
+const MODE_LABELS: Record<GizmoMode, string> = { translate: 'Move', scale: 'Resize', rotate: 'Rotate' };
+
+export type GizmoMode = 'translate' | 'scale' | 'rotate';
+
+/** Click to select (Shift adds), then drag the gizmo to move (M) or resize (R) on the grid, or rotate (O) in steps. */
 export class SelectTool implements Tool {
   name: ToolName = 'select';
   readonly gizmo: TransformControls;
   private proxy = new Object3D();
   private editor: Editor;
   private downAt = new Vector2();
-  private start: { pivot: Vector3; bounds: Box3; solids: [MapSolid, SideState[]][]; ents: [MapEntity, Vector3][] } | null = null;
+  private start: { pivot: Vector3; bounds: Box3; solids: [MapSolid, SideState[]][]; ents: [MapEntity, Vector3][]; axis: Vector3 | null; keys: [MapEntity, (string | undefined)[]][] } | null = null;
   private endHistory: (() => void) | null = null;
   private lastKey = '';
-  mode: 'translate' | 'scale' = 'translate';
+  mode: GizmoMode = 'translate';
+  /** Rotation step in degrees; Shift while dragging turns freely. */
+  rotateStep = 15;
+  rotateSnap = true;
+  private shift = false;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -89,13 +102,15 @@ export class SelectTool implements Tool {
     this.gizmo.addEventListener('mouseDown', () => this.dragStart());
     this.gizmo.addEventListener('objectChange', () => this.dragUpdate());
     this.gizmo.addEventListener('mouseUp', () => this.dragEnd());
+    // Captured on the window so it is current before the gizmo handles the same move.
+    window.addEventListener('pointermove', (e) => (this.shift = e.shiftKey), true);
     editor.selection.onChange = () => {
       this.syncGizmo();
       editor.emit('selection');
     };
   }
 
-  setMode(mode: 'translate' | 'scale'): void {
+  setMode(mode: GizmoMode): void {
     this.mode = mode;
     this.gizmo.setMode(mode);
     // Point entities only move.
@@ -119,6 +134,7 @@ export class SelectTool implements Tool {
     if (!active || this.start) return;
     this.proxy.position.copy(sel.bounds().getCenter(new Vector3()));
     this.proxy.scale.set(1, 1, 1);
+    this.proxy.quaternion.identity();
     this.proxy.updateMatrixWorld();
   }
 
@@ -209,14 +225,25 @@ export class SelectTool implements Tool {
     const solids = sel.allSolids();
     const ents = sel.pointEntities();
     const brushEnts = [...sel.entities].filter((e) => e.solids.length);
+    if (this.mode === 'rotate') {
+      // Generated things are rebuilt from their handles, which only move and resize.
+      if ([...sel.entities].some((e) => isGeneratorHandle(e))) {
+        toast(this.editor.container, 'POIs, buildings and interiors turn with , and . (rotate works on brushes and entities)', 2500);
+        return;
+      }
+      // Only the three axis rings; the view ring and the free trackball are not used.
+      if (!GIZMO_AXES[this.gizmo.axis ?? '']) return;
+    }
     this.start = {
       pivot: this.proxy.position.clone(),
       bounds: sel.bounds(),
       solids: solids.map((s) => [s, s.sides.map((side) => ({ plane: side.plane.map((p) => p.clone()), u: { ...side.uaxis, axis: side.uaxis.axis.clone() }, v: { ...side.vaxis, axis: side.vaxis.axis.clone() } }))]),
       ents: ents.map((e) => [e, e.origin ?? new Vector3()]),
+      axis: GIZMO_AXES[this.gizmo.axis ?? ''] ?? null,
+      keys: ents.map((e) => [e, TURNED_KEYS.map((k) => e.get(k))]),
     };
     this.lastKey = '';
-    this.endHistory = this.editor.history.begin(this.mode === 'translate' ? 'Move' : 'Resize', solids, [...ents, ...brushEnts]);
+    this.endHistory = this.editor.history.begin(MODE_LABELS[this.mode], solids, [...ents, ...brushEnts]);
   }
 
   private restore(): void {
@@ -226,6 +253,11 @@ export class SelectTool implements Tool {
         side.uaxis = { ...sides[i].u, axis: sides[i].u.axis.clone() };
         side.vaxis = { ...sides[i].v, axis: sides[i].v.axis.clone() };
       });
+    }
+    if (this.mode !== 'rotate') return;
+    for (const [e, values] of this.start!.keys) {
+      TURNED_KEYS.forEach((k, i) => (values[i] === undefined ? e.node.delete(k) : e.node.set(k, values[i]!)));
+      e.version++;
     }
   }
 
@@ -245,6 +277,18 @@ export class SelectTool implements Tool {
         e.origin = o.clone().add(d);
         moveOverlayBasis(e, e.origin.clone().sub(prev));
       }
+    } else if (this.mode === 'rotate') {
+      const axis = this.start.axis;
+      if (!axis) return;
+      const deg = snapAngle(angleAbout(this.proxy.quaternion, axis), this.rotateSnap && !this.shift ? this.rotateStep : 0);
+      const key = deg.toFixed(2);
+      if (key === this.lastKey) return;
+      this.lastKey = key;
+      this.restore();
+      const q = new Quaternion().setFromAxisAngle(axis, (deg * Math.PI) / 180);
+      for (const [s] of this.start.solids) rotateSolid(s, this.start.pivot, q);
+      for (const [e] of this.start.ents) rotateEntity(e, this.start.pivot, axis, deg);
+      this.editor.status = `Rotate ${Math.round(deg * 100) / 100}° about ${axis.x ? 'X' : axis.y ? 'Y' : 'Z'}`;
     } else {
       const from = this.start.bounds;
       if (!this.start.solids.length || from.isEmpty()) return;
@@ -265,12 +309,17 @@ export class SelectTool implements Tool {
   }
 
   private dragEnd(): void {
-    if (!this.start) return;
+    if (!this.start) {
+      // A refused rotate drag: put the gizmo back.
+      this.syncGizmo();
+      return;
+    }
     this.start = null;
+    this.editor.status = '';
     const sel = this.editor.selection;
     const handle = sel.entities.size === 1 && !sel.solids.size ? [...sel.entities][0] : null;
     const kind = kindOf(handle);
-    if (handle && kind) {
+    if (handle && kind && this.mode !== 'rotate') {
       // A dragged generator handle: what it stands for is rebuilt to fit, in the same undo step as the drag.
       const mode = this.mode;
       const what = kind === POI_HANDLE ? 'POI' : kind === ROOMS_HANDLE ? 'interior building' : 'buildings';

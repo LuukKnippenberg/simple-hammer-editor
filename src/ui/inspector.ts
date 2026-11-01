@@ -41,7 +41,7 @@ export function mountInspector(editor: Editor): HTMLElement {
       panel.append(
         h('div.section', {}, h('h3', {}, 'Selection'),
           h('p.hint', {}, 'Click a brush or entity to select it. Shift-click adds to the selection.'),
-          h('p.hint', {}, 'Tools: 1 select · 2 block · 3 paint · 4 entity. M move · R resize · F focus · Ctrl+D duplicate · Del delete · [ ] grid.')),
+          h('p.hint', {}, 'Tools: 1 select · 2 block · 3 paint · 4 entity. M move · R resize · O rotate · F focus · Ctrl+D duplicate · Del delete · [ ] grid.')),
         h('div.section', {}, h('h3', {}, 'Interior building'),
           h('p.hint', {}, 'A building made of rooms (train hall, customs, rations, waiting room, hallway, concourse), each furnished for its type. Built in front of the camera; select a block brush first to build it there.'),
           h('button', { onclick: () => openRoomsDialog(editor) }, '🏛 Interior building…')),

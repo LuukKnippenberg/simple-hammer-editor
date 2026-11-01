@@ -1,5 +1,5 @@
 import type { Editor } from '../editor.ts';
-import type { BlockTool, KitTool } from '../edit/tools.ts';
+import type { BlockTool, KitTool, SelectTool } from '../edit/tools.ts';
 import type { RoadTool } from '../edit/roadTool.ts';
 import { ROAD_STYLES, type RoadStyle } from '../gen/roads.ts';
 import { makeTerrain, type GroundTool } from '../edit/groundTool.ts';
@@ -17,7 +17,7 @@ import { h, toast } from './dom.ts';
 
 const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema' } as const;
 const HINTS = {
-  select: 'Click to select · Shift adds · drag the gizmo · M move / R resize',
+  select: 'Click to select · Shift adds · drag the gizmo · M move / R resize / O rotate',
   block: 'Drag on a surface to draw a block',
   paint: 'Click a face · Shift: whole brush · Ctrl: pick material',
   entity: 'Click a surface to place',
@@ -38,6 +38,17 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
   const render = () => {
     const name = editor.tools.current.name;
     const rows: (HTMLElement | string)[] = [h('b', {}, NAMES[name]), h('div.hint', {}, HINTS[name])];
+    if (name === 'select' && (editor.tools.tools.select as SelectTool).mode === 'rotate') {
+      const tool = editor.tools.tools.select as SelectTool;
+      const step = h('input', { type: 'number', value: String(tool.rotateStep), step: '5', min: '1', max: '180', disabled: !tool.rotateSnap }) as HTMLInputElement;
+      step.addEventListener('change', () => { tool.rotateStep = Math.max(1, Math.min(180, parseFloat(step.value) || 15)); step.blur(); });
+      const snapBox = h('input', { type: 'checkbox', checked: tool.rotateSnap }) as HTMLInputElement;
+      snapBox.addEventListener('change', () => { tool.rotateSnap = snapBox.checked; snapBox.blur(); render(); });
+      rows.push(
+        h('div.row', {}, h('label', {}, 'Step °'), step),
+        h('label.check', { title: 'Hold Shift while dragging to rotate freely' }, snapBox, ' Snap rotation (Shift: free)'),
+      );
+    }
     if (name === 'block') {
       const tool = editor.tools.tools.block as BlockTool;
       const height = h('input', { type: 'number', value: String(tool.height), step: '16', min: '1' }) as HTMLInputElement;

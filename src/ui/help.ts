@@ -8,7 +8,7 @@ const SHORTCUTS: [string, string][] = [
   ['7 – 0', 'Road · Ground · Powerline · Sound tool (Enter builds a road or line, Backspace removes a point)'],
   ['P', 'Point of interest tool: drag a rectangle to fill it (type and settings in the POI tab)'],
   ['Click · Shift+click · drag', 'Select · add to selection · box select'],
-  ['M · R', 'Gizmo: move · resize'],
+  ['M · R · O', 'Gizmo: move · resize · rotate (in steps, Shift: free)'],
   ['Ctrl+C · Ctrl+V', 'Copy · paste at the cursor'],
   ['Ctrl+D · Delete', 'Duplicate · delete'],
   ['Ctrl+T', 'Tie selected brushes to a trigger_once'],
