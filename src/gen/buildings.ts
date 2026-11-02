@@ -333,6 +333,8 @@ interface Column { wall: number; at: number }
 const COLUMN_WIDTH = 16, COLUMN_OUT = 6;
 /** Quoins go on corners that turn by more than 40° (not between the segments of a rounded corner). */
 const QUOIN_MIN_TURN = Math.cos((40 * Math.PI) / 180);
+/** Columns stand only on walls at least this long, with at least this many window bays. */
+const MIN_COLUMN_WALL = 256, MIN_COLUMN_BAYS = 4;
 /** Stretches of wall i that neighbours hide between two heights. */
 const party = (wing: Wing, i: number, zMin: number, zMax: number) => partySpans(wing.walls[i], wing.neighbours, zMin, zMax);
 /** Whether neighbours hide any of wall i from `from` to `to` along it, between two heights. */
@@ -367,7 +369,7 @@ function quoinsAndColumns(wing: Wing, deco: Rng): { solids: KVNode[]; columns: C
   poly.forEach((start, i) => {
     const { len, dir } = wing.walls[i];
     const bays = bayCount(len, wing.windows);
-    if (len < 256 || bays < 4) return;
+    if (len < MIN_COLUMN_WALL || bays < MIN_COLUMN_BAYS) return;
     for (let k = step; k <= bays - step; k += step) {
       const along = (k * len) / bays;
       if (hidden(wing, i, along - 10, along + 10, columnBottom, columnTop)) continue;

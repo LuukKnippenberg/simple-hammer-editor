@@ -232,6 +232,9 @@ const KERB_GAP = 6;
 const LANE_LEFT = 32;
 
 const SAMPLE = 32; // terrain vertex spacing (power-4 displacements on 512 patches)
+/** Smoothing passes over the ramp vertices, and the rise to a neighbouring vertex that makes a cliff face. */
+const RAMP_RELAX_PASSES = 400;
+const STEEP_RISE = SAMPLE * 1.2;
 
 /** Cells touching a vertex of the 32-unit grid: one inside a cell, two on an edge, four on a corner. */
 function vertexCells(sketch: Sketch, vx: number, vy: number): number[] {
@@ -269,7 +272,7 @@ export function sketchHeights(sketch: Sketch): { W: number; H: number; heights: 
   // Ramps: relax free vertices towards the average of their neighbours.
   const freeVertices: number[] = [];
   for (let i = 0; i < free.length; i++) if (free[i]) freeVertices.push(i);
-  for (let iteration = 0; iteration < 400 && freeVertices.length; iteration++) {
+  for (let iteration = 0; iteration < RAMP_RELAX_PASSES && freeVertices.length; iteration++) {
     for (const i of freeVertices) {
       const x = i % W, y = Math.floor(i / W);
       let sum = 0, count = 0;
@@ -289,7 +292,7 @@ export function sketchHeights(sketch: Sketch): { W: number; H: number; heights: 
     for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
       const nx = x + dx, ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      if (Math.abs(heights[ny * W + nx] - height) > SAMPLE * 1.2) steep[y * W + x] = 1;
+      if (Math.abs(heights[ny * W + nx] - height) > STEEP_RISE) steep[y * W + x] = 1;
     }
   }
   return { W, H, heights, steep };

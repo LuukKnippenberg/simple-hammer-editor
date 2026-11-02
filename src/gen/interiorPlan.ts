@@ -34,6 +34,8 @@ const DOOR_WIDE = 128;
 /** Door heights above the floor, normal and with wide doors. */
 const DOOR_HEIGHT = 96;
 const DOOR_HEIGHT_WIDE = 112;
+/** A door with less wall than this left above it reaches the wall top. */
+const MIN_LINTEL = 8;
 /** Width of the open archways between hall, living room and kitchen. */
 const GAP_WIDTH = 160;
 /** Window sill and lintel above the storey's base. */
@@ -752,7 +754,7 @@ function placeOpening(draft: Draft, wall: PlanWall, width: number, kind: Opening
     ? { from, to: from + width, kind, sill: storeyBase(wall) + WINDOW_SILL, lintel: storeyBase(wall) + WINDOW_LINTEL }
     : { from, to: from + width, kind, sill: wall.bottom, lintel: Math.min(wall.top, wall.bottom + (draft.opts.wideDoors ? DOOR_HEIGHT_WIDE : DOOR_HEIGHT)) };
   // Gaps, and doors with only a sliver of wall above them, reach the wall top.
-  if (kind === 'gap' || opening.lintel > wall.top - 8) opening.lintel = wall.top;
+  if (kind === 'gap' || opening.lintel > wall.top - MIN_LINTEL) opening.lintel = wall.top;
   wall.openings.push(opening);
   wall.openings.sort((p, q) => p.from - q.from);
   return opening;
