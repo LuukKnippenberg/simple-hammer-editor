@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { EditorConfig } from './config.ts';
-import { contentDir } from './assets.ts';
+import { contentDir, insideGame } from './assets.ts';
 
 export interface CompileOptions {
   /** fast: vvis -fast, vrad -fast. final: full vvis, vrad -final. */
@@ -61,7 +61,8 @@ export function editorContent(cfg: EditorConfig, vmf: string): string[] {
   const out = new Set<string>();
   for (const m of vmf.matchAll(/"material"\s+"([^"]+)"/gi)) {
     const rel = `materials/${m[1].toLowerCase().replace(/\\/g, '/')}.vmt`;
-    if (existsSync(join(contentDir(cfg), rel))) out.add(rel);
+    // The VMF comes from the browser: a material path must not climb out of content/ (or later, the mod folder).
+    if (insideGame(rel) && existsSync(join(contentDir(cfg), rel))) out.add(rel);
   }
   return [...out];
 }
@@ -196,11 +197,12 @@ async function buildNavmesh(cfg: EditorConfig, name: string, log: Log): Promise<
   writeFileSync(cfgFile, 'sv_cheats 1\nrecast_build_remove_unreachable_polys 0\nrecast_build\n');
   rmSync(consoleLog, { force: true });
 
-  const args = ['-console', '-condebug', '-game', cfg.mod, '-insecure', '-nomaster', '-nohltv', '+sv_lan', '1', '+maxplayers', '2', '+servercfgfile', 'she_navbuild.cfg', '+map', name]
-    .map((a) => `'${a}'`).join(',');
-  const ps = `$p = Start-Process -FilePath '${join(gameDir, 'srcds.exe')}' -WorkingDirectory '${gameDir}' -ArgumentList ${args} -WindowStyle Hidden -PassThru; $p.Id`;
+  const args = ['-console', '-condebug', '-game', cfg.mod, '-insecure', '-nomaster', '-nohltv', '+sv_lan', '1', '+maxplayers', '2', '+servercfgfile', 'she_navbuild.cfg', '+map', name];
+  // Paths and arguments travel in environment variables, so a quote in a folder name can't change the script.
+  const ps = '$p = Start-Process -FilePath $env:SHE_EXE -WorkingDirectory $env:SHE_DIR -ArgumentList ($env:SHE_ARGS | ConvertFrom-Json) -WindowStyle Hidden -PassThru; $p.Id';
+  const env = { ...process.env, SHE_EXE: join(gameDir, 'srcds.exe'), SHE_DIR: gameDir, SHE_ARGS: JSON.stringify(args) };
   const pid = await new Promise<number>((resolve) => {
-    const p = spawn('powershell.exe', ['-NoProfile', '-Command', ps], { windowsHide: true });
+    const p = spawn('powershell.exe', ['-NoProfile', '-Command', ps], { windowsHide: true, env });
     let out = '';
     p.stdout.on('data', (d) => (out += d));
     p.on('close', () => resolve(parseInt(out.trim(), 10)));

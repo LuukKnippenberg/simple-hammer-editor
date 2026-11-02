@@ -12,30 +12,35 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
     if (now - last < 250) return;
     last = now;
     const f = editor.frame, w = editor.world.stats;
-    overlay.innerHTML =
-      `<span class="k">FPS</span><b>${f.fps}</b><br>` +
-      `<span class="k">Draw calls</span>${f.drawCalls}<br>` +
-      `<span class="k">Triangles</span>${f.triangles.toLocaleString()}<br>` +
-      `<span class="k">Brushes</span>${w.brushes.toLocaleString()}<br>` +
-      `<span class="k">Faces</span>${w.faces.toLocaleString()}<br>` +
-      `<span class="k">Props</span>${editor.entities.stats.props} (${editor.entities.stats.models} models)` +
-      (editor.busy() ? `<br><span class="k">Loading</span>assets…` : '') +
-      (audio.enabled ? `<br><span class="k">Soundscape</span><b>${audio.stats.soundscape || '–'}</b>` +
-        `<br><span class="k">Sounds</span>${audio.stats.loops} loops, ${audio.stats.oneShots} played` +
-        (audio.stats.local ? `, ${audio.stats.local} local` : '') : '');
+    // Built from text nodes: the map name, soundscape and hover label come from the map file.
+    const row = (key: string, ...value: (Node | string)[]) => [h('span.k', {}, key), ...value];
+    const lines = [
+      row('FPS', h('b', {}, String(f.fps))),
+      row('Draw calls', String(f.drawCalls)),
+      row('Triangles', f.triangles.toLocaleString()),
+      row('Brushes', w.brushes.toLocaleString()),
+      row('Faces', w.faces.toLocaleString()),
+      row('Props', `${editor.entities.stats.props} (${editor.entities.stats.models} models)`),
+      editor.busy() && row('Loading', 'assets…'),
+      audio.enabled && row('Soundscape', h('b', {}, audio.stats.soundscape || '–')),
+      audio.enabled && row('Sounds', `${audio.stats.loops} loops, ${audio.stats.oneShots} played` + (audio.stats.local ? `, ${audio.stats.local} local` : '')),
+    ].filter((l) => l !== false);
+    overlay.replaceChildren(...lines.flatMap((l, i) => (i ? [h('br'), ...l] : l)));
     const p = editor.camera.position;
-    status.innerHTML =
-      `<span><b>${editor.mapName}</b></span>` +
-      `<span>camera <b>${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}</b></span>` +
-      `<span>entities <b>${editor.doc.entities.length}</b></span>` +
-      `<span>${editor.view === 'top' ? 'top view' : '3D view'}</span>` +
-      `<span>grid <b>${editor.grid}</b></span>` +
-      (editor.tools.current.name === 'select' && editor.selection.mode !== 'object' ? `<span><b>${editor.selection.mode}</b> mode</span>` : '') +
-      (editor.hidden.size ? `<span>hidden <b>${editor.hidden.size}</b></span>` : '') +
-      (editor.lastAutosave ? `<span>autosaved <b>${editor.lastAutosave.toLocaleTimeString()}</b></span>` : '') +
-      (hoverLabel() ? `<span class="hover-label">${hoverLabel()}</span>` : '') +
-      (editor.status ? `<span><b style="color:var(--accent)">${editor.status}</b></span>` : '') +
-      `<span>geometry build <b>${w.buildMs} ms</b></span>` +
-      `<span style="margin-left:auto">Press <b>?</b> for shortcuts</span>`;
+    const hover = hoverLabel();
+    status.replaceChildren(...[
+      h('span', {}, h('b', {}, editor.mapName)),
+      h('span', {}, 'camera ', h('b', {}, `${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}`)),
+      h('span', {}, 'entities ', h('b', {}, String(editor.doc.entities.length))),
+      h('span', {}, editor.view === 'top' ? 'top view' : '3D view'),
+      h('span', {}, 'grid ', h('b', {}, String(editor.grid))),
+      editor.tools.current.name === 'select' && editor.selection.mode !== 'object' && h('span', {}, h('b', {}, editor.selection.mode), ' mode'),
+      editor.hidden.size > 0 && h('span', {}, 'hidden ', h('b', {}, String(editor.hidden.size))),
+      editor.lastAutosave && h('span', {}, 'autosaved ', h('b', {}, editor.lastAutosave.toLocaleTimeString())),
+      hover && h('span.hover-label', {}, hover),
+      editor.status && h('span', {}, h('b', { style: { color: 'var(--accent)' } }, editor.status)),
+      h('span', {}, 'geometry build ', h('b', {}, `${w.buildMs} ms`)),
+      h('span', { style: { marginLeft: 'auto' } }, 'Press ', h('b', {}, '?'), ' for shortcuts'),
+    ].filter((n): n is HTMLSpanElement => !!n));
   });
 }

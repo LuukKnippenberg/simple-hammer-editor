@@ -62,6 +62,9 @@ export function refuseReason(req: IncomingMessage): string | null {
   return null;
 }
 
+/** Usable as a VMT value: no quotes, braces or control characters (a line break would add keys). */
+export const safeTextureName = (t: unknown): boolean => typeof t === 'string' && t.length > 0 && !/["{}\x00-\x1f\x7f]/.test(t);
+
 export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: AssetFS }) => Record<string, Route> = () => ({})): Plugin {
   return {
     name: 'simple-hammer-editor-server',
@@ -233,7 +236,7 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
         '/api/blend': async (req, res) => {
           if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
           const def = JSON.parse((await readBody(req)).toString('utf8')) as BlendDef;
-          if (!def?.layers?.length || def.layers.length > 4 || def.layers.some((l) => !l.texture || /["{}]/.test(l.texture))) {
+          if (!def?.layers?.length || def.layers.length > 4 || def.layers.some((l) => !safeTextureName(l.texture))) {
             return send(res, 400, JSON.stringify({ error: 'A blend needs 1 to 4 layers with textures' }));
           }
           const name = safeBlendName(def.name);
@@ -276,16 +279,26 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           await route(req, res, url);
         } catch (e) {
           console.error(e);
-          send(res, 500, JSON.stringify({ error: (e as Error).message }));
+          send(res, e instanceof BodyTooLarge ? 413 : 500, JSON.stringify({ error: (e as Error).message }));
         }
       });
     },
   };
 }
 
-export async function readBody(req: IncomingMessage): Promise<Buffer> {
+/** Request bodies are maps at most; the biggest generated city is about 15 MB. */
+export const MAX_BODY = 128 * 1024 * 1024;
+
+class BodyTooLarge extends Error {}
+
+export async function readBody(req: IncomingMessage, limit = MAX_BODY): Promise<Buffer> {
   const chunks: Buffer[] = [];
-  for await (const c of req) chunks.push(c as Buffer);
+  let size = 0;
+  for await (const c of req) {
+    size += (c as Buffer).length;
+    if (size > limit) throw new BodyTooLarge(`Request body is larger than ${limit >> 20} MB`);
+    chunks.push(c as Buffer);
+  }
   return Buffer.concat(chunks);
 }
 
