@@ -48,4 +48,14 @@ describe('map sketch', () => {
     expect(Math.abs(cx - (10 * SKETCH_CELL - 8 * SKETCH_CELL))).toBeLessThan(40);
     expect(Math.abs(cy - (10 * SKETCH_CELL - 8 * SKETCH_CELL))).toBeLessThan(40);
   });
+
+  it('places painted Overrun markers as wave spawns facing the centre and a manager', () => {
+    const s = emptySketch(16, 16);
+    s.markers.push({ kind: 'wave_spawn', x: 1, y: 8 }, { kind: 'wave_spawn', x: 8, y: 15 }, { kind: 'overrun_manager', x: 8, y: 8 });
+    const r = generateFromSketch(s);
+    placeMarkers({ doc: r.doc }, s, r);
+    const waves = r.doc.entities.filter((e) => e.classname === 'overrun_wave_spawnpoint');
+    expect(waves.map((e) => [e.get('targetname'), e.get('angles')])).toEqual([['wave_spawn1', '0 0 0'], ['wave_spawn2', '0 270 0']]);
+    expect(r.doc.entities.filter((e) => e.classname === 'overrun_manager').map((e) => e.get('wavetype'))).toEqual(['antlions']);
+  });
 });

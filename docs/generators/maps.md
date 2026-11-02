@@ -19,7 +19,7 @@ symmetry and undo. Left drag paints, right drag erases. The sketch is saved next
 | Surface | Grass, dirt, road, cobble, rubble, blended into the terrain. Where lawn or dirt meets paving, a low stone edging runs along the boundary with leaves and dirt over it (`surfaceEdges.ts`). |
 | Features | Buildings (on their cell's level), trees, walls, debris, cars. |
 | Detail | Building quality per block: High, Medium or Filler (see [buildings.md](buildings.md#quality-and-the-t-junction-budget)). |
-| Markers | Mission start, multiplayer start, capture point, scrap, unit groups and waves, placed with the [mission kits](../mission.md#kits). |
+| Markers | Mission start, multiplayer start, capture point, scrap, unit groups and waves, placed with the [mission kits](../mission.md#kits). Overrun wave spawns (facing the centre) and the Overrun manager are placed as the New map Overrun template places them. |
 | POIs | Points of interest at a rotation (see [points-of-interest.md](points-of-interest.md#in-generated-maps)). |
 | Shapes | Free shapes over the cells (below). |
 

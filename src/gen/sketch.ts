@@ -47,7 +47,7 @@ export const FEATURE_INFO: Record<Feature, { label: string; color: string }> = {
   [Feature.Cars]: { label: 'Cars', color: '#4f7fa8' },
 };
 
-export type MarkerKind = 'mp_start' | 'sp_start' | 'capture_point' | 'scrap' | 'zombies' | 'combine' | 'combine_wave' | 'rebels';
+export type MarkerKind = 'mp_start' | 'sp_start' | 'capture_point' | 'scrap' | 'zombies' | 'combine' | 'combine_wave' | 'rebels' | 'wave_spawn' | 'overrun_manager';
 export const MARKER_INFO: Record<MarkerKind, { label: string; color: string; letter: string }> = {
   mp_start: { label: 'Player start (MP)', color: '#3ddc84', letter: 'S' },
   sp_start: { label: 'Mission start', color: '#8fe0ff', letter: 'P' },
@@ -57,6 +57,8 @@ export const MARKER_INFO: Record<MarkerKind, { label: string; color: string; let
   combine: { label: 'Combine squad', color: '#4f7fa8', letter: 'K' },
   combine_wave: { label: 'Combine wave', color: '#2a5fa0', letter: 'W' },
   rebels: { label: 'Rebel squad', color: '#d18b2f', letter: 'R' },
+  wave_spawn: { label: 'Overrun wave spawn', color: '#a05ad0', letter: 'V' },
+  overrun_manager: { label: 'Overrun manager', color: '#e0e0e0', letter: 'O' },
 };
 
 export interface SketchMarker {
@@ -796,8 +798,8 @@ function lowestGround(ground: SketchGround): number {
   return lowest;
 }
 
-/** Kit settings used for sketch markers. */
-const MARKER_KITS: Record<MarkerKind, { kit: string; params: Record<string, ParamValue> }> = {
+/** Kit settings used for sketch markers (the Overrun markers are single entities, placed in placeMarkers). */
+const MARKER_KITS: Record<Exclude<MarkerKind, 'wave_spawn' | 'overrun_manager'>, { kit: string; params: Record<string, ParamValue> }> = {
   mp_start: { kit: 'mp_start', params: {} },
   sp_start: { kit: 'sp_start', params: { faction: 'rebels', squad: 'rebel', count: 6 } },
   capture_point: { kit: 'capture_point', params: { radius: 192, owner: '0', time: 15 } },
@@ -813,11 +815,26 @@ const MARKER_KITS: Record<MarkerKind, { kit: string; params: Record<string, Para
  * `doc`: kits use it for names and ids.
  */
 export function placeMarkers(editor: Pick<Editor, 'doc'>, sketch: Sketch, result: SketchResult): void {
+  let waves = 0;
   for (const marker of sketch.markers) {
     const lx = marker.x * SKETCH_CELL, ly = marker.y * SKETCH_CELL;
     const at = new Vector3(Math.round(lx + result.shift.x), Math.round(ly + result.shift.y), Math.round(result.heightAt(lx + result.shift.x, ly + result.shift.y)));
     if (marker.kind === 'scrap') {
       editor.doc.addEntity(entity(editor.doc, 'scrap_marker', at, { angles: '0 0 0', autoconstruct: '1', constructed: '2' }));
+      continue;
+    }
+    // The Overrun pieces as New map's Overrun template places them (mapTemplates.ts); a wave faces the centre unless told otherwise.
+    if (marker.kind === 'wave_spawn') {
+      const yaw = marker.params?.yaw ?? (Math.round((Math.atan2(sketch.h / 2 - marker.y, sketch.w / 2 - marker.x) * 180) / Math.PI) + 360) % 360;
+      editor.doc.addEntity(entity(editor.doc, 'overrun_wave_spawnpoint', at.clone().setZ(at.z + 16), {
+        targetname: `wave_spawn${++waves}`, angles: `0 ${yaw} 0`, StartDisabled: '0', Priority: '0', MaxRadius: '0',
+      }));
+      continue;
+    }
+    if (marker.kind === 'overrun_manager') {
+      editor.doc.addEntity(entity(editor.doc, 'overrun_manager', at.clone().setZ(at.z + 64), {
+        targetname: 'overrun_manager', angles: '0 0 0', InDoor: '0', spawnflags: '0', wavetype: String(marker.params?.wavetype ?? 'antlions'),
+      }));
       continue;
     }
     const spec = MARKER_KITS[marker.kind];

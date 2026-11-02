@@ -85,21 +85,30 @@ export function previewPlan(plan: TemplatePlan, start: StartFrom): TemplatePlan 
   return start === 'basics' ? { ...plan, starts: [], points: [], scrap: [], waves: [], squad: [], goal: null } : plan;
 }
 
+/** Whether Create builds only the basics: "Empty ground", and Empty with any start. */
+const basicsOnly = (o: TemplateOptions, start: StartFrom): boolean => start === 'basics' || o.kind === 'empty';
+
 /** The "What gets placed" lines. */
 export function placedLines(o: TemplateOptions, start: StartFrom): string[] {
-  return start === 'basics' ? [BASICS] : templateInfo(o.kind).places(o);
+  return basicsOnly(o, start) ? [BASICS] : templateInfo(o.kind).places(o);
 }
 
 const CHECKLIST_SUBJECTS: Record<TemplateKind, string> = { annihilation: 'Annihilation', overrun: 'Overrun', mission: 'a mission', empty: 'every map' };
 export const checklistSentence = (kind: TemplateKind): string =>
   `The map checklist then tracks what ${CHECKLIST_SUBJECTS[kind]} needs, so nothing has to be remembered.`;
 
-/** The map Create builds. "Sketch it" builds the template layout too, so closing the sketch leaves a playable map. */
+/**
+ * The map Create builds. "Sketch it" builds the template layout too, so closing the sketch leaves a playable map.
+ * Empty is the basics whatever the start (buildTemplate's empty document is the old dialog's).
+ */
 export function buildNewMap(o: TemplateOptions, start: StartFrom): BuiltTemplate {
-  return start === 'basics' ? buildBasics(o) : buildTemplate(o);
+  return basicsOnly(o, start) ? buildBasics(o) : buildTemplate(o);
 }
 
-/** A sketch the size of the map with the template's starts, requisition points and scrap as markers. */
+/**
+ * A sketch the size of the map with the template's starts, requisition points, scrap, wave spawns and Overrun
+ * manager as markers, so generating it keeps what the mode needs.
+ */
 export function sketchFromPlan(o: TemplateOptions, plan: TemplatePlan): Sketch {
   const cells = plan.size / SKETCH_CELL;
   const sketch = emptySketch(cells, cells, 'rural');
@@ -110,6 +119,9 @@ export function sketchFromPlan(o: TemplateOptions, plan: TemplatePlan): Sketch {
       : { kind: 'mp_start', ...at(s.x, s.y), params: { yaw: s.yaw, ...(s.team ? { team: s.team } : {}) } }),
     ...plan.points.map((p): SketchMarker => ({ kind: 'capture_point', ...at(p.x, p.y) })),
     ...plan.scrap.map((p): SketchMarker => ({ kind: 'scrap', ...at(p.x, p.y) })),
+    ...plan.waves.map((w): SketchMarker => ({ kind: 'wave_spawn', ...at(w.x, w.y), params: { yaw: w.yaw } })),
+    // Where the template puts it (mapTemplates.ts).
+    ...(o.kind === 'overrun' ? [{ kind: 'overrun_manager', ...at(0, -256), params: { wavetype: o.wavetype ?? 'antlions' } } satisfies SketchMarker] : []),
   ];
   sketch.markers.push(...markers);
   return sketch;

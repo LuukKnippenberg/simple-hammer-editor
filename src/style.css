@@ -678,7 +678,6 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .np-cap { font: 600 12px var(--font-cond); letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
 .np-cap.accent { color: var(--accent-text); margin-top: 4px; }
 .np-preview { display: block; width: 400px; height: 300px; flex: none; background: #5a6450; border-radius: 4px; }
-.np-preview.blank { background: var(--bg); border: 1px solid var(--border); }
 .np-preview .np-boundary { fill: none; stroke: var(--accent-text); stroke-width: 2; stroke-dasharray: 8 5; }
 .np-preview .np-start { fill: rgba(143, 207, 152, 0.25); stroke: var(--ok); stroke-width: 1.5; }
 .np-preview .np-start-n { fill: var(--text); font: 600 11px var(--font-mono); text-anchor: middle; dominant-baseline: central; }
@@ -687,7 +686,6 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .np-preview .np-wave { fill: var(--danger); }
 .np-preview .np-goal { fill: rgba(143, 184, 216, 0.15); stroke: var(--accent-2); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .np-preview .np-squad { fill: var(--accent-2); }
-.np-preview .np-blank { fill: var(--muted); font: 13px var(--font); text-anchor: middle; dominant-baseline: central; }
 .np-legend { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .np-key { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; }
 .np-key.start { background: var(--ok); }

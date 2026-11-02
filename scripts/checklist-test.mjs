@@ -125,7 +125,7 @@ await withEditor(async (d, page) => {
   for (const [kind, text, rows] of [
     ['overrun', 'Overrun 6/6 ready ▴', 6],
     ['mission', 'Mission 6/7 ready ▴', 7],
-    ['empty', 'Empty 1/3 ready ▴', 4],
+    ['empty', 'Empty 3/3 ready ▴', 4],
   ]) {
     await newMap(kind);
     await openPopover();
@@ -136,7 +136,7 @@ await withEditor(async (d, page) => {
   // Empty's Pick a mode offers the other lists.
   await pop.locator('.cl-row', { hasText: 'Pick a mode' }).locator('button', { hasText: 'Mission' }).click();
   await page.waitForTimeout(150);
-  check('pick a mode: chip', (await chipState()).text, 'Mission 1/7 ready ▴');
+  check('pick a mode: chip', (await chipState()).text, 'Mission 3/7 ready ▴');
   await shot('popover-empty-picked-mission');
   await closePopover();
 });

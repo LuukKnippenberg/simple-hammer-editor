@@ -1,7 +1,9 @@
 // New map wizard check (research/npx-handoff.md, F2): walks the four steps and creates maps. Checks that switching
 // mode keeps the player count valid, the preview markers follow the player count, the prefix can't be typed away,
 // the name checks update on each keystroke, Create waits for them, the created map is the one the old dialog made
-// (tests/newMap.same-output.hashes.json) and "Sketch it" lands in the sketch dialog. Exits non-zero when a check fails.
+// (tests/newMap.same-output.hashes.json) and "Sketch it" lands in the sketch dialog. Empty places ground, sky and
+// sun with every start; generating the sketch keeps each mode's pieces (Overrun's waves and manager too). Exits
+// non-zero when a check fails.
 // Against a running dev server:
 //   SHE_PORT=5212 node scripts/new-map-wizard-test.mjs
 // SHOTS=<folder> also saves 1600×900 screenshots of each step and of the preview for 2 and 8 players.
@@ -143,6 +145,70 @@ await withEditor(async (d, page) => {
   });
   check('on the new map, a sketch its size with its starts', sketch, { name: 'hlw_sketched_2p.vmf', cells: 32, starts: 2 });
   await shot('sketch-dialog-after-sketch-it');
+  const classes = (...names) => d.eval((names) => {
+    const ents = window.__editor.editor.doc.entities;
+    return Object.fromEntries(names.map((cls) => [cls, ents.filter((e) => e.classname === cls).length]));
+  }, names);
+  const generate = async () => {
+    await page.locator('.modal.sketch button:has-text("Generate 3D map")').click();
+    await d.settle();
+  };
+  await generate();
+  check('generating the Annihilation sketch keeps its starts and points', await classes('info_start_wars', 'control_point'), { info_start_wars: 2, control_point: 5 });
+
+  // Empty: ground, sky and sun with every start, at the chosen size and ground.
+  for (const start of ['Template layout', 'Sketch it']) {
+    await openWizard();
+    await card('Mode', 'Empty').click();
+    await card('Size and look', 'Small').click();
+    await dialog.locator('.row:has(label:text-is("Ground")) select').selectOption({ label: 'Rubble → dirt' });
+    await startCard(start).click();
+    check(`Empty + ${start}: the preview draws the boundary`, await dialog.locator('.np-preview .np-boundary').count(), 1);
+    check(`Empty + ${start}: what gets placed`, await dialog.locator('.np-places li').allTextContents(), ['Ground, sky shell, sun, fog and map boundary']);
+    await name.fill(start === 'Sketch it' ? 'empty_sketched' : 'empty_template');
+    await dialog.locator('button:text-is("Create map")').click();
+    await d.settle();
+    if (start === 'Sketch it') {
+      check('Empty + Sketch it lands in the sketch dialog', await page.locator('.modal.sketch').isVisible(), true);
+      await page.locator('.modal.sketch .modal-head button:text-is("✕")').click();
+    }
+    const empty = await d.eval(() => {
+      const { editor } = window.__editor;
+      const ground = editor.doc.worldEntity.solids.filter((s) => s.isDisplacement);
+      return { sky: editor.doc.world.get('skyname'), ground: ground.length > 0, blend: ground.every((s) => s.sides.some((side) => side.material === 'NATURE/BLENDRUBBLEDIRT001A')) };
+    });
+    check(`Empty + ${start}: ground of the chosen blend and a sky`, empty, { sky: 'sky_day01_01', ground: true, blend: true });
+    check(`Empty + ${start}: sun, fog and boundary`, await classes('light_environment', 'env_fog_controller', 'func_map_boundary'), { light_environment: 1, env_fog_controller: 1, func_map_boundary: 1 });
+  }
+  await shot('created-empty');
+
+  // Overrun with Sketch it: generating the sketch keeps the wave spawns and the manager with its wave type.
+  await openWizard();
+  await card('Mode', 'Overrun').click();
+  await players().filter({ hasText: /^2$/ }).click();
+  await card('Size and look', 'Small').click();
+  await dialog.locator('.row:has(label:text-is("Waves")) select').selectOption({ label: 'Zombies' });
+  await startCard('Sketch it').click();
+  await name.fill('sketched_waves');
+  await dialog.locator('button:text-is("Create map")').click();
+  await page.waitForTimeout(600);
+  check('Overrun + Sketch it: wave and manager markers', await d.eval(() => window.__editor.editor.sketch.markers.filter((m) => m.kind === 'wave_spawn' || m.kind === 'overrun_manager').length), 9);
+  await shot('sketch-dialog-overrun');
+  await generate();
+  check('Overrun + Sketch it, generated: starts, wave spawns and manager', await classes('info_start_wars', 'overrun_wave_spawnpoint', 'overrun_manager'), { info_start_wars: 2, overrun_wave_spawnpoint: 8, overrun_manager: 1 });
+  check('the manager keeps the chosen wave type', await d.eval(() => window.__editor.editor.doc.entities.find((e) => e.classname === 'overrun_manager')?.get('wavetype')), 'zombie');
+  check('the generated map keeps its name', await d.eval(() => window.__editor.editor.mapName), 'or_sketched_waves.vmf');
+
+  // Mission with Sketch it keeps the player start and faction.
+  await openWizard();
+  await card('Mode', 'Singleplayer mission').click();
+  await dialog.locator('.row:has(label:text-is("Faction")) button:text-is("Combine")').click();
+  await startCard('Sketch it').click();
+  await name.fill('sketched_mission');
+  await dialog.locator('button:text-is("Create map")').click();
+  await page.waitForTimeout(600);
+  await generate();
+  check('Mission + Sketch it, generated: player camera and faction setup', await classes('info_player_wars', 'wars_player_setup'), { info_player_wars: 1, wars_player_setup: 1 });
 });
 
 console.log(failed ? `${failed} check(s) failed` : 'all checks passed');
