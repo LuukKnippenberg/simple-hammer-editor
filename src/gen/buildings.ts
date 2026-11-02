@@ -465,7 +465,7 @@ function roofHut(wing: Wing, deco: Rng): KVNode[] {
 function wallStains(wing: Wing, wall: Wall, i: number, facade: KVNode[], bands: BandSpec[], columns: Column[], street: Street): void {
   const { z0, top } = wing;
   const [columnBottom, columnTop] = columnSpan(wing);
-  const zones = bands.map((band) => [band.zMin, band.zMax]);
+  const zones = bands.map((spec) => [spec.zMin, spec.zMax]);
   if (wing.level >= 3 && wing.part.floors > 1) zones.push([top - BRACKETS_FROM, top - BRACKETS_TO]);
   const busy = facade.map((node) => {
     const box = solidBounds(new MapSolid(node, null));
