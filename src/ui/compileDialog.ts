@@ -1,7 +1,7 @@
 import type { Editor } from '../editor.ts';
 import { compileChecks } from '../edit/preflight.ts';
 import { h, toast } from './dom.ts';
-import { checkRows, checklistSubtitle, currentChecklist } from './checklist.ts';
+import { checkRows, checklistStatus, checklistSubtitle, currentChecklist } from './checklist.ts';
 import { missionRes } from './missionPanel.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { applyMapSettings } from '../lw/mapSettings.ts';
@@ -103,7 +103,7 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
     const fixable = [...list.checks, ...extras].filter((c) => !c.ok && c.fix);
     const rows = { onChange: () => void renderChecks(), longLabels: true };
     checksEl.replaceChildren(
-      h('div.cl-sub', {}, `${checklistSubtitle(list)} · ${list.ready}/${list.total} ready`),
+      h('div.cl-sub', {}, `${checklistSubtitle(list)} · ${checklistStatus(list)}`),
       ...checkRows(editor, list.checks, rows),
       h('div.cl-also', {}, 'Compile also checks'),
       ...checkRows(editor, extras, rows),

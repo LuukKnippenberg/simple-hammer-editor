@@ -67,8 +67,8 @@ Nothing here writes to the game's `mapsrc/`. Turned-down offers are kept in this
 
   Every template adds the ground, sky shell, sun, fog and map boundary. A double click on a mode card creates the
   map straight away.
-- The **map checklist** chip in the top bar ("Annihilation 6/7 ready") tracks what the map's game mode still needs;
-  click it for the list and its fixes. See [Map checklist](compiling.md#map-checklist-and-pre-flight-checks).
+- The **map checklist** chip in the top bar ("Annihilation · ready ✓", or "· 2 to fix") tracks what the map's game
+  mode still needs; click it for the list and its fixes. See [Map checklist](compiling.md#map-checklist-and-pre-flight-checks).
 - After 20 minutes of unsaved changes the status bar shows an amber *unsaved for N min · Save* pill; clicking it
   saves. It never interrupts, and autosave runs either way.
 - Generated maps keep their sketch (`maps/<name>.sketch.json`) and mission flowchart (`maps/<name>.mission.json`)

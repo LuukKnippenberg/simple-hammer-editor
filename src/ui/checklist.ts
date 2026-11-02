@@ -3,14 +3,14 @@ import { MAP_MODES, checkState, mapChecklist, modeInfo, type Check, type CheckSt
 import { h } from './dom.ts';
 
 /**
- * Map checklist (F4): the top-bar chip ("Annihilation 5/7 ready") and its "Ready to play?" popover. Both show
+ * Map checklist (F4): the top-bar chip ("Annihilation · 2 to fix", "Annihilation · ready ✓") and its "Ready to play?" popover. Both show
  * `mapChecklist` from preflight.ts, as the compile dialog does; the rows are shared through `checkRows`.
  */
 
 /** Edits settle this long before the checks run again. */
 const REFRESH_DELAY_MS = 300;
 const POPOVER_GAP = 4;
-const ICONS: Record<CheckState, string> = { ok: '✓', warning: '!', error: '✕', pending: '–' };
+const ICONS: Record<CheckState, string> = { ok: '✓', warning: '!', error: '✕' };
 const FOOTNOTE = 'Compile also checks static props and leaks. This list updates as you edit; it never blocks saving.';
 
 /** Modes picked with Change mode; a map that is loaded or created goes back to the mode it reads as. */
@@ -35,6 +35,9 @@ function playersText(list: Checklist): string {
 /** "Annihilation · 2 players" */
 export const checklistSubtitle = (list: Checklist): string => `${modeInfo(list.mode).title} · ${playersText(list)}`;
 
+/** "ready ✓" only when nothing is left to fix, otherwise "3 to fix": a count that can't be read as ready. */
+export const checklistStatus = (list: Checklist): string => (list.allReady ? 'ready ✓' : `${list.toFix} to fix`);
+
 export interface RowOptions {
   /** Called after a fix or a mode pick, to draw the list again. */
   onChange(): void;
@@ -42,7 +45,7 @@ export interface RowOptions {
   longLabels?: boolean;
 }
 
-/** One row per check: ✓, !, ✕ or – (not checked yet), the name, the detail and an action. */
+/** One row per check: ✓, ! or ✕, the name, the detail and an action. */
 export function checkRows(editor: Editor, checks: Check[], opts: RowOptions): HTMLElement[] {
   return checks.map((c) => {
     const state = checkState(c);
@@ -70,7 +73,7 @@ export function mountChecklistChip(editor: Editor): HTMLElement {
   const modeEl = h('span.cl-mode');
   const countEl = h('span.cl-count');
   const caret = h('span.cl-caret', {}, '▾');
-  const chip = h('button.cl-chip', { title: 'Map checklist: what this map needs to be played', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' }, modeEl, countEl, caret);
+  const chip = h('button.cl-chip', { 'aria-haspopup': 'dialog', 'aria-expanded': 'false' }, modeEl, countEl, caret);
   const pop = h('div.cl-pop', { role: 'dialog', 'aria-label': 'Map checklist', hidden: true });
   document.body.append(pop);
   let picking = false;
@@ -98,7 +101,8 @@ export function mountChecklistChip(editor: Editor): HTMLElement {
     clearTimeout(timer);
     const list = currentChecklist(editor);
     modeEl.textContent = modeInfo(list.mode).label;
-    countEl.textContent = `${list.ready}/${list.total} ready`;
+    countEl.textContent = `· ${checklistStatus(list)}`;
+    chip.title = `Map checklist: ${list.ready} of ${list.total} checks pass. Click for the list.`;
     chip.classList.toggle('ready', list.allReady);
     if (!pop.hidden) renderPopover(list);
   };
