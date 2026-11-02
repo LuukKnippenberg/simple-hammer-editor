@@ -3,6 +3,7 @@ import type { KVNode } from '../vmf/keyvalues.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { boxFaces, solidNode } from '../edit/brushes.ts';
 import type { ArchitectureName, BuildingQuality, FacadeStyle } from './buildings.ts';
+import { FLOOR } from './facade.ts';
 import type { YardStyle } from './yards.ts';
 import type { BlockDressing } from './streets.ts';
 import { blockIntoDoc, blockUids, groupStreet, type BlockSpec } from './buildingStore.ts';
@@ -298,20 +299,25 @@ export function sketchHeights(s: Sketch): { W: number; H: number; heights: Float
 export function levelBlocks(s: Sketch): Box3[] {
   const out: Box3[] = [];
   const maxLevel = Math.max(0, ...s.levels);
-  for (let lvl = 1; lvl <= maxLevel; lvl++) {
-    const used = new Uint8Array(s.w * s.h);
-    const is = (x: number, y: number) => x >= 0 && y >= 0 && x < s.w && y < s.h && s.levels[y * s.w + x] >= lvl && !used[y * s.w + x];
-    for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
-      if (!is(x, y)) continue;
-      let x1 = x;
-      while (is(x1 + 1, y)) x1++;
-      let y1 = y;
-      const rowOk = (yy: number) => { for (let xx = x; xx <= x1; xx++) if (!is(xx, yy)) return false; return true; };
-      while (rowOk(y1 + 1)) y1++;
-      for (let yy = y; yy <= y1; yy++) for (let xx = x; xx <= x1; xx++) used[yy * s.w + xx] = 1;
-      // Each level's block sits on the one below it, so they never overlap.
-      out.push(new Box3(new Vector3(x * SKETCH_CELL, y * SKETCH_CELL, (lvl - 1) * s.levelHeight), new Vector3((x1 + 1) * SKETCH_CELL, (y1 + 1) * SKETCH_CELL, lvl * s.levelHeight)));
-    }
+  for (let lvl = 1; lvl <= maxLevel; lvl++) out.push(...levelBoxes(s, lvl));
+  return out;
+}
+
+/** The boxes of one raised level: greedy rectangles of cells at or above it, each from the level below up to it. */
+function levelBoxes(s: Sketch, lvl: number): Box3[] {
+  const out: Box3[] = [];
+  const used = new Uint8Array(s.w * s.h);
+  const is = (x: number, y: number) => x >= 0 && y >= 0 && x < s.w && y < s.h && s.levels[y * s.w + x] >= lvl && !used[y * s.w + x];
+  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+    if (!is(x, y)) continue;
+    let x1 = x;
+    while (is(x1 + 1, y)) x1++;
+    let y1 = y;
+    const rowOk = (yy: number) => { for (let xx = x; xx <= x1; xx++) if (!is(xx, yy)) return false; return true; };
+    while (rowOk(y1 + 1)) y1++;
+    for (let yy = y; yy <= y1; yy++) for (let xx = x; xx <= x1; xx++) used[yy * s.w + xx] = 1;
+    // Each level's block sits on the one below it, so they never overlap.
+    out.push(new Box3(new Vector3(x * SKETCH_CELL, y * SKETCH_CELL, (lvl - 1) * s.levelHeight), new Vector3((x1 + 1) * SKETCH_CELL, (y1 + 1) * SKETCH_CELL, lvl * s.levelHeight)));
   }
   return out;
 }
@@ -349,123 +355,243 @@ export interface SketchResult {
   poiLevels: number[];
 }
 
+const PATCH = 512; // terrain displacement patch side
+const PATCH_POWER = 4; // 16 quads of SAMPLE along a patch
+const ALPHA_JITTER = 50; // how far the blend of grass, dirt and rubble wanders (half either way)
+const ROAD_PIECE_CELLS = 64; // the longest road made from one rectangle of road cells
+const KERB_WIDTH = 8; // as roads.ts builds it
+const BUILDING_GAP = 6; // between a city pavement and the building line
+const MIN_CARRIAGEWAY = 96;
+const MIN_LINED = 128; // the narrowest carriageway with lane lines
+const STREET_LIFT = 3; // how far city streets sit above the terrain
+const TRACK_LIFT = 2; // and the countryside's dirt tracks
+const TRACK_MARGIN = 32; // a dirt track is this much narrower than its road cells
+const WALL_HALF = 24; // walls on wall cells are 48 thick,
+const WALL_HEIGHT = 160; // this high
+const WALL_SINK = 16; // and sink this far into the ground
+const WALL_MATERIAL = 'CONCRETE/CONCRETEWALL071A';
+const PARK_REACH = 64; // a car cell parks on the nearest road if it lies within this far beyond its pavement
+const CAR_CLEARANCE = 24; // between a parked car and the lamps and trees
+const POI_WALL_DEPTH = 16; // how far the walls and floors of the POIs' canals and pits reach below the cut
+// Headroom above the tallest building on the highest level, of the skybox and of the NPC clip round the map,
+// and of the skybox above the surroundings.
+const SKY_ABOVE_ROOFS = 768;
+const CLIP_ABOVE_ROOFS = 1024;
+const SKY_ABOVE_SURROUNDINGS = 384;
+
+/** The surface an area drawn over the cells paints into the blend. */
+const SHAPE_SURFACE: Record<ShapeSurface, Surface> = { grass: Surface.Grass, dirt: Surface.Dirt, paved: Surface.Paved, rubble: Surface.Rubble };
+
+/** The terrain of a sketch in layout units: its 32-unit vertex grid (W × H) and the POIs levelled into it. */
+interface SketchGround {
+  W: number;
+  H: number;
+  pois: ReturnType<typeof levelForPois>;
+  /** The terrain's height, with its noise; flatHeight is without, for what is laid on it. */
+  heightAt(x: number, y: number): number;
+  flatHeight(x: number, y: number): number;
+  /** Blend alpha of the playable terrain, and of the hills beyond the edge. */
+  alphaAt(x: number, y: number): number;
+  hillAlpha(x: number, y: number): number;
+}
+
+/** The streets as the props along them see them. */
+interface Streets {
+  roads: RoadSpec[];
+  /** The road's surface, kerb or pavement under a point, if any. */
+  onRoad(x: number, y: number): RoadGround | null;
+  /** The walkable top under a point: the road's where there is one, else the terrain. */
+  groundAt(x: number, y: number): number;
+  /** Whether a point is on a carriageway (or a railway's bed): parked cars must be, lamps and trees never are. */
+  carriageway(x: number, y: number): boolean;
+}
+
+/** A generated block of buildings and the street dressing it leaves to its group. */
+interface SketchBlock { spec: BlockSpec; dressing: BlockDressing }
+
 /** Turns a sketch into a complete map (terrain, buildings, walls, props, lighting, shell, boundary). */
 export function generateFromSketch(s: Sketch): SketchResult {
   const doc = VmfDocument.empty();
+  // One RNG for the whole map, drawn by the steps below in this order: changing the order changes every map.
   const rng = new Rng(s.seed);
   const theme = THEMES[s.theme];
+  const mapW = s.w * SKETCH_CELL, mapH = s.h * SKETCH_CELL;
+  const shift = new Vector3(-mapW / 2, -mapH / 2, 0);
+  const ground = sketchGround(s, rng);
+  const solids: KVNode[] = [];
+  const ents: KVNode[] = [];
+  const apron = bandWidth(s.surroundings);
+  const patchSide = addTerrain(doc, s, ground, apron, solids);
+
+  const roads = sketchRoads(s, ground.flatHeight);
+  // What buildings and props keep off: the shapes' streets and areas.
+  const cuts = shapeCuts(s.shapes, SKETCH_CELL);
+  ents.push(...roadEntities(doc, roads, shift));
+  const streets = sketchStreets(roads, ground.flatHeight);
+  if (s.streets === 'sofia' && s.theme === 'city') ents.push(...sofiaStreets(doc, roads, streets.onRoad, new Rng(s.seed * 61 + 5)));
+  for (const r of roads) if (r.tracks) ents.push(...railwayRails(doc, r, streets.onRoad));
+
+  const blocks = addBuildings(doc, s, rng, shift, cuts, solids, ents);
+  const standing = addStreetDressing(doc, blocks, streets, rng, ents);
+  solids.push(...sketchWalls(doc, s));
+  ents.push(...featureProps(doc, s, rng, streets, cuts, standing));
+  if (s.theme === 'city') ents.push(...cityEdging(doc, s, ground.flatHeight, patchSide, shift));
+  const aroundTop = addSurroundings(doc, s, ground.flatHeight, roads, apron, solids, ents);
+
+  addEnvironment(doc, solids, ents, {
+    width: mapW, height: mapH, apron, maxHeight: Math.max(roofTop(s) + SKY_ABOVE_ROOFS, aroundTop + SKY_ABOVE_SURROUNDINGS),
+    sunYaw: rng.int(20, 70), fogColor: theme.fog, cameraGround: levelBlocks(s), lowest: lowestGround(ground),
+  });
+  doc.world.set('skyname', theme.sky);
+  const out = finishDoc(doc, solids, ents, shift);
+  return { doc: out, shift, heightAt: (x, y) => streets.groundAt(x - shift.x, y - shift.y), poiLevels: ground.pois.levels };
+}
+
+/** The top of the tallest building the sketch can have: its highest level plus its most floors. */
+function roofTop(s: Sketch): number {
+  return Math.max(0, ...s.levels) * s.levelHeight + s.floors[1] * FLOOR;
+}
+
+/**
+ * The terrain: heights from the levels, with the POIs levelled into them and hills rising beyond the edge (city and
+ * wall sides stay level), and blend alpha from the cells' surfaces and the areas drawn over them.
+ */
+function sketchGround(s: Sketch, rng: Rng): SketchGround {
+  const theme = THEMES[s.theme];
   const { W, H, heights, steep } = sketchHeights(s);
-  // Alpha per vertex from the surrounding cells' surfaces, softened; steep vertices get the rough texture.
-  const alpha = new Float32Array(W * H);
-  for (let vy = 0; vy < H; vy++) for (let vx = 0; vx < W; vx++) {
-    const cells = vertexCells(s, vx, vy);
-    let a = cells.reduce((sum, c) => sum + theme.alpha[s.surface[c] as Surface], 0) / cells.length;
-    if (steep[vy * W + vx]) a = 255;
-    if (cells.some((c) => s.surface[c] === Surface.Grass || s.surface[c] === Surface.Dirt || s.surface[c] === Surface.Rubble)) a += (rng.next() - 0.5) * 50;
-    alpha[vy * W + vx] = Math.max(0, Math.min(255, Math.round(a)));
-  }
+  const alpha = vertexAlpha(s, W, H, steep, rng);
   const sampleGrid = (f: Float32Array, x: number, y: number) => {
     // Outside the sketch the edge values continue (the scenery apron).
     const gx = Math.max(0, Math.min(W - 1, Math.round(x / SAMPLE))), gy = Math.max(0, Math.min(H - 1, Math.round(y / SAMPLE)));
     return f[gy * W + gx];
   };
-  const noise = (x: number, y: number) => {
-    const surf = s.surface[Math.min(s.h - 1, Math.max(0, Math.floor(y / SKETCH_CELL))) * s.w + Math.min(s.w - 1, Math.max(0, Math.floor(x / SKETCH_CELL)))];
-    if (surf === Surface.Road || surf === Surface.Paved) return 0;
-    const h = Math.sin(x * 0.013 + s.seed) * Math.cos(y * 0.011 - s.seed) + Math.sin((x + y) * 0.031);
-    return h * theme.noise;
-  };
   // POIs level the terrain under them (and cut their sea or pits into it).
   const pois = levelForPois((x, y) => sampleGrid(heights, x, y), sketchPoiPlacements(s));
-  // No noise where a POI levelled the ground.
-  const mapW = s.w * SKETCH_CELL, mapH = s.h * SKETCH_CELL;
-  // Beyond the edge: hills rise out of the terrain (city and wall sides stay level).
-  const rise = surroundRise(s.surroundings, mapW, mapH, s.seed);
-  const heightAt = (x: number, y: number) => Math.round((pois.height(x, y) + noise(x, y) * (1 - pois.weight(x, y)) + rise(x, y)) * 10) / 10;
+  const rise = surroundRise(s.surroundings, s.w * SKETCH_CELL, s.h * SKETCH_CELL, s.seed);
   // Areas drawn over the cells paint their surface into the blend, softly at their outline.
-  const SHAPE_SURFACE: Record<ShapeSurface, Surface> = { grass: Surface.Grass, dirt: Surface.Dirt, paved: Surface.Paved, rubble: Surface.Rubble };
   const inAreas = areaAlpha(s.shapes, SKETCH_CELL, (sf) => theme.alpha[SHAPE_SURFACE[sf]]);
-  const alphaAt = (x: number, y: number) => inAreas(x, y, sampleGrid(alpha, x, y));
-  // Hills are grass, with dirt showing through higher up and in patches.
-  const hillAlpha = (x: number, y: number) => Math.max(0, Math.min(220, 20 + (rise(x, y) / HILL_HEIGHT) * 110 + Math.sin(x * 0.0037 + s.seed) * Math.cos(y * 0.0049) * 70));
-  const flatHeight = (x: number, y: number) => pois.height(x, y) + rise(x, y);
+  return {
+    W, H, pois,
+    // No noise where a POI levelled the ground.
+    heightAt: (x, y) => Math.round((pois.height(x, y) + terrainNoise(s, x, y) * (1 - pois.weight(x, y)) + rise(x, y)) * 10) / 10,
+    flatHeight: (x, y) => pois.height(x, y) + rise(x, y),
+    alphaAt: (x, y) => inAreas(x, y, sampleGrid(alpha, x, y)),
+    // Hills are grass, with dirt showing through higher up and in patches.
+    hillAlpha: (x, y) => Math.max(0, Math.min(220, 20 + (rise(x, y) / HILL_HEIGHT) * 110 + Math.sin(x * 0.0037 + s.seed) * Math.cos(y * 0.0049) * 70)),
+  };
+}
 
-  const solids: KVNode[] = [];
-  const ents: KVNode[] = [];
-  const apron = bandWidth(s.surroundings);
-  const P = 512;
-  // The terrain's top faces by patch, for overlays laid on it.
+/** Blend alpha per terrain vertex from the surrounding cells' surfaces, softened; steep vertices get the rough texture. */
+function vertexAlpha(s: Sketch, W: number, H: number, steep: Uint8Array, rng: Rng): Float32Array {
+  const theme = THEMES[s.theme];
+  const alpha = new Float32Array(W * H);
+  for (let vy = 0; vy < H; vy++) for (let vx = 0; vx < W; vx++) {
+    const cells = vertexCells(s, vx, vy);
+    let a = cells.reduce((sum, c) => sum + theme.alpha[s.surface[c] as Surface], 0) / cells.length;
+    if (steep[vy * W + vx]) a = 255;
+    if (cells.some((c) => s.surface[c] === Surface.Grass || s.surface[c] === Surface.Dirt || s.surface[c] === Surface.Rubble)) a += (rng.next() - 0.5) * ALPHA_JITTER;
+    alpha[vy * W + vx] = Math.max(0, Math.min(255, Math.round(a)));
+  }
+  return alpha;
+}
+
+/** Gentle bumps in the terrain; roads and paving stay flat. */
+function terrainNoise(s: Sketch, x: number, y: number): number {
+  const surf = s.surface[Math.min(s.h - 1, Math.max(0, Math.floor(y / SKETCH_CELL))) * s.w + Math.min(s.w - 1, Math.max(0, Math.floor(x / SKETCH_CELL)))];
+  if (surf === Surface.Road || surf === Surface.Paved) return 0;
+  const h = Math.sin(x * 0.013 + s.seed) * Math.cos(y * 0.011 - s.seed) + Math.sin((x + y) * 0.031);
+  return h * THEMES[s.theme].noise;
+}
+
+/**
+ * The terrain patches over the map and the band round it (wooded hills' blend on hill sides). Returns the id of the
+ * top face of the patch under a point, for overlays laid on the terrain.
+ */
+function addTerrain(doc: VmfDocument, s: Sketch, ground: SketchGround, apron: number, solids: KVNode[]): (x: number, y: number) => string | null {
+  const theme = THEMES[s.theme];
+  const mapW = s.w * SKETCH_CELL, mapH = s.h * SKETCH_CELL;
   const patchTops = new Map<string, string>();
-  for (let y = -apron; y < mapH + apron; y += P) for (let x = -apron; x < mapW + apron; x += P) {
-    const side = sideOf(x + P / 2, y + P / 2, mapW, mapH);
+  for (let y = -apron; y < mapH + apron; y += PATCH) for (let x = -apron; x < mapW + apron; x += PATCH) {
+    const side = sideOf(x + PATCH / 2, y + PATCH / 2, mapW, mapH);
     const hill = !!side && styleOf(s.surroundings, side) === 'hills';
-    const patch = terrainPatch(doc, x, y, P, hill ? THEMES.rural.blend : theme.blend, heightAt, hill ? hillAlpha : alphaAt, 4);
+    const patch = terrainPatch(doc, x, y, PATCH, hill ? THEMES.rural.blend : theme.blend, ground.heightAt, hill ? ground.hillAlpha : ground.alphaAt, PATCH_POWER);
     // Beyond the playable area (and its first 512, which the camera sees close), a coarse lightmap.
-    if (outside(x + P / 2, y + P / 2, mapW, mapH) > P) setLightmapScale(patch, FAR_LIGHTMAP);
+    if (outside(x + PATCH / 2, y + PATCH / 2, mapW, mapH) > PATCH) setLightmapScale(patch, FAR_LIGHTMAP);
     solids.push(patch);
     patchTops.set(`${x},${y}`, patch.childrenNamed('side')[0].get('id')!);
   }
-  const patchSide = (x: number, y: number) => patchTops.get(`${Math.floor((x + apron) / P) * P - apron},${Math.floor((y + apron) / P) * P - apron}`) ?? null;
+  return (x, y) => patchTops.get(`${Math.floor((x + apron) / PATCH) * PATCH - apron},${Math.floor((y + apron) / PATCH) * PATCH - apron}`) ?? null;
+}
 
-  const shift = new Vector3(-mapW / 2, -mapH / 2, 0);
-  // Roads over the road cells, built by the road tool's code (so they can be edited as roads): in the city
-  // an asphalt carriageway with kerbs and pavements inside the road cells, in the countryside a dirt track.
-  // A piece that ends against another road runs on to its centre, so the crossing opens.
-  const roads: RoadSpec[] = [];
-  const isRoad = (cx: number, cy: number) => cx >= 0 && cy >= 0 && cx < s.w && cy < s.h && s.surface[cy * s.w + cx] === Surface.Road;
-  for (const { box } of cellRects(s, (i) => s.surface[i] === Surface.Road, 64)) {
-    const size = box.getSize(new Vector3());
-    const alongX = size.x >= size.y;
-    const long = Math.max(size.x, size.y), short = Math.min(size.x, size.y);
-    const c = box.getCenter(new Vector3());
-    const ends = alongX ? [new Vector3(box.min.x, c.y, 0), new Vector3(box.max.x, c.y, 0)] : [new Vector3(c.x, box.min.y, 0), new Vector3(c.x, box.max.y, 0)];
-    const cell = (v: number) => Math.floor(v / SKETCH_CELL);
-    ends.forEach((p, k) => {
-      const out = k === 0 ? -1 : 1;
-      const beyond = alongX ? isRoad(cell(p.x) + (out < 0 ? -1 : 0), cell(c.y)) : isRoad(cell(c.x), cell(p.y) + (out < 0 ? -1 : 0));
-      if (beyond) { if (alongX) p.x += out * SKETCH_CELL; else p.y += out * SKETCH_CELL; }
-      p.z = flatHeight(p.x - (alongX ? out : 0), p.y - (alongX ? 0 : out));
-    });
-    if (s.theme === 'city') {
-      const pavement = s.streets === 'sofia' && short >= 512 ? 96 : short >= 384 ? 64 : 48;
-      // The pavement stops 6 units short of the building line, clear of the buildings' base course (4 out):
-      // overlapping detail brushes get chopped against each other, and over a whole district the extra
-      // t-junctions overflow vbsp's limit.
-      const width = Math.max(96, short - 2 * (pavement + 8 + 6));
-      roads.push({ ...defaultRoad('asphalt', ends), width, pavement, radius: 0, lined: long >= short * 2 && width >= 128, lift: 3, ...(s.streetMaterials ? { materials: { ...s.streetMaterials } } : {}) });
-    } else {
-      roads.push({ ...defaultRoad('dirt', ends), width: short - 32, radius: 0, lift: 2 });
-    }
-  }
-  // Streets drawn as shapes: diagonal and curved, built by the same road code.
+/**
+ * The roads: one over each rectangle of road cells and the streets drawn as shapes (diagonal and curved), all built
+ * by the road tool's code so they can be edited as roads. Streets that reach a city or wall side run on out of the
+ * map. Longest first: through roads keep their surface across junctions.
+ */
+function sketchRoads(s: Sketch, flatHeight: (x: number, y: number) => number): RoadSpec[] {
+  const roads = cellRects(s, (i) => s.surface[i] === Surface.Road, ROAD_PIECE_CELLS).map(({ box }) => cellRoad(s, box, flatHeight));
   roads.push(...shapeRoads(s.shapes, SKETCH_CELL, flatHeight, s.streetMaterials));
-  // What buildings and props keep off: the shapes' streets and areas.
-  const cuts = shapeCuts(s.shapes, SKETCH_CELL);
-  const inCut = (x: number, y: number) => cuts.some((c) => insideDistance(c, x, y) > 0);
-  // Streets that reach a city or wall side run on out of the map.
-  extendEdgeRoads(roads, s.surroundings, mapW, mapH, flatHeight);
-  // Longest first: through roads keep their surface across junctions.
+  extendEdgeRoads(roads, s.surroundings, s.w * SKETCH_CELL, s.h * SKETCH_CELL, flatHeight);
   roads.sort((a, b) => b.points[0].distanceTo(b.points[1]) - a.points[0].distanceTo(a.points[1]));
-  buildRoads(doc, roads).forEach((nodes, i) => {
-    const stored = { ...roads[i], points: roads[i].points.map((p) => p.clone().add(shift)) };
-    ents.push(roadEntityNode(doc, stored, nodes));
-  });
-  // The walkable top under a point: the road's surface, kerb or pavement where there is one, else the terrain.
-  const onRoad = roadGround(roads);
-  const groundAt = (x: number, y: number) => onRoad(x, y)?.z ?? flatHeight(x, y);
-  const carriageway = (x: number, y: number) => { const g = onRoad(x, y); return !!g && (g.kind === 'surface' || g.kind === 'rail'); };
-  if (s.streets === 'sofia' && s.theme === 'city') ents.push(...sofiaStreets(doc, roads, onRoad, new Rng(s.seed * 61 + 5)));
-  for (const r of roads) if (r.tracks) ents.push(...railwayRails(doc, r, onRoad));
+  return roads;
+}
 
-  // A block's cut option: the shape cuts over it, in world units.
-  const blockCut = (box: Box3) => {
-    const r = [new Vector2(box.min.x, box.min.y), new Vector2(box.max.x, box.min.y), new Vector2(box.max.x, box.max.y), new Vector2(box.min.x, box.max.y)];
-    const mine = cuts.filter((c) => boxesOverlap(c, r)).map((c) => c.map((p) => new Vector2(p.x + shift.x, p.y + shift.y)));
-    return mine.length ? { cut: encodeCuts(mine) } : {};
+/**
+ * The road over one rectangle of road cells: in the city an asphalt carriageway with kerbs and pavements inside the
+ * cells, in the countryside a dirt track. An end against another road runs on to its centre, so the crossing opens.
+ */
+function cellRoad(s: Sketch, box: Box3, flatHeight: (x: number, y: number) => number): RoadSpec {
+  const isRoad = (cx: number, cy: number) => cx >= 0 && cy >= 0 && cx < s.w && cy < s.h && s.surface[cy * s.w + cx] === Surface.Road;
+  const size = box.getSize(new Vector3());
+  const alongX = size.x >= size.y;
+  const long = Math.max(size.x, size.y), short = Math.min(size.x, size.y);
+  const c = box.getCenter(new Vector3());
+  const ends = alongX ? [new Vector3(box.min.x, c.y, 0), new Vector3(box.max.x, c.y, 0)] : [new Vector3(c.x, box.min.y, 0), new Vector3(c.x, box.max.y, 0)];
+  const cell = (v: number) => Math.floor(v / SKETCH_CELL);
+  ends.forEach((p, k) => {
+    const out = k === 0 ? -1 : 1;
+    const beyond = alongX ? isRoad(cell(p.x) + (out < 0 ? -1 : 0), cell(c.y)) : isRoad(cell(c.x), cell(p.y) + (out < 0 ? -1 : 0));
+    if (beyond) { if (alongX) p.x += out * SKETCH_CELL; else p.y += out * SKETCH_CELL; }
+    p.z = flatHeight(p.x - (alongX ? out : 0), p.y - (alongX ? 0 : out));
+  });
+  if (s.theme !== 'city') return { ...defaultRoad('dirt', ends), width: short - TRACK_MARGIN, radius: 0, lift: TRACK_LIFT };
+  // Wider pavements on wider streets (4 and 3 cells across).
+  const pavement = s.streets === 'sofia' && short >= 4 * SKETCH_CELL ? 96 : short >= 3 * SKETCH_CELL ? 64 : 48;
+  // The pavement stops short of the building line, clear of the buildings' base course (4 out): overlapping
+  // detail brushes get chopped against each other, and over a whole district the extra t-junctions overflow
+  // vbsp's limit.
+  const width = Math.max(MIN_CARRIAGEWAY, short - 2 * (pavement + KERB_WIDTH + BUILDING_GAP));
+  return { ...defaultRoad('asphalt', ends), width, pavement, radius: 0, lined: long >= short * 2 && width >= MIN_LINED, lift: STREET_LIFT, ...(s.streetMaterials ? { materials: { ...s.streetMaterials } } : {}) };
+}
+
+/** Builds the roads into the document and returns their road entities, stored in world units so they can be edited. */
+function roadEntities(doc: VmfDocument, roads: RoadSpec[], shift: Vector3): KVNode[] {
+  return buildRoads(doc, roads).map((nodes, i) => roadEntityNode(doc, { ...roads[i], points: roads[i].points.map((p) => p.clone().add(shift)) }, nodes));
+}
+
+/** What lies under a point once the roads are built. */
+function sketchStreets(roads: RoadSpec[], flatHeight: (x: number, y: number) => number): Streets {
+  const onRoad = roadGround(roads);
+  return {
+    roads, onRoad,
+    groundAt: (x, y) => onRoad(x, y)?.z ?? flatHeight(x, y),
+    carriageway: (x, y) => { const g = onRoad(x, y); return !!g && (g.kind === 'surface' || g.kind === 'rail'); },
   };
-  // Buildings: one generated block per rectangle of building cells, on that cell's height level. Each is a stored
-  // block (with a handle); the blocks on one level are a group, which shares its street dressing.
-  const blocks: { spec: BlockSpec; dressing: BlockDressing }[] = [];
+}
+
+/** A block's cut option: the shape cuts over it, in world units. */
+function blockCut(box: Box3, cuts: Vector2[][], shift: Vector3): { cut?: string } {
+  const r = [new Vector2(box.min.x, box.min.y), new Vector2(box.max.x, box.min.y), new Vector2(box.max.x, box.max.y), new Vector2(box.min.x, box.max.y)];
+  const mine = cuts.filter((c) => boxesOverlap(c, r)).map((c) => c.map((p) => new Vector2(p.x + shift.x, p.y + shift.y)));
+  return mine.length ? { cut: encodeCuts(mine) } : {};
+}
+
+/**
+ * Buildings: one generated block per rectangle of building cells, on that cell's height level. Each is a stored block
+ * (with a handle); the blocks on one level are a group, which shares its street dressing.
+ */
+function addBuildings(doc: VmfDocument, s: Sketch, rng: Rng, shift: Vector3, cuts: Vector2[][], solids: KVNode[], ents: KVNode[]): SketchBlock[] {
+  const blocks: SketchBlock[] = [];
   const ids = new Rng(s.seed * 23 + 9), uid = blockUids(ids);
   const groups = new Map<number, { id: string; seed: number }>();
   for (const { box, level } of featureRects(s, Feature.Building)) {
@@ -478,7 +604,7 @@ export function generateFromSketch(s: Sketch): SketchResult {
       options: {
         seed: rng.int(1, 1e9), minFloors: s.floors[0], maxFloors: s.floors[1], alleys: false, roofProps: true, style: s.facade, architecture: s.architecture, interiors: s.interiors,
         yards: s.yards, openYards: s.openYards,
-        ...blockCut(box),
+        ...blockCut(box, cuts, shift),
         quality: blockQuality(s, Math.round(box.min.x / SKETCH_CELL), Math.round(box.min.y / SKETCH_CELL), Math.round(box.max.x / SKETCH_CELL), Math.round(box.max.y / SKETCH_CELL)),
       },
     };
@@ -487,128 +613,160 @@ export function generateFromSketch(s: Sketch): SketchResult {
     ents.push(...b.entities);
     blocks.push({ spec, dressing: b.out.dressing });
   }
-  // Cables across streets, lamps and trees: only between blocks on the same level. Lamps and trees stand on
-  // the pavement, never on a carriageway.
+  return blocks;
+}
+
+/**
+ * Cables across streets, lamps and trees: only between blocks on the same level (one group). Lamps and trees stand on
+ * the pavement, never on a carriageway. Returns where the props stand, which parked cars keep clear of.
+ */
+function addStreetDressing(doc: VmfDocument, blocks: SketchBlock[], streets: Streets, rng: Rng, ents: KVNode[]): Vector2[] {
   const standing: Vector2[] = [];
-  for (const g of groups.values()) {
-    const mine = blocks.filter((b) => b.spec.group === g.id);
-    for (const e of groupStreet(mine.map((b) => b.spec), (x, y) => (carriageway(x, y) ? null : groundAt(x, y)), mine.map((b) => b.dressing), rng)) {
+  for (const group of new Set(blocks.map((b) => b.spec.group))) {
+    const mine = blocks.filter((b) => b.spec.group === group);
+    for (const e of groupStreet(mine.map((b) => b.spec), (x, y) => (streets.carriageway(x, y) ? null : streets.groundAt(x, y)), mine.map((b) => b.dressing), rng)) {
       ents.push(entity(doc, e.classname, e.origin, e.keys));
       if (e.classname === 'prop_static') standing.push(new Vector2(e.origin.x, e.origin.y));
     }
   }
-  // Walls: 48-thick concrete runs through wall cells, joined across neighbours.
+  return standing;
+}
+
+/** Walls: 48-thick concrete runs through wall cells, joined across neighbours. */
+function sketchWalls(doc: VmfDocument, s: Sketch): KVNode[] {
   const walls: KVNode[] = [];
+  const add = (min: Vector3, max: Vector3) => walls.push(solidNode(doc, boxFaces(min, max, { top: WALL_MATERIAL, bottom: 'TOOLS/TOOLSNODRAW', sides: WALL_MATERIAL })));
   for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
     const i = y * s.w + x;
     if (s.features[i] !== Feature.Wall) continue;
     const z = s.levels[i] * s.levelHeight;
     const wall = (dx: number, dy: number) => x + dx >= 0 && y + dy >= 0 && x + dx < s.w && y + dy < s.h && s.features[(y + dy) * s.w + x + dx] === Feature.Wall;
-    const cx = (x + 0.5) * SKETCH_CELL, cy = (y + 0.5) * SKETCH_CELL, t = 24, hgt = 160;
+    const cx = (x + 0.5) * SKETCH_CELL, cy = (y + 0.5) * SKETCH_CELL;
     const horiz = wall(-1, 0) || wall(1, 0), vert = wall(0, -1) || wall(0, 1);
-    const mat = 'CONCRETE/CONCRETEWALL071A';
-    const add = (min: Vector3, max: Vector3) => walls.push(solidNode(doc, boxFaces(min, max, { top: mat, bottom: 'TOOLS/TOOLSNODRAW', sides: mat })));
-    if (horiz || !vert) add(new Vector3(wall(-1, 0) ? x * SKETCH_CELL : cx - t, cy - t, z - 16), new Vector3(wall(1, 0) ? (x + 1) * SKETCH_CELL : cx + t, cy + t, z + hgt));
-    if (vert) add(new Vector3(cx - t, wall(0, -1) ? y * SKETCH_CELL : cy - t, z - 16), new Vector3(cx + t, wall(0, 1) ? (y + 1) * SKETCH_CELL : cy + t, z + hgt));
+    if (horiz || !vert) add(new Vector3(wall(-1, 0) ? x * SKETCH_CELL : cx - WALL_HALF, cy - WALL_HALF, z - WALL_SINK), new Vector3(wall(1, 0) ? (x + 1) * SKETCH_CELL : cx + WALL_HALF, cy + WALL_HALF, z + WALL_HEIGHT));
+    if (vert) add(new Vector3(cx - WALL_HALF, wall(0, -1) ? y * SKETCH_CELL : cy - WALL_HALF, z - WALL_SINK), new Vector3(cx + WALL_HALF, wall(0, 1) ? (y + 1) * SKETCH_CELL : cy + WALL_HALF, z + WALL_HEIGHT));
   }
   // The runs' ends against each other and inside the crossings.
   hideCoveredFaces(walls);
-  solids.push(...walls);
-  // Parked cars in road cells: along the nearer kerb, facing the traffic on that side, on the carriageway and
-  // clear of kerbs, other cars, lamps and trees.
+  return walls;
+}
+
+/** Props on feature cells: trees, debris and cars (in road cells parked along the kerb). None where a shape cuts. */
+function featureProps(doc: VmfDocument, s: Sketch, rng: Rng, streets: Streets, cuts: Vector2[][], standing: Vector2[]): KVNode[] {
+  const out: KVNode[] = [];
   const parked: Box2[] = [];
-  const parkCar = (x: number, y: number): KVNode | null => {
-    const c = new Vector2((x + 0.5) * SKETCH_CELL, (y + 0.5) * SKETCH_CELL);
-    let best: { r: RoadSpec; dir: Vector2; n: Vector2; along: number; across: number } | null = null;
-    for (const r of roads) {
-      const a = new Vector2(r.points[0].x, r.points[0].y), b = new Vector2(r.points[1].x, r.points[1].y);
-      const dir = b.clone().sub(a).normalize(), n = new Vector2(-dir.y, dir.x);
-      const along = c.clone().sub(a).dot(dir), across = c.clone().sub(a).dot(n);
-      if (along < 0 || along > a.distanceTo(b) || (best && Math.abs(across) >= Math.abs(best.across))) continue;
-      best = { r, dir, n, along, across };
-    }
-    if (!best || Math.abs(best.across) > best.r.width / 2 + best.r.pavement + 64) return null;
-    const { r, dir, n, along, across } = best;
-    // Vans and trucks only where they leave a lane free; on a narrow road whatever fits at all.
-    const carWidth = (m: string) => PROP_BOUNDS[m][4] - PROP_BOUNDS[m][1];
-    let fits = CARS.filter((m) => r.width - KERB_GAP - carWidth(m) >= LANE_LEFT);
-    if (!fits.length) fits = CARS.filter((m) => r.width - 2 * KERB_GAP >= carWidth(m));
-    if (!fits.length) return null;
-    const model = rng.pick(fits);
-    const [x0, y0, , x1, y1] = PROP_BOUNDS[model];
-    // Right-hand traffic: on the left of the road's direction a car faces back along it.
-    const side = across >= 0 ? 1 : -1, face = -side;
-    const [lo, hi] = face > 0 ? [y0, y1] : [-y1, -y0];
-    const off = side > 0 ? r.width / 2 - KERB_GAP - hi : -r.width / 2 + KERB_GAP - lo;
-    const mid = face > 0 ? (x0 + x1) / 2 : -(x0 + x1) / 2;
-    const yaw = Math.atan2(dir.y, dir.x) + (face > 0 ? 0 : Math.PI) + rng.range(-0.03, 0.03);
-    const fx = new Vector2(Math.cos(yaw), Math.sin(yaw)), fy = new Vector2(-fx.y, fx.x);
-    const shift = rng.range(-24, 24);
-    for (const d of [shift, 0, -64, 64]) {
-      const o = new Vector2(r.points[0].x, r.points[0].y).addScaledVector(dir, along - mid + d).addScaledVector(n, off);
-      // The footprint (and its edges' midpoints) must lie on the carriageway, a little inside it.
-      const pts: Vector2[] = [];
-      for (const [u, v] of [[x0 - 2, y0 - 2], [x1 + 2, y0 - 2], [x1 + 2, y1 + 2], [x0 - 2, y1 + 2], [(x0 + x1) / 2, y0 - 2], [(x0 + x1) / 2, y1 + 2]]) {
-        pts.push(o.clone().addScaledVector(fx, u).addScaledVector(fy, v));
-      }
-      if (!pts.every((p) => carriageway(p.x, p.y))) continue;
-      const box = new Box2().setFromPoints(pts);
-      if (parked.some((q) => q.intersectsBox(box)) || standing.some((p) => box.distanceToPoint(p) < 24)) continue;
-      parked.push(box);
-      const z = Math.min(...pts.map((p) => groundAt(p.x, p.y)));
-      return entity(doc, 'prop_static', new Vector3(Math.round(o.x), Math.round(o.y), standZ(model, z)), { model, angles: `0 ${Math.round((yaw * 180) / Math.PI)} 0`, solid: '6' });
-    }
-    return null;
-  };
-  // Props on feature cells.
+  const inCut = (x: number, y: number) => cuts.some((c) => insideDistance(c, x, y) > 0);
   for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
     const f = s.features[y * s.w + x];
     const at = () => {
       const px = (x + rng.range(0.2, 0.8)) * SKETCH_CELL, py = (y + rng.range(0.2, 0.8)) * SKETCH_CELL;
-      return new Vector3(Math.round(px), Math.round(py), Math.round(groundAt(px, py)) - 2);
+      return new Vector3(Math.round(px), Math.round(py), Math.round(streets.groundAt(px, py)) - 2);
     };
     if (f !== Feature.None && inCut((x + 0.5) * SKETCH_CELL, (y + 0.5) * SKETCH_CELL)) continue;
-    if (f === Feature.Trees) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(s.theme === 'city' ? CITY_TREES : TREES), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
-    else if (f === Feature.Rubble && rng.chance(0.7)) ents.push(entity(doc, 'prop_static', at(), { model: rng.pick(DEBRIS), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
+    if (f === Feature.Trees) out.push(entity(doc, 'prop_static', at(), { model: rng.pick(s.theme === 'city' ? CITY_TREES : TREES), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
+    else if (f === Feature.Rubble && rng.chance(0.7)) out.push(entity(doc, 'prop_static', at(), { model: rng.pick(DEBRIS), angles: `0 ${rng.int(0, 359)} 0`, solid: '6' }));
     else if (f === Feature.Cars && rng.chance(0.6)) {
-      if (s.surface[y * s.w + x] === Surface.Road) {
-        const car = parkCar(x, y);
-        if (car) ents.push(car);
-      } else {
-        const p = at(), model = rng.pick(CARS);
-        p.z = standZ(model, p.z + 2);
-        ents.push(entity(doc, 'prop_static', p, { model, angles: `0 ${rng.int(0, 3) * 90 + rng.int(-12, 12)} 0`, solid: '6' }));
-      }
+      const car = s.surface[y * s.w + x] === Surface.Road ? parkCar(doc, rng, streets, parked, standing, x, y) : looseCar(doc, rng, at());
+      if (car) out.push(car);
     }
   }
+  return out;
+}
 
-  // Where lawns and dirt meet paving: a stone edging along the boundary and leaves and dirt over it. Not under
-  // buildings or POIs (they edge themselves), and only on the level ground of the city.
-  if (s.theme === 'city') {
-    const surf = (x: number, y: number) => s.surface[y * s.w + x];
-    const inPoi = (x: number, y: number) => (s.pois ?? []).some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
-    const edges = surfaceEdges(s.w, s.h, SKETCH_CELL,
-      (x, y) => surf(x, y) === Surface.Grass || surf(x, y) === Surface.Dirt,
-      (x, y) => surf(x, y) === Surface.Paved,
-      (x, y) => s.features[y * s.w + x] === Feature.Building || inPoi(x, y) || s.levels[y * s.w + x] !== 0);
-    const dressed = dressEdges(doc, edges, flatHeight, patchSide, shift, new Rng(s.seed * 83 + 7));
-    // And round the areas drawn as shapes.
-    const ring = areaEdging(doc, s.shapes, SKETCH_CELL, flatHeight, patchSide, shift, new Rng(s.seed * 89 + 5));
-    dressed.brushes.push(...ring.brushes);
-    dressed.overlays.push(...ring.overlays);
-    // Edging pieces end to end and overlapping at the corners.
-    hideCoveredFaces(dressed.brushes);
-    if (dressed.brushes.length) {
-      const e = entity(doc, 'func_detail', new Vector3(), {});
-      e.delete('origin');
-      e.items.push(...dressed.brushes);
-      ents.push(e);
-    }
-    ents.push(...dressed.overlays);
+/** A car standing about on open ground at `p` (sunk 2): square to the grid, give or take a little. */
+function looseCar(doc: VmfDocument, rng: Rng, p: Vector3): KVNode {
+  const model = rng.pick(CARS);
+  p.z = standZ(model, p.z + 2);
+  return entity(doc, 'prop_static', p, { model, angles: `0 ${rng.int(0, 3) * 90 + rng.int(-12, 12)} 0`, solid: '6' });
+}
+
+/** The road whose line passes nearest a point level with it (between the line's ends), with the point's offsets. */
+function nearestRoad(roads: RoadSpec[], c: Vector2): { r: RoadSpec; dir: Vector2; n: Vector2; along: number; across: number } | null {
+  let best: { r: RoadSpec; dir: Vector2; n: Vector2; along: number; across: number } | null = null;
+  for (const r of roads) {
+    const a = new Vector2(r.points[0].x, r.points[0].y), b = new Vector2(r.points[1].x, r.points[1].y);
+    const dir = b.clone().sub(a).normalize(), n = new Vector2(-dir.y, dir.x);
+    const along = c.clone().sub(a).dot(dir), across = c.clone().sub(a).dot(n);
+    if (along < 0 || along > a.distanceTo(b) || (best && Math.abs(across) >= Math.abs(best.across))) continue;
+    best = { r, dir, n, along, across };
   }
+  return best;
+}
 
-  // Beyond the edge: the city going on, a Combine wall or wooded hills (one func_brush and props), and an NPC clip
-  // round the playable area so units stay in it where streets run on out.
+/**
+ * A car parked in road cell (x, y): along the nearer kerb, facing the traffic on that side, on the carriageway and
+ * clear of kerbs, other cars (`parked`, which it joins) and the lamps and trees `standing`. Null if none fits.
+ */
+function parkCar(doc: VmfDocument, rng: Rng, streets: Streets, parked: Box2[], standing: Vector2[], x: number, y: number): KVNode | null {
+  const best = nearestRoad(streets.roads, new Vector2((x + 0.5) * SKETCH_CELL, (y + 0.5) * SKETCH_CELL));
+  if (!best || Math.abs(best.across) > best.r.width / 2 + best.r.pavement + PARK_REACH) return null;
+  const { r, dir, n, along, across } = best;
+  // Vans and trucks only where they leave a lane free; on a narrow road whatever fits at all.
+  const carWidth = (m: string) => PROP_BOUNDS[m][4] - PROP_BOUNDS[m][1];
+  let fits = CARS.filter((m) => r.width - KERB_GAP - carWidth(m) >= LANE_LEFT);
+  if (!fits.length) fits = CARS.filter((m) => r.width - 2 * KERB_GAP >= carWidth(m));
+  if (!fits.length) return null;
+  const model = rng.pick(fits);
+  const [x0, y0, , x1, y1] = PROP_BOUNDS[model];
+  // Right-hand traffic: on the left of the road's direction a car faces back along it.
+  const side = across >= 0 ? 1 : -1, face = -side;
+  const [lo, hi] = face > 0 ? [y0, y1] : [-y1, -y0];
+  const off = side > 0 ? r.width / 2 - KERB_GAP - hi : -r.width / 2 + KERB_GAP - lo;
+  const mid = face > 0 ? (x0 + x1) / 2 : -(x0 + x1) / 2;
+  const yaw = Math.atan2(dir.y, dir.x) + (face > 0 ? 0 : Math.PI) + rng.range(-0.03, 0.03);
+  const fx = new Vector2(Math.cos(yaw), Math.sin(yaw)), fy = new Vector2(-fx.y, fx.x);
+  const nudge = rng.range(-24, 24);
+  // Nudged along the kerb, else centred on the cell, else a little either way.
+  for (const d of [nudge, 0, -64, 64]) {
+    const o = new Vector2(r.points[0].x, r.points[0].y).addScaledVector(dir, along - mid + d).addScaledVector(n, off);
+    // The footprint (and its edges' midpoints) must lie on the carriageway, a little inside it.
+    const pts: Vector2[] = [];
+    for (const [u, v] of [[x0 - 2, y0 - 2], [x1 + 2, y0 - 2], [x1 + 2, y1 + 2], [x0 - 2, y1 + 2], [(x0 + x1) / 2, y0 - 2], [(x0 + x1) / 2, y1 + 2]]) {
+      pts.push(o.clone().addScaledVector(fx, u).addScaledVector(fy, v));
+    }
+    if (!pts.every((p) => streets.carriageway(p.x, p.y))) continue;
+    const box = new Box2().setFromPoints(pts);
+    if (parked.some((q) => q.intersectsBox(box)) || standing.some((p) => box.distanceToPoint(p) < CAR_CLEARANCE)) continue;
+    parked.push(box);
+    const z = Math.min(...pts.map((p) => streets.groundAt(p.x, p.y)));
+    return entity(doc, 'prop_static', new Vector3(Math.round(o.x), Math.round(o.y), standZ(model, z)), { model, angles: `0 ${Math.round((yaw * 180) / Math.PI)} 0`, solid: '6' });
+  }
+  return null;
+}
+
+/**
+ * Where lawns and dirt meet paving in the city, and round the areas drawn as shapes: a stone edging along the
+ * boundary and leaves and dirt over it. Not under buildings or POIs (they edge themselves), and only on level ground.
+ */
+function cityEdging(doc: VmfDocument, s: Sketch, flatHeight: (x: number, y: number) => number, patchSide: (x: number, y: number) => string | null, shift: Vector3): KVNode[] {
+  const surf = (x: number, y: number) => s.surface[y * s.w + x];
+  const edges = surfaceEdges(s.w, s.h, SKETCH_CELL,
+    (x, y) => surf(x, y) === Surface.Grass || surf(x, y) === Surface.Dirt,
+    (x, y) => surf(x, y) === Surface.Paved,
+    (x, y) => s.features[y * s.w + x] === Feature.Building || underPoi(s, x, y) || s.levels[y * s.w + x] !== 0);
+  const dressed = dressEdges(doc, edges, flatHeight, patchSide, shift, new Rng(s.seed * 83 + 7));
+  const ring = areaEdging(doc, s.shapes, SKETCH_CELL, flatHeight, patchSide, shift, new Rng(s.seed * 89 + 5));
+  dressed.brushes.push(...ring.brushes);
+  dressed.overlays.push(...ring.overlays);
+  // Edging pieces end to end and overlapping at the corners.
+  hideCoveredFaces(dressed.brushes);
+  const out: KVNode[] = [];
+  if (dressed.brushes.length) {
+    const e = entity(doc, 'func_detail', new Vector3(), {});
+    e.delete('origin');
+    e.items.push(...dressed.brushes);
+    out.push(e);
+  }
+  return [...out, ...dressed.overlays];
+}
+
+/**
+ * Beyond the edge: the city going on, a Combine wall or wooded hills (one func_brush and props), and, where the band
+ * is wider than the plain apron, an NPC clip round the playable area so units stay in it where streets run on out.
+ * Returns the top of the surroundings.
+ */
+function addSurroundings(doc: VmfDocument, s: Sketch, flatHeight: (x: number, y: number) => number, roads: RoadSpec[], apron: number, solids: KVNode[], ents: KVNode[]): number {
+  const mapW = s.w * SKETCH_CELL, mapH = s.h * SKETCH_CELL;
   const around = buildSurroundings({ doc, spec: s.surroundings, w: mapW, h: mapH, seed: s.seed, ground: flatHeight, roads });
   if (around.brushes.length) {
     const e = entity(doc, 'func_brush', new Vector3(mapW / 2, mapH / 2, 0), {
@@ -620,23 +778,19 @@ export function generateFromSketch(s: Sketch): SketchResult {
   }
   for (const p of around.props) ents.push(entity(doc, 'prop_static', p.origin, { model: p.model, angles: `0 ${p.yaw} 0`, solid: p.solid, disableshadows: p.solid === '0' ? '1' : '0' }));
   if (apron > PLAIN_APRON) {
-    const top = Math.max(0, ...s.levels) * s.levelHeight + s.floors[1] * 128 + 1024;
+    const top = roofTop(s) + CLIP_ABOVE_ROOFS;
     for (const [x0, y0, x1, y1] of [[-16, -16, mapW + 16, 0], [-16, mapH, mapW + 16, mapH + 16], [-16, 0, 0, mapH], [mapW, 0, mapW + 16, mapH]]) {
       solids.push(solidNode(doc, boxFaces(new Vector3(x0, y0, -48), new Vector3(x1, y1, top), 'TOOLS/TOOLSNPCCLIP')));
     }
   }
+  return around.top;
+}
 
-  const maxLevel = Math.max(0, ...s.levels);
-  // POIs cut canals and pits below the ground; their walls and floors reach 16 further down.
+/** The lowest the ground goes: the bottom of the POIs' canals and pits, or 0. */
+function lowestGround(ground: SketchGround): number {
   let lowest = 0;
-  for (let vy = 0; vy < H; vy++) for (let vx = 0; vx < W; vx++) lowest = Math.min(lowest, pois.height(vx * SAMPLE, vy * SAMPLE) - 16);
-  addEnvironment(doc, solids, ents, {
-    width: mapW, height: mapH, apron, maxHeight: Math.max(maxLevel * s.levelHeight + s.floors[1] * 128 + 768, around.top + 384),
-    sunYaw: rng.int(20, 70), fogColor: theme.fog, cameraGround: levelBlocks(s), lowest,
-  });
-  doc.world.set('skyname', theme.sky);
-  const out = finishDoc(doc, solids, ents, shift);
-  return { doc: out, shift, heightAt: (x, y) => groundAt(x - shift.x, y - shift.y), poiLevels: pois.levels };
+  for (let vy = 0; vy < ground.H; vy++) for (let vx = 0; vx < ground.W; vx++) lowest = Math.min(lowest, ground.pois.height(vx * SAMPLE, vy * SAMPLE) - POI_WALL_DEPTH);
+  return lowest;
 }
 
 /** Kit settings used for sketch markers. */
@@ -670,9 +824,26 @@ export function placeMarkers(editor: Pick<Editor, 'doc'>, s: Sketch, r: SketchRe
   }
 }
 
-/** Mirrors a painted cell according to the symmetry mode. */
 const PARKED = ['props_vehicles/car002a', 'props_vehicles/car003a', 'props_vehicles/car004a', 'props_vehicles/car005a', 'props_vehicles/car001a_hatchback'];
 const BOLLARD = 'props_trainstation/trainstation_post001';
+/** The car models run along their x; two rows of them and a lane between need a carriageway this wide. */
+const SOFIA_PARKING_WIDTH = 288;
+/** Bollards only on pavements at least this wide. */
+const SOFIA_BOLLARD_PAVEMENT = 96;
+
+/** Places one prop on the road's top at (x, y), turned to `yaw` degrees. */
+type PutProp = (model: string, x: number, y: number, yaw: number) => void;
+
+/** A straight road's line: its start, unit direction, left normal, length and heading in degrees. */
+interface RoadLine { a: Vector3; dir: Vector2; n: Vector2; len: number; yaw: number }
+
+function roadLine(r: RoadSpec): RoadLine {
+  const a = r.points[0], b = r.points[r.points.length - 1];
+  const dir = new Vector2(b.x - a.x, b.y - a.y);
+  const len = dir.length();
+  dir.normalize();
+  return { a, dir, n: new Vector2(-dir.y, dir.x), len, yaw: (Math.atan2(dir.y, dir.x) * 180) / Math.PI };
+}
 
 /**
  * Sofia's side streets: cars parked along both kerbs where the carriageway is wide enough for them and a lane
@@ -680,7 +851,7 @@ const BOLLARD = 'props_trainstation/trainstation_post001';
  */
 function sofiaStreets(doc: VmfDocument, roads: RoadSpec[], top: (x: number, y: number) => RoadGround | null, rng: Rng): KVNode[] {
   const out: KVNode[] = [];
-  const put = (model: string, x: number, y: number, yaw: number) => {
+  const put: PutProp = (model, x, y, yaw) => {
     const g = top(x, y);
     if (!g) return;
     const b = MODEL_BOUNDS[model];
@@ -688,33 +859,33 @@ function sofiaStreets(doc: VmfDocument, roads: RoadSpec[], top: (x: number, y: n
   };
   for (const r of roads) {
     if (r.style !== 'asphalt' || r.points.length !== 2) continue;
-    const a = r.points[0], b = r.points[r.points.length - 1];
-    const dir = new Vector2(b.x - a.x, b.y - a.y);
-    const len = dir.length();
-    dir.normalize();
-    const n = new Vector2(-dir.y, dir.x);
-    const yaw = (Math.atan2(dir.y, dir.x) * 180) / Math.PI;
+    const line = roadLine(r);
     for (const side of [-1, 1]) {
-      // The car models run along their x; two rows of them and a lane between need 288.
-      if (r.width >= 288) {
-        for (let t = 320; t < len - 320; t += 224) {
-          if (!rng.chance(0.6)) continue;
-          const off = side * (r.width / 2 - 44);
-          put(rng.pick(PARKED), a.x + dir.x * t + n.x * off, a.y + dir.y * t + n.y * off, yaw + (rng.chance(0.5) ? 180 : 0) + rng.range(-3, 3));
-        }
-      }
-      if (r.pavement >= 96) {
-        for (let t = 256; t < len - 256; t += 96) {
-          const off = side * (r.width / 2 + 14);
-          const x = a.x + dir.x * t + n.x * off, y = a.y + dir.y * t + n.y * off;
-          // Only on pavement: not where a crossing street or a rounded corner has taken it.
-          if (![-16, 0, 16].every((d) => top(x + dir.x * d, y + dir.y * d)?.kind === 'pavement')) continue;
-          put(BOLLARD, x, y, 0);
-        }
-      }
+      if (r.width >= SOFIA_PARKING_WIDTH) kerbCars(r, line, side, rng, put);
+      if (r.pavement >= SOFIA_BOLLARD_PAVEMENT) pavementBollards(r, line, side, top, put);
     }
   }
   return out;
+}
+
+/** Sofia: cars along one kerb (`side` of the road's line), with gaps, facing either way. */
+function kerbCars(r: RoadSpec, { a, dir, n, len, yaw }: RoadLine, side: number, rng: Rng, put: PutProp): void {
+  for (let t = 320; t < len - 320; t += 224) {
+    if (!rng.chance(0.6)) continue;
+    const off = side * (r.width / 2 - 44);
+    put(rng.pick(PARKED), a.x + dir.x * t + n.x * off, a.y + dir.y * t + n.y * off, yaw + (rng.chance(0.5) ? 180 : 0) + rng.range(-3, 3));
+  }
+}
+
+/** Sofia: bollards along one pavement's kerb edge. */
+function pavementBollards(r: RoadSpec, { a, dir, n, len }: RoadLine, side: number, top: (x: number, y: number) => RoadGround | null, put: PutProp): void {
+  for (let t = 256; t < len - 256; t += 96) {
+    const off = side * (r.width / 2 + 14);
+    const x = a.x + dir.x * t + n.x * off, y = a.y + dir.y * t + n.y * off;
+    // Only on pavement: not where a crossing street or a rounded corner has taken it.
+    if (![-16, 0, 16].every((d) => top(x + dir.x * d, y + dir.y * d)?.kind === 'pavement')) continue;
+    put(BOLLARD, x, y, 0);
+  }
 }
 
 const RAIL = 'pg_props/pg_obj/pg_rail_512';
@@ -774,6 +945,15 @@ export interface GridOptions {
 /** Defaults after the blocks of central Sofia, at about half scale (a real block is ~25 cells). */
 export const SOFIA_GRID: GridOptions = { block: 11, street: 4, boulevard: 8, every: 3, parks: 0.15, seed: 1 };
 
+/** The smallest block side, and how far each block's side varies from GridOptions.block either way, in cells. */
+const MIN_BLOCK = 4;
+const BLOCK_VARIATION = 2;
+/** Trees in parks and along medians stand in every third cell. */
+const TREE_EVERY = 3;
+
+/** One band of the grid along an axis, cells [from, to). */
+interface GridBand { kind: 'block' | 'street' | 'boulevard'; from: number; to: number }
+
 /**
  * Lays the whole sketch out as a street grid: blocks of buildings between streets (road cells), every
  * `every`-th street a boulevard with a median of grass and trees, some blocks small parks. Cells under POIs are
@@ -781,52 +961,55 @@ export const SOFIA_GRID: GridOptions = { block: 11, street: 4, boulevard: 8, eve
  */
 export function streetGrid(s: Sketch, o: GridOptions): void {
   const rng = new Rng(o.seed * 101 + 7);
-  /** Bands along one axis: streets and blocks, starting and ending with a block. */
-  const bands = (n: number): { kind: 'block' | 'street' | 'boulevard'; from: number; to: number }[] => {
-    const out: { kind: 'block' | 'street' | 'boulevard'; from: number; to: number }[] = [];
-    let at = 0, streets = 0;
-    while (at < n) {
-      const size = Math.max(4, o.block + rng.int(-2, 2));
-      out.push({ kind: 'block', from: at, to: Math.min(n, at + size) });
-      at += size;
-      if (at >= n) break;
-      streets++;
-      const wide = o.boulevard > 0 && o.every > 0 && streets % o.every === 0;
-      const w = wide ? o.boulevard : o.street;
-      out.push({ kind: wide ? 'boulevard' : 'street', from: at, to: Math.min(n, at + w) });
-      at += w;
-    }
-    return out;
-  };
-  const xs = bands(s.w), ys = bands(s.h);
-  const underPoi = (x: number, y: number) => (s.pois ?? []).some((p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h);
-  const city = s.theme === 'city' ? Surface.Paved : Surface.Grass;
+  const xs = gridBands(s.w, o, rng), ys = gridBands(s.h, o, rng);
   const parks = new Set<string>();
   for (const bx of xs) for (const by of ys) if (bx.kind === 'block' && by.kind === 'block' && rng.chance(o.parks)) parks.add(`${bx.from},${by.from}`);
-  for (const bx of xs) for (const by of ys) {
-    for (let y = by.from; y < by.to; y++) for (let x = bx.from; x < bx.to; x++) {
-      const i = y * s.w + x;
-      s.features[i] = Feature.None;
-      s.surface[i] = city;
-      if (underPoi(x, y)) continue;
-      if (bx.kind === 'block' && by.kind === 'block') {
-        if (parks.has(`${bx.from},${by.from}`)) {
-          s.surface[i] = Surface.Grass;
-          if ((x - bx.from) % 3 === 1 && (y - by.from) % 3 === 1) s.features[i] = Feature.Trees;
-        } else s.features[i] = Feature.Building;
-        continue;
-      }
-      // A boulevard's median: the middle cell (or two) of the band it runs along, grass with a row of trees.
-      const median = (b: typeof bx, v: number) => b.kind === 'boulevard' && Math.abs(v - (b.from + b.to - 1) / 2) < 1;
-      const onMedian = (bx.kind === 'boulevard' && by.kind === 'block' && median(bx, x)) || (by.kind === 'boulevard' && bx.kind === 'block' && median(by, y));
-      if (onMedian) {
-        s.surface[i] = Surface.Grass;
-        if ((bx.kind === 'boulevard' ? y : x) % 3 === 1) s.features[i] = Feature.Trees;
-      } else s.surface[i] = Surface.Road;
-    }
+  const ground = s.theme === 'city' ? Surface.Paved : Surface.Grass;
+  const bandAt = (bands: GridBand[], v: number) => bands.find((b) => v >= b.from && v < b.to)!;
+  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+    const bx = bandAt(xs, x), by = bandAt(ys, y);
+    const i = y * s.w + x;
+    [s.surface[i], s.features[i]] = underPoi(s, x, y) ? [ground, Feature.None] : gridCell(bx, by, x, y, parks.has(`${bx.from},${by.from}`), ground);
   }
 }
 
+/** Bands along one axis of `n` cells: streets and blocks, starting and ending with a block. */
+function gridBands(n: number, o: GridOptions, rng: Rng): GridBand[] {
+  const out: GridBand[] = [];
+  let at = 0, streets = 0;
+  while (at < n) {
+    const size = Math.max(MIN_BLOCK, o.block + rng.int(-BLOCK_VARIATION, BLOCK_VARIATION));
+    out.push({ kind: 'block', from: at, to: Math.min(n, at + size) });
+    at += size;
+    if (at >= n) break;
+    streets++;
+    const wide = o.boulevard > 0 && o.every > 0 && streets % o.every === 0;
+    const w = wide ? o.boulevard : o.street;
+    out.push({ kind: wide ? 'boulevard' : 'street', from: at, to: Math.min(n, at + w) });
+    at += w;
+  }
+  return out;
+}
+
+/** What cell (x, y) of the grid becomes: a building or park cell in a block, else street or a boulevard's median. */
+function gridCell(bx: GridBand, by: GridBand, x: number, y: number, park: boolean, ground: Surface): [Surface, Feature] {
+  if (bx.kind === 'block' && by.kind === 'block') {
+    if (!park) return [ground, Feature.Building];
+    return [Surface.Grass, (x - bx.from) % TREE_EVERY === 1 && (y - by.from) % TREE_EVERY === 1 ? Feature.Trees : Feature.None];
+  }
+  // A boulevard's median: the middle cell (or two) of the band it runs along, grass with a row of trees.
+  const median = (b: GridBand, v: number) => b.kind === 'boulevard' && Math.abs(v - (b.from + b.to - 1) / 2) < 1;
+  const onMedian = (bx.kind === 'boulevard' && by.kind === 'block' && median(bx, x)) || (by.kind === 'boulevard' && bx.kind === 'block' && median(by, y));
+  if (!onMedian) return [Surface.Road, Feature.None];
+  return [Surface.Grass, (bx.kind === 'boulevard' ? y : x) % TREE_EVERY === 1 ? Feature.Trees : Feature.None];
+}
+
+/** Whether cell (x, y) lies under one of the sketch's POIs. */
+function underPoi(s: Sketch, x: number, y: number): boolean {
+  return (s.pois ?? []).some((p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h);
+}
+
+/** Mirrors a painted cell according to the symmetry mode. */
 export function symmetricCells(s: Sketch, x: number, y: number, mode: 'none' | 'mirror' | 'rotate'): [number, number][] {
   const out: [number, number][] = [[x, y]];
   if (mode === 'mirror') out.push([s.w - 1 - x, y]);
