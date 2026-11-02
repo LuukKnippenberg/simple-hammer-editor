@@ -10,7 +10,7 @@ import type { BuildingOptions } from '../gen/buildings.ts';
 import { buildingSheet, type BuildingRow } from './buildingOptions.ts';
 import { roadSheet } from './roadOptions.ts';
 import { powerlineSheet } from './powerlineOptions.ts';
-import { num, row, select } from './form.ts';
+import { num, refill, row, select } from './form.ts';
 import { entityEditor, multiEntityEditor } from './entityEditor.ts';
 import { centreline, roadOf, type RoadSpec } from '../gen/roads.ts';
 import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, type StreetMaterial } from '../gen/streetMaterials.ts';
@@ -341,7 +341,7 @@ const NEW_BLOCK = {
 /** The building sheet over `options`: changes are kept in `options` until the panel's button uses them. */
 function draftSheet(options: BuildingOptions): HTMLElement {
   const sheet = h('div');
-  const draw = () => sheet.replaceChildren(...buildingSheet({ options, kind: SHEET_KIND[options.layout ?? 'block'], rows: SHEET_ROWS, set: (patch) => { Object.assign(options, patch); draw(); }, folds, redraw: draw }));
+  const draw = () => refill(sheet, buildingSheet({ options, kind: SHEET_KIND[options.layout ?? 'block'], rows: SHEET_ROWS, set: (patch) => { Object.assign(options, patch); draw(); }, folds, redraw: draw }));
   draw();
   return sheet;
 }

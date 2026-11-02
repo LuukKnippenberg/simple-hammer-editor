@@ -44,6 +44,25 @@ export function toggle(checked: boolean, set: (v: boolean) => void, title = ''):
   return checkbox;
 }
 
+/**
+ * Shows freshly built `rows` in `container`. When they have the same rows and controls as the ones shown (only
+ * values differ), the shown controls take the new values instead of being replaced: a change fires when a click
+ * elsewhere takes the focus, and replacing the clicked control would lose that click. The shown controls keep
+ * their handlers, so these must read the options when they fire.
+ */
+export function refill(container: HTMLElement, rows: Element[]): void {
+  const shown = [...container.children];
+  const controls = (els: Element[]) => els.flatMap((el) => [...el.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')]);
+  const shape = (els: Element[]) => els.map((el) => `${el.className}|${el.textContent}`).join('\n') + controls(els).map((control) => control.type).join();
+  if (shape(shown) !== shape(rows)) return container.replaceChildren(...rows);
+  const fresh = controls(rows);
+  controls(shown).forEach((control, i) => {
+    if (control.value !== fresh[i].value) control.value = fresh[i].value;
+    control.disabled = fresh[i].disabled;
+    if (control instanceof HTMLInputElement) control.checked = (fresh[i] as HTMLInputElement).checked;
+  });
+}
+
 /** The 🎲 next to a seed. */
 export function seedButton(onclick: () => void, title = 'New seed'): HTMLButtonElement {
   return h('button', { title, onclick }, '🎲');
