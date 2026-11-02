@@ -18,10 +18,14 @@ import { hideCoveredFaces, NODRAW } from '../geom/hidden.ts';
 export const MAX_RISE = 16;
 /** Recast's `recast_maxslope`: steeper slopes (the clip ramp, a ramp profile) are not walkable. */
 export const MAX_SLOPE = 45;
+/** Width a large unit (Recast radius 58, an antlion guard) needs to get up a flight between rails. */
+export const LARGE_WIDTH = 192;
 const NPCCLIP = 'TOOLS/TOOLSNPCCLIP';
 const COMBINE_PANEL = 'METAL/METALCOMBINE001';
 /** Thickness of open treads, of floating treads and landing slabs, and of the slab under sloped steps. */
 const TREAD = 6, SLAB = 8, UNDER = 16;
+/** How far the clip ramp reaches in front of a flight. */
+const CLIP_LEAD = 24;
 
 export type StairsPlan = 'blocky' | 'angle';
 export type StairsProfile = 'steps' | 'ramp';
@@ -360,11 +364,13 @@ export function buildStairs(doc: VmfDocument, spec: StairsSpec): StairsResult {
           add(c.detail, prismBrush(doc, S(sa, sb, -8, 8), (p) => backLine(p) - TREAD - 14, (p) => backLine(p) - TREAD, () => o.sideMaterial));
         }
       }
-      // The NPC clip ramp touches every step's front edge: from the floor one tread before the flight to the top
-      // at the last step, so the navmesh sees one smooth slope whatever the structure.
+      // The NPC clip ramp touches every step's front edge up to the top at the last step, so the navmesh sees one
+      // smooth slope whatever the structure. It meets the floor one tread before the flight, or starts with a
+      // small lip (under a step's rise) so long treads don't tilt the landing in front.
       if (o.clip) {
+        const lead = Math.min(tread, CLIP_LEAD);
         const start = O.clone().addScaledVector(u, sa - tread);
-        add(c.clip, prismBrush(doc, S(sa - tread, sb - tread), flat(zl), along(start, u, zl, slope), () => NPCCLIP));
+        add(c.clip, prismBrush(doc, S(sa - lead, sb - tread), flat(zl), along(start, u, zl, slope), () => NPCCLIP));
       }
     }
     if (topRun > 0) landingBrushes(c, S(sb, sb + topRun), zh);

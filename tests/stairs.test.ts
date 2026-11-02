@@ -80,9 +80,12 @@ describe('stairs geometry', () => {
     const faces = buildBrushFaces(solid(c));
     const slope = faces.find((f) => f.plane.normal.z > 0.1 && f.plane.normal.z < 0.99)!;
     expect(Math.acos(slope.plane.normal.z) * 180 / Math.PI).toBeLessThan(MAX_SLOPE);
-    // It touches each step's front edge: at x = 28k the ramp is at the k-th step's top.
+    // It touches each step's front edge: at x = 28k the ramp is at the k-th step's top. It starts 24 in front of
+    // the flight with a lip of 4/28 of a rise, so the floor before long treads stays flat.
     const b = solidBounds(solid(c));
-    expect(b.min.x).toBe(-28);
+    expect(b.min.x).toBe(-24);
+    const lip = faces.find((f) => f.plane.normal.x < -0.99)!;
+    expect(Math.max(...lip.verts.map((v) => v.z))).toBeCloseTo(16 * 4 / 28);
     expect(b.max.x).toBe(308);
     expect(b.max.z).toBe(192);
     expect(build(straight({ clip: false })).clip).toHaveLength(0);

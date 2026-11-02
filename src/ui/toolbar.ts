@@ -5,6 +5,7 @@ import { isTyping } from '../render/cameraControls.ts';
 import { deletePoi, duplicatePoi, selectedPois, turnPoi } from '../gen/poi/action.ts';
 import { deleteBlock, duplicateBlock, selectedBlocks, turnBlock } from '../gen/buildingAction.ts';
 import { deleteRooms, selectedRooms } from '../gen/rooms/action.ts';
+import { deleteStairs, duplicateStairs, selectedStairs } from '../gen/stairsAction.ts';
 import { h, toast } from './dom.ts';
 import { tip } from './tooltip.ts';
 import { mountGenerateButton } from './generateMenu.ts';
@@ -119,6 +120,14 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
       else if (k === 'd' && blocks.length === 1) duplicateBlock(editor, blocks[0]);
       else if (k === 'c') toast(editor.container, 'Blocks of buildings are copied with Ctrl+D (duplicate)', 1800);
       else if (k === ',' || k === '.') editor.history.group(`Turn ${many}`, () => blocks.forEach((b) => turnBlock(editor, b)));
+      e.preventDefault();
+      return;
+    }
+    // Selected stairs handles: Delete removes the stairs, Ctrl+D duplicates them.
+    const stairs = selectedStairs(editor);
+    if (stairs.length && (k === 'delete' || k === 'backspace' || (ctrl && k === 'd' && stairs.length === 1))) {
+      if (k === 'd') duplicateStairs(editor, stairs[0]);
+      else editor.history.group('Delete stairs', () => stairs.forEach((s) => deleteStairs(editor, s)));
       e.preventDefault();
       return;
     }

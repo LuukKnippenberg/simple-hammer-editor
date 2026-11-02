@@ -16,7 +16,7 @@ import { entityToolOptions } from './entityToolOptions.ts';
 import { toolModelField } from './modelField.ts';
 import { decalToolOptions } from './decalField.ts';
 
-const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema', generate: 'Generate' } as const;
+const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema', stairs: 'Stairs', generate: 'Generate' } as const;
 const HINTS = {
   select: 'Click to select · Shift adds · drag the gizmo · W move / E rotate / R resize',
   block: 'Drag on a surface to draw a block',
@@ -30,6 +30,7 @@ const HINTS = {
   sound: 'Click to place · turn on Audio in the top bar to hear the map',
   poi: 'Drag a rectangle (or click) to place · pick the type and settings in the POI tab',
   cinema: 'Click to place · a selected path end keeps extending its path · Esc starts a new path',
+  stairs: 'Click A, then B, then set the height',
   generate: 'Drag a rectangle on the ground',
 } as const;
 

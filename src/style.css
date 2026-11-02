@@ -475,6 +475,28 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .gen-ghost b { display: block; color: var(--accent-text); font-size: 13px; }
 .gen-ghost span { color: var(--text); }
 .gen-ghost[hidden] { display: none; }
+.stairs-pins { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.stairs-pins[hidden] { display: none; }
+.stairs-pin {
+  position: absolute; transform: translate(-50%, -50%); min-width: 20px; height: 20px; padding: 0 4px; box-sizing: border-box; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; color: #15110b; background: var(--accent);
+  border: 2px solid #0b0c0d; box-shadow: 0 0 0 1px var(--accent);
+}
+.stairs-pin.from { box-shadow: 0 0 0 3px #fff; }
+.stairs-label { transform: translate(24px, -50%); text-align: left; white-space: nowrap; }
+.stairs-head { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
+.stairs-head b { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent-text); }
+.stairs-head span { color: var(--muted); font-size: 11px; }
+.stairs-flight { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 12px; cursor: pointer; }
+.stairs-flight.on { background: var(--accent-tint); box-shadow: inset 2px 0 0 var(--accent); }
+.stairs-flight .k { flex: 0 0 64px; font-weight: 600; }
+.stairs-flight.landing .k { flex: 0 0 auto; color: var(--accent-text); }
+.stairs-flight .m { flex: 1; color: var(--muted); font-family: var(--mono, monospace); font-size: 11px; white-space: nowrap; }
+.stairs-flight input.num { flex: 0 0 44px; }
+.stairs-flight .d { color: var(--muted); margin-left: auto; }
+.gen-panel .row .mono, .stairs-sheet .row .mono { font-family: var(--mono, monospace); }
+.row .unit.auto { color: #8fb8d8; text-transform: uppercase; letter-spacing: 0.08em; }
+.hint.warn, .stairs-flight .warn { color: #f08a6a; }
 .section.gen-box { border: 1px dashed rgba(233, 149, 42, 0.45); border-radius: 6px; padding: 8px 10px; background: rgba(233, 149, 42, 0.04); }
 .gen-box button kbd { font-size: 10px; padding: 0 4px; margin-left: 2px; background: transparent; }
 .tpl-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
