@@ -10,7 +10,7 @@ import { h } from './dom.ts';
 /** Edits settle this long before the checks run again. */
 const REFRESH_DELAY_MS = 300;
 const POPOVER_GAP = 4;
-const ICONS: Record<CheckState, string> = { ok: '✓', warning: '!', error: '✕', pending: '–' };
+const ICONS: Record<CheckState, string> = { ok: '✓', warning: '!', error: '✕' };
 const FOOTNOTE = 'Compile also checks static props and leaks. This list updates as you edit; it never blocks saving.';
 
 /** Modes picked with Change mode; a map that is loaded or created goes back to the mode it reads as. */
@@ -45,7 +45,7 @@ export interface RowOptions {
   longLabels?: boolean;
 }
 
-/** One row per check: ✓, !, ✕ or – (not checked yet), the name, the detail and an action. */
+/** One row per check: ✓, ! or ✕, the name, the detail and an action. */
 export function checkRows(editor: Editor, checks: Check[], opts: RowOptions): HTMLElement[] {
   return checks.map((c) => {
     const state = checkState(c);

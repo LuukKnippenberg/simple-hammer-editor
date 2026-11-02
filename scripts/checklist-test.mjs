@@ -127,7 +127,7 @@ await withEditor(async (d, page) => {
   // Every mode's popover on a new map of that mode; a new map reads its own mode again.
   for (const [kind, text, rows] of [
     ['overrun', 'Overrun · ready ✓ ▴', 6],
-    ['mission', 'Mission · ready ✓ ▴', 7],
+    ['mission', 'Mission · ready ✓ ▴', 6],
     ['empty', 'Empty · 1 to fix ▴', 4],
   ]) {
     await newMap(kind);

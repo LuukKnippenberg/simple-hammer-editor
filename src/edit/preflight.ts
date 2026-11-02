@@ -20,8 +20,6 @@ export interface Check {
   detail: string;
   fix?: () => void;
   fixLabel?: string;
-  /** Not run yet (the path check, F5): counts toward the total, never as ready. */
-  pending?: boolean;
   /** An action that doesn't change the map, such as Show. */
   show?: () => void;
   showLabel?: string;
@@ -260,10 +258,9 @@ export function detectMode(editor: Editor): MapMode {
   return 'empty';
 }
 
-export type CheckState = 'ok' | 'error' | 'warning' | 'pending';
+export type CheckState = 'ok' | 'error' | 'warning';
 
 export function checkState(c: Check): CheckState {
-  if (c.pending) return 'pending';
   return c.ok ? 'ok' : c.severity;
 }
 
@@ -276,22 +273,19 @@ export interface Checklist {
   checks: Check[];
   /** Checks that pass. */
   ready: number;
-  /** Every check: pending ones count, as on the board. */
   total: number;
-  /** Checks that fail and can be acted on (not pending). */
+  /** Checks that fail. */
   toFix: number;
-  /** Nothing left to fix: every check passes or is pending. The chip turns green. */
+  /** Nothing left to fix: the chip turns green. */
   allReady: boolean;
 }
 
 export function mapChecklist(editor: Editor, mode = detectMode(editor)): Checklist {
   const checks = modeChecks(editor, mode);
+  const ready = checks.filter((c) => c.ok).length;
   return {
     mode, detected: detectMode(editor), players: playerCount(editor, mode), checks,
-    ready: checks.filter((c) => c.ok).length,
-    total: checks.length,
-    toFix: checks.filter((c) => !c.ok && !c.pending).length,
-    allReady: checks.every((c) => c.ok || c.pending),
+    ready, total: checks.length, toFix: checks.length - ready, allReady: ready === checks.length,
   };
 }
 
@@ -311,7 +305,7 @@ export function modeChecks(editor: Editor, mode: MapMode): Check[] {
     case 'overrun':
       return [overrunStarts(editor, content), waveSpawns(editor), overrunManager(editor, content), ...env];
     case 'mission':
-      return [playerCamera(editor, content), missionFlow(editor), notCheckedYet('reach', 'Every objective area reachable'), nameCheck(editor, mode), ...env];
+      return [playerCamera(editor, content), missionFlow(editor), nameCheck(editor, mode), ...env];
     case 'empty':
       return [...env, PICK_MODE];
   }
@@ -463,11 +457,6 @@ function missionFlow(editor: Editor): Check {
       : !lose ? 'Nothing leads to Defeat: the player can\'t lose.'
       : `${plural(g.stages.length, 'stage')}, a way to win and a way to lose.`,
   };
-}
-
-/** A path check item (F5) until the path check exists: counted, never ready, no action. */
-function notCheckedYet(id: string, label: string): Check {
-  return { id, label, severity: 'warning', ok: false, pending: true, detail: 'Not checked yet: the path check comes in a later version. Test it in game for now.' };
 }
 
 /** Never ready: an Empty map isn't playable until it has a mode. Its row offers the other lists. */

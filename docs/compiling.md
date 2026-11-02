@@ -9,7 +9,7 @@ tools (see [Setup in the README](../README.md#setup)).
 The chip in the top bar tracks what the map's game mode needs. It reads "Annihilation · ready ✓" with a green border
 when nothing is left to fix, otherwise "Annihilation · 2 to fix" with an amber border (hover it for how many checks
 pass). Click it for **Ready to play?**: the mode and player count, a progress bar and one row per check (✓ ready,
-! or ✕ missing, – not checked yet) with a detail and, where the editor can do it, a **Fix**. A fix is one undo step.
+! or ✕ missing) with a detail and, where the editor can do it, a **Fix**. A fix is one undo step.
 The chip updates as you edit (a moment after each change) and never blocks saving.
 
 The mode comes from the map (`detectMode` in `src/edit/preflight.ts`): the name prefix first (`hlw_` Annihilation,
@@ -21,11 +21,8 @@ mode's list without changing the map; opening or creating a map goes back to the
 |---|---|
 | Annihilation | Player starts (numbered, at least 2; says whether they are symmetric), Resources (requisition points and scrap), Sky shell, Sun light, Name (`hlw_`), Map boundary |
 | Overrun | Player starts (together in the centre), Wave spawns, Overrun manager (wave type; **Fix** adds one), Sky shell, Sun light, Map boundary |
-| Singleplayer mission | Player camera (`info_player_wars`; **Fix** adds one), Mission flow (a way to win and to lose, no flowchart errors), Every objective area reachable, Name (`sp_`), Sky shell, Sun light, Map boundary |
+| Singleplayer mission | Player camera (`info_player_wars`; **Fix** adds one), Mission flow (a way to win and to lose, no flowchart errors), Name (`sp_`), Sky shell, Sun light, Map boundary |
 | Empty | Sky shell, Sun light, Map boundary, and **Pick a mode**, which switches to another mode's list (counted, never ready: an Empty map isn't ready to play until it has a mode) |
-
-"Every objective area reachable" is the path check, which isn't built yet. It shows "Not checked yet" and isn't
-counted as something to fix, so a new mission map reads "Mission · ready ✓".
 
 **Compile & test** shows the same list for the same mode, then what only Compile checks:
 

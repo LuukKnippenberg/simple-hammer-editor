@@ -46,7 +46,7 @@ describe('map checklist: lists per mode', () => {
     const editor = templateEditor({ kind: 'annihilation', players: 2, size: 'small' });
     expect(ids(editor, 'annihilation')).toEqual(['players', 'resources', 'shell', 'sun', 'name', 'boundary']);
     expect(ids(editor, 'overrun')).toEqual(['players', 'waves', 'manager', 'shell', 'sun', 'boundary']);
-    expect(ids(editor, 'mission')).toEqual(['camera', 'flow', 'reach', 'name', 'shell', 'sun', 'boundary']);
+    expect(ids(editor, 'mission')).toEqual(['camera', 'flow', 'name', 'shell', 'sun', 'boundary']);
     expect(ids(editor, 'empty')).toEqual(['shell', 'sun', 'boundary', 'mode']);
   });
 
@@ -67,12 +67,9 @@ describe('map checklist: lists per mode', () => {
     expect(list.checks.find((c) => c.id === 'manager')!.detail).toBe('Wave type: Zombies.');
   });
 
-  it('mission template: six of seven, the path check pending and not to fix', () => {
+  it('mission template: all six ready', () => {
     const list = mapChecklist(templateEditor({ kind: 'mission', players: 1, size: 'small' }));
-    expect([list.mode, list.players, list.ready, list.total, list.toFix, list.allReady]).toEqual(['mission', 1, 6, 7, 0, true]);
-    const reach = list.checks.find((c) => c.id === 'reach')!;
-    expect(checkState(reach)).toBe('pending');
-    expect(reach.fix ?? reach.show).toBeUndefined();
+    expect([list.mode, list.players, list.ready, list.total, list.toFix, list.allReady]).toEqual(['mission', 1, 6, 6, 0, true]);
     expect(list.checks.find((c) => c.id === 'flow')!.detail).toBe('1 stage, a way to win and a way to lose.');
   });
 
@@ -94,7 +91,7 @@ describe('map checklist: lists per mode', () => {
         const checks = modeChecks(editor, mode);
         expect(list.total).toBe(checks.length);
         expect(list.ready).toBe(checks.filter((c) => c.ok).length);
-        expect(list.toFix).toBe(checks.filter((c) => !c.ok && !c.pending).length);
+        expect(list.toFix).toBe(checks.filter((c) => !c.ok).length);
         expect(list.allReady).toBe(list.toFix === 0);
       }
     }
@@ -184,9 +181,9 @@ describe('map checklist: chip wording', () => {
     const editor = templateEditor({ kind: 'mission', players: 1, size: 'small' }, 'story.vmf');
     removeClass(editor, 'info_player_wars');
     Object.assign(editor, { mission: null });
-    // Camera and flow fail, the name lacks sp_; the path check is pending, not to fix.
+    // Camera and flow fail, the name lacks sp_.
     const list = mapChecklist(editor);
-    expect([list.ready, list.total, list.toFix]).toEqual([3, 7, 3]);
+    expect([list.ready, list.total, list.toFix]).toEqual([3, 6, 3]);
     expect(await status(list)).toBe('3 to fix');
   });
 });
