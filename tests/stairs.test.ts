@@ -92,9 +92,9 @@ describe('stairs geometry', () => {
     expect(build(straight({ profile: 'ramp' })).clip).toHaveLength(0);
   });
 
-  it('builds valid convex solids for every structure, profile, rail style and plan', () => {
+  it.each(STRUCTURES.map(([structure]) => structure))('builds valid convex solids for every profile, rail style and plan: %s', (structure) => {
     for (const make of [straight, chain, tee]) {
-      for (const [structure] of STRUCTURES) for (const [railStyle] of RAIL_STYLES) for (const profile of ['steps', 'ramp'] as const) for (const plan of ['blocky', 'angle'] as const) {
+      for (const [railStyle] of RAIL_STYLES) for (const profile of ['steps', 'ramp'] as const) for (const plan of ['blocky', 'angle'] as const) {
         for (const beams of ['none', 'both', 'under'] as const) {
           const r = build(make({ structure, railStyle, profile, plan, beams }));
           expect(r.detail.length).toBeGreaterThan(0);
