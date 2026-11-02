@@ -54,7 +54,9 @@ every access wrapped for blocked storage).
 
 `scripts/browser.mjs` launches the system Chrome or Edge headless with the GPU on (through `playwright-core`, no
 browser download) and wraps a page with editor helpers: `open(map)`, `view(pos, target)`, `click`, `drag`, `key`,
-`shot(name)` (saved to `docs/screenshots/`) and `eval`. The page exposes `window.__editor` for this: the editor,
+`shot(name)` (saved to `docs/screenshots/`) and `eval`. `open()` without a map adds `start=skip` to the
+address, which skips the start screen and opens the first map in `maps/`, as before the start screen. The page
+exposes `window.__editor` for this: the editor,
 panels, lighting, the sketch and mission dialogs, `setView`, `project` (world point to page coordinates) and
 `busy()`. Vite serves the source as modules, so a script can also `import('/src/...')` inside the page and call the
 same functions the UI does.

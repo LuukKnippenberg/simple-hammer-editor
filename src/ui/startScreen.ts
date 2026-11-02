@@ -97,6 +97,14 @@ export function startTour(): void {
   toast(document.querySelector<HTMLElement>('.start-screen') ?? document.body, 'The tour isn’t built yet.');
 }
 
+/**
+ * The page address opens without the start screen: it names a map, or scripts ask with `start=skip` (browser.mjs
+ * does when it opens no map), which loads the first map in maps/ as before the start screen.
+ */
+export function skipsStartScreen(url: URL): boolean {
+  return url.searchParams.has('map') || url.searchParams.get('start') === 'skip';
+}
+
 export interface StartScreen {
   show(): void;
   hide(): void;

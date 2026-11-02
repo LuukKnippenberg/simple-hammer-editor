@@ -46,7 +46,8 @@ export function driver(page) {
     page,
     async open(map) {
       const url = new URL(baseUrl);
-      if (map) url.searchParams.set('map', map);
+      // Without a map the editor would wait on the start screen: skip it, which opens the first map in maps/.
+      url.searchParams.set(...(map ? ['map', map] : ['start', 'skip']));
       await page.goto(url.toString());
       await page.waitForFunction(() => window.__editor?.ready, null, { timeout: 120000 });
       await d.settle();

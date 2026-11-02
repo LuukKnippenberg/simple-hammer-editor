@@ -137,9 +137,11 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     return maps;
   };
 
-  // A map in the address opens straight away; without one the editor starts on the start screen.
-  void refreshMaps().then(() => {
-    const wanted = new URL(location.href).searchParams.get('map');
+  // A map in the address opens straight away; without one the editor starts on the start screen, unless scripts
+  // skip it (start=skip), which opens the first map in maps/.
+  void refreshMaps().then((maps) => {
+    const params = new URL(location.href).searchParams;
+    const wanted = params.get('map') ?? (params.get('start') === 'skip' ? maps.find((m) => m.id.startsWith('repo:'))?.id : undefined);
     if (wanted) void openMap(wanted);
   });
   return { newMap, openFile: () => fileInput.click(), openMap, busy };
