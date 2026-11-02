@@ -3,6 +3,39 @@
 How the editor reads and writes maps, and what each tool and panel does. Keyboard and mouse controls are in the
 [README](../README.md#keyboard-and-mouse); press **?** in the editor for the same list.
 
+## Start screen
+
+The editor opens on the start screen unless the address names a map (`?map=repo:x.vmf`, which reopens the map
+straight away). **Open…** in the top bar brings it back; its **Back to** button (or Esc) returns to the open map.
+
+- **+ New map** opens the New map dialog; **Open…** reads a `.vmf` from disk.
+- **Examples** (Sofia, Garden District) open as a copy named `<map>_copy.vmf`: saving writes the copy to `maps/`,
+  the example stays as it is.
+- **Recent** lists `maps/` and the game's `mapsrc/`, newest first, with a height thumbnail, the mode (from the name
+  prefix, an `overrun_manager`, a mission flowchart, and the player starts) and when the file was last changed.
+- **Setup** checks the game install, the map compiler (vbsp, vvis and vrad in `sdkBinDir`) and the navmesh builder
+  (`srcds.exe` in the install) each time the screen opens. A missing piece shows what it is for and where to get it;
+  **Locate folder…** stores the compiler's folder as `sdkBinDir` in `editor.config.json`, and **Change game…**
+  switches installs like the Game picker. Without a compiler maps can still be made, edited and saved; only
+  Compile & test stops, with the same message.
+- To see the missing-compiler card without touching the SDK, point `sdkBinDir` in `editor.config.json` at a folder
+  without the tools and press **Check again**.
+
+## Recover
+
+Unsaved work is autosaved every minute to `.autosave/<map>.autosave.vmf`. When an autosave is newer than its map's
+saved file (`maps/` first, else the game's `mapsrc/`), or the map was never saved, the start screen shows a banner
+(*Compare*, *Discard*, *Recover*), and opening that map shows the **Unsaved work found** card: when the file was
+saved, when the autosave was made, and what it adds, changes and deletes (brushes and entities, by id).
+
+- **Recover** opens the autosave under the map's name, unsaved; Ctrl+S writes it to `maps/`.
+- **Open saved version** keeps the file and stops asking about this autosave.
+- **Keep both** saves the autosave as `maps/<map>_recovered.vmf` (`_recovered_2` if taken) and opens it.
+- **Discard** (banner) stops asking until a newer autosave is made. The autosave file stays, listed under
+  *Autosaves* in the map picker.
+
+Nothing here writes to the game's `mapsrc/`. Turned-down offers are kept in this browser (`src/ui/prefs.ts`).
+
 ## Maps and files
 
 - The editor reads and writes Hammer `.vmf` files. A parse and write round-trip is byte-identical (the test suite

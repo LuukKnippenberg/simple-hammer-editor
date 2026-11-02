@@ -38,8 +38,9 @@ saves the choice to `editor.config.json` and reloads, keeping unsaved work as an
 
 ## Workflow
 
-1. **Open or start a map.** The map picker lists this repo's `maps/` folder, the game's `mapsrc/` and autosaves.
-   **New** starts from a template: *Annihilation*, *Overrun*, *Singleplayer mission* or *Empty*.
+1. **Open or start a map.** The editor opens on a start screen: new map, examples (opened as a copy), recent maps
+   from `maps/` and the game's `mapsrc/`, a setup check of the game and the compile tools, and an offer to recover
+   autosaved work. **New** starts from a template: *Annihilation*, *Overrun*, *Singleplayer mission* or *Empty*.
 2. **Lay it out.** Draw the map from above with **✎ Sketch** (height levels, surfaces, buildings, markers, points
    of interest, free streets and areas), or paint a coarse layout in **⚙ Generate map**. Both build a complete map
    you can keep editing, and the sketch is saved with the map so it can be redrawn and regenerated.
@@ -57,7 +58,7 @@ saves the choice to `editor.config.json` and reloads, keeping unsaved work as an
 
 ## The screen
 
-- **Top bar**: map picker, New, Open file, Save, Save as, Download, Sketch, Generate map, Compile & test, the Game
+- **Top bar**: map picker, New, Open (the start screen), Save, Save as, Download, Sketch, Generate map, Compile & test, the Game
   picker, the audio preview and view toggles (top view, lighting preview, tool brushes, handles, sky brushes, props,
   entities, decals, wireframe, grid).
 - **Tool rail** (left): the tools below, the Generate menu, gizmo modes, grid size, undo, redo and the shortcut list.
