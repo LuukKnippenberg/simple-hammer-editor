@@ -7,7 +7,7 @@ await withEditor(async (d, page) => {
   await d.eval(() => { const W = window.__editor; W.lighting.setEnabled(true); W.editor.emit('lighting'); });
 
   // The map default, from the Settings tab card.
-  await page.click('.tabs button:text("Settings")');
+  await page.click('.rail-item[aria-label^="Settings"]');
   await page.click('.set-head:has(b:text-is("Ambient sound"))');
   await page.click('.set-card:has(b:text-is("Ambient sound")) input.switch');
   await d.settle(400);

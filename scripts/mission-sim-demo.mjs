@@ -3,7 +3,7 @@ import { withEditor } from './browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:sp_sofia.vmf');
-  await page.click('.tabs button:text("Mission")');
+  await page.click('.rail-item[aria-label^="Mission"]');
   await page.click('button:has-text("Open mission flow")');
   await d.settle(600);
   console.log('  status:', await page.textContent('.mission-flow .modal-head .hint'));

@@ -3,14 +3,14 @@ import { withEditor } from './browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:sp_sofia.vmf');
-  await page.click('.tabs button:text("Mission")');
+  await page.click('.rail-item[aria-label^="Mission"]');
   await page.click('button:has-text("Open mission flow")');
   await d.settle(500);
 
   // The tram line stage's "reach" transition: redraw its area over the Largo with the mouse.
   await page.click('.mf-node[data-id="tram"] .mf-title');
   await d.settle(200);
-  await page.click('.mf-side .mf-transition >> nth=0 >> button:has-text("Redraw")');
+  await page.click('.mf-side button:has-text("Redraw") >> nth=0');
   await d.settle(800);
   await d.eval(() => { const ed = window.__editor.editor; ed.topView.center.set(0, 1200); ed.topView.zoom = 2600; ed.topView.apply(); });
   await d.settle(600);
@@ -44,7 +44,7 @@ await withEditor(async (d, page) => {
   await d.view([-3800, -4600, 3600], [0, 600, 0]);
   await d.settle(900);
   await d.shot('mission-built-triggers');
-  await page.click('.tabs button:text("Logic")');
+  await page.click('.rail-item[aria-label^="Logic"]');
   await page.click('button:text("Open logic graph")');
   await d.settle(800);
   await d.shot('mission-built-logic');

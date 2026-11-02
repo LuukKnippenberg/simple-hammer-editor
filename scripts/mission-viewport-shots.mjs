@@ -10,7 +10,7 @@ await withEditor(async (d, page) => {
   // Missing game assets (textures, models) 404 while the map streams in; listed, not counted as errors.
   page.on('response', (r) => { if (r.status() >= 400) console.log('  [http]', r.status(), decodeURIComponent(r.url()).slice(0, 140)); });
   await d.open('repo:sp_tutorial_combine.vmf');
-  await page.click('.tabs button:text("Mission")');
+  await page.click('.rail-item[aria-label^="Mission"]');
   await d.settle(300);
 
   // 1. Open the panel from the keyboard: objective 1, its area framed and drawn.

@@ -19,6 +19,7 @@ await withEditor(async (d, page) => {
   await d.view([lamp[0] - 420, lamp[1] - 520, 420], [lamp[0], lamp[1], 300]);
   await d.settle(600);
   await d.shot('local-lamp-suggestion');
+  await page.click('.kg-head:has(b:text-is("Sound and effects"))');
   await page.click('button:has-text("Broken lamp")');
   await d.settle(500);
   // Up close under the lamp head, the sparks and the buzzing sound's range.

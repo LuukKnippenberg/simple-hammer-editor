@@ -5,7 +5,7 @@ await withEditor(async (d, page) => {
   await d.open('repo:sp_sofia.vmf');
   // Start from no flowchart (a saved one loads with the map).
   await d.eval(() => { const ed = window.__editor.editor; ed.mission = null; ed.emit('mission'); });
-  await page.click('.tabs button:text("Mission")');
+  await page.click('.rail-item[aria-label^="Mission"]');
   await d.settle(300);
   await d.shot('mission-tab-empty');
   await page.click('button:has-text("Create mission flow")');

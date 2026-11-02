@@ -14,7 +14,7 @@ await withEditor(async (d, page) => {
   await d.shot('unit-kits-viewport-air');
 
   // Unit group kit: search, grouped by faction. The list is opened as a listbox for the screenshot.
-  await page.click('.tabs button:text("Mission")');
+  await page.click('.rail-item[aria-label^="Mission"]');
   await page.click('.kits .kit:has-text("Unit group")');
   await d.settle(200);
   const picker = page.locator('.tab-body > div:not([hidden]) .row:has(label:text-is("Unit"))');

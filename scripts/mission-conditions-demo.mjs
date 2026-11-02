@@ -6,7 +6,7 @@ import { withEditor } from './browser.mjs';
 await withEditor(async (d, page) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await d.open('repo:sp_mission_events.vmf');
-  await page.click('.tabs button:text("Mission")');
+  await page.click('.rail-item[aria-label^="Mission"]');
   await page.click('button:has-text("Open mission flow")');
   await d.settle(500);
   await page.click('.mission-flow button:has-text("Fit")');
