@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildTemplate, templateInfo, type TemplateOptions } from '../src/lw/mapTemplates.ts';
-import { checkState, detectMode, mapChecklist, modeChecks, type MapMode } from '../src/edit/preflight.ts';
+import { checkState, detectMode, mapChecklist, modeChecks, type Checklist, type MapMode } from '../src/edit/preflight.ts';
 import { VmfDocument } from '../src/vmf/map.ts';
 import type { Editor } from '../src/editor.ts';
 import { stubEditor } from './stubEditor.ts';
@@ -44,24 +44,20 @@ describe('map checklist: mode detection', () => {
 describe('map checklist: lists per mode', () => {
   it('each mode has the board\'s items in the board\'s order', () => {
     const editor = templateEditor({ kind: 'annihilation', players: 2, size: 'small' });
-    expect(ids(editor, 'annihilation')).toEqual(['players', 'resources', 'shell', 'sun', 'name', 'boundary', 'reach']);
+    expect(ids(editor, 'annihilation')).toEqual(['players', 'resources', 'shell', 'sun', 'name', 'boundary']);
     expect(ids(editor, 'overrun')).toEqual(['players', 'waves', 'manager', 'shell', 'sun', 'boundary']);
     expect(ids(editor, 'mission')).toEqual(['camera', 'flow', 'reach', 'name', 'shell', 'sun', 'boundary']);
     expect(ids(editor, 'empty')).toEqual(['shell', 'sun', 'boundary', 'mode']);
   });
 
-  it('annihilation template: everything but the path check is ready, and the chip is green', () => {
+  it('annihilation template: all six ready, and the chip is green', () => {
     const list = mapChecklist(templateEditor({ kind: 'annihilation', players: 4, size: 'medium' }));
     expect(list.mode).toBe('annihilation');
     expect(list.players).toBe(4);
-    expect([list.ready, list.total]).toEqual([6, 7]);
-    expect(list.allReady).toBe(true);
+    expect([list.ready, list.total, list.toFix, list.allReady]).toEqual([6, 6, 0, true]);
     expect(list.checks[0].label).toBe('Player starts 4/4');
     expect(list.checks[0].detail).toBe('Placed symmetrically, one per player.');
     expect(list.checks.find((c) => c.id === 'resources')!.detail).toBe('9 requisition points, 16 scrap piles.');
-    const reach = list.checks.find((c) => c.id === 'reach')!;
-    expect(checkState(reach)).toBe('pending');
-    expect(reach.fix ?? reach.show).toBeUndefined();
   });
 
   it('overrun template: all six ready', () => {
@@ -71,9 +67,12 @@ describe('map checklist: lists per mode', () => {
     expect(list.checks.find((c) => c.id === 'manager')!.detail).toBe('Wave type: Zombies.');
   });
 
-  it('mission template: six of seven, the path check pending', () => {
+  it('mission template: six of seven, the path check pending and not to fix', () => {
     const list = mapChecklist(templateEditor({ kind: 'mission', players: 1, size: 'small' }));
-    expect([list.mode, list.players, list.ready, list.total, list.allReady]).toEqual(['mission', 1, 6, 7, true]);
+    expect([list.mode, list.players, list.ready, list.total, list.toFix, list.allReady]).toEqual(['mission', 1, 6, 7, 0, true]);
+    const reach = list.checks.find((c) => c.id === 'reach')!;
+    expect(checkState(reach)).toBe('pending');
+    expect(reach.fix ?? reach.show).toBeUndefined();
     expect(list.checks.find((c) => c.id === 'flow')!.detail).toBe('1 stage, a way to win and a way to lose.');
   });
 
@@ -95,6 +94,8 @@ describe('map checklist: lists per mode', () => {
         const checks = modeChecks(editor, mode);
         expect(list.total).toBe(checks.length);
         expect(list.ready).toBe(checks.filter((c) => c.ok).length);
+        expect(list.toFix).toBe(checks.filter((c) => !c.ok && !c.pending).length);
+        expect(list.allReady).toBe(list.toFix === 0);
       }
     }
   });
@@ -171,5 +172,21 @@ describe('map checklist: failures and fixes', () => {
     const list = mapChecklist(editor);
     expect(list.mode).toBe('empty');
     expect(list.checks[0].detail).toMatch(/^Nothing to enclose yet/);
+  });
+});
+
+describe('map checklist: chip wording', () => {
+  // checklist.ts touches the DOM only when the chip is mounted, so the status text loads in node.
+  const status = async (list: Checklist) => (await import('../src/ui/checklist.ts')).checklistStatus(list);
+
+  it('says ready only when nothing is left to fix, otherwise how many are', async () => {
+    expect(await status(mapChecklist(templateEditor({ kind: 'mission', players: 1, size: 'small' })))).toBe('ready ✓');
+    const editor = templateEditor({ kind: 'mission', players: 1, size: 'small' }, 'story.vmf');
+    removeClass(editor, 'info_player_wars');
+    Object.assign(editor, { mission: null });
+    // Camera and flow fail, the name lacks sp_; the path check is pending, not to fix.
+    const list = mapChecklist(editor);
+    expect([list.ready, list.total, list.toFix]).toEqual([3, 7, 3]);
+    expect(await status(list)).toBe('3 to fix');
   });
 });

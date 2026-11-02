@@ -6,10 +6,11 @@ tools (see [Setup in the README](../README.md#setup)).
 
 ## Map checklist and pre-flight checks
 
-The chip in the top bar ("Annihilation 5/7 ready") counts what the map's game mode needs. Its border is green when
-nothing is left to fix, amber otherwise. Click it for **Ready to play?**: the mode and player count, a progress bar
-and one row per check (✓ ready, ! or ✕ missing, – not checked yet) with a detail and, where the editor can do it, a
-**Fix**. A fix is one undo step. The chip updates as you edit (a moment after each change) and never blocks saving.
+The chip in the top bar tracks what the map's game mode needs. It reads "Annihilation · ready ✓" with a green border
+when nothing is left to fix, otherwise "Annihilation · 2 to fix" with an amber border (hover it for how many checks
+pass). Click it for **Ready to play?**: the mode and player count, a progress bar and one row per check (✓ ready,
+! or ✕ missing, – not checked yet) with a detail and, where the editor can do it, a **Fix**. A fix is one undo step.
+The chip updates as you edit (a moment after each change) and never blocks saving.
 
 The mode comes from the map (`detectMode` in `src/edit/preflight.ts`): the name prefix first (`hlw_` Annihilation,
 `or_` Overrun, `sp_` mission), then an `overrun_manager` or wave spawn, mission data (a flowchart,
@@ -18,14 +19,13 @@ mode's list without changing the map; opening or creating a map goes back to the
 
 | Mode | Checks |
 |---|---|
-| Annihilation | Player starts (numbered, at least 2; says whether they are symmetric), Resources (requisition points and scrap), Sky shell, Sun light, Name (`hlw_`), Map boundary, Units can reach every base |
+| Annihilation | Player starts (numbered, at least 2; says whether they are symmetric), Resources (requisition points and scrap), Sky shell, Sun light, Name (`hlw_`), Map boundary |
 | Overrun | Player starts (together in the centre), Wave spawns, Overrun manager (wave type; **Fix** adds one), Sky shell, Sun light, Map boundary |
 | Singleplayer mission | Player camera (`info_player_wars`; **Fix** adds one), Mission flow (a way to win and to lose, no flowchart errors), Every objective area reachable, Name (`sp_`), Sky shell, Sun light, Map boundary |
 | Empty | Sky shell, Sun light, Map boundary, and **Pick a mode**, which switches to another mode's list (counted, never ready: an Empty map isn't ready to play until it has a mode) |
 
-"Units can reach every base" and "Every objective area reachable" are the path check, which isn't built yet. They
-show "Not checked yet", count toward the total but never as ready, and don't keep the chip amber: a new
-Annihilation map reads "6/7 ready" in green.
+"Every objective area reachable" is the path check, which isn't built yet. It shows "Not checked yet" and isn't
+counted as something to fix, so a new mission map reads "Mission · ready ✓".
 
 **Compile & test** shows the same list for the same mode, then what only Compile checks:
 

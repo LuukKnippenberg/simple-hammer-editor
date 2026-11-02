@@ -278,6 +278,8 @@ export interface Checklist {
   ready: number;
   /** Every check: pending ones count, as on the board. */
   total: number;
+  /** Checks that fail and can be acted on (not pending). */
+  toFix: number;
   /** Nothing left to fix: every check passes or is pending. The chip turns green. */
   allReady: boolean;
 }
@@ -288,6 +290,7 @@ export function mapChecklist(editor: Editor, mode = detectMode(editor)): Checkli
     mode, detected: detectMode(editor), players: playerCount(editor, mode), checks,
     ready: checks.filter((c) => c.ok).length,
     total: checks.length,
+    toFix: checks.filter((c) => !c.ok && !c.pending).length,
     allReady: checks.every((c) => c.ok || c.pending),
   };
 }
@@ -304,7 +307,7 @@ export function modeChecks(editor: Editor, mode: MapMode): Check[] {
   const [shell, sun, boundary] = env;
   switch (mode) {
     case 'annihilation':
-      return [annihilationStarts(editor, content), resourcesCheck(editor), shell, sun, nameCheck(editor, mode), boundary, notCheckedYet('reach', 'Units can reach every base')];
+      return [annihilationStarts(editor, content), resourcesCheck(editor), shell, sun, nameCheck(editor, mode), boundary];
     case 'overrun':
       return [overrunStarts(editor, content), waveSpawns(editor), overrunManager(editor, content), ...env];
     case 'mission':
