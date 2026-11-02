@@ -136,35 +136,35 @@ export interface RoomLayout {
 
 /** How two rooms meet: the spec's link for them, else the less open of what their types prefer. */
 export function linkKind(spec: RoomBuildingSpec, a: RoomSpec, b: RoomSpec): LinkKind {
-  const own = spec.links.find((l) => (l.a === a.id && l.b === b.id) || (l.a === b.id && l.b === a.id));
+  const own = spec.links.find((link) => (link.a === a.id && link.b === b.id) || (link.a === b.id && link.b === a.id));
   if (own) return own.kind;
-  const ka = roomType(a.type).link, kb = roomType(b.type).link;
-  return LINK_RANK[ka] <= LINK_RANK[kb] ? ka : kb;
+  const kindA = roomType(a.type).link, kindB = roomType(b.type).link;
+  return LINK_RANK[kindA] <= LINK_RANK[kindB] ? kindA : kindB;
 }
 
 /** Ranges [from, to] minus holes (each widened by `pad`), keeping pieces at least `min` long. */
 function subtract(ranges: [number, number][], holes: [number, number][], pad: number, min: number): [number, number][] {
   let out = ranges;
-  for (const [h0, h1] of holes) {
-    const k0 = h0 - pad, k1 = h1 + pad;
-    out = out.flatMap(([a, b]): [number, number][] => (k1 <= a || k0 >= b ? [[a, b]] : [[a, k0], [k1, b]]));
+  for (const [holeFrom, holeTo] of holes) {
+    const cutFrom = holeFrom - pad, cutTo = holeTo + pad;
+    out = out.flatMap(([from, to]): [number, number][] => (cutTo <= from || cutFrom >= to ? [[from, to]] : [[from, cutFrom], [cutTo, to]]));
   }
-  return out.filter(([a, b]) => b - a >= min);
+  return out.filter(([from, to]) => to - from >= min);
 }
 
 /** Works out a building's walls, doorways, window bands and room floors from its spec, and what is wrong with it. */
 export function roomLayout(spec: RoomBuildingSpec): RoomLayout {
   const issues: string[] = [];
   const base = spec.origin.z - WALL_SINK, floor = spec.origin.z + FLOOR_LIFT, top = floor + spec.height;
-  const g = cellGrid(spec, issues);
-  const walls = [...wallsAlongX(g), ...wallsAlongY(g)];
-  const doorways = [...roomDoorways(g, issues), ...streetDoorways(g, issues)];
+  const grid = cellGrid(spec, issues);
+  const walls = [...wallsAlongX(grid), ...wallsAlongY(grid)];
+  const doorways = [...roomDoorways(grid, issues), ...streetDoorways(grid, issues)];
   const threshold = floor - base;
   cutDoorways(walls, doorways, threshold);
   windowBands(spec, walls, threshold);
-  const rooms = g.rooms.map((r) => roomBox(g, r, doorways));
-  checkReachable(spec, g.rooms, doorways, issues);
-  const bounds = { x0: spec.origin.x, y0: spec.origin.y, x1: g.worldX(g.cols), y1: g.worldY(g.rows) };
+  const rooms = grid.rooms.map((room) => roomBox(grid, room, doorways));
+  checkReachable(spec, grid.rooms, doorways, issues);
+  const bounds = { x0: spec.origin.x, y0: spec.origin.y, x1: grid.worldX(grid.cols), y1: grid.worldY(grid.rows) };
   return { spec, base, floor, top, rooms, walls, doorways, bounds, issues };
 }
 
@@ -188,33 +188,33 @@ interface Grid {
   worldY(j: number): number;
 }
 
-const label = (r: RoomSpec) => r.name ?? r.id;
+const label = (room: RoomSpec) => room.name ?? room.id;
 
 /** Lays the rooms on the grid, reporting rooms with no cells on it and rooms that overlap (the first keeps the cell). */
 function cellGrid(spec: RoomBuildingSpec, issues: string[]): Grid {
-  const rooms = spec.rooms.filter((r) => {
-    const ok = r.cells.x1 > r.cells.x0 && r.cells.y1 > r.cells.y0 && r.cells.x0 >= 0 && r.cells.y0 >= 0;
-    if (!ok) issues.push(`Room ${label(r)} has no cells on the grid`);
+  const rooms = spec.rooms.filter((room) => {
+    const ok = room.cells.x1 > room.cells.x0 && room.cells.y1 > room.cells.y0 && room.cells.x0 >= 0 && room.cells.y0 >= 0;
+    if (!ok) issues.push(`Room ${label(room)} has no cells on the grid`);
     return ok;
   });
-  const cols = Math.max(0, ...rooms.map((r) => r.cells.x1)), rows = Math.max(0, ...rooms.map((r) => r.cells.y1));
+  const cols = Math.max(0, ...rooms.map((room) => room.cells.x1)), rows = Math.max(0, ...rooms.map((room) => room.cells.y1));
   const owner = new Int32Array(cols * rows).fill(-1);
-  rooms.forEach((r, i) => {
-    for (let y = r.cells.y0; y < r.cells.y1; y++) for (let x = r.cells.x0; x < r.cells.x1; x++) {
-      const o = owner[y * cols + x];
-      if (o < 0) { owner[y * cols + x] = i; continue; }
-      if (!issues.some((s) => s.includes(rooms[o].id) && s.includes(r.id))) issues.push(`Rooms ${label(rooms[o])} and ${label(r)} overlap`);
+  rooms.forEach((room, i) => {
+    for (let y = room.cells.y0; y < room.cells.y1; y++) for (let x = room.cells.x0; x < room.cells.x1; x++) {
+      const existing = owner[y * cols + x];
+      if (existing < 0) { owner[y * cols + x] = i; continue; }
+      if (!issues.some((issue) => issue.includes(rooms[existing].id) && issue.includes(room.id))) issues.push(`Rooms ${label(rooms[existing])} and ${label(room)} overlap`);
     }
   });
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= cols || y >= rows ? -1 : owner[y * cols + x]);
   const kinds = new Map<string, LinkKind>();
   const kindOf = (a: number, b: number) => {
     const key = a < b ? `${a},${b}` : `${b},${a}`;
-    let k = kinds.get(key);
-    if (!k) { k = linkKind(spec, rooms[a], rooms[b]); kinds.set(key, k); }
-    return k;
+    let kind = kinds.get(key);
+    if (!kind) { kind = linkKind(spec, rooms[a], rooms[b]); kinds.set(key, kind); }
+    return kind;
   };
-  const isWall = (lo: number, hi: number) => lo !== hi && !(lo >= 0 && hi >= 0 && kindOf(lo, hi) === 'open');
+  const isWall = (lowRoom: number, highRoom: number) => lowRoom !== highRoom && !(lowRoom >= 0 && highRoom >= 0 && kindOf(lowRoom, highRoom) === 'open');
   return {
     spec, rooms, cols, rows, at, kindOf,
     hEdge: (i, j) => i >= 0 && i < cols && isWall(at(i, j - 1), at(i, j)),
@@ -224,47 +224,47 @@ function cellGrid(spec: RoomBuildingSpec, issues: string[]): Grid {
   };
 }
 
-const roomId = (g: Grid, o: number) => (o >= 0 ? g.rooms[o].id : null);
+const roomId = (grid: Grid, index: number) => (index >= 0 ? grid.rooms[index].id : null);
 
 /**
  * Walls along x keep the corners: they reach half a wall past a corner to cover it, and walls along y stop
  * against them (so no two brushes overlap and every corner is closed). One run per stretch with the same rooms on
  * either side.
  */
-function wallsAlongX(g: Grid): WallRun[] {
-  const { at, hEdge, vEdge } = g;
+function wallsAlongX(grid: Grid): WallRun[] {
+  const { at, hEdge, vEdge } = grid;
   const walls: WallRun[] = [];
-  for (let j = 0; j <= g.rows; j++) {
-    const vAt = (x: number) => vEdge(x, j - 1) || vEdge(x, j);
-    for (let i = 0; i < g.cols;) {
+  for (let j = 0; j <= grid.rows; j++) {
+    const wallAlongYAt = (x: number) => vEdge(x, j - 1) || vEdge(x, j);
+    for (let i = 0; i < grid.cols;) {
       if (!hEdge(i, j)) { i++; continue; }
-      const lo = at(i, j - 1), hi = at(i, j);
-      let e = i + 1;
-      while (e < g.cols && hEdge(e, j) && at(e, j - 1) === lo && at(e, j) === hi) e++;
-      const from = g.worldX(i) - (!hEdge(i - 1, j) && vAt(i) ? WALL / 2 : 0);
-      const to = g.worldX(e) + (!hEdge(e, j) && vAt(e) ? WALL / 2 : 0);
-      walls.push({ axis: 'x', at: g.worldY(j), from, to, lo: roomId(g, lo), hi: roomId(g, hi), openings: [] });
-      i = e;
+      const lowRoom = at(i, j - 1), highRoom = at(i, j);
+      let end = i + 1;
+      while (end < grid.cols && hEdge(end, j) && at(end, j - 1) === lowRoom && at(end, j) === highRoom) end++;
+      const from = grid.worldX(i) - (!hEdge(i - 1, j) && wallAlongYAt(i) ? WALL / 2 : 0);
+      const to = grid.worldX(end) + (!hEdge(end, j) && wallAlongYAt(end) ? WALL / 2 : 0);
+      walls.push({ axis: 'x', at: grid.worldY(j), from, to, lo: roomId(grid, lowRoom), hi: roomId(grid, highRoom), openings: [] });
+      i = end;
     }
   }
   return walls;
 }
 
 /** Walls along y, stopping half a wall short of every wall along x they meet (and split there). */
-function wallsAlongY(g: Grid): WallRun[] {
-  const { at, hEdge, vEdge } = g;
+function wallsAlongY(grid: Grid): WallRun[] {
+  const { at, hEdge, vEdge } = grid;
   const walls: WallRun[] = [];
-  for (let i = 0; i <= g.cols; i++) {
-    const hAt = (y: number) => hEdge(i - 1, y) || hEdge(i, y);
-    for (let j = 0; j < g.rows;) {
+  for (let i = 0; i <= grid.cols; i++) {
+    const wallAlongXAt = (y: number) => hEdge(i - 1, y) || hEdge(i, y);
+    for (let j = 0; j < grid.rows;) {
       if (!vEdge(i, j)) { j++; continue; }
-      const lo = at(i - 1, j), hi = at(i, j);
-      let e = j + 1;
-      while (e < g.rows && vEdge(i, e) && at(i - 1, e) === lo && at(i, e) === hi && !hAt(e)) e++;
-      const from = g.worldY(j) + (hAt(j) ? WALL / 2 : 0);
-      const to = g.worldY(e) - (hAt(e) ? WALL / 2 : 0);
-      if (to - from > 0.5) walls.push({ axis: 'y', at: g.worldX(i), from, to, lo: roomId(g, lo), hi: roomId(g, hi), openings: [] });
-      j = e;
+      const lowRoom = at(i - 1, j), highRoom = at(i, j);
+      let end = j + 1;
+      while (end < grid.rows && vEdge(i, end) && at(i - 1, end) === lowRoom && at(i, end) === highRoom && !wallAlongXAt(end)) end++;
+      const from = grid.worldY(j) + (wallAlongXAt(j) ? WALL / 2 : 0);
+      const to = grid.worldY(end) - (wallAlongXAt(end) ? WALL / 2 : 0);
+      if (to - from > 0.5) walls.push({ axis: 'y', at: grid.worldX(i), from, to, lo: roomId(grid, lowRoom), hi: roomId(grid, highRoom), openings: [] });
+      j = end;
     }
   }
   return walls;
@@ -274,56 +274,56 @@ function wallsAlongY(g: Grid): WallRun[] {
 interface SharedWall { axis: 'x' | 'y'; at: number; from: number; to: number }
 
 /** Where two rooms' cells touch along a side, or null when they don't. */
-function sharedWall(g: Grid, ra: Rect, rb: Rect): SharedWall | null {
-  if (ra.x1 === rb.x0 || rb.x1 === ra.x0) {
-    const y0 = Math.max(ra.y0, rb.y0), y1 = Math.min(ra.y1, rb.y1);
-    return y1 > y0 ? { axis: 'y', at: g.worldX(ra.x1 === rb.x0 ? ra.x1 : ra.x0), from: g.worldY(y0), to: g.worldY(y1) } : null;
+function sharedWall(grid: Grid, cellsA: Rect, cellsB: Rect): SharedWall | null {
+  if (cellsA.x1 === cellsB.x0 || cellsB.x1 === cellsA.x0) {
+    const y0 = Math.max(cellsA.y0, cellsB.y0), y1 = Math.min(cellsA.y1, cellsB.y1);
+    return y1 > y0 ? { axis: 'y', at: grid.worldX(cellsA.x1 === cellsB.x0 ? cellsA.x1 : cellsA.x0), from: grid.worldY(y0), to: grid.worldY(y1) } : null;
   }
-  if (ra.y1 === rb.y0 || rb.y1 === ra.y0) {
-    const x0 = Math.max(ra.x0, rb.x0), x1 = Math.min(ra.x1, rb.x1);
-    return x1 > x0 ? { axis: 'x', at: g.worldY(ra.y1 === rb.y0 ? ra.y1 : ra.y0), from: g.worldX(x0), to: g.worldX(x1) } : null;
+  if (cellsA.y1 === cellsB.y0 || cellsB.y1 === cellsA.y0) {
+    const x0 = Math.max(cellsA.x0, cellsB.x0), x1 = Math.min(cellsA.x1, cellsB.x1);
+    return x1 > x0 ? { axis: 'x', at: grid.worldY(cellsA.y1 === cellsB.y0 ? cellsA.y1 : cellsA.y0), from: grid.worldX(x0), to: grid.worldX(x1) } : null;
   }
   return null;
 }
 
 /** Between rooms: one doorway in the middle of the wall they share, a row of archways, or (open) the whole of it. */
-function roomDoorways(g: Grid, issues: string[]): Doorway[] {
-  const { rooms } = g;
+function roomDoorways(grid: Grid, issues: string[]): Doorway[] {
+  const { rooms } = grid;
   const out: Doorway[] = [];
-  for (let a = 0; a < rooms.length; a++) for (let b = a + 1; b < rooms.length; b++) {
-    const shared = sharedWall(g, rooms[a].cells, rooms[b].cells);
+  for (let i = 0; i < rooms.length; i++) for (let j = i + 1; j < rooms.length; j++) {
+    const shared = sharedWall(grid, rooms[i].cells, rooms[j].cells);
     if (!shared) continue;
-    const kind = g.kindOf(a, b);
-    const ids = [rooms[a].id, rooms[b].id];
+    const kind = grid.kindOf(i, j);
+    const ids = [rooms[i].id, rooms[j].id];
     if (kind === 'wall') continue;
-    if (kind === 'open') { out.push({ kind: 'open', rooms: ids, ...shared, top: g.spec.height }); continue; }
+    if (kind === 'open') { out.push({ kind: 'open', rooms: ids, ...shared, top: grid.spec.height }); continue; }
     // Doorways stay clear of the wall's ends.
     const lo = shared.from + WALL / 2 + DOOR_MARGIN, hi = shared.to - WALL / 2 - DOOR_MARGIN;
     if (kind === 'door' || hi - lo < ARCH_WIDTH + ARCH_SPARE) {
-      const d = doorBetween(g.spec, rooms[a], rooms[b], shared, lo, hi);
-      if (d) out.push(d);
-      else issues.push(`${label(rooms[a])} and ${label(rooms[b])} share too little wall for a door`);
+      const door = doorBetween(grid.spec, rooms[i], rooms[j], shared, lo, hi);
+      if (door) out.push(door);
+      else issues.push(`${label(rooms[i])} and ${label(rooms[j])} share too little wall for a door`);
     } else {
-      out.push(...archesBetween(g.spec, ids, shared, lo, hi));
+      out.push(...archesBetween(grid.spec, ids, shared, lo, hi));
     }
   }
   return out;
 }
 
 /** One door in the middle of lo..hi, as wide as the wider of the two rooms wants; null if it doesn't fit. */
-function doorBetween(spec: RoomBuildingSpec, ra: RoomSpec, rb: RoomSpec, shared: SharedWall, lo: number, hi: number): Doorway | null {
-  const w = Math.min(Math.max(roomType(ra.type).doorWidth, roomType(rb.type).doorWidth), hi - lo);
-  if (w < MIN_DOOR) return null;
+function doorBetween(spec: RoomBuildingSpec, roomA: RoomSpec, roomB: RoomSpec, shared: SharedWall, lo: number, hi: number): Doorway | null {
+  const width = Math.min(Math.max(roomType(roomA.type).doorWidth, roomType(roomB.type).doorWidth), hi - lo);
+  if (width < MIN_DOOR) return null;
   const mid = Math.round((lo + hi) / 2);
-  return { kind: 'door', rooms: [ra.id, rb.id], axis: shared.axis, at: shared.at, from: mid - w / 2, to: mid + w / 2, top: Math.min(DOOR_HEIGHT, spec.height - DOOR_HEADROOM) };
+  return { kind: 'door', rooms: [roomA.id, roomB.id], axis: shared.axis, at: shared.at, from: mid - width / 2, to: mid + width / 2, top: Math.min(DOOR_HEIGHT, spec.height - DOOR_HEADROOM) };
 }
 
 /** As many archways as fit in lo..hi, a pitch apart, centred. */
 function archesBetween(spec: RoomBuildingSpec, ids: string[], shared: SharedWall, lo: number, hi: number): Doorway[] {
-  const room = hi - lo;
-  const n = Math.max(1, Math.floor((room + ARCH_PITCH - ARCH_WIDTH) / ARCH_PITCH));
-  const first = Math.round((lo + hi) / 2 - ((n - 1) * ARCH_PITCH) / 2);
-  return Array.from({ length: n }, (_, k): Doorway => {
+  const length = hi - lo;
+  const count = Math.max(1, Math.floor((length + ARCH_PITCH - ARCH_WIDTH) / ARCH_PITCH));
+  const first = Math.round((lo + hi) / 2 - ((count - 1) * ARCH_PITCH) / 2);
+  return Array.from({ length: count }, (_, k): Doorway => {
     const mid = first + k * ARCH_PITCH;
     return { kind: 'arch', rooms: ids, axis: shared.axis, at: shared.at, from: mid - ARCH_WIDTH / 2, to: mid + ARCH_WIDTH / 2, top: Math.min(ARCH_HEIGHT, spec.height - ARCH_HEADROOM) };
   });
@@ -333,61 +333,61 @@ function archesBetween(spec: RoomBuildingSpec, ids: string[], shared: SharedWall
 const OUTWARD: Record<Side, [number, number]> = { n: [0, 1], s: [0, -1], e: [1, 0], w: [-1, 0] };
 
 /** Street doors, on outer edges only. */
-function streetDoorways(g: Grid, issues: string[]): Doorway[] {
+function streetDoorways(grid: Grid, issues: string[]): Doorway[] {
   const out: Doorway[] = [];
-  for (const sd of g.spec.doors) {
-    const d = streetDoorway(g, sd, issues);
-    if (d) out.push(d);
+  for (const door of grid.spec.doors) {
+    const doorway = streetDoorway(grid, door, issues);
+    if (doorway) out.push(doorway);
   }
   return out;
 }
 
-function streetDoorway(g: Grid, sd: StreetDoor, issues: string[]): Doorway | null {
-  const where = `The street door at cell ${sd.x}, ${sd.y} (${sd.side})`;
-  const n = Math.max(1, Math.round(sd.width));
-  const axis: 'x' | 'y' = sd.side === 'n' || sd.side === 's' ? 'x' : 'y';
-  const cells = Array.from({ length: n }, (_, k): [number, number] => (axis === 'x' ? [sd.x + k, sd.y] : [sd.x, sd.y + k]));
-  const [dx, dy] = OUTWARD[sd.side];
-  const room = g.at(sd.x, sd.y);
-  if (room < 0 || !cells.every(([x, y]) => g.at(x, y) === room && g.at(x + dx, y + dy) < 0)) {
+function streetDoorway(grid: Grid, door: StreetDoor, issues: string[]): Doorway | null {
+  const where = `The street door at cell ${door.x}, ${door.y} (${door.side})`;
+  const widthInCells = Math.max(1, Math.round(door.width));
+  const axis: 'x' | 'y' = door.side === 'n' || door.side === 's' ? 'x' : 'y';
+  const cells = Array.from({ length: widthInCells }, (_, k): [number, number] => (axis === 'x' ? [door.x + k, door.y] : [door.x, door.y + k]));
+  const [dx, dy] = OUTWARD[door.side];
+  const room = grid.at(door.x, door.y);
+  if (room < 0 || !cells.every(([x, y]) => grid.at(x, y) === room && grid.at(x + dx, y + dy) < 0)) {
     issues.push(`${where} is not on one room's outer wall`);
     return null;
   }
-  const line = { n: g.worldY(sd.y + 1), s: g.worldY(sd.y), e: g.worldX(sd.x + 1), w: g.worldX(sd.x) }[sd.side];
-  const start = axis === 'x' ? g.worldX(sd.x) : g.worldY(sd.y);
+  const line = { n: grid.worldY(door.y + 1), s: grid.worldY(door.y), e: grid.worldX(door.x + 1), w: grid.worldX(door.x) }[door.side];
+  const start = axis === 'x' ? grid.worldX(door.x) : grid.worldY(door.y);
   // Clear of the room's corners, so the wall keeps a jamb there.
-  const rc = g.rooms[room].cells;
-  const [r0, r1] = axis === 'x' ? [g.worldX(rc.x0), g.worldX(rc.x1)] : [g.worldY(rc.y0), g.worldY(rc.y1)];
-  const from = Math.max(start + STREET_INSET, r0 + WALL / 2 + STREET_JAMB);
-  const to = Math.min(start + n * g.spec.cell - STREET_INSET, r1 - WALL / 2 - STREET_JAMB);
+  const roomCells = grid.rooms[room].cells;
+  const [roomFrom, roomTo] = axis === 'x' ? [grid.worldX(roomCells.x0), grid.worldX(roomCells.x1)] : [grid.worldY(roomCells.y0), grid.worldY(roomCells.y1)];
+  const from = Math.max(start + STREET_INSET, roomFrom + WALL / 2 + STREET_JAMB);
+  const to = Math.min(start + widthInCells * grid.spec.cell - STREET_INSET, roomTo - WALL / 2 - STREET_JAMB);
   if (to - from < MIN_DOOR) {
     issues.push(`${where} is too close to a corner`);
     return null;
   }
-  return { kind: 'street', rooms: [g.rooms[room].id], axis, at: line, from, to, top: Math.min(STREET_DOOR_HEIGHT, g.spec.height - DOOR_HEADROOM) };
+  return { kind: 'street', rooms: [grid.rooms[room].id], axis, at: line, from, to, top: Math.min(STREET_DOOR_HEIGHT, grid.spec.height - DOOR_HEADROOM) };
 }
 
 /** Cuts every doorway that has a wall into the walls it crosses, down to the floor (`threshold` above the walls' foot). */
 function cutDoorways(walls: WallRun[], doorways: Doorway[], threshold: number): void {
-  for (const d of doorways) {
-    if (d.kind === 'open') continue;
-    for (const w of walls) {
-      if (w.axis !== d.axis || Math.abs(w.at - d.at) > 0.5 || d.to <= w.from || d.from >= w.to) continue;
-      w.openings.push({ from: Math.max(d.from, w.from), to: Math.min(d.to, w.to), z0: threshold, z1: threshold + d.top });
+  for (const doorway of doorways) {
+    if (doorway.kind === 'open') continue;
+    for (const wall of walls) {
+      if (wall.axis !== doorway.axis || Math.abs(wall.at - doorway.at) > 0.5 || doorway.to <= wall.from || doorway.from >= wall.to) continue;
+      wall.openings.push({ from: Math.max(doorway.from, wall.from), to: Math.min(doorway.to, wall.to), z0: threshold, z1: threshold + doorway.top });
     }
   }
 }
 
 /** The way an outer wall faces; null for a partition. */
-function outerFacing(w: WallRun): Side | null {
-  if (w.lo !== null && w.hi !== null) return null;
-  return w.axis === 'x' ? (w.hi === null ? 'n' : 's') : (w.hi === null ? 'e' : 'w');
+function outerFacing(wall: WallRun): Side | null {
+  if (wall.lo !== null && wall.hi !== null) return null;
+  return wall.axis === 'x' ? (wall.hi === null ? 'n' : 's') : (wall.hi === null ? 'e' : 'w');
 }
 
-/** Where walls running the other way meet `w`. */
-function junctions(walls: WallRun[], w: WallRun): [number, number][] {
+/** Where walls running the other way meet `wall`. */
+function junctions(walls: WallRun[], wall: WallRun): [number, number][] {
   return walls
-    .filter((q) => q.axis !== w.axis && q.from <= w.at + WALL && q.to >= w.at - WALL && q.at > w.from && q.at < w.to)
+    .filter((other) => other.axis !== wall.axis && other.from <= wall.at + WALL && other.to >= wall.at - WALL && other.at > wall.from && other.at < wall.to)
     .map((q): [number, number] => [q.at, q.at]);
 }
 
@@ -398,43 +398,43 @@ function junctions(walls: WallRun[], w: WallRun): [number, number][] {
 function windowBands(spec: RoomBuildingSpec, walls: WallRun[], threshold: number): void {
   if (spec.height < BAND_MIN_HEIGHT) return;
   const z0 = threshold + Math.round(spec.height * BAND_FROM), z1 = threshold + spec.height - BAND_TOP_GAP;
-  for (const w of walls) {
-    const facing = outerFacing(w);
+  for (const wall of walls) {
+    const facing = outerFacing(wall);
     if (!facing || !spec.bands.includes(facing)) continue;
-    const doorRanges = w.openings.map((o): [number, number] => [o.from, o.to]);
-    const clearOfDoors = subtract([[w.from + BAND_END_CLEAR, w.to - BAND_END_CLEAR]], doorRanges, BAND_DOOR_CLEAR, BAND_MIN);
-    const pieces = subtract(clearOfDoors, junctions(walls, w), WALL / 2 + BAND_JUNCTION_CLEAR, BAND_MIN);
-    for (const [a, b] of pieces) w.openings.push({ from: a, to: b, z0, z1 });
+    const doorRanges = wall.openings.map((opening): [number, number] => [opening.from, opening.to]);
+    const clearOfDoors = subtract([[wall.from + BAND_END_CLEAR, wall.to - BAND_END_CLEAR]], doorRanges, BAND_DOOR_CLEAR, BAND_MIN);
+    const pieces = subtract(clearOfDoors, junctions(walls, wall), WALL / 2 + BAND_JUNCTION_CLEAR, BAND_MIN);
+    for (const [from, to] of pieces) wall.openings.push({ from, to, z0, z1 });
   }
 }
 
 const range = (from: number, to: number) => Array.from({ length: Math.max(0, to - from) }, (_, k) => from + k);
 
-/** A wall along the whole of a room's side (cells r), so its floor stops at the wall there. */
-function sideShut(g: Grid, r: Rect, side: Side): boolean {
-  if (side === 'n' || side === 's') return range(r.x0, r.x1).every((x) => g.hEdge(x, side === 'n' ? r.y1 : r.y0));
-  return range(r.y0, r.y1).every((y) => g.vEdge(side === 'e' ? r.x1 : r.x0, y));
+/** A wall along the whole of a room's side (its `cells`), so its floor stops at the wall there. */
+function sideShut(grid: Grid, cells: Rect, side: Side): boolean {
+  if (side === 'n' || side === 's') return range(cells.x0, cells.x1).every((x) => grid.hEdge(x, side === 'n' ? cells.y1 : cells.y0));
+  return range(cells.y0, cells.y1).every((y) => grid.vEdge(side === 'e' ? cells.x1 : cells.x0, y));
 }
 
-/** Some of a room's side (cells r) faces the outside. */
-function sideOuter(g: Grid, r: Rect, side: Side): boolean {
+/** Some of a room's side (its `cells`) faces the outside. */
+function sideOuter(grid: Grid, cells: Rect, side: Side): boolean {
   const [dx, dy] = OUTWARD[side];
   const edge: [number, number][] = side === 'n' || side === 's'
-    ? range(r.x0, r.x1).map((x) => [x, side === 'n' ? r.y1 - 1 : r.y0])
-    : range(r.y0, r.y1).map((y) => [side === 'e' ? r.x1 - 1 : r.x0, y]);
-  return edge.some(([x, y]) => g.at(x + dx, y + dy) < 0);
+    ? range(cells.x0, cells.x1).map((x) => [x, side === 'n' ? cells.y1 - 1 : cells.y0])
+    : range(cells.y0, cells.y1).map((y) => [side === 'e' ? cells.x1 - 1 : cells.x0, y]);
+  return edge.some(([x, y]) => grid.at(x + dx, y + dy) < 0);
 }
 
 /** A room's world box: its floor stops at the walls around it, except along a side that opens onto the next room. */
-function roomBox(g: Grid, r: RoomSpec, doorways: Doorway[]): RoomBox {
-  const cr = r.cells;
-  const rect = { x0: g.worldX(cr.x0), y0: g.worldY(cr.y0), x1: g.worldX(cr.x1), y1: g.worldY(cr.y1) };
-  const inset = (s: Side) => (sideShut(g, cr, s) ? WALL / 2 : 0);
+function roomBox(grid: Grid, room: RoomSpec, doorways: Doorway[]): RoomBox {
+  const cells = room.cells;
+  const rect = { x0: grid.worldX(cells.x0), y0: grid.worldY(cells.y0), x1: grid.worldX(cells.x1), y1: grid.worldY(cells.y1) };
+  const inset = (side: Side) => (sideShut(grid, cells, side) ? WALL / 2 : 0);
   const inner = { x0: rect.x0 + inset('w'), y0: rect.y0 + inset('s'), x1: rect.x1 - inset('e'), y1: rect.y1 - inset('n') };
   return {
-    spec: r, rect, inner,
-    outer: { n: sideOuter(g, cr, 'n'), e: sideOuter(g, cr, 'e'), s: sideOuter(g, cr, 's'), w: sideOuter(g, cr, 'w') },
-    doorways: doorways.filter((d) => d.rooms.includes(r.id)),
+    spec: room, rect, inner,
+    outer: { n: sideOuter(grid, cells, 'n'), e: sideOuter(grid, cells, 'e'), s: sideOuter(grid, cells, 's'), w: sideOuter(grid, cells, 'w') },
+    doorways: doorways.filter((doorway) => doorway.rooms.includes(room.id)),
   };
 }
 
@@ -444,14 +444,14 @@ function checkReachable(spec: RoomBuildingSpec, rooms: RoomSpec[], doorways: Doo
     issues.push('The building has no street door');
     return;
   }
-  const seen = new Set(doorways.filter((d) => d.kind === 'street').flatMap((d) => d.rooms));
+  const seen = new Set(doorways.filter((doorway) => doorway.kind === 'street').flatMap((doorway) => doorway.rooms));
   for (let grew = true; grew;) {
     grew = false;
-    for (const d of doorways) {
-      if (d.rooms.length !== 2 || !d.rooms.some((r) => seen.has(r)) || d.rooms.every((r) => seen.has(r))) continue;
-      d.rooms.forEach((r) => seen.add(r));
+    for (const doorway of doorways) {
+      if (doorway.rooms.length !== 2 || !doorway.rooms.some((id) => seen.has(id)) || doorway.rooms.every((id) => seen.has(id))) continue;
+      doorway.rooms.forEach((id) => seen.add(id));
       grew = true;
     }
   }
-  if (seen.size) for (const r of rooms) if (!seen.has(r.id)) issues.push(`Room ${label(r)} can't be reached from the street`);
+  if (seen.size) for (const room of rooms) if (!seen.has(room.id)) issues.push(`Room ${label(room)} can't be reached from the street`);
 }
