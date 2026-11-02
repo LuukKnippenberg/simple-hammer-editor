@@ -11,32 +11,32 @@ export function row(label: string, ...controls: (HTMLElement | null)[]): HTMLEle
 }
 
 /** A number input; a typed value is clamped to min..max, an empty or bad one becomes min. */
-export function num(value: number, set: (v: number) => void, o: { min?: number; max?: number; step?: number; title?: string } = {}): HTMLInputElement {
-  const min = o.min ?? 0, max = o.max ?? Infinity;
-  const i = h('input', { type: 'number', value: String(value), step: String(o.step ?? 1), min: String(min), max: o.max === undefined ? undefined : String(o.max), title: o.title || undefined }) as HTMLInputElement;
-  i.addEventListener('change', () => {
-    i.blur();
-    set(Math.max(min, Math.min(max, parseFloat(i.value) || min)));
+export function num(value: number, set: (v: number) => void, options: { min?: number; max?: number; step?: number; title?: string } = {}): HTMLInputElement {
+  const min = options.min ?? 0, max = options.max ?? Infinity;
+  const input = h('input', { type: 'number', value: String(value), step: String(options.step ?? 1), min: String(min), max: options.max === undefined ? undefined : String(options.max), title: options.title || undefined }) as HTMLInputElement;
+  input.addEventListener('change', () => {
+    input.blur();
+    set(Math.max(min, Math.min(max, parseFloat(input.value) || min)));
   });
-  return i;
+  return input;
 }
 
 /** A drop-down of `[value, label, title?]` choices. */
 export function select(choices: [string, string, string?][], value: string, set: (v: string) => void, title = ''): HTMLSelectElement {
-  const el = h('select', { title: title || undefined }, ...choices.map(([v, l, t]) => h('option', { value: v, title: t }, l))) as HTMLSelectElement;
-  el.value = value;
-  el.addEventListener('change', () => {
-    el.blur();
-    set(el.value);
+  const dropdown = h('select', { title: title || undefined }, ...choices.map(([optionValue, text, hint]) => h('option', { value: optionValue, title: hint }, text))) as HTMLSelectElement;
+  dropdown.value = value;
+  dropdown.addEventListener('change', () => {
+    dropdown.blur();
+    set(dropdown.value);
   });
-  return el;
+  return dropdown;
 }
 
 /** A checkbox. */
 export function toggle(checked: boolean, set: (v: boolean) => void, title = ''): HTMLInputElement {
-  const el = h('input', { type: 'checkbox', checked, title: title || undefined }) as HTMLInputElement;
-  el.addEventListener('change', () => set(el.checked));
-  return el;
+  const checkbox = h('input', { type: 'checkbox', checked, title: title || undefined }) as HTMLInputElement;
+  checkbox.addEventListener('change', () => set(checkbox.checked));
+  return checkbox;
 }
 
 /** The 🎲 next to a seed. */

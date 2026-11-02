@@ -32,39 +32,39 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   const folds = { more: false, extras: false };
 
   const render = () => {
-    const s = tool.session;
-    box.hidden = !s;
-    if (!s) return;
-    const g = generator(s.id), tune = s.step === 'tune';
+    const session = tool.session;
+    box.hidden = !session;
+    if (!session) return;
+    const descriptor = generator(session.id), tune = session.step === 'tune';
     const rows: (HTMLElement | null)[] = [
       h('div.gen-panel-head', {},
         h('button.gen-back', { title: 'Back to the Generate menu (what was made stays)', onclick: () => tool.toMenu() }, '‹ Generate'),
-        h('b', {}, h('span.gen-icon', {}, g.icon), g.name)),
-      s.id === 'stairs' ? stairsSteps(tune) : h('div.gen-steps', {},
+        h('b', {}, h('span.gen-icon', {}, descriptor.icon), descriptor.name)),
+      session.id === 'stairs' ? stairsSteps(tune) : h('div.gen-steps', {},
         h(tune ? 'span.done' : 'span.on', {}, h('i'), '1 Place'), h('span.sep'),
         h(tune ? 'span.on' : 'span', {}, h('i'), '2 Tune')),
-      h('div.hint', {}, s.id === 'stairs' ? stairsHint(tune) : hintFor(s.id, tune)),
+      h('div.hint', {}, session.id === 'stairs' ? stairsHint(tune) : hintFor(session.id, tune)),
     ];
-    if (tune) rows.push(h('div.gen-summary', {}, s.summary));
-    else if (g.fills) rows.push(h('div.hint.fills', {}, 'Or select a block brush first: it fills it'));
+    if (tune) rows.push(h('div.gen-summary', {}, session.summary));
+    else if (descriptor.fills) rows.push(h('div.hint.fills', {}, 'Or select a block brush first: it fills it'));
     let body: HTMLElement[] = [];
-    if (isBuildingGenerator(s.id)) {
+    if (isBuildingGenerator(session.id)) {
       // Every change rebuilds what is being tuned.
-      const o = tool.options[s.id];
-      body = buildingSheet({ options: o, kind: s.id, ...TUNE_ROWS[s.id], set: (patch) => { Object.assign(o, patch); changed(); }, folds, redraw: render });
+      const options = tool.options[session.id];
+      body = buildingSheet({ options, kind: session.id, ...TUNE_ROWS[session.id], set: (patch) => { Object.assign(options, patch); changed(); }, folds, redraw: render });
     }
-    else if (s.id === 'road') body = roadRows(tune);
-    else if (s.id === 'powerline') body = powerlineRows(tune);
-    else if (s.id === 'poi') body = poiRows(tune);
-    else if (s.id === 'stairs') body = stairsRows(tune);
+    else if (session.id === 'road') body = roadRows(tune);
+    else if (session.id === 'powerline') body = powerlineRows(tune);
+    else if (session.id === 'poi') body = poiRows(tune);
+    else if (session.id === 'stairs') body = stairsRows(tune);
     rows.push(...body);
     if (tune) {
       rows.push(h('div.gen-actions', {},
-        isBuildingGenerator(s.id) || s.id === 'poi' ? h('button', { title: 'Same settings, new seed', onclick: () => tool.reroll() }, '🎲 Re-roll') : null,
+        isBuildingGenerator(session.id) || session.id === 'poi' ? h('button', { title: 'Same settings, new seed', onclick: () => tool.reroll() }, '🎲 Re-roll') : null,
         h('button', { title: 'Take it back (a filled block brush comes back)', onclick: () => tool.remove() }, 'Delete'),
         h('button.primary', { title: 'Finish: back to the Select tool', onclick: () => tool.done() }, 'Done ', h('kbd', {}, 'Enter'))));
     }
-    box.replaceChildren(...rows.filter((r): r is HTMLElement => !!r));
+    box.replaceChildren(...rows.filter((row): row is HTMLElement => !!row));
   };
 
   /** Applies a change: in the Tune step it rebuilds what was made. */
@@ -75,17 +75,17 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
 
   /** Road settings: the next road's, and in Tune also the one just drawn (all roads rebuild, so crossings stay open). */
   const roadRows = (tune: boolean): HTMLElement[] => {
-    const t = editor.tools.tools.road as RoadTool;
-    return roadSheet(t, (patch) => {
+    const roadTool = editor.tools.tools.road as RoadTool;
+    return roadSheet(roadTool, (patch) => {
       // A new style brings its own width and pavement.
       if (patch.style) {
-        t.setStyle(patch.style);
-        patch = { style: t.style, width: t.width, pavement: t.pavement };
-      } else Object.assign(t, patch);
-      const e = tool.session?.made[0];
-      const road = e && roadOf(e);
-      if (tune && e && road) {
-        rebuildRoads(editor, 'Edit road', { replace: [e, { ...road, ...patch }] });
+        roadTool.setStyle(patch.style);
+        patch = { style: roadTool.style, width: roadTool.width, pavement: roadTool.pavement };
+      } else Object.assign(roadTool, patch);
+      const made = tool.session?.made[0];
+      const road = made && roadOf(made);
+      if (tune && made && road) {
+        rebuildRoads(editor, 'Edit road', { replace: [made, { ...road, ...patch }] });
         tool.squashed();
       } else render();
     });
@@ -93,12 +93,12 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
 
   /** Powerline settings: the next line's, and in Tune also the one just built. */
   const powerlineRows = (tune: boolean): HTMLElement[] => {
-    const t = editor.tools.tools.powerline as PowerlineTool;
-    return powerlineSheet(t, (patch) => {
-      Object.assign(t, patch);
-      const e = tool.session?.made[0];
-      if (!tune || !e || !editor.doc.entities.includes(e)) return;
-      editPowerline(editor, e, patch);
+    const powerlineTool = editor.tools.tools.powerline as PowerlineTool;
+    return powerlineSheet(powerlineTool, (patch) => {
+      Object.assign(powerlineTool, patch);
+      const made = tool.session?.made[0];
+      if (!tune || !made || !editor.doc.entities.includes(made)) return;
+      editPowerline(editor, made, patch);
       tool.squashed([...editor.selection.entities].slice(0, 1));
     });
   };
@@ -107,8 +107,8 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   let hotFlight = -1;
   /** A, B, Height, Tune: where the stairs tool is. */
   const stairsSteps = (tune: boolean) => {
-    const at = stairs.phase === 'height' ? 2 : stairs.phase === 'b' ? (stairs.nodes.length > 1 || tune ? 3 : 1) : 0;
-    const step = (i: number, label: string) => h(i < at ? 'span.done' : i === at ? 'span.on' : 'span', {}, h('i'), label);
+    const current = stairs.phase === 'height' ? 2 : stairs.phase === 'b' ? (stairs.nodes.length > 1 || tune ? 3 : 1) : 0;
+    const step = (i: number, label: string) => h(i < current ? 'span.done' : i === current ? 'span.on' : 'span', {}, h('i'), label);
     return h('div.gen-steps', {}, step(0, 'A'), h('span.sep'), step(1, 'B'), h('span.sep'), step(2, 'Height'), h('span.sep'), step(3, 'Tune'));
   };
   const stairsHint = (tune: boolean) => stairs.phase === 'height'
@@ -120,24 +120,24 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   const stairsRows = (tune: boolean): HTMLElement[] => {
     const out: HTMLElement[] = [];
     if (stairs.phase === 'height') {
-      const hIn = h('input.num', { type: 'number', value: String(stairs.height), step: '8', title: 'Height over the point the flight leaves' }) as HTMLInputElement;
-      hIn.addEventListener('change', () => { stairs.setHeight(Number(hIn.value) || 0); });
-      hIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { stairs.setHeight(Number(hIn.value) || 0); hIn.blur(); stairs.confirm(); } });
-      const sIn = h('input.num', { type: 'number', value: String(stairs.pendingSteps), min: '1' }) as HTMLInputElement;
-      sIn.addEventListener('change', () => { sIn.blur(); stairs.setSteps(Number(sIn.value) || undefined); });
-      const r = buildStairs(VmfDocument.empty(), { ...stairs.spec(true), flights: stairs.spec(true).flights.slice(-1) }).flights[0];
-      out.push(h('div.row', {}, h('label', {}, 'Height'), hIn, h('span.unit', {}, 'u')),
-        h('div.row', {}, h('label', {}, 'Steps'), sIn, stairs.steps ? h('button', { onclick: () => stairs.setSteps(undefined) }, 'auto') : h('span.unit.auto', {}, 'auto')),
-        h('div.row', {}, h('label', {}, 'Rise · tread'), h('span.mono', {}, r && r.steps ? `${Math.round(r.rise * 10) / 10} · ${Math.round(r.tread * 10) / 10}` : 'flat')));
-      if (r?.steep) out.push(h('div.hint.warn', {}, 'Too steep for units: put the point further away, or lower.'));
+      const heightInput = h('input.num', { type: 'number', value: String(stairs.height), step: '8', title: 'Height over the point the flight leaves' }) as HTMLInputElement;
+      heightInput.addEventListener('change', () => { stairs.setHeight(Number(heightInput.value) || 0); });
+      heightInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { stairs.setHeight(Number(heightInput.value) || 0); heightInput.blur(); stairs.confirm(); } });
+      const stepsInput = h('input.num', { type: 'number', value: String(stairs.pendingSteps), min: '1' }) as HTMLInputElement;
+      stepsInput.addEventListener('change', () => { stepsInput.blur(); stairs.setSteps(Number(stepsInput.value) || undefined); });
+      const flight = buildStairs(VmfDocument.empty(), { ...stairs.spec(true), flights: stairs.spec(true).flights.slice(-1) }).flights[0];
+      out.push(h('div.row', {}, h('label', {}, 'Height'), heightInput, h('span.unit', {}, 'u')),
+        h('div.row', {}, h('label', {}, 'Steps'), stepsInput, stairs.steps ? h('button', { onclick: () => stairs.setSteps(undefined) }, 'auto') : h('span.unit.auto', {}, 'auto')),
+        h('div.row', {}, h('label', {}, 'Rise · tread'), h('span.mono', {}, flight && flight.steps ? `${Math.round(flight.rise * 10) / 10} · ${Math.round(flight.tread * 10) / 10}` : 'flat')));
+      if (flight?.steep) out.push(h('div.hint.warn', {}, 'Too steep for units: put the point further away, or lower.'));
       return out;
     }
     const spec = stairs.spec();
     const set = (patch: Partial<typeof stairs.options>) => { Object.assign(stairs.options, patch); if (tune) stairs.rebuild(); else render(); };
     const setFlight = (i: number, patch: Partial<StairsFlight>) => {
-      const f = stairs.flights[i];
-      if (!f) return;
-      for (const [k, v] of Object.entries(patch) as [keyof StairsFlight, number | undefined][]) { if (v === undefined) delete f[k]; else f[k] = v; }
+      const flight = stairs.flights[i];
+      if (!flight) return;
+      for (const [key, value] of Object.entries(patch) as [keyof StairsFlight, number | undefined][]) { if (value === undefined) delete flight[key]; else flight[key] = value; }
       stairs.rebuild();
     };
     if (!tune) {
@@ -150,44 +150,44 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
 
   /** POI type (while placing) and its settings; in Tune they rebuild the POI. */
   const poiRows = (tune: boolean): HTMLElement[] => {
-    const t = editor.tools.tools.poi as PoiTool;
+    const poiTool = editor.tools.tools.poi as PoiTool;
     const made = tune ? tool.session?.made[0] : null;
-    const p = made ? poiOf(made) : null;
-    const type = p?.type ?? t.type;
+    const poi = made ? poiOf(made) : null;
+    const type = poi?.type ?? poiTool.type;
     if (!type) return [];
     const out: HTMLElement[] = [];
-    if (!p) {
-      const pick = h('select', { title: 'What to build (also in the POI tab)' }, ...LANDSCAPES.map((l) => h('optgroup', { label: l.label },
-        ...POI_TYPES.filter((x) => x.landscapes[0] === l.id).map((x) => h('option', { value: `${l.id}:${x.id}` }, `${x.icon} ${x.label}`))))) as HTMLSelectElement;
-      pick.value = `${t.landscape ?? type.landscapes[0]}:${type.id}`;
+    if (!poi) {
+      const pick = h('select', { title: 'What to build (also in the POI tab)' }, ...LANDSCAPES.map((landscape) => h('optgroup', { label: landscape.label },
+        ...POI_TYPES.filter((poiType) => poiType.landscapes[0] === landscape.id).map((poiType) => h('option', { value: `${landscape.id}:${poiType.id}` }, `${poiType.icon} ${poiType.label}`))))) as HTMLSelectElement;
+      pick.value = `${poiTool.landscape ?? type.landscapes[0]}:${type.id}`;
       pick.addEventListener('change', () => {
-        const [l, id] = pick.value.split(':');
-        t.typeId = id;
-        t.landscape = l as typeof t.landscape;
+        const [landscape, id] = pick.value.split(':');
+        poiTool.typeId = id;
+        poiTool.landscape = landscape as typeof poiTool.landscape;
         pick.blur();
         editor.emit('poi');
         render();
       });
       out.push(h('div.row', {}, h('label', {}, 'Type'), pick), h('div.hint', {}, `${type.hint} ${type.minSize.join('×')} to ${type.maxSize.join('×')}.`));
     }
-    const values = p ? p.spec.params : t.paramsFor(type);
-    out.push(...poiParams(type).map((q) => paramRow(q, values[q.key] ?? q.default, (v) => {
-      t.paramsFor(type)[q.key] = v;
-      if (p) tool.rebuild({ params: { [q.key]: v } });
+    const values = poi ? poi.spec.params : poiTool.paramsFor(type);
+    out.push(...poiParams(type).map((param) => paramRow(param, values[param.key] ?? param.default, (value) => {
+      poiTool.paramsFor(type)[param.key] = value;
+      if (poi) tool.rebuild({ params: { [param.key]: value } });
     })));
-    out.push(rotationRow(p ? p.spec.rotation : t.rotation, (r) => {
-      t.rotation = r;
-      if (p) tool.rebuild({ rotation: r });
+    out.push(rotationRow(poi ? poi.spec.rotation : poiTool.rotation, (rotation) => {
+      poiTool.rotation = rotation;
+      if (poi) tool.rebuild({ rotation });
       else render();
     }));
-    const seedIn = h('input', { type: 'number', value: String(p ? p.spec.seed : t.seed) }) as HTMLInputElement;
-    seedIn.addEventListener('change', () => {
-      seedIn.blur();
-      const v = Number(seedIn.value) || 1;
-      if (p) tool.rebuild({ seed: v });
-      else t.seed = v;
+    const seedInput = h('input', { type: 'number', value: String(poi ? poi.spec.seed : poiTool.seed) }) as HTMLInputElement;
+    seedInput.addEventListener('change', () => {
+      seedInput.blur();
+      const seed = Number(seedInput.value) || 1;
+      if (poi) tool.rebuild({ seed });
+      else poiTool.seed = seed;
     });
-    out.push(h('div.row', {}, h('label', {}, 'Seed'), seedIn, h('button', { title: 'New layout', onclick: () => { if (p) tool.reroll(); else { t.seed = Math.floor(Math.random() * 100000); render(); } } }, '🎲')));
+    out.push(h('div.row', {}, h('label', {}, 'Seed'), seedInput, h('button', { title: 'New layout', onclick: () => { if (poi) tool.reroll(); else { poiTool.seed = Math.floor(Math.random() * 100000); render(); } } }, '🎲')));
     return out;
   };
 

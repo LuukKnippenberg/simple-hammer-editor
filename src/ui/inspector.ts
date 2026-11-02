@@ -44,11 +44,11 @@ import { snapMoveSection } from './snapMovePanel.ts';
 export function mountInspector(editor: Editor): HTMLElement {
   const panel = h('div');
   const render = () => {
-    const sel = editor.selection;
+    const selection = editor.selection;
     panel.replaceChildren();
     // Faces, edges or vertices (Shift+2/3/4).
-    if (sel.mode !== 'object') return void panel.append(partInspector(editor));
-    if (sel.isEmpty) {
+    if (selection.mode !== 'object') return void panel.append(partInspector(editor));
+    if (selection.isEmpty) {
       panel.append(
         h('div.section', {}, h('h3', {}, 'Selection'),
           h('p.hint', {}, 'Click a brush or entity to select it. Shift-click adds to the selection.'),
@@ -68,7 +68,7 @@ export function mountInspector(editor: Editor): HTMLElement {
         h('div', {}, pois.length > 1 ? `${pois.length} points of interest` : 'Point of interest'),
         h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         pois.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicatePoi(editor, pois[0]) }, 'Duplicate')) : null));
-      if (pois.length === 1) { const p = poiEditor(editor, pois[0]); if (p) panel.append(p); }
+      if (pois.length === 1) { const poiSheet = poiEditor(editor, pois[0]); if (poiSheet) panel.append(poiSheet); }
       return;
     }
     // Building handles stand for their blocks: only the block's building settings.
@@ -78,8 +78,8 @@ export function mountInspector(editor: Editor): HTMLElement {
         h('div', {}, blocks.length > 1 ? `${blocks.length} blocks of buildings` : LAYOUT_LABEL[blockOf(blocks[0])?.options.layout ?? 'block']),
         h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
-      const p = blocks.length === 1 && blockPanel(editor, blocks[0]);
-      if (p) panel.append(p);
+      const blockSheet = blocks.length === 1 && blockPanel(editor, blocks[0]);
+      if (blockSheet) panel.append(blockSheet);
       return;
     }
     // Stairs handles stand for their stairs.
@@ -94,63 +94,63 @@ export function mountInspector(editor: Editor): HTMLElement {
       panel.append(roomsPanel(editor, rooms));
       return;
     }
-    const solids = sel.allSolids();
-    const ents = [...sel.entities];
-    const summary = [solids.length && `${solids.length} brush${solids.length > 1 ? 'es' : ''}`, ents.length && `${ents.length} entit${ents.length > 1 ? 'ies' : 'y'}`].filter(Boolean).join(', ');
+    const solids = selection.allSolids();
+    const entities = [...selection.entities];
+    const summary = [solids.length && `${solids.length} brush${solids.length > 1 ? 'es' : ''}`, entities.length && `${entities.length} entit${entities.length > 1 ? 'ies' : 'y'}`].filter(Boolean).join(', ');
     // Entities alone get their own header card (entityEditor.ts) with these buttons.
     if (solids.length) panel.append(h('div.section', {}, h('h3', {}, 'Selection'), h('div', {}, summary),
       h('div.row', { style: { marginTop: '6px' } },
         h('button', { onclick: () => duplicateSelection(editor) }, 'Duplicate'),
         h('button', { onclick: () => deleteSelection(editor) }, 'Delete'))));
     // Block brushes: what the Generate menu can fill them with.
-    const blockBrushes = [...sel.solids].filter((s) => !s.entity && !s.isDisplacement);
-    if (blockBrushes.length && !ents.length && !blockBrushes.some(blockFinder(editor.doc))) {
+    const blockBrushes = [...selection.solids].filter((solid) => !solid.entity && !solid.isDisplacement);
+    if (blockBrushes.length && !entities.length && !blockBrushes.some(blockFinder(editor.doc))) {
       panel.append(h('div.section.gen-box', {}, h('h3', {}, 'Generate'),
         h('p.hint', {}, `Fill ${blockBrushes.length > 1 ? 'these blocks' : 'this block'} with a building, a block of buildings, an interior building or a point of interest.`),
         h('button.primary', { onclick: () => openGenerateMenu() }, 'Generate… ', h('kbd', {}, 'G'))));
     }
 
     // A brush picked out of a brush entity (func_detail, triggers, ...): offer the whole entity.
-    const owners = new Set([...sel.solids].map((s) => s.entity).filter((e): e is MapEntity => !!e && !sel.entities.has(e)));
+    const owners = new Set([...selection.solids].map((solid) => solid.entity).filter((entity): entity is MapEntity => !!entity && !selection.entities.has(entity)));
     for (const owner of owners) {
       panel.append(h('div.section', {}, h('div.hint', {}, `Part of ${owner.classname} (${owner.solids.length} brushes)`),
-        h('button', { onclick: () => sel.set([], [owner]) }, `Select whole ${owner.classname}`)));
+        h('button', { onclick: () => selection.set([], [owner]) }, `Select whole ${owner.classname}`)));
     }
     // Brushes picked out of a generated block (handles hidden): offer the whole block.
-    const looseWorld = [...sel.solids].filter((s) => !s.entity);
+    const looseWorld = [...selection.solids].filter((solid) => !solid.entity);
     const findBlock = blockFinder(editor.doc);
-    const partOf = new Set(looseWorld.map(findBlock).filter((b): b is MapEntity => !!b));
-    for (const b of partOf) {
+    const partOf = new Set(looseWorld.map(findBlock).filter((block): block is MapEntity => !!block));
+    for (const block of partOf) {
       panel.append(h('div.section', {}, h('div.hint', {}, 'Part of a block of generated buildings'),
-        h('button', { onclick: () => selectBlock(editor, b) }, 'Select whole block')));
+        h('button', { onclick: () => selectBlock(editor, block) }, 'Select whole block')));
     }
-    if ([...sel.solids].some((s) => !s.entity)) {
-      const cls = h('select', {}, ...BRUSH_CLASSES.map((b) => h('option', { value: b.cls }, b.label))) as HTMLSelectElement;
+    if ([...selection.solids].some((solid) => !solid.entity)) {
+      const classSelect = h('select', {}, ...BRUSH_CLASSES.map((brushClass) => h('option', { value: brushClass.cls }, brushClass.label))) as HTMLSelectElement;
       panel.append(h('div.section', {}, h('h3', {}, 'Tie to entity'),
-        h('div.row', {}, cls, h('button', { onclick: () => tieToEntity(editor, cls.value) }, 'Tie (Ctrl+T)'))));
+        h('div.row', {}, classSelect, h('button', { onclick: () => tieToEntity(editor, classSelect.value) }, 'Tie (Ctrl+T)'))));
     }
-    if (ents.length === 1 && ents[0].solids.length) {
-      panel.append(h('div.section', {}, h('button', { onclick: () => moveToWorld(editor, ents[0]) }, 'Move brushes to world')));
+    if (entities.length === 1 && entities[0].solids.length) {
+      panel.append(h('div.section', {}, h('button', { onclick: () => moveToWorld(editor, entities[0]) }, 'Move brushes to world')));
     }
     // A road, or a brush picked out of one: the road's settings.
-    const roadEnt = ents.length === 1 ? ents[0] : !ents.length && owners.size === 1 ? [...owners][0] : null;
-    const road = roadEnt ? roadOf(roadEnt) : null;
-    if (roadEnt && road) panel.append(roadPanel(editor, roadEnt, road));
+    const roadEntity = entities.length === 1 ? entities[0] : !entities.length && owners.size === 1 ? [...owners][0] : null;
+    const road = roadEntity ? roadOf(roadEntity) : null;
+    if (roadEntity && road) panel.append(roadPanel(editor, roadEntity, road));
     const poi = selectedPoi(editor);
     const poiPanel = poi && poiEditor(editor, poi);
     if (poiPanel) panel.append(poiPanel);
-    if (ents.length === 1 && ents[0].classname === 'env_soundscape') panel.append(soundscapePanel(editor, ents[0]));
-    if (ents.length === 1 && ents[0].classname === 'ambient_generic') panel.append(ambientPanel(editor, ents[0]));
-    const fits = ents.length === 1 ? presetsFor(ents[0].get('model')) : [];
+    if (entities.length === 1 && entities[0].classname === 'env_soundscape') panel.append(soundscapePanel(editor, entities[0]));
+    if (entities.length === 1 && entities[0].classname === 'ambient_generic') panel.append(ambientPanel(editor, entities[0]));
+    const fits = entities.length === 1 ? presetsFor(entities[0].get('model')) : [];
     // Shown as the last group of the entity editor.
-    const effects = fits.length ? [{ label: 'Sound and effects' as const, keys: [], summary: fits.map((p) => `${p.icon} ${p.label}`).join(' '), body: () => h('div', {},
+    const effects = fits.length ? [{ label: 'Sound and effects' as const, keys: [], summary: fits.map((preset) => `${preset.icon} ${preset.label}`).join(' '), body: () => h('div', {},
       h('p.hint', {}, 'Bring this prop to life:'),
-      h('div.row', {}, ...fits.map((p) => h('button', { onclick: () => addPreset(editor, p, ents[0].origin!, ents[0].angles.y, ents[0]) }, `${p.icon} ${p.label}`)))) }] : [];
-    const line = ents.length === 1 ? powerlineOf(editor.doc.entities, ents[0]) : null;
-    if (line) panel.append(powerlinePanel(editor, ents[0], line.spec, line.members.length));
-    panel.append(...cinemaInspector(editor, ents));
-    if (ents.length === 1) panel.append(entityEditor(editor, ents[0], effects));
-    else if (ents.length > 1) panel.append(multiEntityEditor(editor, ents));
+      h('div.row', {}, ...fits.map((preset) => h('button', { onclick: () => addPreset(editor, preset, entities[0].origin!, entities[0].angles.y, entities[0]) }, `${preset.icon} ${preset.label}`)))) }] : [];
+    const line = entities.length === 1 ? powerlineOf(editor.doc.entities, entities[0]) : null;
+    if (line) panel.append(powerlinePanel(editor, entities[0], line.spec, line.members.length));
+    panel.append(...cinemaInspector(editor, entities));
+    if (entities.length === 1) panel.append(entityEditor(editor, entities[0], effects));
+    else if (entities.length > 1) panel.append(multiEntityEditor(editor, entities));
     if (solids.length) panel.append(brushEditor(editor));
     if (looseWorld.length && !partOf.size) panel.append(newBuildingsPanel(editor));
     if (looseWorld.length === 1 && !partOf.size) {
@@ -167,21 +167,21 @@ export function mountInspector(editor: Editor): HTMLElement {
 }
 
 function brushEditor(editor: Editor): HTMLElement {
-  const sel = editor.selection;
-  const solids = sel.allSolids();
-  const box = sel.bounds();
+  const selection = editor.selection;
+  const solids = selection.allSolids();
+  const box = selection.bounds();
   const size = box.getSize(new Vector3());
-  const mats = new Map<string, number>();
-  for (const s of solids) for (const side of s.sides) mats.set(side.material, (mats.get(side.material) ?? 0) + 1);
+  const materials = new Map<string, number>();
+  for (const solid of solids) for (const side of solid.sides) materials.set(side.material, (materials.get(side.material) ?? 0) + 1);
 
   const dims = (['x', 'y', 'z'] as const).map((axis) => {
     const input = h('input', { type: 'number', value: String(Math.round(size[axis])), step: String(editor.grid), min: '1' }) as HTMLInputElement;
     input.addEventListener('change', () => {
-      const v = Math.max(1, parseFloat(input.value) || size[axis]);
-      const to = box.clone();
-      to.max[axis] = to.min[axis] + v;
+      const length = Math.max(1, parseFloat(input.value) || size[axis]);
+      const resized = box.clone();
+      resized.max[axis] = resized.min[axis] + length;
       const end = editor.history.begin('Resize', solids);
-      for (const s of solids) remapSolid(s, box, new Box3(to.min.clone(), to.max.clone()));
+      for (const solid of solids) remapSolid(solid, box, new Box3(resized.min.clone(), resized.max.clone()));
       end();
       editor.changed();
     });
@@ -192,80 +192,80 @@ function brushEditor(editor: Editor): HTMLElement {
     h('div.row', {}, h('label', {}, 'Size W×D×H'), ...dims),
     h('div.row', {}, h('label', {}, 'Origin'), h('span', {}, `${Math.round(box.min.x)} ${Math.round(box.min.y)} ${Math.round(box.min.z)}`)),
     h('h3', { style: { marginTop: '10px' } }, 'Materials'),
-    ...[...mats].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([m, n]) =>
-      h('div.row', {}, h('span.mat-name', { title: m, onclick: () => editor.setMaterial(m) }, m.toLowerCase()), h('span.muted', {}, `×${n}`))),
+    ...[...materials].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([material, count]) =>
+      h('div.row', {}, h('span.mat-name', { title: material, onclick: () => editor.setMaterial(material) }, material.toLowerCase()), h('span.muted', {}, `×${count}`))),
     h('button.primary', { style: { marginTop: '6px' }, onclick: () => applyMaterial(editor, solids, editor.currentMaterial) }, `Apply ${editor.currentMaterial.toLowerCase()}`),
   );
 }
 
 /** A road's style, sizes and materials; changes rebuild all roads, so crossings stay open. */
-function roadPanel(editor: Editor, e: MapEntity, road: RoadSpec): HTMLElement {
-  const apply = (patch: Partial<RoadSpec>) => rebuildRoads(editor, 'Edit road', { replace: [e, { ...road, ...patch }] });
-  const len = centreline(road.points, road.radius).reduce((s, p, i, a) => s + (i ? p.distanceTo(a[i - 1]) : 0), 0);
-  const mat = (label: string, list: StreetMaterial[], key: 'carriageway' | 'pavement' | 'kerb' | 'gutter') =>
-    row(label, select([['', 'From style'], ...list.map((m) => [m.id, m.label] as [string, string])], road.materials?.[key] ?? '',
+function roadPanel(editor: Editor, entity: MapEntity, road: RoadSpec): HTMLElement {
+  const apply = (patch: Partial<RoadSpec>) => rebuildRoads(editor, 'Edit road', { replace: [entity, { ...road, ...patch }] });
+  const length = centreline(road.points, road.radius).reduce((sum, point, i, points) => sum + (i ? point.distanceTo(points[i - 1]) : 0), 0);
+  const materialRow = (label: string, list: StreetMaterial[], key: 'carriageway' | 'pavement' | 'kerb' | 'gutter') =>
+    row(label, select([['', 'From style'], ...list.map((material) => [material.id, material.label] as [string, string])], road.materials?.[key] ?? '',
       (v) => apply({ materials: { ...road.materials, [key]: v || undefined } })));
   return h('div.section', {}, h('h3', {}, 'Road'),
-    h('p.hint', {}, `${road.points.length} points, ${Math.round(len)} units long. Draw new roads with the Road tool (7).`),
+    h('p.hint', {}, `${road.points.length} points, ${Math.round(length)} units long. Draw new roads with the Road tool (7).`),
     ...roadSheet(road, apply),
-    mat('Carriageway', CARRIAGEWAYS, 'carriageway'),
-    mat('Pavement', PAVEMENTS, 'pavement'),
-    mat('Kerb', KERBS, 'kerb'),
-    mat('Gutter', GUTTERS, 'gutter'),
+    materialRow('Carriageway', CARRIAGEWAYS, 'carriageway'),
+    materialRow('Pavement', PAVEMENTS, 'pavement'),
+    materialRow('Kerb', KERBS, 'kerb'),
+    materialRow('Gutter', GUTTERS, 'gutter'),
     row('Round kerbs', num(road.materials?.corner ?? 0, (v) => apply({ materials: { ...road.materials, corner: v } }), { step: 16, min: 0, title: 'Kerb radius where this road crosses another' })),
     h('div.row', {},
       h('button', { onclick: () => rebuildRoads(editor, 'Rebuild roads') }, 'Rebuild all roads'),
       h('button', {
         title: 'Paint the terrain\'s second texture along the road (its verges, or under a dirt track)',
         onclick: () => {
-          const n = blendRoadIntoGround(editor, road);
-          toast(editor.container, n ? `Blended into ${n} terrain patch${n > 1 ? 'es' : ''}` : 'No terrain under this road (Ground tool: turn the floor into terrain)');
+          const patches = blendRoadIntoGround(editor, road);
+          toast(editor.container, patches ? `Blended into ${patches} terrain patch${patches > 1 ? 'es' : ''}` : 'No terrain under this road (Ground tool: turn the floor into terrain)');
         },
       }, 'Blend into ground')));
 }
 
 /** A local sound: the file, how far it carries and how loud. */
-function ambientPanel(editor: Editor, e: MapEntity): HTMLElement {
+function ambientPanel(editor: Editor, entity: MapEntity): HTMLElement {
   const set = (key: string, value: string) => {
-    const end = editor.history.begin('Edit sound', [], [e]);
-    e.set(key, value);
+    const end = editor.history.begin('Edit sound', [], [entity]);
+    entity.set(key, value);
     end();
     editor.changed();
   };
-  const radius = h('input', { type: 'number', value: e.get('radius') ?? '1250', step: '64', min: '32' }) as HTMLInputElement;
+  const radius = h('input', { type: 'number', value: entity.get('radius') ?? '1250', step: '64', min: '32' }) as HTMLInputElement;
   radius.addEventListener('change', () => set('radius', String(Math.round(Number(radius.value) || 1250))));
-  const vol = h('input', { type: 'range', min: 0, max: 10, step: 1, value: e.get('health') ?? '10' }) as HTMLInputElement;
-  vol.addEventListener('change', () => set('health', vol.value));
-  const path = (e.get('message') ?? '').replace(/^sound\//i, '');
+  const volume = h('input', { type: 'range', min: 0, max: 10, step: 1, value: entity.get('health') ?? '10' }) as HTMLInputElement;
+  volume.addEventListener('change', () => set('health', volume.value));
+  const path = (entity.get('message') ?? '').replace(/^sound\//i, '');
   return h('div.section', {}, h('h3', {}, 'Local sound'),
-    h('div.row', {}, h('label', {}, 'Radius'), radius, h('button', { title: 'Play once', onclick: () => void audio.preview(`sound/${(e.get('message') ?? '').replace(/^sound\//i, '')}`) }, '▶')),
-    h('div.row', {}, h('label', {}, 'Volume'), vol),
-    soundBrowser(path, (p) => set('message', p)));
+    h('div.row', {}, h('label', {}, 'Radius'), radius, h('button', { title: 'Play once', onclick: () => void audio.preview(`sound/${(entity.get('message') ?? '').replace(/^sound\//i, '')}`) }, '▶')),
+    h('div.row', {}, h('label', {}, 'Volume'), volume),
+    soundBrowser(path, (file) => set('message', file)));
 }
 
 /** A soundscape zone: which soundscape and how far it reaches. */
-function soundscapePanel(editor: Editor, e: MapEntity): HTMLElement {
+function soundscapePanel(editor: Editor, entity: MapEntity): HTMLElement {
   const set = (key: string, value: string) => {
-    const end = editor.history.begin('Edit soundscape', [], [e]);
-    e.set(key, value);
+    const end = editor.history.begin('Edit soundscape', [], [entity]);
+    entity.set(key, value);
     end();
     editor.changed();
   };
-  const sel = soundscapeSelect(e.get('soundscape') ?? '', (v) => set('soundscape', v));
-  const radius = h('input', { type: 'number', value: e.get('radius') ?? '128', step: '64', min: '-1' }) as HTMLInputElement;
+  const picker = soundscapeSelect(entity.get('soundscape') ?? '', (v) => set('soundscape', v));
+  const radius = h('input', { type: 'number', value: entity.get('radius') ?? '128', step: '64', min: '-1' }) as HTMLInputElement;
   radius.addEventListener('change', () => set('radius', String(Math.round(Number(radius.value) || -1))));
   return h('div.section', {}, h('h3', {}, 'Soundscape'),
-    h('p.hint', {}, e.get('radius') === '-1' ? 'Heard everywhere outside other zones (the map default).' : 'Heard while the camera looks at a point inside the radius.'),
-    h('div.row', {}, h('label', {}, 'Soundscape'), sel, h('button', { title: 'Listen for 15 seconds', onclick: () => void auditionSoundscape(sel.value) }, '▶')),
+    h('p.hint', {}, entity.get('radius') === '-1' ? 'Heard everywhere outside other zones (the map default).' : 'Heard while the camera looks at a point inside the radius.'),
+    h('div.row', {}, h('label', {}, 'Soundscape'), picker, h('button', { title: 'Listen for 15 seconds', onclick: () => void auditionSoundscape(picker.value) }, '▶')),
     h('div.row', {}, h('label', {}, 'Radius'), radius, h('span.unit', {}, '-1 = everywhere')));
 }
 
 /** A powerline's settings; changes rebuild its poles and wires. */
-function powerlinePanel(editor: Editor, e: MapEntity, spec: PowerlineSpec, count: number): HTMLElement {
+function powerlinePanel(editor: Editor, entity: MapEntity, spec: PowerlineSpec, count: number): HTMLElement {
   return h('div.section', {}, h('h3', {}, 'Powerline'),
     h('p.hint', {}, `${spec.points.length} route points, ${count} entities (poles and rope keyframes).`),
-    ...powerlineSheet(spec, (patch) => editPowerline(editor, e, patch)),
-    h('button', { onclick: () => { const l = powerlineOf(editor.doc.entities, e); if (l) { editor.history.remove('Delete powerline', [], l.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline'));
+    ...powerlineSheet(spec, (patch) => editPowerline(editor, entity, patch)),
+    h('button', { onclick: () => { const found = powerlineOf(editor.doc.entities, entity); if (found) { editor.history.remove('Delete powerline', [], found.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline'));
 }
 
 /** An interior building's handle: its rooms, what is wrong with them, and the dialog to change them. */
@@ -279,8 +279,8 @@ function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
   const issues = roomLayout(spec).issues;
   out.append(
     h('div.hint', {}, `${spec.rooms.length} rooms, walls ${spec.height} high:`),
-    h('ul.room-list', {}, ...spec.rooms.map((r) => h('li', {}, h('span.swatch', { style: { background: roomType(r.type).color } }), `${r.name || roomType(r.type).label} (${r.cells.x1 - r.cells.x0}×${r.cells.y1 - r.cells.y0})`))),
-    ...issues.map((i) => h('div.issue', {}, '⚠ ' + i)),
+    h('ul.room-list', {}, ...spec.rooms.map((room) => h('li', {}, h('span.swatch', { style: { background: roomType(room.type).color } }), `${room.name || roomType(room.type).label} (${room.cells.x1 - room.cells.x0}×${room.cells.y1 - room.cells.y0})`))),
+    ...issues.map((issue) => h('div.issue', {}, '⚠ ' + issue)),
     h('div.row', {},
       h('button.primary', { onclick: () => openRoomsDialog(editor, { detail: one }) }, 'Edit rooms…'),
       h('button', { title: 'Same rooms, new seed: other furniture and wear', onclick: () => regenerateRooms(editor, one, { seed: Math.floor(Math.random() * 100000) }, 'Re-roll interior building') }, 'Re-roll'),
@@ -308,20 +308,20 @@ function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
       h('button', { onclick: () => deleteStairs(editor, one) }, 'Delete')));
   const names = pointNames(spec);
   const points = h('div.section', {}, h('h3', {}, 'Points'), h('p.hint', {}, 'Height of each point; A is the foot.'),
-    ...spec.nodes.map((n, i) => {
-      const z = h('input.num', { type: 'number', value: String(n.z), step: '8' }) as HTMLInputElement;
-      z.addEventListener('change', () => { z.blur(); edit({ nodes: spec.nodes.map((m, k) => (k === i ? { ...m, z: Number(z.value) || 0 } : m)) }); });
-      return h('div.row', {}, h('label', {}, names[i]), z, h('span.unit', {}, `at ${Math.round(n.x)} ${Math.round(n.y)}`));
+    ...spec.nodes.map((node, i) => {
+      const zInput = h('input.num', { type: 'number', value: String(node.z), step: '8' }) as HTMLInputElement;
+      zInput.addEventListener('change', () => { zInput.blur(); edit({ nodes: spec.nodes.map((other, k) => (k === i ? { ...other, z: Number(zInput.value) || 0 } : other)) }); });
+      return h('div.row', {}, h('label', {}, names[i]), zInput, h('span.unit', {}, `at ${Math.round(node.x)} ${Math.round(node.y)}`));
     }));
   const setFlight = (i: number, patch: Partial<StairsFlight>) => edit({
-    flights: spec.flights.map((f, k) => {
-      if (k !== i) return f;
-      const g = { ...f };
-      for (const [key, v] of Object.entries(patch) as [keyof StairsFlight, number | undefined][]) { if (v === undefined) delete g[key]; else g[key] = v; }
-      return g;
+    flights: spec.flights.map((flight, k) => {
+      if (k !== i) return flight;
+      const changed = { ...flight };
+      for (const [key, value] of Object.entries(patch) as [keyof StairsFlight, number | undefined][]) { if (value === undefined) delete changed[key]; else changed[key] = value; }
+      return changed;
     }),
   });
-  const sheet = h('div.section.stairs-sheet', {}, h('h3', {}, 'Stairs'), ...stairsSheet({ spec, result, set: (o) => edit({ options: o }), setFlight }));
+  const sheet = h('div.section.stairs-sheet', {}, h('h3', {}, 'Stairs'), ...stairsSheet({ spec, result, set: (options) => edit({ options }), setFlight }));
   return [head, points, sheet];
 }
 
@@ -338,10 +338,10 @@ const NEW_BLOCK = {
   towers: true, courtyards: true, annexes: true, cutHeight: 112, furnish: 'full', interiorLights: true, wideDoors: false,
 } as const;
 
-/** The building sheet over `o`: changes are kept in `o` until the panel's button uses them. */
-function draftSheet(o: BuildingOptions): HTMLElement {
+/** The building sheet over `options`: changes are kept in `options` until the panel's button uses them. */
+function draftSheet(options: BuildingOptions): HTMLElement {
   const sheet = h('div');
-  const draw = () => sheet.replaceChildren(...buildingSheet({ options: o, kind: SHEET_KIND[o.layout ?? 'block'], rows: SHEET_ROWS, set: (patch) => { Object.assign(o, patch); draw(); }, folds, redraw: draw }));
+  const draw = () => sheet.replaceChildren(...buildingSheet({ options, kind: SHEET_KIND[options.layout ?? 'block'], rows: SHEET_ROWS, set: (patch) => { Object.assign(options, patch); draw(); }, folds, redraw: draw }));
   draw();
   return sheet;
 }
@@ -350,28 +350,28 @@ function draftSheet(o: BuildingOptions): HTMLElement {
 function blockPanel(editor: Editor, block: MapEntity): HTMLElement | null {
   const stored = blockOf(block);
   if (!stored) return null;
-  const o: BuildingOptions = { ...NEW_BLOCK, ...stored.options };
-  const r = stored.rect;
-  const rebuild = (label: string) => regenerateBlock(editor, block, { options: o }, label);
+  const options: BuildingOptions = { ...NEW_BLOCK, ...stored.options };
+  const rect = stored.rect;
+  const rebuild = (label: string) => regenerateBlock(editor, block, { options }, label);
   return h('div.section', {}, h('h3', {}, stored.options.layout === 'house' ? '🏚 Simple interior building' : stored.options.layout === 'single' ? '🏠 Building' : '🏢 Buildings'),
-    h('p.hint', {}, `${r.x1 - r.x0} × ${r.y1 - r.y0} units. Change the settings and press Regenerate.`),
-    draftSheet(o),
+    h('p.hint', {}, `${rect.x1 - rect.x0} × ${rect.y1 - rect.y0} units. Change the settings and press Regenerate.`),
+    draftSheet(options),
     h('div.row', {},
       h('button.primary', { title: 'Rebuild with these settings', onclick: () => rebuild('Regenerate buildings') }, 'Regenerate'),
-      h('button', { title: 'Same settings, new seed', onclick: () => { o.seed = Math.floor(Math.random() * 100000); rebuild('Re-roll buildings'); } }, 'Re-roll'),
+      h('button', { title: 'Same settings, new seed', onclick: () => { options.seed = Math.floor(Math.random() * 100000); rebuild('Re-roll buildings'); } }, 'Re-roll'),
       h('button', { onclick: () => deleteBlock(editor, block) }, 'Delete')));
 }
 
 /** Turns the selected block brushes into buildings. */
 function newBuildingsPanel(editor: Editor): HTMLElement {
-  const o: BuildingOptions = { ...NEW_BLOCK, seed: Math.floor(Math.random() * 100000) };
+  const options: BuildingOptions = { ...NEW_BLOCK, seed: Math.floor(Math.random() * 100000) };
   const go = () => {
-    const n = buildingsFromSelection(editor, o);
-    toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''} (seed ${o.seed})` : 'Selection is too small for a building (min 128×128)');
+    const count = buildingsFromSelection(editor, options);
+    toast(editor.container, count ? `Generated ${count} building${count > 1 ? 's' : ''} (seed ${options.seed})` : 'Selection is too small for a building (min 128×128)');
   };
   return h('div.section', {},
     h('h3', {}, 'Generate buildings'),
     h('p.hint', {}, 'Replaces the selected block(s) with a city block: a ring around a courtyard when large enough, otherwise a row of buildings.'),
-    draftSheet(o),
+    draftSheet(options),
     h('button.primary', { onclick: go }, '🏢 Generate buildings'));
 }

@@ -7,7 +7,7 @@ import { num, row, select } from './form.ts';
  */
 export function roadSheet(road: Pick<RoadSpec, 'style' | 'width' | 'pavement' | 'radius'>, set: (patch: Partial<RoadSpec>) => void): HTMLElement[] {
   return [
-    row('Style', select(Object.entries(ROAD_STYLES).map(([k, s]) => [k, s.label]), road.style, (v) => set({ style: v as RoadStyle }))),
+    row('Style', select(Object.entries(ROAD_STYLES).map(([key, style]) => [key, style.label]), road.style, (v) => set({ style: v as RoadStyle }))),
     row('Width', num(road.width, (v) => set({ width: v }), { step: 32, min: 64 })),
     row('Pavement', num(road.pavement, (v) => set({ pavement: v }), { step: 16, min: 0 })),
     row('Corners', num(road.radius, (v) => set({ radius: v }), { step: 32, min: 0 })),

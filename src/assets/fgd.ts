@@ -11,9 +11,9 @@ let loading: Promise<Map<string, FgdClass>> | null = null;
 
 export function loadFgd(): Promise<Map<string, FgdClass>> {
   loading ??= fetch('/api/fgd')
-    .then((r) => (r.ok ? r.json() : []))
-    .then((list: FgdClass[]) => {
-      for (const c of list) classes.set(c.name.toLowerCase(), c);
+    .then((response) => (response.ok ? response.json() : []))
+    .then((definitions: FgdClass[]) => {
+      for (const definition of definitions) classes.set(definition.name.toLowerCase(), definition);
       return classes;
     })
     .catch(() => classes);
