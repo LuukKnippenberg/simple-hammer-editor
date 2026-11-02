@@ -1,18 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { VmfDocument } from '../src/vmf/map.ts';
-import { History } from '../src/edit/history.ts';
 import { KITS, applyStandardRelations, recordKit } from '../src/lw/kits.ts';
 import { UNITS, findUnit, parseSquad, formatSquad, unitForEntity } from '../src/lw/units.ts';
 import { entityModel, entityMatrix } from '../src/render/entityRenderer.ts';
 import { getConnections, validateConnections } from '../src/vmf/io.ts';
-import type { Editor } from '../src/editor.ts';
-
-/** Just enough of an Editor for kits: a document, history and a no-op change hook. */
-function stubEditor(): Editor {
-  const doc = VmfDocument.empty();
-  return { doc, history: new History(() => doc), changed() {} } as unknown as Editor;
-}
+import { stubEditor } from './stubEditor.ts';
 
 const params = (id: string) => Object.fromEntries(KITS.find((k) => k.id === id)!.params.map((p) => [p.key, p.default]));
 const kit = (id: string) => KITS.find((k) => k.id === id)!;

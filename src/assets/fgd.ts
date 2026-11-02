@@ -1,33 +1,10 @@
 /** Entity class definitions from the game's FGD (served by the dev server). */
 
-export interface FgdKey {
-  name: string;
-  type: string;
-  label: string;
-  default: string;
-  description: string;
-  choices?: { value: string; label: string }[];
-  /** The class that declares the key (a base class such as Targetname or Wars, or the class itself). */
-  base?: string;
-}
+import type { FgdClass } from '../../server/fgd.ts';
 
-export interface FgdClass {
-  name: string;
-  type: string;
-  description: string;
-  studio?: string;
-  iconsprite?: string;
-  keys: FgdKey[];
-  inputs: FgdIO[];
-  outputs: FgdIO[];
-}
-
-/** An entity input or output: name, parameter type (void, string, float, ...) and description. */
-export interface FgdIO {
-  name: string;
-  type: string;
-  description: string;
-}
+// The server parses the FGD and sends these as JSON from /api/fgd, so its types are the truth. Type-only: nothing
+// from the server module ends up in the browser bundle.
+export type { FgdKey, FgdClass, FgdIO } from '../../server/fgd.ts';
 
 const classes = new Map<string, FgdClass>();
 let loading: Promise<Map<string, FgdClass>> | null = null;

@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "check": "tsc --noEmit && vitest run",
     "screenshot": "node scripts/screenshot.mjs"
   },
   "dependencies": {

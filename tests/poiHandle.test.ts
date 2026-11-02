@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Box3, Vector3 } from 'three';
-import { VmfDocument, type MapEntity, type MapSolid } from '../src/vmf/map.ts';
-import { History } from '../src/edit/history.ts';
+import { VmfDocument, type MapEntity } from '../src/vmf/map.ts';
 import { remapSolid, solidBounds, translateSolid } from '../src/edit/brushes.ts';
 import type { Editor } from '../src/editor.ts';
 import { newSpec, poiOf, poiType } from '../src/gen/poi/registry.ts';
@@ -9,21 +8,10 @@ import { applyPoi, deletePoi, duplicatePoi, handleDragged, poiMembers, regenerat
 import { HANDLE_CLASS, HANDLE_HEIGHT, handleOf, stripHandles } from '../src/gen/poi/handle.ts';
 import { addPoiToDoc } from '../src/gen/poi/mapgen.ts';
 import '../src/gen/poi/catalogue.ts';
+import { stubEditor } from './stubEditor.ts';
 
-/** Enough of an Editor for POI actions, with a selection that remembers what was selected. */
-function stubEditor(): Editor & { picked: () => MapEntity[] } {
-  const doc = VmfDocument.empty();
-  const selection = {
-    solids: new Set<MapSolid>(), entities: new Set<MapEntity>(),
-    set(s: MapSolid[], e: MapEntity[]) { this.solids = new Set(s); this.entities = new Set(e); },
-    clear() { this.solids.clear(); this.entities.clear(); },
-  };
-  return {
-    doc, history: new History(() => doc), changed() {}, emit() {}, selection,
-    world: { raycast: () => null, visibleKinds: { handle: true } },
-    picked: () => [...selection.entities],
-  } as unknown as Editor & { picked: () => MapEntity[] };
-}
+/** What is selected (entities). */
+const picked = (ed: Editor) => [...ed.selection.entities];
 
 const square = poiType('square')!;
 const box = (h: MapEntity) => solidBounds(h.solids[0]);
@@ -42,7 +30,7 @@ describe('POI handles', () => {
     regeneratePoi(ed, detail, { rect: { x0: 256, y0: 0, x1: 1280, y1: 1024 } });
     expect(handleOf(ed.doc, spec.uid)).toBe(handle);
     expect(box(handle).min.x).toBe(256);
-    expect(ed.picked()).toEqual([handle]);
+    expect(picked(ed)).toEqual([handle]);
     deletePoi(ed, detail);
     expect(ed.doc.entities).toHaveLength(0);
     ed.history.undo();
@@ -101,7 +89,7 @@ describe('POI handles', () => {
     expect(c.rect.x0).toBe(t.rect.x1 + 128);
     expect([c.seed, c.rotation]).toEqual([t.seed, t.rotation]);
     expect(ed.doc.entities.filter((e) => e.classname === HANDLE_CLASS)).toHaveLength(2);
-    expect(ed.picked()).toEqual([handleOf(ed.doc, c.uid)]);
+    expect(picked(ed)).toEqual([handleOf(ed.doc, c.uid)]);
   });
 
   it('acts for the whole POI only when the selection is nothing but handles', () => {
