@@ -68,7 +68,8 @@ export interface TemplateInfo {
   defaultName(o: TemplateOptions): string;
 }
 
-const BASICS = 'Ground, sky shell, sun, fog and map boundary';
+/** What every template places (and all that New map's "Empty ground" places). */
+export const BASICS = 'Ground, sky shell, sun, fog and map boundary';
 
 export const TEMPLATES: TemplateInfo[] = [
   {
@@ -210,8 +211,18 @@ const CEILING = 1280;
 
 /** Builds the template as a new document (and, for a mission, its flowchart). */
 export function buildTemplate(o: TemplateOptions): BuiltTemplate {
+  if (o.kind === 'empty') return { doc: VmfDocument.empty(), mission: null, plan: planTemplate(o) };
+  return buildPlanned(o);
+}
+
+/** Only the basics (BASICS) at the chosen size and ground, for any mode: New map's "Empty ground". */
+export function buildBasics(o: TemplateOptions): BuiltTemplate {
+  return buildPlanned({ ...o, kind: 'empty' });
+}
+
+/** Builds what planTemplate places, plus the basics. An 'empty' plan places nothing but the basics. */
+function buildPlanned(o: TemplateOptions): BuiltTemplate {
   const plan = planTemplate(o);
-  if (o.kind === 'empty') return { doc: VmfDocument.empty(), mission: null, plan };
   const doc = VmfDocument.empty();
   const size = plan.size, half = size / 2;
   doc.world.set('skyname', 'sky_day01_01');
