@@ -128,6 +128,9 @@ export class StairsTool implements Tool {
     this.reset();
     this.hover = null;
     this.redraw();
+    // Still the current tool while it is switched off.
+    this.editor.status = '';
+    this.pins.hidden = this.label.hidden = true;
   }
 
   /** The grid point on the surface under the cursor. */
