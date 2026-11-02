@@ -1,7 +1,7 @@
 // MultiBlend ground: a mine entrance on a grass field with a dirt yard, first with plain tiled textures, then
 // with the field and the yard turned into MultiBlend terrain (noise-filled layers, grass painted onto the yard
 // edges). Saves maps/multiblend_before.vmf and maps/multiblend_after.vmf and screenshots of both.
-//   EDITOR_URL=http://localhost:5198/ node scripts/multiblend-demo.mjs
+//   node scripts/multiblend-demo.mjs
 import { poiSession, makePoi } from './poi-common.mjs';
 
 const GRASS_BLEND = {

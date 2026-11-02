@@ -1,6 +1,6 @@
 // Generate menu: opens the menu, places a building block by dragging in the top view, tunes it, then places a
 // single Building and a Simple interior building, and fills a selected block brush from the Selection tab's
-// Generate box. Screenshots docs/screenshots/generate-*.png. Run against a dev server: EDITOR_URL=http://localhost:5204/
+// Generate box. Screenshots docs/screenshots/generate-*.png. Run against a dev server.
 import { poiSession, rtsView } from './poi-common.mjs';
 import { join } from 'node:path';
 import { shotsDir } from './browser.mjs';
