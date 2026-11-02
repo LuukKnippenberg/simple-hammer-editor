@@ -26,6 +26,14 @@ const COMBINE_PANEL = 'METAL/METALCOMBINE001';
 const TREAD = 6, SLAB = 8, UNDER = 16;
 /** How far the clip ramp reaches in front of a flight. */
 const CLIP_LEAD = 24;
+/** Square posts (under every other step on posts): their size, and how far in from the flight's sides. */
+const POST = 8, POST_INSET = 12;
+/** Side stringers: thickness, and how far they reach below and above the nosings. */
+const STRINGER = 6, STRINGER_DROP = 24, STRINGER_LIP = 4;
+/** The beam down the middle underneath: half its width, and its depth under the treads. */
+const SPINE_HALF = 8, SPINE_DEPTH = 14;
+/** A flight comes in through a landing's edge when it leaves within about 50° (cos 0.64) of the edge's outward normal. */
+const THROUGH_EDGE = 0.64;
 
 export type StairsPlan = 'blocky' | 'angle';
 export type StairsProfile = 'steps' | 'ramp';
@@ -276,149 +284,240 @@ function landingBrushes(c: Ctx, poly: Vector2[], z: number): void {
   }
 }
 
+/** The points as built, and which flights and points they make up. */
+interface StairsLayout {
+  spec: StairsSpec;
+  nodes: StairsNode[];
+  /** Flights touching each point. */
+  touch: number[][];
+  /** Flights between two points that are apart in the plan. */
+  valid: StairsFlight[];
+}
+
+const xy = (layout: StairsLayout, i: number) => new Vector2(layout.nodes[i].x, layout.nodes[i].y);
+/** The valid flights touching a point. */
+const flightsAt = (layout: StairsLayout, i: number) => layout.touch[i].map((k) => layout.spec.flights[k]).filter((f) => layout.valid.includes(f));
+/** A point where two or more flights meet. */
+const isLanding = (layout: StairsLayout, i: number) => flightsAt(layout, i).length >= 2;
+
 /** Builds stairs from a spec. Brushes are numbered in `doc` (not added to it). */
 export function buildStairs(doc: VmfDocument, spec: StairsSpec): StairsResult {
   const o = { ...DEFAULT_STAIRS, ...spec.options };
   const nodes = plannedNodes({ ...spec, options: o });
-  const touch = joins(spec);
   const base = Math.min(...nodes.map((n) => n.z));
   const c: Ctx = { doc, o, base, detail: [], clip: [] };
-  const xy = (i: number) => new Vector2(nodes[i].x, nodes[i].y);
-  const valid = spec.flights.filter((f) => nodes[f.from] && nodes[f.to] && xy(f.from).distanceTo(xy(f.to)) >= 1);
-  const isLanding = (i: number) => touch[i].filter((k) => valid.includes(spec.flights[k])).length >= 2;
-  const railsOn = o.rails !== 'none';
+  const layout: StairsLayout = { spec, nodes, touch: joins(spec), valid: [] };
+  layout.valid = spec.flights.filter((f) => nodes[f.from] && nodes[f.to] && xy(layout, f.from).distanceTo(xy(layout, f.to)) >= 1);
 
-  // Landings: one stair width square at a turn (round each flight's own square when they come in at angles).
-  const landings: StairsResult['landings'] = [];
-  const landingPoly = new Map<number, Vector2[]>();
-  const landingHalf = new Map<number, number>();
-  nodes.forEach((_, i) => {
-    if (!isLanding(i)) return;
-    const fl = touch[i].map((k) => spec.flights[k]).filter((f) => valid.includes(f));
-    const w = Math.max(...fl.map((f) => flightWidth(spec, f)));
-    const p = xy(i);
-    const squares = o.plan === 'blocky' ? [new Vector2(1, 0)] : fl.map((f) => xy(f.from === i ? f.to : f.from).sub(p).normalize());
-    const poly = hull2(squares.flatMap((u) => strip(p, u, -w / 2, w / 2, -w / 2, w / 2)));
-    landingPoly.set(i, poly);
-    landingHalf.set(i, w / 2);
-    const xs = poly.map((q) => q.x), ys = poly.map((q) => q.y);
-    landings.push({ node: i, size: [Math.round(Math.max(...xs) - Math.min(...xs)), Math.round(Math.max(...ys) - Math.min(...ys))], joins: fl.length });
-  });
-
-  const flights: FlightInfo[] = [];
-  for (const f of spec.flights) {
-    const w = flightWidth(spec, f);
-    const height = nodes[f.to] && nodes[f.from] ? nodes[f.to].z - nodes[f.from].z : 0;
-    if (!valid.includes(f)) {
-      flights.push({ from: f.from, to: f.to, steps: 0, rise: 0, tread: 0, height, length: 0, width: w, steep: true });
-      continue;
-    }
-    // Built from the low end up: s runs along the flight from the low point, t across it (left positive).
-    const up = height >= 0;
-    const lowI = up ? f.from : f.to, highI = up ? f.to : f.from;
-    const O = xy(lowI), L = O.distanceTo(xy(highI));
-    const u = xy(highI).sub(O).divideScalar(L), n = new Vector2(-u.y, u.x);
-    const zl = nodes[lowI].z, zh = nodes[highI].z, H = zh - zl;
-    const leafLow = !isLanding(lowI), leafHigh = !isLanding(highI);
-    const sa = (landingHalf.get(lowI) ?? 0) + (leafLow ? Math.max(0, o.landingBottom) : 0);
-    const topRun = leafHigh ? Math.max(0, o.landingTop) : 0;
-    const sb = L - (landingHalf.get(highI) ?? 0) - topRun;
-    const run = sb - sa;
-    const level = H < 0.5;
-    const steps = level ? 0 : Math.max(autoSteps(H), Math.round(f.steps ?? 0));
-    const tread = steps ? run / steps : run, rise = steps ? H / steps : 0;
-    const steep = run <= 1 || (!level && Math.atan2(H, run) * 180 / Math.PI >= MAX_SLOPE - 0.01);
-    flights.push({ from: f.from, to: f.to, steps, rise, tread, height, length: L, width: w, steep });
-    if (run <= 1) continue;
-    const solid = o.structure === 'solid';
-    const S = (s0: number, s1: number, t0 = -w / 2, t1 = w / 2) => strip(O, u, s0, s1, t0, t1);
-    const mat = stepMat(o);
-
-    // The walkway: flat, ramp or steps.
-    if (level) {
-      landingBrushes(c, S(sa, sb), zl);
-    } else if (o.profile === 'ramp') {
-      const slope = H / run;
-      const topLin = along(O.clone().addScaledVector(u, sa), u, zl, slope);
-      add(c.detail, prismBrush(doc, S(sa, sb), solid ? flat(Math.min(base, zl - SLAB)) : (p) => topLin(p) - SLAB, topLin, mat));
-    } else {
-      const slope = rise / tread;
-      const backLine = along(O.clone().addScaledVector(u, sa), u, zl, slope);
-      for (let k = 0; k < steps; k++) {
-        const s0 = sa + k * tread, s1 = s0 + tread, top = zl + (k + 1) * rise;
-        const foot = S(s0, s1);
-        if (o.structure === 'solid') add(c.detail, prismBrush(doc, foot, flat(base), flat(top), mat));
-        else if (o.structure === 'sloped') add(c.detail, prismBrush(doc, foot, (p) => backLine(p) - UNDER, flat(top), mat));
-        else add(c.detail, prismBrush(doc, foot, flat(top - (o.structure === 'open' ? TREAD : SLAB)), flat(top), mat));
-        if (o.structure === 'posts' && k % 2 === 0 && top - SLAB > base + 1) {
-          for (const t of [-w / 2 + 12, w / 2 - 12]) add(c.detail, prismBrush(doc, S((s0 + s1) / 2 - 4, (s0 + s1) / 2 + 4, t - 4, t + 4), flat(base), flat(top - SLAB), () => o.sideMaterial));
-        }
-      }
-      // Beams: stringers beside the treads (open treads always have them), or one down the middle underneath.
-      const beams = o.structure === 'open' && o.beams === 'none' ? 'both' : o.beams;
-      if (beams !== 'none' && o.structure !== 'solid') {
-        const nose = along(O.clone().addScaledVector(u, sa), u, zl + rise, slope);
-        if (beams === 'both') {
-          for (const [t0, t1] of [[w / 2 - 6, w / 2], [-w / 2, -w / 2 + 6]]) add(c.detail, prismBrush(doc, S(sa, sb, t0, t1), (p) => nose(p) - 24, (p) => nose(p) + 4, () => o.sideMaterial));
-        } else {
-          add(c.detail, prismBrush(doc, S(sa, sb, -8, 8), (p) => backLine(p) - TREAD - 14, (p) => backLine(p) - TREAD, () => o.sideMaterial));
-        }
-      }
-      // The NPC clip ramp touches every step's front edge up to the top at the last step, so the navmesh sees one
-      // smooth slope whatever the structure. It meets the floor one tread before the flight, or starts with a
-      // small lip (under a step's rise) so long treads don't tilt the landing in front.
-      if (o.clip) {
-        const lead = Math.min(tread, CLIP_LEAD);
-        const start = O.clone().addScaledVector(u, sa - tread);
-        add(c.clip, prismBrush(doc, S(sa - lead, sb - tread), flat(zl), along(start, u, zl, slope), () => NPCCLIP));
-      }
-    }
-    if (topRun > 0) landingBrushes(c, S(sb, sb + topRun), zh);
-
-    // Hand rails along the flight's sides, stopping where it joins a landing.
-    if (railsOn && !level) {
-      const lowIsFrom = lowI === f.from;
-      const sides = o.rails === 'both' ? [1, -1] : [(o.rails === 'left') === lowIsFrom ? 1 : -1];
-      const surface = (s: number) => (o.profile === 'ramp' ? zl + H * Math.max(0, Math.min(1, (s - sa) / run)) : zl + Math.min(steps, Math.floor((s - sa) / tread) + 1) * rise);
-      for (const side of sides) {
-        const p0 = O.clone().addScaledVector(u, sa).addScaledVector(n, side * w / 2);
-        const p1 = O.clone().addScaledVector(u, sb).addScaledVector(n, side * w / 2);
-        const inward = n.clone().multiplyScalar(-side);
-        const z0 = o.profile === 'ramp' ? zl : zl + rise;
-        const low = solid ? flat(base) : o.profile === 'ramp' ? along(p0, u, zl - SLAB, H / run) : along(p0, u, zl - UNDER, rise / tread);
-        rail(c, p0, p1, z0, zh, inward, (fr) => surface(sa + fr * run), low);
-        if (topRun > 0) {
-          const q1 = p1.clone().addScaledVector(u, topRun);
-          rail(c, p1, q1, zh, zh, inward, () => zh, solid ? flat(base) : flat(zh - SLAB));
-        }
-      }
-    }
-  }
-
-  // Landings, with rails round every edge no flight comes in through.
-  for (const [i, poly] of landingPoly) {
-    const z = nodes[i].z;
-    landingBrushes(c, poly, z);
-    if (!railsOn) continue;
-    const p = xy(i);
-    const outs = touch[i].map((k) => spec.flights[k]).filter((f) => valid.includes(f)).map((f) => xy(f.from === i ? f.to : f.from).sub(p).normalize());
-    const solid = o.structure === 'solid' || o.structure === 'sloped';
-    for (let k = 0; k < poly.length; k++) {
-      const a = poly[k], b = poly[(k + 1) % poly.length];
-      const e = b.clone().sub(a).normalize();
-      const out = new Vector2(e.y, -e.x);
-      if (outs.some((d) => d.dot(out) > 0.64)) continue;
-      rail(c, a, b, z, z, out.clone().negate(), () => z, solid ? flat(Math.min(base, z - SLAB)) : flat(z - SLAB));
-    }
-  }
+  const landings = planLandings(layout, o);
+  const landingHalf = new Map(landings.map((l) => [l.node, l.half]));
+  const flights = spec.flights.map((f) => buildFlight(c, layout, landingHalf, f));
+  for (const l of landings) buildLanding(c, layout, l);
 
   // Faces against each other and the bottoms on the ground are never seen.
   hideCoveredFaces(c.detail, { groundAt: () => base });
+  return { detail: c.detail, clip: c.clip, flights, landings: landings.map(landingInfo), bounds: stairsBounds(spec, nodes, o), base };
+}
 
+/** A landing's plan polygon, half its size (where the flights stop), and how many flights it joins. */
+interface LandingPlan { node: number; poly: Vector2[]; half: number; joins: number }
+
+/** Landings: one stair width square at a turn (round each flight's own square when they come in at angles). */
+function planLandings(layout: StairsLayout, o: StairsOptions): LandingPlan[] {
+  const out: LandingPlan[] = [];
+  layout.nodes.forEach((_, i) => {
+    if (!isLanding(layout, i)) return;
+    const fl = flightsAt(layout, i);
+    const w = Math.max(...fl.map((f) => flightWidth(layout.spec, f)));
+    const p = xy(layout, i);
+    const squares = o.plan === 'blocky' ? [new Vector2(1, 0)] : fl.map((f) => xy(layout, f.from === i ? f.to : f.from).sub(p).normalize());
+    const poly = hull2(squares.flatMap((u) => strip(p, u, -w / 2, w / 2, -w / 2, w / 2)));
+    out.push({ node: i, poly, half: w / 2, joins: fl.length });
+  });
+  return out;
+}
+
+function landingInfo(l: LandingPlan): StairsResult['landings'][number] {
+  const xs = l.poly.map((q) => q.x), ys = l.poly.map((q) => q.y);
+  return { node: l.node, size: [Math.round(Math.max(...xs) - Math.min(...xs)), Math.round(Math.max(...ys) - Math.min(...ys))], joins: l.joins };
+}
+
+/** A buildable flight, laid out from its low end up: s runs along it from the low point `O`, t across it (left positive). */
+interface FlightRun {
+  /** The low point, the way up the flight, and its left. */
+  O: Vector2;
+  u: Vector2;
+  n: Vector2;
+  width: number;
+  /** Plan length between the points. */
+  length: number;
+  /** Heights of the low and the high end, and the climb between them. */
+  zl: number;
+  zh: number;
+  H: number;
+  /** Where the walkway starts and ends along s, its length, and the flat run past a top with no landing. */
+  sa: number;
+  sb: number;
+  run: number;
+  topRun: number;
+  /** No climb: a flat walkway. */
+  level: boolean;
+  steps: number;
+  tread: number;
+  rise: number;
+  /** The low end is the flight's `from` point. */
+  lowIsFrom: boolean;
+}
+
+function flightRun(layout: StairsLayout, o: StairsOptions, landingHalf: Map<number, number>, f: StairsFlight, width: number, height: number): FlightRun {
+  const up = height >= 0;
+  const lowI = up ? f.from : f.to, highI = up ? f.to : f.from;
+  const O = xy(layout, lowI), length = O.distanceTo(xy(layout, highI));
+  const u = xy(layout, highI).sub(O).divideScalar(length), n = new Vector2(-u.y, u.x);
+  const zl = layout.nodes[lowI].z, zh = layout.nodes[highI].z, H = zh - zl;
+  const leafLow = !isLanding(layout, lowI), leafHigh = !isLanding(layout, highI);
+  const sa = (landingHalf.get(lowI) ?? 0) + (leafLow ? Math.max(0, o.landingBottom) : 0);
+  const topRun = leafHigh ? Math.max(0, o.landingTop) : 0;
+  const sb = length - (landingHalf.get(highI) ?? 0) - topRun;
+  const run = sb - sa;
+  const level = H < 0.5;
+  const steps = level ? 0 : Math.max(autoSteps(H), Math.round(f.steps ?? 0));
+  const tread = steps ? run / steps : run, rise = steps ? H / steps : 0;
+  return { O, u, n, width, length, zl, zh, H, sa, sb, run, topRun, level, steps, tread, rise, lowIsFrom: lowI === f.from };
+}
+
+/** The footprint between s0 and s1 along a flight, t0..t1 across it (its full width by default). */
+const footprint = (fr: FlightRun, s0: number, s1: number, t0 = -fr.width / 2, t1 = fr.width / 2) => strip(fr.O, fr.u, s0, s1, t0, t1);
+/** The point at s along a flight's centre line. */
+const atS = (fr: FlightRun, s: number) => fr.O.clone().addScaledVector(fr.u, s);
+
+/** One flight: its walkway, a flat run past a top with no landing, and its hand rails. */
+function buildFlight(c: Ctx, layout: StairsLayout, landingHalf: Map<number, number>, f: StairsFlight): FlightInfo {
+  const { nodes } = layout;
+  const width = flightWidth(layout.spec, f);
+  const height = nodes[f.to] && nodes[f.from] ? nodes[f.to].z - nodes[f.from].z : 0;
+  if (!layout.valid.includes(f)) return { from: f.from, to: f.to, steps: 0, rise: 0, tread: 0, height, length: 0, width, steep: true };
+  const fr = flightRun(layout, c.o, landingHalf, f, width, height);
+  const { steps, rise, tread, length, run, level } = fr;
+  const steep = run <= 1 || (!level && Math.atan2(fr.H, run) * 180 / Math.PI >= MAX_SLOPE - 0.01);
+  if (run > 1) {
+    walkway(c, fr);
+    if (fr.topRun > 0) landingBrushes(c, footprint(fr, fr.sb, fr.sb + fr.topRun), fr.zh);
+    if (c.o.rails !== 'none' && !level) flightRails(c, fr);
+  }
+  return { from: f.from, to: f.to, steps, rise, tread, height, length, width, steep };
+}
+
+/** The walkway: flat, a ramp, or steps (with their beams and the NPC clip ramp). */
+function walkway(c: Ctx, fr: FlightRun): void {
+  const { o, doc, base } = c;
+  if (fr.level) {
+    landingBrushes(c, footprint(fr, fr.sa, fr.sb), fr.zl);
+  } else if (o.profile === 'ramp') {
+    const topLin = along(atS(fr, fr.sa), fr.u, fr.zl, fr.H / fr.run);
+    const bottom = o.structure === 'solid' ? flat(Math.min(base, fr.zl - SLAB)) : (p: Vector2) => topLin(p) - SLAB;
+    add(c.detail, prismBrush(doc, footprint(fr, fr.sa, fr.sb), bottom, topLin, stepMat(o)));
+  } else {
+    stepBrushes(c, fr);
+    beamBrushes(c, fr);
+    if (o.clip) clipRamp(c, fr);
+  }
+}
+
+/** The steps, by structure; with `posts`, a pair of posts under every other step. */
+function stepBrushes(c: Ctx, fr: FlightRun): void {
+  const { o, doc, base } = c;
+  const { sa, zl, steps, tread, rise, width: w } = fr;
+  const mat = stepMat(o);
+  const backLine = along(atS(fr, sa), fr.u, zl, rise / tread);
+  for (let k = 0; k < steps; k++) {
+    const s0 = sa + k * tread, s1 = s0 + tread, top = zl + (k + 1) * rise;
+    const foot = footprint(fr, s0, s1);
+    if (o.structure === 'solid') add(c.detail, prismBrush(doc, foot, flat(base), flat(top), mat));
+    else if (o.structure === 'sloped') add(c.detail, prismBrush(doc, foot, (p) => backLine(p) - UNDER, flat(top), mat));
+    else add(c.detail, prismBrush(doc, foot, flat(top - (o.structure === 'open' ? TREAD : SLAB)), flat(top), mat));
+    if (o.structure === 'posts' && k % 2 === 0 && top - SLAB > base + 1) {
+      const mid = (s0 + s1) / 2;
+      for (const t of [-w / 2 + POST_INSET, w / 2 - POST_INSET]) {
+        add(c.detail, prismBrush(doc, footprint(fr, mid - POST / 2, mid + POST / 2, t - POST / 2, t + POST / 2), flat(base), flat(top - SLAB), () => o.sideMaterial));
+      }
+    }
+  }
+}
+
+/** Beams: stringers beside the treads (open treads always have them), or one down the middle underneath. */
+function beamBrushes(c: Ctx, fr: FlightRun): void {
+  const { o, doc } = c;
+  const { sa, sb, zl, rise, tread, width: w } = fr;
+  const beams = o.structure === 'open' && o.beams === 'none' ? 'both' : o.beams;
+  if (beams === 'none' || o.structure === 'solid') return;
+  const sideMat = () => o.sideMaterial;
+  if (beams === 'both') {
+    const nose = along(atS(fr, sa), fr.u, zl + rise, rise / tread);
+    for (const [t0, t1] of [[w / 2 - STRINGER, w / 2], [-w / 2, -w / 2 + STRINGER]]) {
+      add(c.detail, prismBrush(doc, footprint(fr, sa, sb, t0, t1), (p) => nose(p) - STRINGER_DROP, (p) => nose(p) + STRINGER_LIP, sideMat));
+    }
+  } else {
+    const backLine = along(atS(fr, sa), fr.u, zl, rise / tread);
+    add(c.detail, prismBrush(doc, footprint(fr, sa, sb, -SPINE_HALF, SPINE_HALF), (p) => backLine(p) - TREAD - SPINE_DEPTH, (p) => backLine(p) - TREAD, sideMat));
+  }
+}
+
+/**
+ * The NPC clip ramp touches every step's front edge up to the top at the last step, so the navmesh sees one
+ * smooth slope whatever the structure. It meets the floor one tread before the flight, or starts with a
+ * small lip (under a step's rise) so long treads don't tilt the landing in front.
+ */
+function clipRamp(c: Ctx, fr: FlightRun): void {
+  const { sa, sb, zl, tread, rise } = fr;
+  const lead = Math.min(tread, CLIP_LEAD);
+  add(c.clip, prismBrush(c.doc, footprint(fr, sa - lead, sb - tread), flat(zl), along(atS(fr, sa - tread), fr.u, zl, rise / tread), () => NPCCLIP));
+}
+
+/** Hand rails along the flight's sides (and along its top run), stopping where it joins a landing. */
+function flightRails(c: Ctx, fr: FlightRun): void {
+  const { o, base } = c;
+  const { u, n, sa, sb, run, zl, zh, H, steps, tread, rise, topRun, width: w } = fr;
+  const solid = o.structure === 'solid';
+  const sides = o.rails === 'both' ? [1, -1] : [(o.rails === 'left') === fr.lowIsFrom ? 1 : -1];
+  const surface = (s: number) => (o.profile === 'ramp' ? zl + H * Math.max(0, Math.min(1, (s - sa) / run)) : zl + Math.min(steps, Math.floor((s - sa) / tread) + 1) * rise);
+  for (const side of sides) {
+    const p0 = atS(fr, sa).addScaledVector(n, side * w / 2);
+    const p1 = atS(fr, sb).addScaledVector(n, side * w / 2);
+    const inward = n.clone().multiplyScalar(-side);
+    const z0 = o.profile === 'ramp' ? zl : zl + rise;
+    const low = solid ? flat(base) : o.profile === 'ramp' ? along(p0, u, zl - SLAB, H / run) : along(p0, u, zl - UNDER, rise / tread);
+    rail(c, p0, p1, z0, zh, inward, (frac) => surface(sa + frac * run), low);
+    if (topRun > 0) {
+      const q1 = p1.clone().addScaledVector(u, topRun);
+      rail(c, p1, q1, zh, zh, inward, () => zh, solid ? flat(base) : flat(zh - SLAB));
+    }
+  }
+}
+
+/** A landing, with rails round every edge no flight comes in through. */
+function buildLanding(c: Ctx, layout: StairsLayout, l: LandingPlan): void {
+  const { o, base } = c;
+  const z = layout.nodes[l.node].z;
+  landingBrushes(c, l.poly, z);
+  if (o.rails === 'none') return;
+  const p = xy(layout, l.node);
+  const outs = flightsAt(layout, l.node).map((f) => xy(layout, f.from === l.node ? f.to : f.from).sub(p).normalize());
+  const solid = o.structure === 'solid' || o.structure === 'sloped';
+  for (let k = 0; k < l.poly.length; k++) {
+    const a = l.poly[k], b = l.poly[(k + 1) % l.poly.length];
+    const e = b.clone().sub(a).normalize();
+    const out = new Vector2(e.y, -e.x);
+    if (outs.some((d) => d.dot(out) > THROUGH_EDGE)) continue;
+    rail(c, a, b, z, z, out.clone().negate(), () => z, solid ? flat(Math.min(base, z - SLAB)) : flat(z - SLAB));
+  }
+}
+
+/** Plan rectangle round the points, padded by half the widest flight. */
+function stairsBounds(spec: StairsSpec, nodes: StairsNode[], o: StairsOptions): StairsResult['bounds'] {
   const pad = Math.max(...spec.flights.map((f) => flightWidth(spec, f)), o.width) / 2;
   const xs = nodes.map((q) => q.x), ys = nodes.map((q) => q.y);
-  const bounds = { x0: Math.round(Math.min(...xs) - pad), y0: Math.round(Math.min(...ys) - pad), x1: Math.round(Math.max(...xs) + pad), y1: Math.round(Math.max(...ys) + pad) };
-  return { detail: c.detail, clip: c.clip, flights, landings, bounds, base };
+  return { x0: Math.round(Math.min(...xs) - pad), y0: Math.round(Math.min(...ys) - pad), x1: Math.round(Math.max(...xs) + pad), y1: Math.round(Math.max(...ys) + pad) };
 }
 
 /** The Tune step's summary: one flight in full, a chain as its flights and landings. */
