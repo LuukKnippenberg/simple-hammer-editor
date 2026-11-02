@@ -24,6 +24,13 @@ function reachable(g: MissionGraph, from: string[]): Set<string> {
   return seen;
 }
 
+/** Whether Victory and Defeat can be reached from the start stage (the map checklist's Mission flow item). */
+export function missionEnds(g: MissionGraph): { win: boolean; lose: boolean } {
+  const start = g.stages.find((s) => s.id === g.start);
+  const fromStart = start ? reachable(g, [start.id]) : new Set<string>();
+  return { win: fromStart.has('victory'), lose: fromStart.has('defeat') };
+}
+
 /**
  * Checks the flowchart and the map it is built into: stages that can't be reached or can't end, missing
  * areas and targets, actions on entities that don't exist, and hand-placed mission logic that would show

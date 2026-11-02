@@ -2,6 +2,7 @@ import type { Editor } from '../editor.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
 import { mountNewMapDialog } from './newMapDialog.ts';
+import { mountChecklistChip } from './checklist.ts';
 import type { MeshLambertMaterial } from 'three';
 
 export interface TopBar {
@@ -105,6 +106,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     h('button', { onclick: () => save(), title: 'Save to maps/ (Ctrl+S)' }, 'Save'),
     h('button', { onclick: () => saveAs(), title: 'Save under a new name in maps/' }, 'Save as…'),
     h('button', { onclick: () => download(), title: 'Download the .vmf' }, 'Download'),
+    mountChecklistChip(editor),
     h('div.spacer'),
     toggle('Top view', 'Orthographic top-down view (T)', () => editor.view === 'top', (v) => editor.setView3dOrTop(v ? 'top' : '3d')),
     toggle('Lighting', 'Preview in-game lighting: sun with shadows, ambient and light entities (L)', () => !!window.__editor?.lighting?.enabled, (v) => { window.__editor.lighting.setEnabled(v); editor.emit('lighting'); }),
