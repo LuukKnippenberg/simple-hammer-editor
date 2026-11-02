@@ -111,5 +111,14 @@ export function saveInstall(rootDir: string, dir: string): void {
   const user = readUserConfig(rootDir);
   user.install = dir.replace(/\\/g, '/');
   delete user.runGameDir;
+  writeUserConfig(rootDir, user);
+}
+
+/** Stores the compile tools' folder (from the start screen's "Locate folder…"), keeping the file's other settings. */
+export function saveSdkBinDir(rootDir: string, dir: string): void {
+  writeUserConfig(rootDir, { ...readUserConfig(rootDir), sdkBinDir: dir.replace(/\\/g, '/') });
+}
+
+function writeUserConfig(rootDir: string, user: UserConfig): void {
   writeFileSync(configFile(rootDir), JSON.stringify(user, null, 2) + '\n');
 }

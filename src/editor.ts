@@ -214,20 +214,24 @@ export class Editor {
     this.emit('document');
   }
 
-  async loadMapById(id: string): Promise<void> {
+  /**
+   * Opens a map file. `name` is the name it is saved under (an example opens as a copy); the sketch and mission
+   * flowchart come from `sidecarId` (a recovered autosave takes them from the map it belongs to).
+   */
+  async loadMapById(id: string, name = id.split(':')[1] ?? id, sidecarId = id): Promise<void> {
     const res = await fetch(`/api/map?id=${encodeURIComponent(id)}`);
     if (!res.ok) throw new Error(`Could not load ${id}`);
     const text = await res.text();
     const t0 = performance.now();
     const doc = VmfDocument.parse(text);
     console.log(`[editor] parsed ${id} in ${Math.round(performance.now() - t0)} ms`);
-    this.loadDocument(doc, id.split(':')[1] ?? id, text);
-    const sk = await fetch(`/api/sketch?id=${encodeURIComponent(id)}`);
+    this.loadDocument(doc, name, text);
+    const sk = await fetch(`/api/sketch?id=${encodeURIComponent(sidecarId)}`);
     if (sk.ok) {
       this.sketch = await sk.json();
       this.emit('sketch');
     }
-    const ms = await fetch(`/api/mission?id=${encodeURIComponent(id)}`);
+    const ms = await fetch(`/api/mission?id=${encodeURIComponent(sidecarId)}`);
     if (ms.ok) {
       this.mission = parseMission(await ms.text());
       this.emit('mission');

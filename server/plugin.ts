@@ -1,8 +1,9 @@
 import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { loadConfig, saveInstall, type EditorConfig } from './config.ts';
+import { dirname, join } from 'node:path';
+import { loadConfig, saveInstall, saveSdkBinDir, type EditorConfig } from './config.ts';
+import { diffSummary, diffVmf, heightThumb, mapMode, mtimeOf, newestFirst, recoverOffers, setupCheck, THUMB_H, THUMB_W, type MapFile } from './mapInfo.ts';
 import { AssetFS, contentDir, insideGame } from './assets.ts';
 import { loadFgd, type FgdClass } from './fgd.ts';
 import { modelIndex, type ModelEntry } from './models.ts';
@@ -42,6 +43,28 @@ function send(res: ServerResponse, status: number, body: string | Buffer, type =
 export type Route = (req: IncomingMessage, res: ServerResponse, url: URL) => void | Promise<void>;
 
 const LIST_CACHE_SIZE = 64;
+/** Maps listed under Recent on the start screen. */
+const RECENT_MAX = 8;
+
+interface MapDetails {
+  mode: string;
+  thumb: { w: number; h: number; cells: number[] };
+}
+
+const detailsCache = new Map<string, { mtime: number; details: MapDetails }>();
+
+/** Mode and height thumbnail of a map file, read once per modification. */
+function mapDetails(file: string, name: string, mtime: number): MapDetails {
+  const hit = detailsCache.get(file);
+  if (hit?.mtime === mtime) return hit.details;
+  const text = readFileSync(file, 'latin1');
+  const details = {
+    mode: mapMode(name, text, existsSync(file.replace(/\.vmf$/i, '.mission.json'))),
+    thumb: { w: THUMB_W, h: THUMB_H, cells: heightThumb(text) },
+  };
+  detailsCache.set(file, { mtime, details });
+  return details;
+}
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /**
@@ -166,6 +189,61 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
             }
           }
           send(res, 200, JSON.stringify(maps));
+        },
+
+        // Start screen: the newest maps (with mode and thumbnail), `include`d ones (the examples) and recover offers.
+        '/api/recent': (_req, res, url) => {
+          const limit = Math.max(1, Math.min(RECENT_MAX, Number(url.searchParams.get('limit')) || RECENT_MAX));
+          const files: (MapFile & { file: string })[] = [];
+          for (const f of mapFolders(cfg)) {
+            for (const n of readdirSync(f.dir)) {
+              const file = join(f.dir, n);
+              if (n.toLowerCase().endsWith('.vmf')) files.push({ id: `${f.prefix}:${n}`, name: n, mtime: mtimeOf(file), file });
+            }
+          }
+          const autosaves = files.filter((m) => m.id.startsWith('autosave:'));
+          const maps = newestFirst(files.filter((m) => !m.id.startsWith('autosave:')));
+          const include = (url.searchParams.get('include') ?? '').split(',').filter(Boolean);
+          const described = (m: (typeof files)[number]) => ({ id: m.id, name: m.name, mtime: m.mtime, dir: dirname(m.file), ...mapDetails(m.file, m.name, m.mtime) });
+          send(res, 200, JSON.stringify({
+            recent: maps.slice(0, limit).map(described),
+            include: maps.filter((m) => include.includes(m.id)).map(described),
+            offers: recoverOffers(autosaves, maps).map(({ name, autosave, saved }) => ({
+              name, autosave: { id: autosave.id, name: autosave.name, mtime: autosave.mtime },
+              saved: saved && { id: saved.id, name: saved.name, mtime: saved.mtime },
+            })),
+          }));
+        },
+
+        // What an autosave adds to its map's saved file (the recover card's summary).
+        '/api/recover': (_req, res, url) => {
+          const autosave = resolveMap(cfg, url.searchParams.get('autosave') ?? '');
+          const savedId = url.searchParams.get('saved');
+          const saved = savedId ? resolveMap(cfg, savedId) : null;
+          if (!autosave?.startsWith(join(cfg.rootDir, '.autosave')) || !existsSync(autosave) || (savedId && (!saved || !existsSync(saved)))) {
+            return send(res, 404, JSON.stringify({ error: 'autosave not found' }));
+          }
+          const diff = diffVmf(saved ? readFileSync(saved, 'latin1') : '', readFileSync(autosave, 'latin1'));
+          send(res, 200, JSON.stringify({ ...diff, summary: diffSummary(diff) }));
+        },
+
+        // Game install, map compiler and navmesh builder. Re-reads the config, so an SDK installed since shows up.
+        '/api/setup': (_req, res) => {
+          const fresh = loadConfig(server.config.root);
+          if (!compiling && (fresh.install !== cfg.install || fresh.sdkBinDir !== cfg.sdkBinDir)) load();
+          send(res, 200, JSON.stringify(setupCheck(cfg)));
+        },
+
+        // "Locate folder…": the folder with vbsp.exe (or the Alien Swarm folder above its bin/).
+        '/api/setup/sdk': async (req, res) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          if (compiling) return send(res, 409, JSON.stringify({ error: 'Wait for the compile to finish' }));
+          const { dir } = JSON.parse((await readBody(req)).toString('utf8')) as { dir?: string };
+          const found = typeof dir === 'string' && dir.trim() ? [dir.trim(), join(dir.trim(), 'bin')].find((d) => existsSync(join(d, 'vbsp.exe'))) : undefined;
+          if (!found) return send(res, 400, JSON.stringify({ error: `No vbsp.exe in ${dir}` }));
+          saveSdkBinDir(cfg.rootDir, found);
+          load();
+          send(res, 200, JSON.stringify(setupCheck(cfg)));
         },
 
         '/api/map': (_req, res, url) => {

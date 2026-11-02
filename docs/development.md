@@ -44,7 +44,11 @@ port. Copy `editor.config.json` into the worktree if the main checkout has one; 
 
 The dev-server routes (`server/plugin.ts`) are under `/api/`: `maps`, `map`, `map/save`, `autosave`, `sketch`,
 `mission`, `mapres`, `file`, `list`, `models`, `fgd`, `blend`, `config`, `install`, `compile` (streams the tool
-output) and `launch`.
+output) and `launch`, and for the start screen `recent` (newest maps with mode and thumbnail, recover offers),
+`recover` (what an autosave changes), `setup` and `setup/sdk` (the setup check and Locate folder).
+
+Preferences and first-run state kept in the browser go through `src/ui/prefs.ts` (`getPref`, `setPref`; typed keys,
+every access wrapped for blocked storage).
 
 ## Scripted runs and screenshots
 
@@ -54,6 +58,10 @@ browser download) and wraps a page with editor helpers: `open(map)`, `view(pos, 
 panels, lighting, the sketch and mission dialogs, `setView`, `project` (world point to page coordinates) and
 `busy()`. Vite serves the source as modules, so a script can also `import('/src/...')` inside the page and call the
 same functions the UI does.
+
+`scripts/start-screen-test.mjs` checks the start screen and recover end to end (cold start, an example copy, every
+recover button, nothing written to `mapsrc/`); it waits for two real autosaves, so it takes about two minutes, and
+exits non-zero on a failure. `--shots <folder>` saves the screens it passes.
 
 `npm run screenshot -- <shots.json>` captures a list of views (map, camera, optional JS before and after) without a
 script of its own.

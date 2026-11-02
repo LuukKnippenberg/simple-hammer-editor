@@ -4,8 +4,19 @@ import { h, toast } from './dom.ts';
 import { mountNewMapDialog } from './newMapDialog.ts';
 import type { MeshLambertMaterial } from 'three';
 
-/** Top bar: map picker, open-file, and view toggles. */
-export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLElement): void {
+export interface TopBar {
+  /** Opens the New map dialog. */
+  newMap(): void;
+  /** Asks for a .vmf on disk and opens it. */
+  openFile(): void;
+  /** Opens a map by id (`repo:x.vmf`) and puts it in the page address, so a reload reopens it. */
+  openMap(id: string): Promise<void>;
+  /** Runs `fn` behind the loading overlay; an error becomes a toast. */
+  busy(label: string, fn: () => Promise<void>): Promise<void>;
+}
+
+/** Top bar: map picker, open (the start screen), save, and view toggles. */
+export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLElement, showStart: () => void): TopBar {
   const select = h('select', { title: 'Open a map from maps/ or the game mapsrc folder' });
   const fileInput = h('input', { type: 'file', accept: '.vmf', style: { display: 'none' } });
   const busy = async (label: string, fn: () => Promise<void>) => {
@@ -22,15 +33,18 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     }
   };
 
-  select.addEventListener('change', () => {
-    const id = select.value;
-    if (!id) return;
-    // Hand the keyboard back to the viewport: a focused picker swallows W A S D (and W picks another map).
-    select.blur();
+  const openMap = (id: string) => {
+    select.value = id;
     const url = new URL(location.href);
     url.searchParams.set('map', id);
     history.replaceState(null, '', url);
-    busy(`Loading ${id.split(':')[1]}…`, () => editor.loadMapById(id));
+    return busy(`Loading ${id.split(':')[1]}…`, () => editor.loadMapById(id));
+  };
+  select.addEventListener('change', () => {
+    if (!select.value) return;
+    // Hand the keyboard back to the viewport: a focused picker swallows W A S D (and W picks another map).
+    select.blur();
+    void openMap(select.value);
   });
   fileInput.addEventListener('change', () => {
     const f = fileInput.files?.[0];
@@ -86,7 +100,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     h('div.brand', { title: 'Simple Hammer Editor' }, h('img', { src: '/lambdawars-wordmark.png', alt: 'Lambda Wars', width: 123, height: 22 }), h('span', {}, 'Map editor')),
     select,
     h('button', { onclick: () => newMap(), title: 'Start a new map: a game mode template or an empty map' }, 'New'),
-    h('button', { onclick: () => fileInput.click(), title: 'Open a .vmf from disk' }, 'Open file…'),
+    h('button', { onclick: () => showStart(), title: 'Start screen: recent maps, examples, or a .vmf from disk' }, 'Open…'),
     fileInput,
     h('button', { onclick: () => save(), title: 'Save to maps/ (Ctrl+S)' }, 'Save'),
     h('button', { onclick: () => saveAs(), title: 'Save under a new name in maps/' }, 'Save as…'),
@@ -123,11 +137,10 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     return maps;
   };
 
-  void refreshMaps().then((maps) => {
-    const wanted = new URL(location.href).searchParams.get('map') ?? maps.find((m) => m.id.startsWith('repo:'))?.id;
-    if (wanted) {
-      select.value = wanted;
-      select.dispatchEvent(new Event('change'));
-    }
+  // A map in the address opens straight away; without one the editor starts on the start screen.
+  void refreshMaps().then(() => {
+    const wanted = new URL(location.href).searchParams.get('map');
+    if (wanted) void openMap(wanted);
   });
+  return { newMap, openFile: () => fileInput.click(), openMap, busy };
 }

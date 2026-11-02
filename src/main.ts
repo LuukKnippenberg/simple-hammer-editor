@@ -36,6 +36,8 @@ import { LightingPreview } from './render/lightingPreview.ts';
 import { mountLightingPanel } from './ui/lightingPanel.ts';
 import { mountSketchDialog } from './ui/sketchDialog.ts';
 import { mountInstallPicker } from './ui/installPicker.ts';
+import { mountStartScreen } from './ui/startScreen.ts';
+import { mountRecover } from './ui/recover.ts';
 import { mountMapSettingsPanel } from './ui/mapSettingsPanel.ts';
 import { mountPoiPanel } from './ui/poiPanel.ts';
 import { mountCinemaPanel } from './ui/cinemaPanel.ts';
@@ -49,7 +51,11 @@ const loading = h('div.loading', { hidden: true });
 viewport.append(loading);
 
 const editor = new Editor(viewport);
-mountTopBar(editor, document.getElementById('topbar')!, loading);
+// Without a map in the address the editor opens on the start screen (startScreen.ts).
+const topBar = mountTopBar(editor, document.getElementById('topbar')!, loading, () => startScreen.show());
+const recover = mountRecover(editor, topBar);
+const startScreen = mountStartScreen(editor, topBar, recover);
+if (!new URL(location.href).searchParams.get('map')) startScreen.show();
 const hover = new Hover(editor);
 mountStats(editor, viewport, document.getElementById('statusbar')!, () => hover.label);
 const help = mountHelp();
@@ -140,6 +146,7 @@ declare global {
       soundscapes: SoundscapeController;
       audio: typeof audio;
       sketch: typeof sketchDialog;
+      startScreen: typeof startScreen;
       missionFlow: typeof missionFlow;
       missionView: typeof missionView;
       setView(pos: [number, number, number], target: [number, number, number]): void;
@@ -160,6 +167,7 @@ window.__editor = {
   soundscapes,
   audio,
   sketch: sketchDialog,
+  startScreen,
   missionFlow,
   missionView,
   setView(pos, target) {
@@ -184,7 +192,8 @@ window.__editor = {
 };
 editor.on('document', () => (window.__editor.ready = true));
 
-// Autosave unsaved work every minute to .autosave/ (listed under "Autosaves" in the map picker).
+// Autosave unsaved work every minute to .autosave/: listed under "Autosaves" in the map picker, and offered back
+// (recover.ts) when it is newer than the map's saved file.
 setInterval(() => {
   if (!editor.dirty || !editor.doc.allSolids().length) return;
   const name = editor.mapName.replace(/\.vmf$/i, '') + '.autosave.vmf';
