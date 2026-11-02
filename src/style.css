@@ -574,12 +574,12 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .cl-row.ok .cl-icon { color: var(--ok); }
 .cl-row.warning .cl-icon { color: var(--accent-text); }
 .cl-row.error .cl-icon { color: var(--danger); }
-.cl-row.pending .cl-icon, .cl-row.info .cl-icon { color: var(--faint); }
+.cl-row.pending .cl-icon { color: var(--faint); }
 .cl-text { flex: 1; min-width: 0; }
 .cl-text b { font-weight: 500; }
 .cl-detail { display: block; font-size: 12px; color: var(--muted); line-height: 1.4; margin-top: 1px; }
 .cl-row button { flex: none; font-size: 12px; padding: 2px 9px; }
-.cl-row.info { flex-wrap: wrap; }
+.cl-row:has(.cl-modes) { flex-wrap: wrap; }
 .cl-modes { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; padding-left: 26px; }
 .cl-foot { margin: 8px 0 0; font-size: 12px; color: var(--faint); line-height: 1.45; }
 .checks .cl-sub { display: block; margin-bottom: 2px; }

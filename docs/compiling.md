@@ -21,7 +21,7 @@ mode's list without changing the map; opening or creating a map goes back to the
 | Annihilation | Player starts (numbered, at least 2; says whether they are symmetric), Resources (requisition points and scrap), Sky shell, Sun light, Name (`hlw_`), Map boundary, Units can reach every base |
 | Overrun | Player starts (together in the centre), Wave spawns, Overrun manager (wave type; **Fix** adds one), Sky shell, Sun light, Map boundary |
 | Singleplayer mission | Player camera (`info_player_wars`; **Fix** adds one), Mission flow (a way to win and to lose, no flowchart errors), Every objective area reachable, Name (`sp_`), Sky shell, Sun light, Map boundary |
-| Empty | Sky shell, Sun light, Map boundary, and **Pick a mode**, which switches to another mode's list (advice: not counted) |
+| Empty | Sky shell, Sun light, Map boundary, and **Pick a mode**, which switches to another mode's list (counted, never ready: an Empty map isn't ready to play until it has a mode) |
 
 "Units can reach every base" and "Every objective area reachable" are the path check, which isn't built yet. They
 show "Not checked yet", count toward the total but never as ready, and don't keep the chip amber: a new

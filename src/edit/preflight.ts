@@ -22,8 +22,6 @@ export interface Check {
   fixLabel?: string;
   /** Not run yet (the path check, F5): counts toward the total, never as ready. */
   pending?: boolean;
-  /** Advice rather than a check (Empty's "Pick a mode"): not counted at all. */
-  info?: boolean;
   /** An action that doesn't change the map, such as Show. */
   show?: () => void;
   showLabel?: string;
@@ -262,10 +260,9 @@ export function detectMode(editor: Editor): MapMode {
   return 'empty';
 }
 
-export type CheckState = 'ok' | 'error' | 'warning' | 'pending' | 'info';
+export type CheckState = 'ok' | 'error' | 'warning' | 'pending';
 
 export function checkState(c: Check): CheckState {
-  if (c.info) return 'info';
   if (c.pending) return 'pending';
   return c.ok ? 'ok' : c.severity;
 }
@@ -277,22 +274,21 @@ export interface Checklist {
   /** Player slots: one per info_start_wars, 1 in a mission. */
   players: number;
   checks: Check[];
-  /** Counted checks that pass. */
+  /** Checks that pass. */
   ready: number;
-  /** Every check but advice: pending ones count, as on the board. */
+  /** Every check: pending ones count, as on the board. */
   total: number;
-  /** Nothing left to fix: every counted check passes or is pending. The chip turns green. */
+  /** Nothing left to fix: every check passes or is pending. The chip turns green. */
   allReady: boolean;
 }
 
 export function mapChecklist(editor: Editor, mode = detectMode(editor)): Checklist {
   const checks = modeChecks(editor, mode);
-  const counted = checks.filter((c) => !c.info);
   return {
     mode, detected: detectMode(editor), players: playerCount(editor, mode), checks,
-    ready: counted.filter((c) => c.ok).length,
-    total: counted.length,
-    allReady: counted.every((c) => c.ok || c.pending),
+    ready: checks.filter((c) => c.ok).length,
+    total: checks.length,
+    allReady: checks.every((c) => c.ok || c.pending),
   };
 }
 
@@ -471,8 +467,9 @@ function notCheckedYet(id: string, label: string): Check {
   return { id, label, severity: 'warning', ok: false, pending: true, detail: 'Not checked yet: the path check comes in a later version. Test it in game for now.' };
 }
 
+/** Never ready: an Empty map isn't playable until it has a mode. Its row offers the other lists. */
 const PICK_MODE: Check = {
-  id: 'mode', label: 'Pick a mode', severity: 'warning', ok: false, info: true,
+  id: 'mode', label: 'Pick a mode', severity: 'warning', ok: false,
   detail: 'Annihilation, Overrun or a singleplayer mission: each adds what it needs to this list.',
 };
 

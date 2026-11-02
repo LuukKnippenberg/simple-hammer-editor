@@ -77,12 +77,12 @@ describe('map checklist: lists per mode', () => {
     expect(list.checks.find((c) => c.id === 'flow')!.detail).toBe('1 stage, a way to win and a way to lose.');
   });
 
-  it('empty template: nothing to fix yet, Pick a mode is advice and not counted', () => {
+  it('empty template: Pick a mode counts and is never ready, so the chip stays amber', () => {
     const list = mapChecklist(templateEditor({ kind: 'empty', players: 1, size: 'small' }));
     // The sun counts: Compile adds one with default values (Settings tab on Auto).
-    expect([list.mode, list.players, list.ready, list.total, list.allReady]).toEqual(['empty', 0, 1, 3, false]);
+    expect([list.mode, list.players, list.ready, list.total, list.allReady]).toEqual(['empty', 0, 1, 4, false]);
     expect(list.checks[1].detail).toMatch(/^Added with default values/);
-    expect(checkState(list.checks[3])).toBe('info');
+    expect(checkState(list.checks[3])).toBe('warning');
     // Fixes place things around the content, so an empty map offers none.
     for (const c of list.checks) expect(c.fix).toBeUndefined();
   });
@@ -92,9 +92,9 @@ describe('map checklist: lists per mode', () => {
       const editor = templateEditor({ kind, players: 2, size: 'small' });
       for (const mode of ['annihilation', 'overrun', 'mission', 'empty'] as const) {
         const list = mapChecklist(editor, mode);
-        const counted = modeChecks(editor, mode).filter((c) => !c.info);
-        expect(list.total).toBe(counted.length);
-        expect(list.ready).toBe(counted.filter((c) => c.ok).length);
+        const checks = modeChecks(editor, mode);
+        expect(list.total).toBe(checks.length);
+        expect(list.ready).toBe(checks.filter((c) => c.ok).length);
       }
     }
   });
@@ -158,6 +158,12 @@ describe('map checklist: failures and fixes', () => {
     expect(byId(editor, 'players').label).toBe('Player starts 0/2');
     editor.doc.removeEntity(starts[1]);
     expect(byId(editor, 'players').detail).toMatch(/^1 placed: Annihilation needs at least 2/);
+  });
+
+  it('Empty with sky, sun and boundary in place reads 3/4, not ready: a mode is still to pick', () => {
+    const list = mapChecklist(templateEditor({ kind: 'annihilation', players: 2, size: 'small' }), 'empty');
+    expect([list.ready, list.total, list.allReady]).toEqual([3, 4, false]);
+    expect(list.checks.map(checkState)).toEqual(['ok', 'ok', 'ok', 'warning']);
   });
 
   it('an empty document reads as Empty with no fixes', () => {
