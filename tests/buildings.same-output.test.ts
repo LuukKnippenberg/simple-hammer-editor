@@ -9,7 +9,7 @@ import { Rng } from '../src/gen/rng.ts';
 import { VmfDocument } from '../src/vmf/map.ts';
 import { writeKeyValues } from '../src/vmf/keyvalues.ts';
 
-const sha1 = (s: string) => createHash('sha1').update(s).digest('hex');
+const sha1 = (text: string) => createHash('sha1').update(text).digest('hex');
 
 /** A block (big enough for a courtyard ring) and a long row (deep enough for L-shaped lots), with alleys and sky bridges. */
 const FOOTPRINTS = {
@@ -18,10 +18,10 @@ const FOOTPRINTS = {
 };
 
 /** Everything a call makes: brushes (with their ids), entities, the street dressing and the counts. */
-function digest(footprint: Box3, o: BuildingOptions): string {
-  const g = generateBuildings(VmfDocument.empty(), footprint, o);
-  return sha1(writeKeyValues([...g.solids, ...g.detail]) + JSON.stringify(g.entities) + JSON.stringify(g.dressing)
-    + JSON.stringify([g.buildings, g.interiorHouses, g.ring]));
+function digest(footprint: Box3, options: BuildingOptions): string {
+  const generated = generateBuildings(VmfDocument.empty(), footprint, options);
+  return sha1(writeKeyValues([...generated.solids, ...generated.detail]) + JSON.stringify(generated.entities) + JSON.stringify(generated.dressing)
+    + JSON.stringify([generated.buildings, generated.interiorHouses, generated.ring]));
 }
 
 /** Every architecture × detail 1, 2 × interiors (default, none, all) × 3 seeds, rolled into one hash per footprint. */
@@ -63,25 +63,25 @@ const VARIANT_GOLDEN: Record<string, string> = {
 const SEEDS = [3, 17, 101];
 
 describe('building generator output is unchanged', () => {
-  for (const [fpName, fp] of Object.entries(FOOTPRINTS)) {
-    for (const arch of Object.keys(ARCHITECTURES) as ArchitectureName[]) {
-      it(`${arch} on the ${fpName}`, () => {
+  for (const [footprintName, footprint] of Object.entries(FOOTPRINTS)) {
+    for (const architecture of Object.keys(ARCHITECTURES) as ArchitectureName[]) {
+      it(`${architecture} on the ${footprintName}`, () => {
         const parts: string[] = [];
         for (const detail of [1, 2] as const) {
           for (const interiors of [undefined, 'none', 'all'] as const) {
             for (const seed of SEEDS) {
-              parts.push(digest(fp.box, { seed, minFloors: 1, maxFloors: 6, alleys: fp.alleys, roofProps: true, architecture: arch, detail, interiors }));
+              parts.push(digest(footprint.box, { seed, minFloors: 1, maxFloors: 6, alleys: footprint.alleys, roofProps: true, architecture, detail, interiors }));
             }
           }
         }
-        expect(sha1(parts.join())).toBe(ARCH_GOLDEN[fpName][arch]);
+        expect(sha1(parts.join())).toBe(ARCH_GOLDEN[footprintName][architecture]);
       });
     }
   }
 
-  for (const [name, v] of Object.entries(VARIANTS)) {
+  for (const [name, variant] of Object.entries(VARIANTS)) {
     it(`variant ${name}`, () => {
-      const parts = Object.values(FOOTPRINTS).flatMap((fp) => SEEDS.map((seed) => digest(fp.box, { seed, minFloors: 1, maxFloors: 6, alleys: fp.alleys, roofProps: true, ...v })));
+      const parts = Object.values(FOOTPRINTS).flatMap((footprint) => SEEDS.map((seed) => digest(footprint.box, { seed, minFloors: 1, maxFloors: 6, alleys: footprint.alleys, roofProps: true, ...variant })));
       expect(sha1(parts.join())).toBe(VARIANT_GOLDEN[name]);
     });
   }
@@ -101,12 +101,12 @@ describe('planBlock output is unchanged', () => {
     base: 'cb11b63cfa6f0e32268d0363879c3af8260149e1', alleys: '11c102ef484ddcf982ebb772024c1e68402eab18', noAnnexes: '9486924d94d1e75e394de487e92256e567111742',
     building: '090425bb46fb2b63ae0b5f8dc66588e02b40a70e', house: '2501de1722125299ba060a821623e99416c2ffd5',
   };
-  for (const [name, o] of Object.entries(OPTIONS)) {
+  for (const [name, options] of Object.entries(OPTIONS)) {
     it(name, () => {
       const parts: string[] = [];
       for (let seed = 1; seed <= 40; seed++) {
-        const w = 640 + (seed % 6) * 128, h = 512 + (seed % 5) * 192;
-        parts.push(JSON.stringify(planBlock(new Box2(new Vector2(0, 0), new Vector2(w, h)), new Rng(seed), o)));
+        const width = 640 + (seed % 6) * 128, height = 512 + (seed % 5) * 192;
+        parts.push(JSON.stringify(planBlock(new Box2(new Vector2(0, 0), new Vector2(width, height)), new Rng(seed), options)));
       }
       expect(sha1(parts.join())).toBe(PLAN_GOLDEN[name]);
     });

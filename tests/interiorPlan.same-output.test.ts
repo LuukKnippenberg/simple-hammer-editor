@@ -6,8 +6,8 @@ import { planInterior, type InteriorPlanOptions } from '../src/gen/interiorPlan.
 import { rectPoly } from '../src/gen/buildingPlan.ts';
 import { Rng } from '../src/gen/rng.ts';
 
-const rect = (w: number, h: number, x = 0, y = 0) => rectPoly(new Box2(new Vector2(x, y), new Vector2(x + w, y + h)));
-const ell = (a: number, b: number) => [new Vector2(0, 0), new Vector2(a, 0), new Vector2(a, b), new Vector2(b, b), new Vector2(b, a), new Vector2(0, a)];
+const rect = (width: number, height: number, x = 0, y = 0) => rectPoly(new Box2(new Vector2(x, y), new Vector2(x + width, y + height)));
+const ell = (size: number, wing: number) => [new Vector2(0, 0), new Vector2(size, 0), new Vector2(size, wing), new Vector2(wing, wing), new Vector2(wing, size), new Vector2(0, size)];
 
 /** The footprints of interiorPlan.test.ts, plus a narrow one. */
 const FOOTPRINTS: Record<string, Vector2[]> = {
@@ -37,14 +37,14 @@ const OPTIONS: Record<string, InteriorPlanOptions> = {
 const SEEDS = Array.from({ length: 10 }, (_, i) => i * 37 + 1);
 
 /** sha1 over the plans for every seed, plus the next RNG draw (so a changed RNG call count shows too). */
-function hashCase(fp: Vector2[], o: InteriorPlanOptions): string {
-  const h = createHash('sha1');
+function hashCase(footprint: Vector2[], options: InteriorPlanOptions): string {
+  const hash = createHash('sha1');
   for (const seed of SEEDS) {
     const rng = new Rng(seed);
-    h.update(JSON.stringify(planInterior(fp, rng, o)));
-    h.update(String(rng.next()));
+    hash.update(JSON.stringify(planInterior(footprint, rng, options)));
+    hash.update(String(rng.next()));
   }
-  return h.digest('hex');
+  return hash.digest('hex');
 }
 
 const EXPECTED: Record<string, string> = {
@@ -123,10 +123,10 @@ const EXPECTED: Record<string, string> = {
 };
 
 describe('planInterior gives the same output as before the refactor', () => {
-  for (const [fpName, fp] of Object.entries(FOOTPRINTS)) {
-    for (const [oName, o] of Object.entries(OPTIONS)) {
-      const name = `${fpName} / ${oName}`;
-      it(name, () => expect(hashCase(fp, o)).toBe(EXPECTED[name]));
+  for (const [footprintName, footprint] of Object.entries(FOOTPRINTS)) {
+    for (const [optionsName, options] of Object.entries(OPTIONS)) {
+      const name = `${footprintName} / ${optionsName}`;
+      it(name, () => expect(hashCase(footprint, options)).toBe(EXPECTED[name]));
     }
   }
 });

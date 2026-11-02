@@ -9,7 +9,7 @@ import type { Editor } from '../src/editor.ts';
 export function stubEditor(doc = VmfDocument.empty()): Editor {
   const selection = {
     solids: new Set<MapSolid>(), entities: new Set<MapEntity>(),
-    set(s: MapSolid[], e: MapEntity[] = []) { this.solids = new Set(s); this.entities = new Set(e); },
+    set(solids: MapSolid[], entities: MapEntity[] = []) { this.solids = new Set(solids); this.entities = new Set(entities); },
     clear() { this.solids.clear(); this.entities.clear(); },
   };
   return {

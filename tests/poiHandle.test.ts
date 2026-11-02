@@ -11,96 +11,96 @@ import '../src/gen/poi/catalogue.ts';
 import { stubEditor } from './stubEditor.ts';
 
 /** What is selected (entities). */
-const picked = (ed: Editor) => [...ed.selection.entities];
+const picked = (editor: Editor) => [...editor.selection.entities];
 
 const square = poiType('square')!;
-const box = (h: MapEntity) => solidBounds(h.solids[0]);
+const box = (handleEntity: MapEntity) => solidBounds(handleEntity.solids[0]);
 
 describe('POI handles', () => {
   it('every POI gets one handle over its rectangle, kept through rebuilds and removed with the POI', () => {
-    const ed = stubEditor();
+    const editor = stubEditor();
     const spec = newSpec(square, { x0: 0, y0: 0, x1: 1024, y1: 1024 }, 32, { seed: 3 });
-    const detail = applyPoi(ed, spec, 'gen');
-    const handle = handleOf(ed.doc, spec.uid)!;
-    expect(ed.doc.entities.filter((e) => e.classname === HANDLE_CLASS)).toHaveLength(1);
+    const detail = applyPoi(editor, spec, 'gen');
+    const handle = handleOf(editor.doc, spec.uid)!;
+    expect(editor.doc.entities.filter((e) => e.classname === HANDLE_CLASS)).toHaveLength(1);
     expect(box(handle).min.toArray()).toEqual([0, 0, 32]);
     expect(box(handle).max.toArray()).toEqual([1024, 1024, 32 + HANDLE_HEIGHT]);
     // The handle is not one of the parts a rebuild replaces.
-    expect(poiMembers(ed, spec.uid).entities).not.toContain(handle);
-    regeneratePoi(ed, detail, { rect: { x0: 256, y0: 0, x1: 1280, y1: 1024 } });
-    expect(handleOf(ed.doc, spec.uid)).toBe(handle);
+    expect(poiMembers(editor, spec.uid).entities).not.toContain(handle);
+    regeneratePoi(editor, detail, { rect: { x0: 256, y0: 0, x1: 1280, y1: 1024 } });
+    expect(handleOf(editor.doc, spec.uid)).toBe(handle);
     expect(box(handle).min.x).toBe(256);
-    expect(picked(ed)).toEqual([handle]);
-    deletePoi(ed, detail);
-    expect(ed.doc.entities).toHaveLength(0);
-    ed.history.undo();
-    expect(handleOf(ed.doc, spec.uid)).not.toBeNull();
+    expect(picked(editor)).toEqual([handle]);
+    deletePoi(editor, detail);
+    expect(editor.doc.entities).toHaveLength(0);
+    editor.history.undo();
+    expect(handleOf(editor.doc, spec.uid)).not.toBeNull();
   });
 
   it('moving the handle moves the POI, and one undo puts both back', () => {
-    const ed = stubEditor();
+    const editor = stubEditor();
     const spec = newSpec(square, { x0: 0, y0: 0, x1: 1024, y1: 1024 }, 0, { seed: 3 });
-    const detail = applyPoi(ed, spec, 'gen');
-    const handle = handleOf(ed.doc, spec.uid)!;
-    const props = () => ed.doc.entities.filter((e) => e.classname === 'prop_static' && poiMembers(ed, spec.uid).entities.includes(e)).map((e) => e.origin!.x).sort((a, b) => a - b);
+    const detail = applyPoi(editor, spec, 'gen');
+    const handle = handleOf(editor.doc, spec.uid)!;
+    const props = () => editor.doc.entities.filter((e) => e.classname === 'prop_static' && poiMembers(editor, spec.uid).entities.includes(e)).map((e) => e.origin!.x).sort((a, b) => a - b);
     const before = props();
     // What the Select tool does: the drag is recorded, then the rebuild joins it in one step.
-    const end = ed.history.begin('Move', handle.solids, [handle]);
+    const end = editor.history.begin('Move', handle.solids, [handle]);
     translateSolid(handle.solids[0], new Vector3(512, 256, 0));
-    ed.history.group('Move POI', () => { end(); handleDragged(ed, handle, 'translate'); });
+    editor.history.group('Move POI', () => { end(); handleDragged(editor, handle, 'translate'); });
     expect(poiOf(detail)!.spec.rect).toEqual({ x0: 512, y0: 256, x1: 1536, y1: 1280 });
     expect(props().map((x) => x - 512)).toEqual(before);
     expect(box(handle).min.toArray()).toEqual([512, 256, 0]);
-    ed.history.undo();
+    editor.history.undo();
     expect(poiOf(detail)!.spec.rect).toEqual({ x0: 0, y0: 0, x1: 1024, y1: 1024 });
     expect(box(handle).min.toArray()).toEqual([0, 0, 0]);
     expect(props()).toEqual(before);
   });
 
   it('resizing the handle resizes the POI within its type\'s sizes', () => {
-    const ed = stubEditor();
+    const editor = stubEditor();
     const spec = newSpec(square, { x0: 0, y0: 0, x1: 1024, y1: 1024 }, 0, { seed: 3 });
-    const detail = applyPoi(ed, spec, 'gen');
-    const handle = handleOf(ed.doc, spec.uid)!;
+    const detail = applyPoi(editor, spec, 'gen');
+    const handle = handleOf(editor.doc, spec.uid)!;
     remapSolid(handle.solids[0], box(handle), new Box3(new Vector3(-256, 0, 0), new Vector3(1536, 1024, 200)));
-    handleDragged(ed, handle, 'scale');
+    handleDragged(editor, handle, 'scale');
     expect(poiOf(detail)!.spec.rect).toEqual({ x0: -256, y0: 0, x1: 1536, y1: 1024 });
     expect(poiOf(detail)!.spec.z).toBe(0);
     expect(box(handle).max.z).toBe(HANDLE_HEIGHT);
     // Far bigger than a square may be: clamped to the largest.
     remapSolid(handle.solids[0], box(handle), new Box3(new Vector3(-20000, 0, 0), new Vector3(20000, 1024, 64)));
-    handleDragged(ed, handle, 'scale');
-    const r = poiOf(detail)!.spec.rect;
-    expect(r.x1 - r.x0).toBe(square.maxSize[0]);
+    handleDragged(editor, handle, 'scale');
+    const rect = poiOf(detail)!.spec.rect;
+    expect(rect.x1 - rect.x0).toBe(square.maxSize[0]);
   });
 
   it('turns a quarter turn around its centre and duplicates next to itself', () => {
-    const ed = stubEditor();
+    const editor = stubEditor();
     const spec = newSpec(square, { x0: 0, y0: 0, x1: 1536, y1: 1024 }, 0, { seed: 3 });
-    const detail = applyPoi(ed, spec, 'gen');
-    turnPoi(ed, detail, 1);
-    const t = poiOf(detail)!.spec;
-    expect(t.rotation).toBe(90);
-    expect([t.rect.x1 - t.rect.x0, t.rect.y1 - t.rect.y0]).toEqual([1024, 1536]);
-    expect([(t.rect.x0 + t.rect.x1) / 2, (t.rect.y0 + t.rect.y1) / 2]).toEqual([768, 512]);
-    const copy = duplicatePoi(ed, detail)!;
-    const c = poiOf(copy)!.spec;
-    expect(c.uid).not.toBe(t.uid);
-    expect(c.rect.x0).toBe(t.rect.x1 + 128);
-    expect([c.seed, c.rotation]).toEqual([t.seed, t.rotation]);
-    expect(ed.doc.entities.filter((e) => e.classname === HANDLE_CLASS)).toHaveLength(2);
-    expect(picked(ed)).toEqual([handleOf(ed.doc, c.uid)]);
+    const detail = applyPoi(editor, spec, 'gen');
+    turnPoi(editor, detail, 1);
+    const turned = poiOf(detail)!.spec;
+    expect(turned.rotation).toBe(90);
+    expect([turned.rect.x1 - turned.rect.x0, turned.rect.y1 - turned.rect.y0]).toEqual([1024, 1536]);
+    expect([(turned.rect.x0 + turned.rect.x1) / 2, (turned.rect.y0 + turned.rect.y1) / 2]).toEqual([768, 512]);
+    const copy = duplicatePoi(editor, detail)!;
+    const copied = poiOf(copy)!.spec;
+    expect(copied.uid).not.toBe(turned.uid);
+    expect(copied.rect.x0).toBe(turned.rect.x1 + 128);
+    expect([copied.seed, copied.rotation]).toEqual([turned.seed, turned.rotation]);
+    expect(editor.doc.entities.filter((e) => e.classname === HANDLE_CLASS)).toHaveLength(2);
+    expect(picked(editor)).toEqual([handleOf(editor.doc, copied.uid)]);
   });
 
   it('acts for the whole POI only when the selection is nothing but handles', () => {
-    const ed = stubEditor();
+    const editor = stubEditor();
     const spec = newSpec(square, { x0: 0, y0: 0, x1: 1024, y1: 1024 }, 0, { seed: 3 });
-    const detail = applyPoi(ed, spec, 'gen');
-    const handle = handleOf(ed.doc, spec.uid)!;
-    ed.selection.set([], [handle]);
-    expect(selectedPois(ed)).toEqual([detail]);
-    ed.selection.set([], [handle, poiMembers(ed, spec.uid).entities[0]]);
-    expect(selectedPois(ed)).toEqual([]);
+    const detail = applyPoi(editor, spec, 'gen');
+    const handle = handleOf(editor.doc, spec.uid)!;
+    editor.selection.set([], [handle]);
+    expect(selectedPois(editor)).toEqual([detail]);
+    editor.selection.set([], [handle, poiMembers(editor, spec.uid).entities[0]]);
+    expect(selectedPois(editor)).toEqual([]);
   });
 
   it('never reaches a compiled map; generated maps get handles too', () => {

@@ -11,32 +11,32 @@ const kit = (id: string) => KITS.find((k) => k.id === id)!;
 
 describe('Lambda Wars kits', () => {
   it('capture point pairs the flag with a capture area of the chosen radius', () => {
-    const ed = stubEditor();
-    recordKit(ed, 'cp', () => kit('capture_point').place(ed, new Vector3(0, 0, 0), { ...params('capture_point'), radius: 256 }));
-    const cp = ed.doc.entities.find((e) => e.classname === 'control_point')!;
-    const area = ed.doc.entities.find((e) => e.classname === 'trigger_capture_area')!;
-    expect(area.get('control_point')).toBe(cp.get('targetname'));
+    const editor = stubEditor();
+    recordKit(editor, 'cp', () => kit('capture_point').place(editor, new Vector3(0, 0, 0), { ...params('capture_point'), radius: 256 }));
+    const controlPoint = editor.doc.entities.find((e) => e.classname === 'control_point')!;
+    const area = editor.doc.entities.find((e) => e.classname === 'trigger_capture_area')!;
+    expect(area.get('control_point')).toBe(controlPoint.get('targetname'));
     expect(area.solids).toHaveLength(1);
     expect(area.solids[0].sides.every((s) => s.material === 'TOOLS/TOOLSTRIGGER')).toBe(true);
   });
 
   it('wave spawns units that are ordered to the goal, with valid connections', () => {
-    const ed = stubEditor();
-    recordKit(ed, 'wave', () => kit('wave').place(ed, new Vector3(100, 0, 0), params('wave')));
-    const maker = ed.doc.entities.find((e) => e.classname === 'unit_maker')!;
-    const order = ed.doc.entities.find((e) => e.classname === 'wars_give_order')!;
+    const editor = stubEditor();
+    recordKit(editor, 'wave', () => kit('wave').place(editor, new Vector3(100, 0, 0), params('wave')));
+    const maker = editor.doc.entities.find((e) => e.classname === 'unit_maker')!;
+    const order = editor.doc.entities.find((e) => e.classname === 'wars_give_order')!;
     expect(getConnections(maker)[0]).toMatchObject({ output: 'OnSpawnNPC', target: order.get('targetname'), input: 'PerformOrderUnit' });
     expect(order.get('unitname')).toBe(maker.get('NPCTargetname'));
-    expect(validateConnections(ed.doc).filter((p) => p.severity === 'error')).toEqual([]);
+    expect(validateConnections(editor.doc).filter((p) => p.severity === 'error')).toEqual([]);
   });
 
   it('walking queue moves everyone one spot per step, the leaver first and then the line from the front', () => {
-    const ed = stubEditor();
-    recordKit(ed, 'q', () => kit('queue').place(ed, new Vector3(0, 0, 0), { ...params('queue'), slots: 4, spacing: 50, yaw: 90, length: 400, side: 'left', out: 200, interval: 6 }));
-    expect(validateConnections(ed.doc).filter((p) => p.severity === 'error')).toEqual([]);
-    const named = (n: string) => ed.doc.entities.find((e) => e.get('targetname') === n)!;
+    const editor = stubEditor();
+    recordKit(editor, 'q', () => kit('queue').place(editor, new Vector3(0, 0, 0), { ...params('queue'), slots: 4, spacing: 50, yaw: 90, length: 400, side: 'left', out: 200, interval: 6 }));
+    expect(validateConnections(editor.doc).filter((p) => p.severity === 'error')).toEqual([]);
+    const named = (name: string) => editor.doc.entities.find((e) => e.get('targetname') === name)!;
     // Four places plus two walking back: six people, six spots, six steps.
-    expect(ed.doc.entities.filter((e) => e.classname === 'unit_citizen')).toHaveLength(6);
+    expect(editor.doc.entities.filter((e) => e.classname === 'unit_citizen')).toHaveLength(6);
     const spot = (j: number) => named(`queue_p${j}`).origin!.toArray().map(Math.round);
     // Head, off to the left (west when facing north), the entrance, then the line from the last place up.
     expect([spot(0), spot(1), spot(2), spot(3), spot(4), spot(5)]).toEqual([[0, 0, 16], [-200, -40, 16], [0, -400, 16], [0, -150, 16], [0, -100, 16], [0, -50, 16]]);
@@ -53,38 +53,38 @@ describe('Lambda Wars kits', () => {
     expect(Math.max(...step0.map((x) => x.delay))).toBe(6);
     expect(step0.find((x) => x.target === 'queue_step1')).toMatchObject({ input: 'Trigger', delay: 6 });
     expect(getConnections(named('queue_step5')).find((x) => x.input === 'Trigger')!.target).toBe('queue_step0');
-    expect(getConnections(ed.doc.entities.find((e) => e.classname === 'logic_auto')!)).toEqual([expect.objectContaining({ target: 'queue_step0', input: 'Trigger' })]);
+    expect(getConnections(editor.doc.entities.find((e) => e.classname === 'logic_auto')!)).toEqual([expect.objectContaining({ target: 'queue_step0', input: 'Trigger' })]);
   });
 
   it('messages and winning objectives share one map_start and one win condition, and undo in one step', () => {
-    const ed = stubEditor();
-    for (let i = 0; i < 2; i++) recordKit(ed, 'msg', () => kit('message').place(ed, new Vector3(i * 64, 0, 0), params('message')));
-    recordKit(ed, 'obj', () => kit('objective').place(ed, new Vector3(0, 200, 0), { ...params('objective'), wins: true }));
-    const starts = ed.doc.entities.filter((e) => e.classname === 'logic_auto');
+    const editor = stubEditor();
+    for (let i = 0; i < 2; i++) recordKit(editor, 'msg', () => kit('message').place(editor, new Vector3(i * 64, 0, 0), params('message')));
+    recordKit(editor, 'obj', () => kit('objective').place(editor, new Vector3(0, 200, 0), { ...params('objective'), wins: true }));
+    const starts = editor.doc.entities.filter((e) => e.classname === 'logic_auto');
     expect(starts).toHaveLength(1);
     expect(getConnections(starts[0]).map((c) => c.input)).toEqual(['Display', 'Display']);
-    expect(ed.doc.entities.filter((e) => e.classname === 'wars_win_condition')).toHaveLength(1);
+    expect(editor.doc.entities.filter((e) => e.classname === 'wars_win_condition')).toHaveLength(1);
     // Undo the second message: its box goes, and map_start loses exactly one connection.
-    ed.history.undo();
-    ed.history.undo();
-    expect(ed.doc.entities.filter((e) => e.classname === 'wars_messagebox')).toHaveLength(1);
-    expect(getConnections(ed.doc.entities.find((e) => e.classname === 'logic_auto')!)).toHaveLength(1);
+    editor.history.undo();
+    editor.history.undo();
+    expect(editor.doc.entities.filter((e) => e.classname === 'wars_messagebox')).toHaveLength(1);
+    expect(getConnections(editor.doc.entities.find((e) => e.classname === 'logic_auto')!)).toHaveLength(1);
   });
 
   it('standard relations make the player hate every other unit owner', () => {
-    const ed = stubEditor();
-    recordKit(ed, 'z', () => kit('unit_group').place(ed, new Vector3(), { ...params('unit_group'), owner: '1' }));
-    recordKit(ed, 'c', () => kit('unit_group').place(ed, new Vector3(500, 0, 0), { ...params('unit_group'), unit: 'combine', owner: '3' }));
-    recordKit(ed, 'rel', () => applyStandardRelations(ed));
-    const rel = ed.doc.entities.filter((e) => e.classname === 'wars_player_relation');
-    expect(rel.map((e) => e.get('targetplayer')).sort()).toEqual(['1', '3']);
-    expect(rel.every((e) => e.get('disposition') === '1' && e.get('subjectplayer') === '2')).toBe(true);
+    const editor = stubEditor();
+    recordKit(editor, 'z', () => kit('unit_group').place(editor, new Vector3(), { ...params('unit_group'), owner: '1' }));
+    recordKit(editor, 'c', () => kit('unit_group').place(editor, new Vector3(500, 0, 0), { ...params('unit_group'), unit: 'combine', owner: '3' }));
+    recordKit(editor, 'rel', () => applyStandardRelations(editor));
+    const relations = editor.doc.entities.filter((e) => e.classname === 'wars_player_relation');
+    expect(relations.map((e) => e.get('targetplayer')).sort()).toEqual(['1', '3']);
+    expect(relations.every((e) => e.get('disposition') === '1' && e.get('subjectplayer') === '2')).toBe(true);
   });
 
   it('the unit list comes from the game: every type the Civil Protection tutorial needs is there', () => {
-    for (const t of ['unit_stalker', 'unit_citizen', 'unit_strider', 'unit_combinedropship', 'unit_combinegunship',
+    for (const unit of ['unit_stalker', 'unit_citizen', 'unit_strider', 'unit_combinedropship', 'unit_combinegunship',
       'unit_scanner', 'unit_clawscanner', 'unit_manhack', 'unit_metropolice', 'unit_metropolice_riot', 'unit_combine_sg', 'unit_rebel_rpg']) {
-      expect(findUnit(t), t).toBeDefined();
+      expect(findUnit(unit), unit).toBeDefined();
     }
     expect(findUnit('unit_metropolice_riot')).toMatchObject({ cls: 'unit_metropolice', faction: 'combine', model: 'models/police_extended.mdl' });
     expect(findUnit('unit_scanner')).toMatchObject({ cls: 'unit_cscanner', air: 370 });
@@ -96,44 +96,44 @@ describe('Lambda Wars kits', () => {
   });
 
   it('air units are placed at their flying height, ground units on the ground', () => {
-    const ed = stubEditor();
-    recordKit(ed, 'air', () => kit('unit_group').place(ed, new Vector3(0, 0, 100), { ...params('unit_group'), unit: 'unit_combinedropship', count: 2 }));
-    recordKit(ed, 'ground', () => kit('unit_group').place(ed, new Vector3(0, 2000, 100), { ...params('unit_group'), unit: 'unit_stalker', count: 2 }));
-    const ships = ed.doc.entities.filter((e) => e.classname === 'unit_combinedropship');
+    const editor = stubEditor();
+    recordKit(editor, 'air', () => kit('unit_group').place(editor, new Vector3(0, 0, 100), { ...params('unit_group'), unit: 'unit_combinedropship', count: 2 }));
+    recordKit(editor, 'ground', () => kit('unit_group').place(editor, new Vector3(0, 2000, 100), { ...params('unit_group'), unit: 'unit_stalker', count: 2 }));
+    const ships = editor.doc.entities.filter((e) => e.classname === 'unit_combinedropship');
     expect(ships.map((e) => e.origin!.z)).toEqual([700, 700]);
     // Big hulls get more room than the 64 the kit asks for.
     expect(Math.abs(ships[0].origin!.x - ships[1].origin!.x)).toBeGreaterThanOrEqual(320);
-    expect(ed.doc.entities.filter((e) => e.classname === 'unit_stalker').every((e) => e.origin!.z === 104)).toBe(true);
+    expect(editor.doc.entities.filter((e) => e.classname === 'unit_stalker').every((e) => e.origin!.z === 104)).toBe(true);
   });
 
   it('a custom unittype keeps the class of the chosen unit, also in waves', () => {
-    const ed = stubEditor();
-    recordKit(ed, 'g', () => kit('unit_group').place(ed, new Vector3(), { ...params('unit_group'), unit: 'unit_metropolice', count: 1, unittype: 'sp_tutorial_unit_metropolice_baton' }));
-    const cop = ed.doc.entities.find((e) => e.classname === 'unit_metropolice')!;
+    const editor = stubEditor();
+    recordKit(editor, 'g', () => kit('unit_group').place(editor, new Vector3(), { ...params('unit_group'), unit: 'unit_metropolice', count: 1, unittype: 'sp_tutorial_unit_metropolice_baton' }));
+    const cop = editor.doc.entities.find((e) => e.classname === 'unit_metropolice')!;
     expect(cop.get('unittype')).toBe('sp_tutorial_unit_metropolice_baton');
     // An unknown unittype still draws as its class.
     expect(entityModel(cop)).toBe('models/police.mdl');
-    recordKit(ed, 'w', () => kit('wave').place(ed, new Vector3(), { ...params('wave'), unit: 'unit_stalker', unittype: 'sp_stalker_x' }));
-    expect(ed.doc.entities.find((e) => e.classname === 'unit_maker')!.get('NPCType')).toBe('sp_stalker_x');
+    recordKit(editor, 'w', () => kit('wave').place(editor, new Vector3(), { ...params('wave'), unit: 'unit_stalker', unittype: 'sp_stalker_x' }));
+    expect(editor.doc.entities.find((e) => e.classname === 'unit_maker')!.get('NPCType')).toBe('sp_stalker_x');
   });
 
   it('mission start places a mixed squad', () => {
-    const ed = stubEditor();
+    const editor = stubEditor();
     const squad = formatSquad([{ unit: 'unit_metropolice_riot', count: 1, unittype: '' }, { unit: 'unit_stalker', count: 2, unittype: '' }]);
     expect(parseSquad(squad)).toHaveLength(2);
-    recordKit(ed, 'sp', () => kit('sp_start').place(ed, new Vector3(), { ...params('sp_start'), faction: 'combine', squad }));
-    const units = ed.doc.entities.filter((e) => e.get('targetname') === 'player_squad');
+    recordKit(editor, 'sp', () => kit('sp_start').place(editor, new Vector3(), { ...params('sp_start'), faction: 'combine', squad }));
+    const units = editor.doc.entities.filter((e) => e.get('targetname') === 'player_squad');
     expect(units.map((e) => e.get('unittype')).sort()).toEqual(['unit_metropolice_riot', 'unit_stalker', 'unit_stalker']);
     expect(units.every((e) => e.get('ownernumber') === '2')).toBe(true);
     expect(parseSquad(String(params('sp_start').squad))).toEqual([{ unit: 'rebel', count: 6, unittype: '' }]);
   });
 
   it('units draw with the model and scale of their unittype', () => {
-    const ed = stubEditor();
-    recordKit(ed, 'g', () => kit('unit_group').place(ed, new Vector3(), { ...params('unit_group'), unit: 'unit_metropolice_riot', count: 1 }));
-    recordKit(ed, 'g', () => kit('unit_group').place(ed, new Vector3(), { ...params('unit_group'), unit: 'unit_combinegunship', count: 1 }));
-    const riot = ed.doc.entities.find((e) => e.get('unittype') === 'unit_metropolice_riot')!;
-    const gunship = ed.doc.entities.find((e) => e.classname === 'unit_combinegunship')!;
+    const editor = stubEditor();
+    recordKit(editor, 'g', () => kit('unit_group').place(editor, new Vector3(), { ...params('unit_group'), unit: 'unit_metropolice_riot', count: 1 }));
+    recordKit(editor, 'g', () => kit('unit_group').place(editor, new Vector3(), { ...params('unit_group'), unit: 'unit_combinegunship', count: 1 }));
+    const riot = editor.doc.entities.find((e) => e.get('unittype') === 'unit_metropolice_riot')!;
+    const gunship = editor.doc.entities.find((e) => e.classname === 'unit_combinegunship')!;
     expect(unitForEntity(riot)?.label).toBe('Metrocop');
     expect(entityModel(riot)).toBe('models/police_extended.mdl');
     expect(entityModel(gunship)).toBe('models/gunship.mdl');

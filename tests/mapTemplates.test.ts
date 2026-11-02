@@ -15,22 +15,22 @@ const key = ([x, y]: readonly [number, number]) => `${x},${y}`;
 
 /** The boundary's inside (the playerclip shell's inner faces). */
 function boundaryBox(doc: VmfDocument): Box3 {
-  const b = doc.entities.find((e) => e.classname === 'func_map_boundary')!;
-  const boxes = b.solids.map(solidBounds);
+  const boundary = doc.entities.find((e) => e.classname === 'func_map_boundary')!;
+  const boxes = boundary.solids.map(solidBounds);
   const outer = boxes.reduce((a, x) => a.clone().union(x));
-  const t = Math.min(...boxes.map((x) => Math.min(x.max.x - x.min.x, x.max.y - x.min.y, x.max.z - x.min.z)));
-  return new Box3(new Vector3(outer.min.x + t, outer.min.y + t, outer.min.z + t), new Vector3(outer.max.x - t, outer.max.y - t, outer.max.z - t));
+  const thickness = Math.min(...boxes.map((x) => Math.min(x.max.x - x.min.x, x.max.y - x.min.y, x.max.z - x.min.z)));
+  return new Box3(new Vector3(outer.min.x + thickness, outer.min.y + thickness, outer.min.z + thickness), new Vector3(outer.max.x - thickness, outer.max.y - thickness, outer.max.z - thickness));
 }
 
 /** True when every point maps onto another point of the same set when turned by `deg` about the origin. */
 function rotationSymmetric(points: (readonly [number, number])[], deg: number): boolean {
   const set = new Set(points.map(key));
-  const a = (deg * Math.PI) / 180;
-  return points.every(([x, y]) => set.has(key([Math.round(x * Math.cos(a) - y * Math.sin(a)), Math.round(x * Math.sin(a) + y * Math.cos(a))])));
+  const angle = (deg * Math.PI) / 180;
+  return points.every(([x, y]) => set.has(key([Math.round(x * Math.cos(angle) - y * Math.sin(angle)), Math.round(x * Math.sin(angle) + y * Math.cos(angle))])));
 }
 
-function commonChecks(o: TemplateOptions) {
-  const { doc, mission, plan } = buildTemplate(o);
+function commonChecks(options: TemplateOptions) {
+  const { doc, mission, plan } = buildTemplate(options);
   // Every brush builds, and the document round-trips like any other VMF.
   for (const s of doc.allSolids()) expect(buildSolidChunks(s).chunks.size).toBeGreaterThan(0);
   expect(VmfDocument.parse(doc.serialize()).serialize()).toBe(doc.serialize());
@@ -44,8 +44,8 @@ function commonChecks(o: TemplateOptions) {
   expect(inside.max.x - inside.min.x).toBe(plan.size);
   for (const e of doc.entities) {
     if (!/^(info_start_wars|info_player_wars|control_point|scrap_marker_small|overrun_|unit_|wars_player_setup)/.test(e.classname)) continue;
-    const p = e.origin!;
-    expect(p.x > inside.min.x + 128 && p.x < inside.max.x - 128 && p.y > inside.min.y + 128 && p.y < inside.max.y - 128, `${e.classname} at ${p.x} ${p.y}`).toBe(true);
+    const origin = e.origin!;
+    expect(origin.x > inside.min.x + 128 && origin.x < inside.max.x - 128 && origin.y > inside.min.y + 128 && origin.y < inside.max.y - 128, `${e.classname} at ${origin.x} ${origin.y}`).toBe(true);
   }
   return { doc, mission, plan };
 }
@@ -61,9 +61,9 @@ describe('map templates', () => {
         expect(starts.map((e) => e.get('ownernumber')).sort()).toEqual(Array.from({ length: players }, (_, i) => String(2 + i)).sort());
         // A camera spawn per player too.
         expect(doc.entities.filter((e) => e.classname === 'info_player_wars').map((e) => e.get('ownernumber')).sort()).toEqual(starts.map((e) => e.get('ownernumber')).sort());
-        const pts = starts.map(xy);
-        expect(rotationSymmetric(pts, 180)).toBe(true);
-        if (players === 4) expect(rotationSymmetric(pts, 90)).toBe(true);
+        const startPoints = starts.map(xy);
+        expect(rotationSymmetric(startPoints, 180)).toBe(true);
+        if (players === 4) expect(rotationSymmetric(startPoints, 90)).toBe(true);
         // Team hints give 2vs2, 3vs3 and 4vs4 in the lobby; two players play 1v1 without them.
         const teams = starts.map((e) => e.get('groupname') ?? '');
         if (players === 2) expect(teams.every((t) => !t)).toBe(true);
@@ -78,13 +78,13 @@ describe('map templates', () => {
         expect(scrap.length).toBeGreaterThanOrEqual(players * 3);
         expect(rotationSymmetric(scrap.map(xy), 180)).toBe(true);
         // Nothing crowds a base, and capture areas don't overlap.
-        const dist = (a: readonly [number, number], b: readonly [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-        for (const s of pts) {
-          for (const f of flags) expect(dist(s, xy(f))).toBeGreaterThan(700);
-          for (const c of scrap) expect(dist(s, xy(c))).toBeGreaterThan(300);
-          for (const t of pts) if (t !== s) expect(dist(s, t)).toBeGreaterThan(900);
+        const distance = (a: readonly [number, number], b: readonly [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+        for (const start of startPoints) {
+          for (const f of flags) expect(distance(start, xy(f))).toBeGreaterThan(700);
+          for (const c of scrap) expect(distance(start, xy(c))).toBeGreaterThan(300);
+          for (const t of startPoints) if (t !== start) expect(distance(start, t)).toBeGreaterThan(900);
         }
-        for (const a of flags) for (const b of flags) if (a !== b) expect(dist(xy(a), xy(b))).toBeGreaterThanOrEqual(400);
+        for (const a of flags) for (const b of flags) if (a !== b) expect(distance(xy(a), xy(b))).toBeGreaterThanOrEqual(400);
       }
     }
   });
@@ -101,7 +101,7 @@ describe('map templates', () => {
       expect(waves.length).toBe(8);
       expect(rotationSymmetric(waves.map(xy), 90)).toBe(true);
       // Waves come from far away: at least half the map from every start.
-      for (const w of waves) for (const s of starts) expect(w.origin!.distanceTo(s.origin!)).toBeGreaterThan(MAP_SIZES.medium.units / 3);
+      for (const wave of waves) for (const start of starts) expect(wave.origin!.distanceTo(start.origin!)).toBeGreaterThan(MAP_SIZES.medium.units / 3);
     }
   });
 

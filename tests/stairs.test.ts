@@ -12,39 +12,39 @@ import {
 
 const solid = (n: KVNode) => new MapSolid(n, null);
 /** A valid convex solid: every side makes a face, with a real volume. */
-function valid(n: KVNode): boolean {
-  const s = solid(n);
-  const faces = buildBrushFaces(s);
-  if (faces.length !== s.sides.length || faces.length < 4) return false;
+function valid(node: KVNode): boolean {
+  const brush = solid(node);
+  const faces = buildBrushFaces(brush);
+  if (faces.length !== brush.sides.length || faces.length < 4) return false;
   return hullVolume(faces.map((f) => ({ normal: f.plane.normal, verts: f.verts }))) > 1;
 }
-const mats = (n: KVNode) => solid(n).sides.map((x) => x.material);
-const top = (n: KVNode) => solidBounds(solid(n)).max.z;
+const mats = (node: KVNode) => solid(node).sides.map((side) => side.material);
+const top = (node: KVNode) => solidBounds(solid(node)).max.z;
 
-function spec(nodes: [number, number, number][], flights: [number, number][], o: Partial<StairsOptions> = {}): StairsSpec {
-  return { uid: 'test', nodes: nodes.map(([x, y, z]) => ({ x, y, z })), flights: flights.map(([from, to]) => ({ from, to })), options: { ...DEFAULT_STAIRS, ...o } };
+function spec(nodes: [number, number, number][], flights: [number, number][], options: Partial<StairsOptions> = {}): StairsSpec {
+  return { uid: 'test', nodes: nodes.map(([x, y, z]) => ({ x, y, z })), flights: flights.map(([from, to]) => ({ from, to })), options: { ...DEFAULT_STAIRS, ...options } };
 }
-const build = (s: StairsSpec) => buildStairs(VmfDocument.empty(), s);
+const build = (stairs: StairsSpec) => buildStairs(VmfDocument.empty(), stairs);
 
 /** A to B, 336 long and 192 up: the board's 12 steps of 16 rise and 28 tread. */
-const straight = (o: Partial<StairsOptions> = {}) => spec([[0, 0, 0], [336, 0, 192]], [[0, 1]], o);
+const straight = (options: Partial<StairsOptions> = {}) => spec([[0, 0, 0], [336, 0, 192]], [[0, 1]], options);
 /** Three points: A → B → C, turning at B. */
-const chain = (o: Partial<StairsOptions> = {}) => spec([[0, 0, 0], [256, 0, 96], [256, 320, 192]], [[0, 1], [1, 2]], o);
+const chain = (options: Partial<StairsOptions> = {}) => spec([[0, 0, 0], [256, 0, 96], [256, 320, 192]], [[0, 1], [1, 2]], options);
 /** A → B, then B → C1 and B → C2 (a T at B). */
-const tee = (o: Partial<StairsOptions> = {}) => spec([[0, 0, 0], [0, 256, 128], [-320, 256, 192], [320, 256, 192]], [[0, 1], [1, 2], [1, 3]], o);
+const tee = (options: Partial<StairsOptions> = {}) => spec([[0, 0, 0], [0, 256, 128], [-320, 256, 192], [320, 256, 192]], [[0, 1], [1, 2], [1, 3]], options);
 
 describe('stairs geometry', () => {
   it('rise and run: 192 over 336 is 12 steps of 16 by 28', () => {
-    const r = build(straight());
-    expect(r.flights).toHaveLength(1);
-    const f = r.flights[0];
-    expect(f.steps).toBe(12);
-    expect(f.rise).toBe(16);
-    expect(f.tread).toBe(28);
-    expect(f.steep).toBe(false);
-    expect(stairsSummary(r)).toBe('12 steps · rise 16 · tread 28 · 336 × 128');
+    const result = build(straight());
+    expect(result.flights).toHaveLength(1);
+    const flight = result.flights[0];
+    expect(flight.steps).toBe(12);
+    expect(flight.rise).toBe(16);
+    expect(flight.tread).toBe(28);
+    expect(flight.steep).toBe(false);
+    expect(stairsSummary(result)).toBe('12 steps · rise 16 · tread 28 · 336 × 128');
     // Solid: one block per step from the ground, the last one level with B.
-    const steps = r.detail.filter((n) => mats(n).includes(DEFAULT_STAIRS.stepMaterial));
+    const steps = result.detail.filter((n) => mats(n).includes(DEFAULT_STAIRS.stepMaterial));
     expect(steps).toHaveLength(12);
     expect(Math.max(...steps.map(top))).toBe(192);
     expect(steps.map(top).sort((a, b) => a - b)).toEqual(Array.from({ length: 12 }, (_, k) => (k + 1) * 16));
@@ -54,40 +54,40 @@ describe('stairs geometry', () => {
     expect(autoSteps(100)).toBe(7);
     expect(autoSteps(16)).toBe(1);
     expect(autoSteps(-40)).toBe(3);
-    const s = straight();
-    s.flights[0].steps = 4;
-    const f = build(s).flights[0];
-    expect(f.steps).toBe(12);
-    expect(f.rise).toBeLessThanOrEqual(MAX_RISE);
-    s.flights[0].steps = 16;
-    expect(build(s).flights[0].steps).toBe(16);
-    expect(build(s).flights[0].rise).toBe(12);
+    const stairs = straight();
+    stairs.flights[0].steps = 4;
+    const flight = build(stairs).flights[0];
+    expect(flight.steps).toBe(12);
+    expect(flight.rise).toBeLessThanOrEqual(MAX_RISE);
+    stairs.flights[0].steps = 16;
+    expect(build(stairs).flights[0].steps).toBe(16);
+    expect(build(stairs).flights[0].rise).toBe(12);
   });
 
   it('flags a flight steeper than units can walk', () => {
-    const r = build(spec([[0, 0, 0], [128, 0, 192]], [[0, 1]]));
-    expect(r.flights[0].steep).toBe(true);
-    expect(stairsSummary(r)).toMatch(/too steep/);
+    const result = build(spec([[0, 0, 0], [128, 0, 192]], [[0, 1]]));
+    expect(result.flights[0].steep).toBe(true);
+    expect(stairsSummary(result)).toMatch(/too steep/);
     expect(Math.atan2(192, 336) * 180 / Math.PI).toBeLessThan(MAX_SLOPE);
   });
 
   it('lays an NPC clip ramp on the nosings, under 45 degrees', () => {
-    const r = build(straight());
-    expect(r.clip).toHaveLength(1);
-    const c = r.clip[0];
-    expect(valid(c)).toBe(true);
-    expect(mats(c).every((m) => m === 'TOOLS/TOOLSNPCCLIP')).toBe(true);
-    const faces = buildBrushFaces(solid(c));
+    const result = build(straight());
+    expect(result.clip).toHaveLength(1);
+    const clip = result.clip[0];
+    expect(valid(clip)).toBe(true);
+    expect(mats(clip).every((m) => m === 'TOOLS/TOOLSNPCCLIP')).toBe(true);
+    const faces = buildBrushFaces(solid(clip));
     const slope = faces.find((f) => f.plane.normal.z > 0.1 && f.plane.normal.z < 0.99)!;
     expect(Math.acos(slope.plane.normal.z) * 180 / Math.PI).toBeLessThan(MAX_SLOPE);
     // It touches each step's front edge: at x = 28k the ramp is at the k-th step's top. It starts 24 in front of
     // the flight with a lip of 4/28 of a rise, so the floor before long treads stays flat.
-    const b = solidBounds(solid(c));
-    expect(b.min.x).toBe(-24);
+    const bounds = solidBounds(solid(clip));
+    expect(bounds.min.x).toBe(-24);
     const lip = faces.find((f) => f.plane.normal.x < -0.99)!;
     expect(Math.max(...lip.verts.map((v) => v.z))).toBeCloseTo(16 * 4 / 28);
-    expect(b.max.x).toBe(308);
-    expect(b.max.z).toBe(192);
+    expect(bounds.max.x).toBe(308);
+    expect(bounds.max.z).toBe(192);
     expect(build(straight({ clip: false })).clip).toHaveLength(0);
     expect(build(straight({ profile: 'ramp' })).clip).toHaveLength(0);
   });
@@ -96,21 +96,21 @@ describe('stairs geometry', () => {
     for (const make of [straight, chain, tee]) {
       for (const [railStyle] of RAIL_STYLES) for (const profile of ['steps', 'ramp'] as const) for (const plan of ['blocky', 'angle'] as const) {
         for (const beams of ['none', 'both', 'under'] as const) {
-          const r = build(make({ structure, railStyle, profile, plan, beams }));
-          expect(r.detail.length).toBeGreaterThan(0);
-          for (const n of [...r.detail, ...r.clip]) expect(valid(n), `${make.name} ${structure} ${railStyle} ${profile} ${plan} ${beams}`).toBe(true);
+          const result = build(make({ structure, railStyle, profile, plan, beams }));
+          expect(result.detail.length).toBeGreaterThan(0);
+          for (const n of [...result.detail, ...result.clip]) expect(valid(n), `${make.name} ${structure} ${railStyle} ${profile} ${plan} ${beams}`).toBe(true);
         }
       }
     }
   });
 
   it('any-angle flights follow the points and stay valid', () => {
-    const s = spec([[0, 0, 0], [300, 180, 160], [520, -60, 64]], [[0, 1], [1, 2]], { plan: 'angle' });
-    const r = build(s);
-    expect(r.flights.map((f) => f.steps)).toEqual([10, 6]);
-    for (const n of [...r.detail, ...r.clip]) expect(valid(n)).toBe(true);
+    const stairs = spec([[0, 0, 0], [300, 180, 160], [520, -60, 64]], [[0, 1], [1, 2]], { plan: 'angle' });
+    const result = build(stairs);
+    expect(result.flights.map((f) => f.steps)).toEqual([10, 6]);
+    for (const n of [...result.detail, ...result.clip]) expect(valid(n)).toBe(true);
     // Blocky squares the same points to the grid, in order along the chain.
-    expect(plannedNodes({ ...s, options: { ...s.options, plan: 'blocky' } }).map((n) => [n.x, n.y])).toEqual([[0, 0], [300, 0], [300, -240]]);
+    expect(plannedNodes({ ...stairs, options: { ...stairs.options, plan: 'blocky' } }).map((n) => [n.x, n.y])).toEqual([[0, 0], [300, 0], [300, -240]]);
   });
 
   it('chains: every point after A that a flight leaves from is a landing', () => {

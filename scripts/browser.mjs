@@ -32,8 +32,8 @@ export async function withEditor(fn) {
   const browser = await launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
-    page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
-    page.on('dialog', (dlg) => dlg.accept());
+    page.on('pageerror', (error) => console.log('  [pageerror]', error.message));
+    page.on('dialog', (dialog) => dialog.accept());
     return await fn(driver(page), page);
   } finally {
     await browser.close();

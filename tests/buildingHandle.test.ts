@@ -18,17 +18,17 @@ import { stubEditor } from './stubEditor.ts';
 const OPTS = { seed: 11, minFloors: 3, maxFloors: 5, alleys: false, roofProps: true, architecture: 'tenement' as const };
 
 /** Generates blocks of buildings on block brushes (one group), like the Building panel. Returns their func_details. */
-function generate(ed: Editor, rects: [number, number, number, number][], opts = OPTS): MapEntity[] {
-  const brushes = rects.map(([x0, y0, x1, y1]) => ed.doc.addSolid(boxSolid(ed.doc, new Vector3(x0, y0, 0), new Vector3(x1, y1, 64), 'DEV/DEV_MEASUREGENERIC01')));
-  ed.selection.set(brushes, []);
-  buildingsFromSelection(ed, opts);
-  return selectedBlocks(ed);
+function generate(editor: Editor, rects: [number, number, number, number][], opts = OPTS): MapEntity[] {
+  const brushes = rects.map(([x0, y0, x1, y1]) => editor.doc.addSolid(boxSolid(editor.doc, new Vector3(x0, y0, 0), new Vector3(x1, y1, 64), 'DEV/DEV_MEASUREGENERIC01')));
+  editor.selection.set(brushes, []);
+  buildingsFromSelection(editor, opts);
+  return selectedBlocks(editor);
 }
 
-const handle = (ed: Editor, d: MapEntity) => findHandle(ed.doc, BUILDING_HANDLE, blockOf(d)!.uid)!;
-const cables = (ed: Editor) => ed.doc.entities.filter((e) => e.classname === 'move_rope');
+const handle = (editor: Editor, d: MapEntity) => findHandle(editor.doc, BUILDING_HANDLE, blockOf(d)!.uid)!;
+const cables = (editor: Editor) => editor.doc.entities.filter((e) => e.classname === 'move_rope');
 /** Everything in the map, as a fingerprint that changes when any of it changes. */
-const parts = (ed: Editor, d: MapEntity) => { const m = blockMembers(ed.doc, blockOf(d)!.uid); return { world: m.world, entities: m.entities }; };
+const parts = (editor: Editor, d: MapEntity) => { const members = blockMembers(editor.doc, blockOf(d)!.uid); return { world: members.world, entities: members.entities }; };
 
 describe('stored blocks of buildings', () => {
   it('keep their footprint and options through a save', () => {
@@ -45,9 +45,9 @@ describe('stored blocks of buildings', () => {
     const extra = { ...spec, options: { ...spec.options, sealed: true, lightBudget: 12 } as BlockSpec['options'] };
     expect(decodeBlock(encodeBlock(extra))).toEqual(extra);
 
-    const ed = stubEditor();
-    const [d] = generate(ed, [[0, 0, 1024, 768]], { ...OPTS, weathering: 0.2, detail: 1, roofs: 'flat' } as typeof OPTS);
-    const saved = VmfDocument.parse(ed.doc.serialize());
+    const editor = stubEditor();
+    const [d] = generate(editor, [[0, 0, 1024, 768]], { ...OPTS, weathering: 0.2, detail: 1, roofs: 'flat' } as typeof OPTS);
+    const saved = VmfDocument.parse(editor.doc.serialize());
     const again = saved.entities.find((e) => blockOf(e))!;
     expect(blockOf(again)).toEqual(blockOf(d));
     expect(blockOf(again)!.options).toMatchObject({ seed: 11, minFloors: 3, maxFloors: 5, weathering: 0.2, detail: 1, roofs: 'flat', architecture: 'tenement' });
@@ -55,55 +55,55 @@ describe('stored blocks of buildings', () => {
   });
 
   it('a rebuild replaces exactly the block\'s own parts', () => {
-    const ed = stubEditor();
-    const mine = ed.doc.addSolid(boxSolid(ed.doc, new Vector3(5000, 0, 0), new Vector3(5128, 128, 128), 'DEV/DEV_MEASUREGENERIC01'));
-    const [a, b] = generate(ed, [[0, 0, 1024, 768], [1280, 0, 2304, 768]]);
-    const bBefore = parts(ed, b);
-    const aBefore = parts(ed, a);
+    const editor = stubEditor();
+    const mine = editor.doc.addSolid(boxSolid(editor.doc, new Vector3(5000, 0, 0), new Vector3(5128, 128, 128), 'DEV/DEV_MEASUREGENERIC01'));
+    const [a, b] = generate(editor, [[0, 0, 1024, 768], [1280, 0, 2304, 768]]);
+    const bBefore = parts(editor, b);
+    const aBefore = parts(editor, a);
     expect(aBefore.world.length).toBeGreaterThan(3);
     expect(aBefore.entities.length).toBeGreaterThan(0);
     // The world brushes of a block are one range of ids.
     expect(a.get(BLOCK_WORLD_KEY)).toMatch(/^\d+-\d+$/);
-    for (const s of aBefore.world) expect(blockOfSolid(ed.doc, s)).toBe(a);
-    expect(blockOfSolid(ed.doc, mine)).toBeNull();
+    for (const s of aBefore.world) expect(blockOfSolid(editor.doc, s)).toBe(a);
+    expect(blockOfSolid(editor.doc, mine)).toBeNull();
 
-    const worldBefore = ed.doc.worldEntity.solids.length;
-    regenerateBlock(ed, a, { options: { seed: 999 } });
-    const aAfter = parts(ed, a);
+    const worldBefore = editor.doc.worldEntity.solids.length;
+    regenerateBlock(editor, a, { options: { seed: 999 } });
+    const aAfter = parts(editor, a);
     // None of the old parts are left, the other block and the hand-made brush are untouched.
-    for (const s of aBefore.world) expect(ed.doc.worldEntity.solids).not.toContain(s);
-    for (const e of aBefore.entities) expect(ed.doc.entities).not.toContain(e);
-    expect(parts(ed, b)).toEqual(bBefore);
-    expect(ed.doc.worldEntity.solids).toContain(mine);
-    expect(ed.doc.worldEntity.solids.length).toBe(worldBefore - aBefore.world.length + aAfter.world.length);
+    for (const s of aBefore.world) expect(editor.doc.worldEntity.solids).not.toContain(s);
+    for (const e of aBefore.entities) expect(editor.doc.entities).not.toContain(e);
+    expect(parts(editor, b)).toEqual(bBefore);
+    expect(editor.doc.worldEntity.solids).toContain(mine);
+    expect(editor.doc.worldEntity.solids.length).toBe(worldBefore - aBefore.world.length + aAfter.world.length);
     expect(blockOf(a)!.options.seed).toBe(999);
     // Still one block, one handle each.
-    expect(ed.doc.entities.filter((e) => blockOf(e))).toHaveLength(2);
-    expect(ed.doc.entities.filter((e) => e.classname === BUILDING_HANDLE.classname)).toHaveLength(2);
+    expect(editor.doc.entities.filter((e) => blockOf(e))).toHaveLength(2);
+    expect(editor.doc.entities.filter((e) => e.classname === BUILDING_HANDLE.classname)).toHaveLength(2);
     // Undo puts the old parts back.
-    ed.history.undo();
-    expect(parts(ed, a).world).toHaveLength(aBefore.world.length);
-    for (const s of aBefore.world) expect(parts(ed, a).world).toContain(s);
+    editor.history.undo();
+    expect(parts(editor, a).world).toHaveLength(aBefore.world.length);
+    for (const s of aBefore.world) expect(parts(editor, a).world).toContain(s);
     expect(blockOf(a)!.options.seed).toBe(11);
   });
 
   it('moves and resizes with its handle, in one undo step with the drag', () => {
-    const ed = stubEditor();
-    const [d] = generate(ed, [[0, 0, 1024, 768]]);
-    const h = handle(ed, d);
+    const editor = stubEditor();
+    const [d] = generate(editor, [[0, 0, 1024, 768]]);
+    const h = handle(editor, d);
     expect(handleBox(h)!.min.toArray()).toEqual([0, 0, 0]);
     expect(handleBox(h)!.max.toArray()).toEqual([1024, 768, HANDLE_HEIGHT]);
-    const xs = () => blockMembers(ed.doc, blockOf(d)!.uid).world.map((s) => solidBounds(s).min.x);
+    const xs = () => blockMembers(editor.doc, blockOf(d)!.uid).world.map((s) => solidBounds(s).min.x);
     const before = Math.min(...xs());
     // What the Select tool does: the drag is recorded, then the rebuild joins it in one step.
-    const end = ed.history.begin('Move', h.solids, [h]);
+    const end = editor.history.begin('Move', h.solids, [h]);
     translateSolid(h.solids[0], new Vector3(512, 256, 0));
-    ed.history.group('Move buildings', () => { end(); blockHandleDragged(ed, h, 'translate'); });
+    editor.history.group('Move buildings', () => { end(); blockHandleDragged(editor, h, 'translate'); });
     expect(blockOf(d)!.rect).toEqual({ x0: 512, y0: 256, x1: 1536, y1: 1024 });
     expect(Math.min(...xs())).toBe(before + 512);
     expect(handleBox(h)!.min.toArray()).toEqual([512, 256, 0]);
-    expect(ed.selection.entities.has(h)).toBe(true);
-    ed.history.undo();
+    expect(editor.selection.entities.has(h)).toBe(true);
+    editor.history.undo();
     expect(blockOf(d)!.rect).toEqual({ x0: 0, y0: 0, x1: 1024, y1: 768 });
     expect(handleBox(h)!.min.toArray()).toEqual([0, 0, 0]);
     expect(Math.min(...xs())).toBe(before);
@@ -111,98 +111,98 @@ describe('stored blocks of buildings', () => {
     // Resize: wider, and the height of the drag doesn't matter.
     const b = solidBounds(h.solids[0]);
     remapSolid(h.solids[0], b, new Box3(b.min.clone(), b.max.clone().add(new Vector3(512, 0, 300))));
-    blockHandleDragged(ed, h, 'scale');
+    blockHandleDragged(editor, h, 'scale');
     expect(blockOf(d)!.rect).toEqual({ x0: 0, y0: 0, x1: 1536, y1: 768 });
     expect(blockOf(d)!.z).toBe(0);
     expect(handleBox(h)!.max.z).toBe(HANDLE_HEIGHT);
     // Never smaller than one building.
     const c = solidBounds(h.solids[0]);
     remapSolid(h.solids[0], c, new Box3(c.min.clone(), new Vector3(c.min.x + 40, c.max.y, c.max.z)));
-    blockHandleDragged(ed, h, 'scale');
+    blockHandleDragged(editor, h, 'scale');
     expect(blockOf(d)!.rect.x1 - blockOf(d)!.rect.x0).toBe(128);
   });
 
   it('the group\'s street dressing follows its blocks', () => {
-    const ed = stubEditor();
+    const editor = stubEditor();
     // Two blocks facing each other across a 384-wide street.
-    const [a, b] = generate(ed, [[0, 0, 1024, 1024], [1408, 0, 2432, 1024]], { ...OPTS, seed: 5 });
+    const [a, b] = generate(editor, [[0, 0, 1024, 1024], [1408, 0, 2432, 1024]], { ...OPTS, seed: 5 });
     const group = blockOf(a)!.group;
     expect(blockOf(b)!.group).toBe(group);
-    expect(blocksInGroup(ed.doc, group)).toEqual([a, b]);
-    const dressing = groupDressing(ed.doc, group);
-    expect(cables(ed).length).toBeGreaterThan(0);
-    expect(cables(ed).every((c) => c.get(GROUP_KEY) === group)).toBe(true);
+    expect(blocksInGroup(editor.doc, group)).toEqual([a, b]);
+    const dressing = groupDressing(editor.doc, group);
+    expect(cables(editor).length).toBeGreaterThan(0);
+    expect(cables(editor).every((c) => c.get(GROUP_KEY) === group)).toBe(true);
     expect(dressing.some((e) => e.classname === 'prop_static')).toBe(true);
     // Rope names carry the group, so another group never links to them.
-    expect(cables(ed).every((c) => c.get('targetname')!.startsWith(`wire_${group}_`))).toBe(true);
+    expect(cables(editor).every((c) => c.get('targetname')!.startsWith(`wire_${group}_`))).toBe(true);
 
     // Move b far away: no cable is left hanging from a wall that moved.
-    const h = handle(ed, b);
+    const h = handle(editor, b);
     translateSolid(h.solids[0], new Vector3(6000, 0, 0));
-    blockHandleDragged(ed, h, 'translate');
-    expect(cables(ed)).toHaveLength(0);
-    for (const e of dressing) expect(ed.doc.entities).not.toContain(e);
-    ed.history.undo();
-    expect(cables(ed).length).toBeGreaterThan(0);
+    blockHandleDragged(editor, h, 'translate');
+    expect(cables(editor)).toHaveLength(0);
+    for (const e of dressing) expect(editor.doc.entities).not.toContain(e);
+    editor.history.undo();
+    expect(cables(editor).length).toBeGreaterThan(0);
 
     // Rebuilding a block rebuilds the group's dressing (cables meet its new walls).
-    regenerateBlock(ed, a, { options: { seed: 31 } });
-    const ends = ed.doc.entities.filter((e) => e.classname === 'move_rope' || e.classname === 'keyframe_rope');
+    regenerateBlock(editor, a, { options: { seed: 31 } });
+    const ends = editor.doc.entities.filter((e) => e.classname === 'move_rope' || e.classname === 'keyframe_rope');
     expect(ends.length).toBeGreaterThan(0);
     // Both ends of every cable are on the two walls facing each other across the street.
     for (const e of ends) expect(Math.min(Math.abs(e.origin!.x - 1024), Math.abs(e.origin!.x - 1408))).toBeLessThan(64);
 
     // Deleting a block rebuilds the dressing without it; one undo puts it all back.
-    const count = groupDressing(ed.doc, group).length;
-    deleteBlock(ed, b);
-    expect(blocksInGroup(ed.doc, group)).toEqual([a]);
-    expect(cables(ed)).toHaveLength(0);
-    expect(groupDressing(ed.doc, group).length).toBeLessThan(count);
-    ed.history.undo();
-    expect(blocksInGroup(ed.doc, group)).toHaveLength(2);
-    expect(groupDressing(ed.doc, group)).toHaveLength(count);
+    const count = groupDressing(editor.doc, group).length;
+    deleteBlock(editor, b);
+    expect(blocksInGroup(editor.doc, group)).toEqual([a]);
+    expect(cables(editor)).toHaveLength(0);
+    expect(groupDressing(editor.doc, group).length).toBeLessThan(count);
+    editor.history.undo();
+    expect(blocksInGroup(editor.doc, group)).toHaveLength(2);
+    expect(groupDressing(editor.doc, group)).toHaveLength(count);
   });
 
   it('duplicates next to itself into the same group, and deletes with all its parts', () => {
-    const ed = stubEditor();
-    const [a] = generate(ed, [[0, 0, 1024, 768]]);
-    const copy = duplicateBlock(ed, a)!;
+    const editor = stubEditor();
+    const [a] = generate(editor, [[0, 0, 1024, 768]]);
+    const copy = duplicateBlock(editor, a)!;
     const s = blockOf(copy)!, o = blockOf(a)!;
     expect(s.uid).not.toBe(o.uid);
     expect(s.group).toBe(o.group);
     expect(s.rect.x0).toBe(o.rect.x1 + 256);
     expect(s.options).toEqual(o.options);
-    expect(selectedBlocks(ed)).toEqual([copy]);
+    expect(selectedBlocks(editor)).toEqual([copy]);
     // A street between the two now: cables and lamps.
-    expect(groupDressing(ed.doc, o.group).length).toBeGreaterThan(0);
+    expect(groupDressing(editor.doc, o.group).length).toBeGreaterThan(0);
 
-    const n = { world: ed.doc.worldEntity.solids.length, entities: ed.doc.entities.length };
-    const m = blockMembers(ed.doc, s.uid);
-    deleteBlock(ed, copy);
-    expect(ed.doc.worldEntity.solids.length).toBe(n.world - m.world.length);
-    expect(findHandle(ed.doc, BUILDING_HANDLE, s.uid)).toBeNull();
-    expect(ed.doc.entities.some((e) => e.get('she_building_id') === s.uid)).toBe(false);
-    ed.history.undo();
-    expect(ed.doc.worldEntity.solids.length).toBe(n.world);
-    expect(ed.doc.entities.length).toBe(n.entities);
+    const n = { world: editor.doc.worldEntity.solids.length, entities: editor.doc.entities.length };
+    const m = blockMembers(editor.doc, s.uid);
+    deleteBlock(editor, copy);
+    expect(editor.doc.worldEntity.solids.length).toBe(n.world - m.world.length);
+    expect(findHandle(editor.doc, BUILDING_HANDLE, s.uid)).toBeNull();
+    expect(editor.doc.entities.some((e) => e.get('she_building_id') === s.uid)).toBe(false);
+    editor.history.undo();
+    expect(editor.doc.worldEntity.solids.length).toBe(n.world);
+    expect(editor.doc.entities.length).toBe(n.entities);
   });
 
   it('acts for the whole block only when the selection is nothing but block handles', () => {
-    const ed = stubEditor();
-    const [a] = generate(ed, [[0, 0, 1024, 768]]);
-    const h = handle(ed, a);
-    ed.selection.set([], [h]);
-    expect(selectedBlocks(ed)).toEqual([a]);
-    ed.selection.set([], [h, blockMembers(ed.doc, blockOf(a)!.uid).entities[0]]);
-    expect(selectedBlocks(ed)).toEqual([]);
+    const editor = stubEditor();
+    const [a] = generate(editor, [[0, 0, 1024, 768]]);
+    const h = handle(editor, a);
+    editor.selection.set([], [h]);
+    expect(selectedBlocks(editor)).toEqual([a]);
+    editor.selection.set([], [h, blockMembers(editor.doc, blockOf(a)!.uid).entities[0]]);
+    expect(selectedBlocks(editor)).toEqual([]);
   });
 
   it('never reaches a compiled map', () => {
-    const ed = stubEditor();
-    generate(ed, [[0, 0, 1024, 768], [1280, 0, 2304, 768]]);
+    const editor = stubEditor();
+    generate(editor, [[0, 0, 1024, 768], [1280, 0, 2304, 768]]);
     // A block too small to build on keeps its settings on an empty func_detail: also left out.
-    applyBlock(ed, { uid: 'tiny01', group: 'tiny01', street: 'none', groupSeed: 1, rect: { x0: 4000, y0: 0, x1: 4064, y1: 64 }, z: 0, options: { ...OPTS, detail: 0 } }, 'tiny');
-    const copy = VmfDocument.parse(ed.doc.serialize());
+    applyBlock(editor, { uid: 'tiny01', group: 'tiny01', street: 'none', groupSeed: 1, rect: { x0: 4000, y0: 0, x1: 4064, y1: 64 }, z: 0, options: { ...OPTS, detail: 0 } }, 'tiny');
+    const copy = VmfDocument.parse(editor.doc.serialize());
     expect(copy.entities.filter((e) => e.classname === BUILDING_HANDLE.classname)).toHaveLength(3);
     expect(stripHandles(copy)).toBe(3);
     const text = copy.serialize();
@@ -239,16 +239,16 @@ describe('stored blocks of buildings', () => {
   });
 
   it('a sketched block rebuilds in the editor with its group', () => {
-    const ed = stubEditor(generateFromSketch(buildDistrictSketch()).doc);
-    const d = ed.doc.entities.find((e) => blockOf(e))!;
+    const editor = stubEditor(generateFromSketch(buildDistrictSketch()).doc);
+    const d = editor.doc.entities.find((e) => blockOf(e))!;
     const b = blockOf(d)!;
-    const others = ed.doc.entities.filter((e) => e.get(GROUP_KEY) && e.get(GROUP_KEY) !== b.group);
-    const before = parts(ed, d);
-    regenerateBlock(ed, d, { options: { seed: 5 } });
-    for (const s of before.world) expect(ed.doc.worldEntity.solids).not.toContain(s);
-    expect(parts(ed, d).world.length).toBeGreaterThan(0);
-    expect(groupDressing(ed.doc, b.group).length).toBeGreaterThan(0);
+    const others = editor.doc.entities.filter((e) => e.get(GROUP_KEY) && e.get(GROUP_KEY) !== b.group);
+    const before = parts(editor, d);
+    regenerateBlock(editor, d, { options: { seed: 5 } });
+    for (const s of before.world) expect(editor.doc.worldEntity.solids).not.toContain(s);
+    expect(parts(editor, d).world.length).toBeGreaterThan(0);
+    expect(groupDressing(editor.doc, b.group).length).toBeGreaterThan(0);
     // Other groups' dressing is left alone.
-    for (const e of others) expect(ed.doc.entities).toContain(e);
+    for (const e of others) expect(editor.doc.entities).toContain(e);
   });
 });

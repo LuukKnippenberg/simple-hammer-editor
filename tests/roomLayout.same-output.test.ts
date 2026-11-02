@@ -34,11 +34,11 @@ const cases: Record<string, () => RoomBuildingSpec> = {
   thinShare: () => station({ rooms: [room('a', 'waiting', 0, 0, 4, 4), room('b', 'waiting', 4, 3, 8, 6)], doors: [{ x: 0, y: 1, side: 'w', width: 1 }] }),
   // tests/roomStore.test.ts and the rooms dialog.
   storedStation: () => {
-    const s = presetSpec('station', -512, 256, 8, 'abc', 42);
-    s.links.push({ a: 'concourse', b: 'waiting', kind: 'open' });
-    return s;
+    const spec = presetSpec('station', -512, 256, 8, 'abc', 42);
+    spec.links.push({ a: 'concourse', b: 'waiting', kind: 'open' });
+    return spec;
   },
-  ...Object.fromEntries(ROOM_PRESETS.map((p) => [`preset ${p.id}`, () => presetSpec(p.id, 0, 0, 0, 'p', 5)])),
+  ...Object.fromEntries(ROOM_PRESETS.map((preset) => [`preset ${preset.id}`, () => presetSpec(preset.id, 0, 0, 0, 'p', 5)])),
   dialogEmpty: emptied,
 };
 

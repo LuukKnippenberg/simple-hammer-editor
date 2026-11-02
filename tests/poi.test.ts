@@ -32,9 +32,9 @@ const valid = (n: KVNode) => {
   return s.sides.length >= 4 && buildBrushFaces(s).length === s.sides.length;
 };
 
-const sig = (o: PoiOutput) => JSON.stringify({
-  d: o.detail.map((n) => writeKeyValues([n], '\n')), w: o.world.map((n) => writeKeyValues([n], '\n')),
-  e: o.entities.map((e) => [e.classname, e.origin?.toArray(), e.keys, e.solids?.map((n) => writeKeyValues([n], '\n'))]),
+const sig = (output: PoiOutput) => JSON.stringify({
+  d: output.detail.map((n) => writeKeyValues([n], '\n')), w: output.world.map((n) => writeKeyValues([n], '\n')),
+  e: output.entities.map((e) => [e.classname, e.origin?.toArray(), e.keys, e.solids?.map((n) => writeKeyValues([n], '\n'))]),
 });
 
 const specFor = (t: PoiType, seed: number, rotation: Rotation = 0): PoiSpec => {
@@ -55,55 +55,55 @@ describe('POI framework', () => {
   });
 
   it('rebuilds in place: the same parts again, nothing left over, undo brings the old ones back', () => {
-    const ed = stubEditor();
+    const editor = stubEditor();
     const spec = newSpec(DUMMY, { x0: 0, y0: 0, x1: 1024, y1: 768 }, 0, { seed: 5, params: { capture: true, scrap: 2 } });
-    const detail = applyPoi(ed, spec, 'gen');
+    const detail = applyPoi(editor, spec, 'gen');
     const count = () => {
-      const m = poiMembers(ed, spec.uid);
-      return { ents: ed.doc.entities.length, world: ed.doc.worldEntity.solids.length, members: m.entities.length, detail: m.detail?.solids.length ?? 0 };
+      const members = poiMembers(editor, spec.uid);
+      return { ents: editor.doc.entities.length, world: editor.doc.worldEntity.solids.length, members: members.entities.length, detail: members.detail?.solids.length ?? 0 };
     };
     const first = count();
     expect(first.members).toBeGreaterThan(5);
     expect(first.world).toBe(1);
-    expect(ed.doc.entities.filter((e) => e.classname === 'control_point')).toHaveLength(1);
-    expect(ed.doc.entities.filter((e) => e.classname === 'fow_blocker').length).toBeGreaterThan(0);
-    regeneratePoi(ed, detail);
+    expect(editor.doc.entities.filter((e) => e.classname === 'control_point')).toHaveLength(1);
+    expect(editor.doc.entities.filter((e) => e.classname === 'fow_blocker').length).toBeGreaterThan(0);
+    regeneratePoi(editor, detail);
     expect(count()).toEqual(first);
-    regeneratePoi(ed, detail, { seed: 99 });
+    regeneratePoi(editor, detail, { seed: 99 });
     expect(count().world).toBe(1);
-    expect(count().ents).toBe(ed.doc.entities.length);
+    expect(count().ents).toBe(editor.doc.entities.length);
     expect(poiOf(detail)!.spec.seed).toBe(99);
     // Fewer crates, no wall: the extra parts go.
-    regeneratePoi(ed, detail, { params: { wall: false, crates: 0 } });
-    expect(ed.doc.entities.filter((e) => e.classname === 'fow_blocker')).toHaveLength(0);
-    expect(ed.doc.entities.filter((e) => e.get('model')?.includes('wood_crate'))).toHaveLength(0);
-    ed.history.undo();
-    expect(ed.doc.entities.filter((e) => e.classname === 'fow_blocker').length).toBeGreaterThan(0);
+    regeneratePoi(editor, detail, { params: { wall: false, crates: 0 } });
+    expect(editor.doc.entities.filter((e) => e.classname === 'fow_blocker')).toHaveLength(0);
+    expect(editor.doc.entities.filter((e) => e.get('model')?.includes('wood_crate'))).toHaveLength(0);
+    editor.history.undo();
+    expect(editor.doc.entities.filter((e) => e.classname === 'fow_blocker').length).toBeGreaterThan(0);
     expect(poiOf(detail)!.spec.params.wall).toBe(true);
-    deletePoi(ed, detail);
-    expect(ed.doc.entities).toHaveLength(0);
-    expect(ed.doc.worldEntity.solids).toHaveLength(0);
-    ed.history.undo();
-    expect(ed.doc.entities.length).toBeGreaterThan(5);
+    deletePoi(editor, detail);
+    expect(editor.doc.entities).toHaveLength(0);
+    expect(editor.doc.worldEntity.solids).toHaveLength(0);
+    editor.history.undo();
+    expect(editor.doc.entities.length).toBeGreaterThan(5);
   });
 
-  for (const t of POI_TYPES) {
-    it(`${t.label}: valid brushes, measured props off the routes, same output for the same seed`, () => {
+  for (const poiType of POI_TYPES) {
+    it(`${poiType.label}: valid brushes, measured props off the routes, same output for the same seed`, () => {
       for (const [seed, rot] of [[1, 0], [2, 90], [3, 180], [4, 270]] as [number, Rotation][]) {
-        const spec = specFor(t, seed, rot);
-        spec.params = { ...defaultParams(t), capture: true, scrap: 2 };
+        const spec = specFor(poiType, seed, rot);
+        spec.params = { ...defaultParams(poiType), capture: true, scrap: 2 };
         const out = buildPoi(VmfDocument.empty(), spec);
         for (const n of [...out.detail, ...out.world]) expect(valid(n)).toBe(true);
         expect(out.routes.length).toBeGreaterThan(0);
-        for (const r of out.routes) expect(Math.min(r.x1 - r.x0, r.y1 - r.y0)).toBeGreaterThanOrEqual(128);
-        const routes = out.routes.map((r) => rect(r.x0 + 4, r.y0 + 4, r.x1 - 4, r.y1 - 4));
+        for (const route of out.routes) expect(Math.min(route.x1 - route.x0, route.y1 - route.y0)).toBeGreaterThanOrEqual(128);
+        const routes = out.routes.map((route) => rect(route.x0 + 4, route.y0 + 4, route.x1 - 4, route.y1 - 4));
         for (const e of out.entities) {
           if (!e.classname.startsWith('prop_') || !e.origin) continue;
           const model = e.keys.model.replace(/^models\//, '').replace(/\.mdl$/, '');
           expect(modelInfo(model), `${model} is in the model table`).not.toBeNull();
-          const fp = modelFootprint(model, e.origin.x, e.origin.y, Number(e.keys.angles.split(' ')[1]));
+          const footprint = modelFootprint(model, e.origin.x, e.origin.y, Number(e.keys.angles.split(' ')[1]));
           if (walkable(model)) continue;
-          for (const r of routes) expect(overlaps(fp, r), `${model} at ${e.origin.toArray()} on route`).toBe(false);
+          for (const route of routes) expect(overlaps(footprint, route), `${model} at ${e.origin.toArray()} on route`).toBe(false);
         }
         expect(sig(buildPoi(VmfDocument.empty(), spec))).toBe(sig(out));
       }

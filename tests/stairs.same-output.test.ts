@@ -5,23 +5,23 @@ import { VmfDocument } from '../src/vmf/map.ts';
 import { writeKeyValues } from '../src/vmf/keyvalues.ts';
 import { DEFAULT_STAIRS, RAIL_STYLES, STRUCTURES, buildStairs, type StairsOptions, type StairsSpec } from '../src/gen/stairs.ts';
 
-function spec(nodes: [number, number, number][], flights: [number, number][], o: Partial<StairsOptions> = {}): StairsSpec {
-  return { uid: 'test', nodes: nodes.map(([x, y, z]) => ({ x, y, z })), flights: flights.map(([from, to]) => ({ from, to })), options: { ...DEFAULT_STAIRS, ...o } };
+function spec(nodes: [number, number, number][], flights: [number, number][], options: Partial<StairsOptions> = {}): StairsSpec {
+  return { uid: 'test', nodes: nodes.map(([x, y, z]) => ({ x, y, z })), flights: flights.map(([from, to]) => ({ from, to })), options: { ...DEFAULT_STAIRS, ...options } };
 }
 
 /** The shapes in tests/stairs.test.ts. */
-const shapes: Record<string, (o?: Partial<StairsOptions>) => StairsSpec> = {
-  straight: (o = {}) => spec([[0, 0, 0], [336, 0, 192]], [[0, 1]], o),
-  chain: (o = {}) => spec([[0, 0, 0], [256, 0, 96], [256, 320, 192]], [[0, 1], [1, 2]], o),
-  tee: (o = {}) => spec([[0, 0, 0], [0, 256, 128], [-320, 256, 192], [320, 256, 192]], [[0, 1], [1, 2], [1, 3]], o),
+const shapes: Record<string, (options?: Partial<StairsOptions>) => StairsSpec> = {
+  straight: (options = {}) => spec([[0, 0, 0], [336, 0, 192]], [[0, 1]], options),
+  chain: (options = {}) => spec([[0, 0, 0], [256, 0, 96], [256, 320, 192]], [[0, 1], [1, 2]], options),
+  tee: (options = {}) => spec([[0, 0, 0], [0, 256, 128], [-320, 256, 192], [320, 256, 192]], [[0, 1], [1, 2], [1, 3]], options),
 };
 
 /** Everything buildStairs returns, written out (each build numbers its brushes in a fresh document). */
-function text(s: StairsSpec): string {
-  const r = buildStairs(VmfDocument.empty(), s);
-  return writeKeyValues(r.detail) + writeKeyValues(r.clip) + JSON.stringify({ flights: r.flights, landings: r.landings, bounds: r.bounds, base: r.base });
+function text(stairs: StairsSpec): string {
+  const result = buildStairs(VmfDocument.empty(), stairs);
+  return writeKeyValues(result.detail) + writeKeyValues(result.clip) + JSON.stringify({ flights: result.flights, landings: result.landings, bounds: result.bounds, base: result.base });
 }
-const sha1 = (s: string) => createHash('sha1').update(s).digest('hex');
+const sha1 = (input: string) => createHash('sha1').update(input).digest('hex');
 
 /** The combinations of the "every structure, profile, rail style and plan" test, one hash per shape and structure. */
 const combos = Object.keys(shapes).flatMap((shape) => STRUCTURES.map(([structure]) => [shape, structure] as const));
@@ -46,16 +46,16 @@ const extras: Record<string, () => StairsSpec> = {
   steep: () => spec([[0, 0, 0], [96, 0, 192]], [[0, 1]]),
   angle: () => spec([[0, 0, 0], [300, 180, 160], [520, -60, 64]], [[0, 1], [1, 2]], { plan: 'angle' }),
   overrides: () => {
-    const s = shapes.chain({ width: 160 });
-    s.flights[0].steps = 9;
-    s.flights[1].width = 224;
-    return s;
+    const stairs = shapes.chain({ width: 160 });
+    stairs.flights[0].steps = 9;
+    stairs.flights[1].width = 224;
+    return stairs;
   },
   cross: () => {
-    const s = shapes.tee({ railStyle: 'parapet' });
-    s.nodes.push({ x: 0, y: 576, z: 192 });
-    s.flights.push({ from: 1, to: 4 });
-    return s;
+    const stairs = shapes.tee({ railStyle: 'parapet' });
+    stairs.nodes.push({ x: 0, y: 576, z: 192 });
+    stairs.flights.push({ from: 1, to: 4 });
+    return stairs;
   },
   zeroLength: () => spec([[0, 0, 0], [0, 0, 64], [256, 0, 128]], [[0, 1], [1, 2]]),
 };
