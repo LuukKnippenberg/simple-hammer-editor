@@ -10,13 +10,18 @@ export function row(label: string, ...controls: (HTMLElement | null)[]): HTMLEle
   return h('div.row', {}, h('label', {}, label), ...controls);
 }
 
-/** A number input; a typed value is clamped to min..max, an empty or bad one becomes min. */
+/** A typed number clamped to min..max; an empty or bad one (or 0) becomes min. */
+export function typedNumber(text: string, min: number, max: number): number {
+  return Math.max(min, Math.min(max, parseFloat(text) || min));
+}
+
+/** A number input; a typed value is clamped to min..max (typedNumber). */
 export function num(value: number, set: (v: number) => void, options: { min?: number; max?: number; step?: number; title?: string } = {}): HTMLInputElement {
   const min = options.min ?? 0, max = options.max ?? Infinity;
   const input = h('input', { type: 'number', value: String(value), step: String(options.step ?? 1), min: String(min), max: options.max === undefined ? undefined : String(options.max), title: options.title || undefined }) as HTMLInputElement;
   input.addEventListener('change', () => {
     input.blur();
-    set(Math.max(min, Math.min(max, parseFloat(input.value) || min)));
+    set(typedNumber(input.value, min, max));
   });
   return input;
 }

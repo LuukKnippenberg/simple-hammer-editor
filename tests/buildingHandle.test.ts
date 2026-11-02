@@ -54,6 +54,17 @@ describe('stored blocks of buildings', () => {
     expect(blockOf(again)!.rect).toEqual({ x0: 0, y0: 0, x1: 1024, y1: 768 });
   });
 
+  it('keep a negative seed through a save and a Regenerate with the stored options', () => {
+    const editor = stubEditor();
+    const [d] = generate(editor, [[0, 0, 1024, 768]]);
+    const negative = regenerateBlock(editor, d, { options: { seed: -42 } })!;
+    const saved = VmfDocument.parse(editor.doc.serialize()).entities.find((e) => blockOf(e))!;
+    expect(blockOf(saved)!.options.seed).toBe(-42);
+    // The Selection panel's Regenerate passes its draft: the stored options, unless the user changed one.
+    const again = regenerateBlock(editor, negative, { options: { ...blockOf(negative)!.options } })!;
+    expect(blockOf(again)!.options.seed).toBe(-42);
+  });
+
   it('a rebuild replaces exactly the block\'s own parts', () => {
     const editor = stubEditor();
     const mine = editor.doc.addSolid(boxSolid(editor.doc, new Vector3(5000, 0, 0), new Vector3(5128, 128, 128), 'DEV/DEV_MEASUREGENERIC01'));
