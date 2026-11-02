@@ -4,7 +4,7 @@ import { MapSolid, type VmfDocument } from '../vmf/map.ts';
 import { solidBounds, solidNode } from '../edit/brushes.ts';
 import { Rng } from './rng.ts';
 import { FLOOR, bayCount, ccw, cleanPolygon, convexHull, facadePrism, isConvexCcw, offsetPolygon, type FacadeTile } from './facade.ts';
-import { planBlock, type CornerOption, type Part, type WallPlan } from './buildingPlan.ts';
+import { planBlock, type BlockPlan, type BuildingPlan, type CornerOption, type Part, type PlanOptions, type WallPlan } from './buildingPlan.ts';
 import { chooseRoof, inradius, roofSolids, type RoofKind, type RoofOption } from './roofs.ts';
 import { chooseCap, towerSides, towerSolids } from './towers.ts';
 import { entranceSteps, streetFacade, wallOf, type FeatureEntity, type Wall } from './facadeFeatures.ts';
@@ -15,7 +15,7 @@ import { greenYard, type YardStyle } from './yards.ts';
 import { outlineOf } from './interiorPlan.ts';
 import type { InteriorStyleName } from './styles.ts';
 import { boxesOverlap, convexOverlap, cutBack, decodeCuts } from './sketchShapes.ts';
-import { resolveExtras, type ExtraCategory, type ExtrasOptions } from './extras.ts';
+import { resolveExtras, type ExtraCategory, type Extras, type ExtrasOptions } from './extras.ts';
 import { WALL_MOUNT } from './powerlines.ts';
 import { hideCoveredFaces } from '../geom/hidden.ts';
 
@@ -609,11 +609,6 @@ function wallSolids(doc: VmfDocument, w: WallPlan, s: Style, z0: number): KVNode
   return [...seg(0, g0, z0 - 32, top), ...seg(g1, len, z0 - 32, top), ...seg(g0, g1, z0 + 160, top)];
 }
 
-/**
- * Fills a footprint with a block of buildings: a ring around a courtyard or a row of lots (some L-shaped),
- * shaped corners with entrances on the block corners, varying heights, annexes, walls with gateways,
- * cornices, parapets, optional rooftop props and (with alleys) sky bridges.
- */
 /** A convex polygon as whole units, still convex (rounding can bend it a hair: then its hull). */
 function wholeUnits(poly: Vector2[]): Vector2[] {
   const r = cleanPolygon(ccw(poly.map((p) => new Vector2(Math.round(p.x), Math.round(p.y)))));
@@ -666,163 +661,270 @@ export function cutPlan(plan: ReturnType<typeof planBlock>, cuts: Vector2[][]): 
   plan.walls = plan.walls.filter((w) => !cutsInto(boxPoly(new Box2().setFromPoints([w.a, w.b]).expandByScalar(8)), cuts));
 }
 
-export function generateBuildings(doc: VmfDocument, footprint: Box3, options: BuildingOptions): GeneratedBuildings {
-  const opts = layoutOptions(options);
-  const rng = new Rng(opts.seed);
-  const g = FLOOR;
-  const area = new Box2(
-    new Vector2(Math.ceil(footprint.min.x / 64) * 64, Math.ceil(footprint.min.y / 64) * 64),
-    new Vector2(Math.floor(footprint.max.x / 64) * 64, Math.floor(footprint.max.y / 64) * 64),
+type Arch = (typeof ARCHITECTURES)[ArchitectureName];
+
+/** Lots are laid out on this grid. */
+const LOT_GRID = 64;
+/** An enterable house, or the wings of an L that become one, is at most this long either way. */
+const MAX_HOUSE = 640;
+/** Sky bridges: across alleys up to this wide, between lots facing each other over at least this much, 128 wide. */
+const MAX_BRIDGE_GAP = 96, MIN_BRIDGE_FACING = 160, HALF_BRIDGE = 64;
+
+/** What the steps of `generateBuildings` share about the block. */
+interface Block {
+  doc: VmfDocument; opts: BuildingOptions; out: GeneratedBuildings; plan: BlockPlan; area: Box2; z0: number; arch: Arch; level: DetailLevel;
+  /** Which lots become enterable houses; drawn from their own sequence, so the other choices keep their seeds. */
+  interiors: 'none' | 'some' | 'all'; intRng: Rng;
+}
+
+const boxOf = (p: Part) => new Box2().setFromPoints(p.poly);
+
+/** The footprint shrunk to the lot grid. */
+function gridArea(footprint: Box3): Box2 {
+  return new Box2(
+    new Vector2(Math.ceil(footprint.min.x / LOT_GRID) * LOT_GRID, Math.ceil(footprint.min.y / LOT_GRID) * LOT_GRID),
+    new Vector2(Math.floor(footprint.max.x / LOT_GRID) * LOT_GRID, Math.floor(footprint.max.y / LOT_GRID) * LOT_GRID),
   );
-  const out: GeneratedBuildings = { solids: [], detail: [], entities: [], buildings: 0, interiorHouses: 0, dressing: { area, z0: footprint.min.z, anchors: [], yards: [], obstacles: [] } };
-  const z0 = footprint.min.z;
-  const house = opts.layout === 'house';
-  // A house is enterable whatever the quality asks for elsewhere.
-  const quality = house ? { ...QUALITY[opts.quality ?? 'high'], interiors: true } : QUALITY[opts.quality ?? 'high'];
-  const level = Math.min(opts.detail ?? 2, quality.maxDetail) as DetailLevel;
-  // Decoration draws from its own sequence, so the layout and textures don't change with the detail level.
-  const deco = new Rng(opts.seed * 31 + 7);
-  const roofRng = new Rng(opts.seed * 17 + 3);
-  const towerRng = new Rng(opts.seed * 13 + 5);
-  // Walls on the block's outline face the street; the rest face courtyards, yards or neighbours.
+}
+
+/** What a block's quality builds. A house is enterable whatever the quality asks for elsewhere. */
+function qualityFor(opts: BuildingOptions): (typeof QUALITY)[BuildingQuality] {
+  const quality = QUALITY[opts.quality ?? 'high'];
+  return opts.layout === 'house' ? { ...quality, interiors: true } : quality;
+}
+
+/** Walls on the block's outline face the street, and so do walls along a cut (the street that made it); the rest face courtyards, yards or neighbours. */
+function streetTest(area: Box2, cuts: Vector2[][]): (a: Vector2, b: Vector2) => boolean {
   const onLine = (a: Vector2, b: Vector2, axis: 'x' | 'y', v: number) => Math.abs(a[axis] - v) < 1 && Math.abs(b[axis] - v) < 1;
-  const arch = ARCHITECTURES[opts.architecture ?? 'mixed'];
-  const cuts = decodeCuts(opts.cut).filter((c) => boxesOverlap(c, [area.min, new Vector2(area.max.x, area.min.y), area.max, new Vector2(area.min.x, area.max.y)]));
-  /** A wall along the edge of a cut faces the street that made it. */
   const alongCut = (a: Vector2, b: Vector2) => cuts.some((c) => c.some((p, i) => {
     const q = c[(i + 1) % c.length], d = new Vector2().subVectors(q, p), len = d.length();
     if (len < 1) return false;
     const off = (v: Vector2) => Math.abs((d.x * (v.y - p.y) - d.y * (v.x - p.x)) / len);
     return off(a) < 3 && off(b) < 3;
   }));
+  return (a, b) => onLine(a, b, 'x', area.min.x) || onLine(a, b, 'x', area.max.x) || onLine(a, b, 'y', area.min.y) || onLine(a, b, 'y', area.max.y) || alongCut(a, b);
+}
+
+/** The block plan's options, from the block's options and its architecture. */
+function planOptions(opts: BuildingOptions, arch: Arch): PlanOptions {
+  return {
+    minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
+    corners: opts.corners ?? arch.corners, courtyards: opts.courtyards ?? true, annexes: (opts.annexes ?? true) && opts.yards !== 'green',
+    openings: opts.openYards, single: opts.layout === 'single' ? 'building' : opts.layout === 'house' ? 'house' : undefined,
+  };
+}
+
+/**
+ * Green yards are dressed here (lawns, trees, playgrounds, parking), so the street pass leaves them alone; from
+ * their own sequence, so the buildings don't change with them. Other yards go to the street pass.
+ */
+function dressYards(doc: VmfDocument, plan: BlockPlan, opts: BuildingOptions, z0: number, extras: Extras, out: GeneratedBuildings): void {
+  if (opts.yards !== 'green') { out.dressing.yards.push(...plan.yards); return; }
+  const yardRng = new Rng(opts.seed * 43 + 19);
+  const gates = plan.walls.filter((w) => w.gate).map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(96));
+  for (const y of plan.yards) {
+    const g = greenYard(doc, y, z0, yardRng, gates, extras);
+    out.solids.push(...g.solids);
+    out.entities.push(...g.entities);
+  }
+}
+
+/** Each building's roof and its parts' roofs, from their own sequence. */
+function chooseRoofs(plan: BlockPlan, opts: BuildingOptions, arch: Arch) {
+  const roofRng = new Rng(opts.seed * 17 + 3);
+  return plan.buildings.map((b) => {
+    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', b.parts[0].poly.length === 4, arch.roofs);
+    // Sheds get a low metal roof half of the time.
+    const shedRoof = roofRng.chance(0.5) ? { kind: 'hip' as const, material: 'METAL/METALROOF005A' } : { kind: 'flat' as const, material: ROOF };
+    return { roof, parts: b.parts.map((part) => (part.kind === 'annex' ? shedRoof : roof.kind === 'gable' && part.poly.length !== 4 ? { ...roof, kind: 'hip' as const } : roof)) };
+  });
+}
+
+/** A courtyard wall as the wings see it: 16 thick, hiding them up to its height, with nothing standing out. */
+function courtWallNeighbour(w: WallPlan, z0: number): Neighbour {
+  const side = new Vector2().subVectors(w.b, w.a).normalize().multiplyScalar(8);
+  const n = new Vector2(side.y, -side.x);
+  return { poly: ccw([w.a.clone().add(n), w.b.clone().add(n), w.b.clone().sub(n), w.a.clone().sub(n)]), cover: z0 + w.height, reach: () => 0 };
+}
+
+/**
+ * The footprint of an enterable house on these parts, or null for a solid building: rectangles of 1–2
+ * floors (ring buildings around courtyards stay solid). The wings of an L become one house of at most
+ * 640 × 640; a single lot longer than that gets a smaller house at the street, the rest is its yard.
+ */
+function houseOn(k: Block, parts: Part[]): Vector2[] | null {
+  const { interiors, intRng, plan, arch, area } = k;
+  if (interiors === 'none' || !parts.length) return null;
+  if (parts.some((p) => p.kind === 'main') && plan.ring) return null;
+  if (parts.some((p) => p.floors > 2 || p.poly.length !== 4 || !p.poly.every((q, i) => { const r = p.poly[(i + 1) % 4]; return q.x === r.x || q.y === r.y; }))) return null;
+  const lot = parts.reduce((b, p) => b.union(boxOf(p)), new Box2());
+  const size = lot.getSize(new Vector2());
+  if (parts.length > 1 && (size.x > MAX_HOUSE || size.y > MAX_HOUSE)) return null;
+  if (interiors !== 'all' && !intRng.chance(arch.interiorShare)) return null;
+  if (parts.length > 1) return outlineOf(parts.map(boxOf));
+  const house = lot.clone();
+  for (const ax of ['x', 'y'] as const) {
+    if (size[ax] <= MAX_HOUSE) continue;
+    const len = intRng.pick([384, 448, 512, 576]);
+    const atMin = Math.abs(lot.min[ax] - area.min[ax]) < 1, atMax = Math.abs(lot.max[ax] - area.max[ax]) < 1;
+    if (atMin && (!atMax || intRng.chance(0.5))) house.max[ax] = lot.min[ax] + len;
+    else if (atMax) house.min[ax] = lot.max[ax] - len;
+    else { house.min[ax] = Math.round((lot.min[ax] + lot.max[ax] - len) / 128) * 64; house.max[ax] = house.min[ax] + len; }
+  }
+  // What the house leaves of its lot is yard (trees may grow there).
+  const yards = [
+    new Box2(new Vector2(lot.min.x, lot.min.y), new Vector2(house.min.x, lot.max.y)), new Box2(new Vector2(house.max.x, lot.min.y), new Vector2(lot.max.x, lot.max.y)),
+    new Box2(new Vector2(house.min.x, lot.min.y), new Vector2(house.max.x, house.min.y)), new Box2(new Vector2(house.min.x, house.max.y), new Vector2(house.max.x, lot.max.y)),
+  ];
+  k.out.dressing.yards.push(...yards.filter((y) => y.max.x - y.min.x >= 64 && y.max.y - y.min.y >= 64));
+  return [new Vector2(house.min.x, house.min.y), new Vector2(house.max.x, house.min.y), new Vector2(house.max.x, house.max.y), new Vector2(house.min.x, house.max.y)];
+}
+
+/** Builds an enterable house on footprint `fp` in place of `parts`, keeping the ground in front of its doors free. */
+function buildInterior(k: Block, parts: Part[], fp: Vector2[]): void {
+  const { doc, opts, out, plan, arch, intRng } = k;
+  const others = plan.buildings.flatMap((b) => b.parts).filter((p) => !parts.includes(p)).map((p) => boxOf(p).expandByScalar(1));
+  const h = interiorHouse(doc, fp, k.z0, {
+    seed: intRng.int(1, 1e9), storeys: Math.max(...parts.map((p) => p.floors)) >= 2 ? 2 : 1,
+    style: opts.interiorStyle ?? intRng.pick(arch.interiorStyles), cutHeight: opts.cutHeight, furnish: opts.furnish,
+    lights: opts.interiorLights, lightLevel: opts.interiorLightLevel, wideDoors: opts.wideDoors, weathering: opts.weathering, eaves: k.level >= 2,
+    noEntrance: [...others, ...plan.walls.map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(9))],
+  });
+  out.solids.push(...h.world);
+  out.detail.push(...h.detail);
+  out.entities.push(...h.entities);
+  out.interiorHouses++;
+  // No lamps or trees there.
+  for (const e of h.plan.entrances) {
+    const w = h.plan.walls[e.wall], o = w.openings[e.opening];
+    const half = (o.to - o.from) / 2 + 16;
+    const side = new Vector2(-e.out.y, e.out.x);
+    (out.dressing.doors ??= []).push(new Box2().setFromPoints([
+      e.centre.clone().addScaledVector(side, -half), e.centre.clone().addScaledVector(side, half).addScaledVector(e.out, 128),
+    ]));
+  }
+}
+
+/** Builds a building's enterable houses: the wings of a lot become one house; each shed is a house of its own. Returns the parts they take. */
+function buildHouses(k: Block, b: BuildingPlan): Set<Part> {
+  const enterable = new Set<Part>();
+  const mains = b.parts.filter((p) => p.kind === 'main');
+  const lot = mains.reduce((x, p) => x.union(boxOf(p)), new Box2()).getSize(new Vector2());
+  // An L too big for one house becomes a house per wing.
+  const groups = mains.length > 1 && (lot.x > MAX_HOUSE || lot.y > MAX_HOUSE) ? mains.map((p) => [p]) : [mains];
+  for (const g of groups) {
+    const fp = houseOn(k, g);
+    if (fp) { g.forEach((p) => enterable.add(p)); buildInterior(k, g, fp); }
+  }
+  for (const p of b.parts.filter((x) => x.kind === 'annex')) {
+    const shed = houseOn(k, [p]);
+    if (shed) { enterable.add(p); buildInterior(k, [p], shed); }
+  }
+  return enterable;
+}
+
+/**
+ * Up to three rooftop props on a flat roof, away from its edges. They are dealt even when the extras leave them
+ * out (`keep` false), so the walls and bridges dealt after them keep their seeds.
+ */
+function roofProps(main: Part, z0: number, rng: Rng, keep: boolean): GeneratedBuildings['entities'] {
+  const box = new Box2().setFromPoints(main.poly);
+  const size = box.getSize(new Vector2());
+  const n = Math.min(3, Math.floor((size.x * size.y) / (256 * 256)));
+  const top = z0 + main.floors * FLOOR;
+  const props: GeneratedBuildings['entities'] = [];
+  for (let i = 0; i < n; i++) {
+    const p = new Vector2(Math.round(rng.range(box.min.x + 48, box.max.x - 48)), Math.round(rng.range(box.min.y + 48, box.max.y - 48)));
+    if (!inside(cleanPolygon(offsetPolygon(main.poly, -40)), p)) continue;
+    const prop = { classname: 'prop_static', origin: new Vector3(p.x, p.y, top), keys: { model: rng.pick(ROOF_PROPS), angles: `0 ${rng.int(0, 3) * 90} 0`, solid: '6' } };
+    if (keep) props.push(prop);
+  }
+  return props;
+}
+
+/** The footprint of a sky bridge across the alley between two lots along `axis`, or null when they don't face each other across one. */
+function bridgeFootprint(a: Box2, b: Box2, axis: 'x' | 'y'): Vector2[] | null {
+  const other = axis === 'x' ? 'y' : 'x';
+  const gap = b.min[axis] - a.max[axis];
+  const gap2 = a.min[axis] - b.max[axis];
+  const lo2 = Math.max(a.min[other], b.min[other]), hi2 = Math.min(a.max[other], b.max[other]);
+  if (hi2 - lo2 < MIN_BRIDGE_FACING) return null;
+  let from: number, to: number;
+  if (gap > 0 && gap <= MAX_BRIDGE_GAP) { from = a.max[axis]; to = b.min[axis]; }
+  else if (gap2 > 0 && gap2 <= MAX_BRIDGE_GAP) { from = b.max[axis]; to = a.min[axis]; }
+  else return null;
+  const mid = Math.round((lo2 + hi2) / 2 / 16) * 16;
+  const min = new Vector2(), max = new Vector2();
+  min[axis] = from; max[axis] = to;
+  min[other] = mid - HALF_BRIDGE; max[other] = mid + HALF_BRIDGE;
+  return [new Vector2(min.x, min.y), new Vector2(max.x, min.y), new Vector2(max.x, max.y), new Vector2(min.x, max.y)];
+}
+
+/** Sky bridges between neighbours that are both at least three floors high, one floor below the lower one's top. */
+function skyBridges(doc: VmfDocument, lots: BlockPlan['lots'], rng: Rng, z0: number): KVNode[] {
+  const solids: KVNode[] = [];
+  for (let i = 0; i < lots.length; i++) {
+    for (let j = i + 1; j < lots.length; j++) {
+      const a = lots[i], b = lots[j];
+      const floor = Math.min(a.floors, b.floors) - 1;
+      if (floor < 2 || !rng.chance(0.6)) continue;
+      const zb = z0 + floor * FLOOR;
+      for (const axis of ['x', 'y'] as const) {
+        const poly = bridgeFootprint(a.box, b.box, axis);
+        if (poly) solids.push(solidNode(doc, facadePrism(poly, zb, zb + FLOOR, FACADE_STYLES.stone.windows[0], ROOF, z0, FACADE_STYLES.stone.plain.material)));
+      }
+    }
+  }
+  return solids;
+}
+
+/**
+ * Fills a footprint with a block of buildings: a ring around a courtyard or a row of lots (some L-shaped),
+ * shaped corners with entrances on the block corners, varying heights, annexes, walls with gateways,
+ * cornices, parapets, optional rooftop props and (with alleys) sky bridges.
+ */
+export function generateBuildings(doc: VmfDocument, footprint: Box3, options: BuildingOptions): GeneratedBuildings {
+  const opts = layoutOptions(options);
+  const rng = new Rng(opts.seed);
+  const area = gridArea(footprint);
+  const z0 = footprint.min.z;
+  const out: GeneratedBuildings = { solids: [], detail: [], entities: [], buildings: 0, interiorHouses: 0, dressing: { area, z0, anchors: [], yards: [], obstacles: [] } };
+  const quality = qualityFor(opts);
+  const level = Math.min(opts.detail ?? 2, quality.maxDetail) as DetailLevel;
+  // Decoration draws from its own sequence, so the layout and textures don't change with the detail level.
+  const deco = new Rng(opts.seed * 31 + 7);
+  const towerRng = new Rng(opts.seed * 13 + 5);
+  const arch = ARCHITECTURES[opts.architecture ?? 'mixed'];
+  const cuts = decodeCuts(opts.cut).filter((c) => boxesOverlap(c, boxPoly(area)));
   const extras = resolveExtras(opts);
-  const street = {
-    keep: extras.keep,
-    isStreet: (a: Vector2, b: Vector2) => onLine(a, b, 'x', area.min.x) || onLine(a, b, 'x', area.max.x) || onLine(a, b, 'y', area.min.y) || onLine(a, b, 'y', area.max.y) || alongCut(a, b),
-    rng: new Rng(opts.seed * 7 + 11),
-    entities: out.entities,
+  const street: Street = {
+    keep: extras.keep, isStreet: streetTest(area, cuts), rng: new Rng(opts.seed * 7 + 11), entities: out.entities,
     oriels: arch.oriels && quality.streetFeatures, balconies: arch.balconies && quality.streetFeatures, roofHuts: arch.roofHuts, weathering: opts.weathering ?? 0.5,
     anchors: out.dressing.anchors,
   };
-  const plan = planBlock(area, rng, {
-    minFloors: opts.minFloors, maxFloors: opts.maxFloors, alleys: opts.alleys,
-    corners: opts.corners ?? arch.corners, courtyards: opts.courtyards ?? true, annexes: (opts.annexes ?? true) && opts.yards !== 'green',
-    openings: opts.openYards, single: opts.layout === 'single' ? 'building' : house ? 'house' : undefined,
-  });
+  const plan = planBlock(area, rng, planOptions(opts, arch));
   if (cuts.length) cutPlan(plan, cuts);
   out.ring = !!plan.ring;
-  if (opts.yards === 'green') {
-    // Dressed here (lawns, trees, playgrounds, parking), so the street pass leaves them alone. Its own sequence,
-    // so the buildings don't change with it.
-    const yardRng = new Rng(opts.seed * 43 + 19);
-    const gates = plan.walls.filter((w) => w.gate).map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(96));
-    for (const y of plan.yards) {
-      const g = greenYard(doc, y, footprint.min.z, yardRng, gates, extras);
-      out.solids.push(...g.solids);
-      out.entities.push(...g.entities);
-    }
-  } else out.dressing.yards.push(...plan.yards);
+  dressYards(doc, plan, opts, z0, extras, out);
   out.dressing.obstacles.push(...plan.sheds);
   const styles: readonly FacadeStyle[] = arch.facades;
   const first = rng.int(0, styles.length - 1);
   const styleOf = (slot: number) => FACADE_STYLES[opts.style ?? styles[(first + slot) % styles.length]];
 
   // Roofs first: every wing's decoration stops at its neighbours' walls, up to their roofs.
-  const roofs = plan.buildings.map((b) => {
-    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', b.parts[0].poly.length === 4, arch.roofs);
-    // Sheds get a low metal roof half of the time.
-    const shedRoof = roofRng.chance(0.5) ? { kind: 'hip' as const, material: 'METAL/METALROOF005A' } : { kind: 'flat' as const, material: ROOF };
-    return { roof, parts: b.parts.map((part) => (part.kind === 'annex' ? shedRoof : roof.kind === 'gable' && part.poly.length !== 4 ? { ...roof, kind: 'hip' as const } : roof)) };
-  });
+  const roofs = chooseRoofs(plan, opts, arch);
   const wings = plan.buildings.flatMap((b, i) => b.parts.map((part, j) => ({ part, as: partNeighbour(part, z0, level, roofs[i].parts[j].kind) })));
-  const courtWalls: Neighbour[] = plan.walls.map((w) => {
-    const side = new Vector2().subVectors(w.b, w.a).normalize().multiplyScalar(8);
-    const n = new Vector2(side.y, -side.x);
-    return { poly: ccw([w.a.clone().add(n), w.b.clone().add(n), w.b.clone().sub(n), w.a.clone().sub(n)]), cover: z0 + w.height, reach: () => 0 };
-  });
-
-  // Enterable houses: decided from their own sequence, so the other choices keep their seeds.
-  const interiors = quality.interiors ? opts.interiors ?? arch.interiors : 'none';
-  const intRng = new Rng(opts.seed * 41 + 17);
-  const allParts = plan.buildings.flatMap((b) => b.parts);
-  const boxOf = (p: Part) => new Box2().setFromPoints(p.poly);
-  /**
-   * The footprint of an enterable house on these parts, or null for a solid building: rectangles of 1–2
-   * floors (ring buildings around courtyards stay solid). The wings of an L become one house of at most
-   * 640 × 640; a single lot longer than that gets a smaller house at the street, the rest is its yard.
-   */
-  const houseOn = (parts: Part[]): Vector2[] | null => {
-    if (interiors === 'none' || !parts.length) return null;
-    if (parts.some((p) => p.kind === 'main') && plan.ring) return null;
-    if (parts.some((p) => p.floors > 2 || p.poly.length !== 4 || !p.poly.every((q, i) => { const r = p.poly[(i + 1) % 4]; return q.x === r.x || q.y === r.y; }))) return null;
-    const lot = parts.reduce((b, p) => b.union(boxOf(p)), new Box2());
-    const size = lot.getSize(new Vector2());
-    if (parts.length > 1 && (size.x > 640 || size.y > 640)) return null;
-    if (interiors !== 'all' && !intRng.chance(arch.interiorShare)) return null;
-    if (parts.length > 1) return outlineOf(parts.map(boxOf));
-    const house = lot.clone();
-    for (const ax of ['x', 'y'] as const) {
-      if (size[ax] <= 640) continue;
-      const len = intRng.pick([384, 448, 512, 576]);
-      const atMin = Math.abs(lot.min[ax] - area.min[ax]) < 1, atMax = Math.abs(lot.max[ax] - area.max[ax]) < 1;
-      if (atMin && (!atMax || intRng.chance(0.5))) house.max[ax] = lot.min[ax] + len;
-      else if (atMax) house.min[ax] = lot.max[ax] - len;
-      else { house.min[ax] = Math.round((lot.min[ax] + lot.max[ax] - len) / 128) * 64; house.max[ax] = house.min[ax] + len; }
-    }
-    // What the house leaves of its lot is yard (trees may grow there).
-    const yards = [
-      new Box2(new Vector2(lot.min.x, lot.min.y), new Vector2(house.min.x, lot.max.y)), new Box2(new Vector2(house.max.x, lot.min.y), new Vector2(lot.max.x, lot.max.y)),
-      new Box2(new Vector2(house.min.x, lot.min.y), new Vector2(house.max.x, house.min.y)), new Box2(new Vector2(house.min.x, house.max.y), new Vector2(house.max.x, lot.max.y)),
-    ];
-    out.dressing.yards.push(...yards.filter((y) => y.max.x - y.min.x >= 64 && y.max.y - y.min.y >= 64));
-    return [new Vector2(house.min.x, house.min.y), new Vector2(house.max.x, house.min.y), new Vector2(house.max.x, house.max.y), new Vector2(house.min.x, house.max.y)];
-  };
-  const buildInterior = (parts: Part[], fp: Vector2[]) => {
-    const others = allParts.filter((p) => !parts.includes(p)).map((p) => boxOf(p).expandByScalar(1));
-    const h = interiorHouse(doc, fp, z0, {
-      seed: intRng.int(1, 1e9), storeys: Math.max(...parts.map((p) => p.floors)) >= 2 ? 2 : 1,
-      style: opts.interiorStyle ?? intRng.pick(arch.interiorStyles), cutHeight: opts.cutHeight, furnish: opts.furnish,
-      lights: opts.interiorLights, lightLevel: opts.interiorLightLevel, wideDoors: opts.wideDoors, weathering: opts.weathering, eaves: level >= 2,
-      noEntrance: [...others, ...plan.walls.map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(9))],
-    });
-    out.solids.push(...h.world);
-    out.detail.push(...h.detail);
-    out.entities.push(...h.entities);
-    out.interiorHouses++;
-    // Keep the ground in front of the doors free of lamps and trees.
-    for (const e of h.plan.entrances) {
-      const w = h.plan.walls[e.wall], o = w.openings[e.opening];
-      const half = (o.to - o.from) / 2 + 16;
-      const side = new Vector2(-e.out.y, e.out.x);
-      (out.dressing.doors ??= []).push(new Box2().setFromPoints([
-        e.centre.clone().addScaledVector(side, -half), e.centre.clone().addScaledVector(side, half).addScaledVector(e.out, 128),
-      ]));
-    }
-  };
+  const courtWalls = plan.walls.map((w) => courtWallNeighbour(w, z0));
+  const block: Block = { doc, opts, out, plan, area, z0, arch, level, interiors: quality.interiors ? opts.interiors ?? arch.interiors : 'none', intRng: new Rng(opts.seed * 41 + 17) };
 
   plan.buildings.forEach((b, bi) => {
     const s = styleOf(b.styleSlot);
     const main = b.parts[0];
-    const roof = roofs[bi].roof;
-    // The wings of a lot become one house; each shed is a house of its own.
-    const enterableParts = new Set<Part>();
-    const mains = b.parts.filter((p) => p.kind === 'main');
-    const lot = mains.reduce((x, p) => x.union(boxOf(p)), new Box2()).getSize(new Vector2());
-    // An L too big for one house becomes a house per wing.
-    const groups = mains.length > 1 && (lot.x > 640 || lot.y > 640) ? mains.map((p) => [p]) : [mains];
-    for (const g of groups) {
-      const fp = houseOn(g);
-      if (fp) { g.forEach((p) => enterableParts.add(p)); buildInterior(g, fp); }
-    }
-    for (const p of b.parts.filter((x) => x.kind === 'annex')) {
-      const shed = houseOn([p]);
-      if (shed) { enterableParts.add(p); buildInterior([p], shed); }
-    }
+    const enterable = buildHouses(block, b);
     b.parts.forEach((part, j) => {
-      if (enterableParts.has(part)) return;
-      const partRoof = roofs[bi].parts[j];
+      if (enterable.has(part)) return;
       const neighbours = [...wings.filter((w) => w.part !== part).map((w) => w.as), ...courtWalls];
-      const r = partSolids(doc, part, s, z0, rng, deco, level, partRoof, street, neighbours);
+      const r = partSolids(doc, part, s, z0, rng, deco, level, roofs[bi].parts[j], street, neighbours);
       out.solids.push(...r.world);
       out.detail.push(...r.detail);
       // Corner towers: most rounded corners, some cut and square ones.
@@ -832,51 +934,10 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, options: Bu
       }
     });
     if (main.kind === 'main') out.buildings++;
-    if (opts.roofProps && main.kind === 'main' && roof.kind === 'flat' && !enterableParts.has(main)) {
-      const box = new Box2().setFromPoints(main.poly);
-      const size = box.getSize(new Vector2());
-      const n = Math.min(3, Math.floor((size.x * size.y) / (256 * 256)));
-      const top = z0 + main.floors * g;
-      for (let i = 0; i < n; i++) {
-        const p = new Vector2(Math.round(rng.range(box.min.x + 48, box.max.x - 48)), Math.round(rng.range(box.min.y + 48, box.max.y - 48)));
-        if (!inside(cleanPolygon(offsetPolygon(main.poly, -40)), p)) continue;
-        const prop = { classname: 'prop_static', origin: new Vector3(p.x, p.y, top), keys: { model: rng.pick(ROOF_PROPS), angles: `0 ${rng.int(0, 3) * 90} 0`, solid: '6' } };
-        // Extras off: dealt all the same, so the walls and bridges dealt after them keep their seeds.
-        if (extras.keep('roofProps')) out.entities.push(prop);
-      }
-    }
+    if (opts.roofProps && main.kind === 'main' && roofs[bi].roof.kind === 'flat' && !enterable.has(main)) out.entities.push(...roofProps(main, z0, rng, extras.keep('roofProps')));
   });
   for (const w of plan.walls) out.detail.push(...wallSolids(doc, w, styleOf(rng.int(0, 4)), z0));
-
-  if (opts.alleys) {
-    // Sky bridges between neighbours that are both at least three floors high.
-    const placed = plan.lots;
-    for (let i = 0; i < placed.length; i++) {
-      for (let j = i + 1; j < placed.length; j++) {
-        const a = placed[i], b = placed[j];
-        const floor = Math.min(a.floors, b.floors) - 1;
-        if (floor < 2 || !rng.chance(0.6)) continue;
-        for (const axis of ['x', 'y'] as const) {
-          const other = axis === 'x' ? 'y' : 'x';
-          const gap = b.box.min[axis] - a.box.max[axis];
-          const gap2 = a.box.min[axis] - b.box.max[axis];
-          const lo2 = Math.max(a.box.min[other], b.box.min[other]), hi2 = Math.min(a.box.max[other], b.box.max[other]);
-          if (hi2 - lo2 < 160) continue;
-          let from: number, to: number;
-          if (gap > 0 && gap <= 96) { from = a.box.max[axis]; to = b.box.min[axis]; }
-          else if (gap2 > 0 && gap2 <= 96) { from = b.box.max[axis]; to = a.box.min[axis]; }
-          else continue;
-          const mid = Math.round((lo2 + hi2) / 2 / 16) * 16;
-          const zb = z0 + floor * g;
-          const min = new Vector2(), max = new Vector2();
-          min[axis] = from; max[axis] = to;
-          min[other] = mid - 64; max[other] = mid + 64;
-          const poly = [new Vector2(min.x, min.y), new Vector2(max.x, min.y), new Vector2(max.x, max.y), new Vector2(min.x, max.y)];
-          out.solids.push(solidNode(doc, facadePrism(poly, zb, zb + g, FACADE_STYLES.stone.windows[0], ROOF, z0, FACADE_STYLES.stone.plain.material)));
-        }
-      }
-    }
-  }
+  if (opts.alleys) out.solids.push(...skyBridges(doc, plan.lots, rng, z0));
   // Wall caps under roofs, parts and wings against each other, relief backs on walls, bottoms on the ground.
   hideCoveredFaces([...out.solids, ...out.detail], { groundAt: () => z0 });
   return out;
