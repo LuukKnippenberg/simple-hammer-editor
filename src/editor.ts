@@ -14,6 +14,7 @@ import { pendingRequests } from './assets/fetch.ts';
 import { loadFgd } from './assets/fgd.ts';
 import { Selection } from './edit/selection.ts';
 import { History } from './edit/history.ts';
+import { UnsavedClock } from './edit/unsaved.ts';
 import { ToolManager } from './edit/tools.ts';
 import type { Sketch } from './gen/sketch.ts';
 import { parseMission, type MissionGraph } from './lw/mission.ts';
@@ -46,8 +47,15 @@ export class Editor {
   readonly gridHelper: GridHelper;
   doc: VmfDocument = VmfDocument.empty();
   mapName = 'untitled.vmf';
+  /** Since when the map has unsaved changes, for the save reminder. */
+  readonly unsaved = new UnsavedClock();
   /** Unsaved changes since load or last save. */
-  dirty = false;
+  get dirty(): boolean {
+    return this.unsaved.dirty;
+  }
+  set dirty(on: boolean) {
+    this.unsaved.dirty = on;
+  }
   /** The text the document was loaded from, for the round-trip check. */
   sourceText = '';
   frame: FrameStats = { fps: 0, frameMs: 0, drawCalls: 0, triangles: 0 };

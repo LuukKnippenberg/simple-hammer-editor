@@ -559,3 +559,13 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .hist-step.fut .hist-icon { color: var(--faint); }
 .hist-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist-time { flex: none; font: 11px var(--font-mono); color: var(--faint); }
+
+/* Save reminder pill (status bar) */
+.status-rest { display: contents; }
+#statusbar .save-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border: 0; border-radius: 3px;
+  background: rgba(233, 149, 42, 0.14); color: var(--accent-text); font-size: 12px; line-height: 18px;
+}
+#statusbar .save-pill:hover { background: rgba(233, 149, 42, 0.24); color: var(--accent-hover); }
+#statusbar .save-pill[hidden] { display: none; }
+.save-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
