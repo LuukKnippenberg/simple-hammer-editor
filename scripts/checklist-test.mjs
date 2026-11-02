@@ -125,7 +125,7 @@ await withEditor(async (d, page) => {
   for (const [kind, text, rows] of [
     ['overrun', 'Overrun 6/6 ready ▴', 6],
     ['mission', 'Mission 6/7 ready ▴', 7],
-    ['empty', 'Empty 3/3 ready ▴', 4],
+    ['empty', 'Empty 3/4 ready ▴', 4],
   ]) {
     await newMap(kind);
     await openPopover();
@@ -133,11 +133,24 @@ await withEditor(async (d, page) => {
     check(`new ${kind} map: rows`, await pop.locator('.cl-row').count(), rows);
     await shot(`popover-${kind}`);
   }
-  // Empty's Pick a mode offers the other lists.
-  await pop.locator('.cl-row', { hasText: 'Pick a mode' }).locator('button', { hasText: 'Mission' }).click();
+  // Empty's Pick a mode is a to-do: counted, never ready, with the other lists as buttons.
+  const pickRow = pop.locator('.cl-row', { hasText: 'Pick a mode' });
+  check('pick a mode: to-do', [await pickRow.getAttribute('class'), await pickRow.locator('.cl-icon').innerText()], ['cl-row warning', '!']);
+  await pickRow.locator('button', { hasText: 'Mission' }).click();
   await page.waitForTimeout(150);
   check('pick a mode: chip', (await chipState()).text, 'Mission 3/7 ready ▴');
   await shot('popover-empty-picked-mission');
+  await closePopover();
+
+  // Sky, sun and boundary in place but no mode picked: 3/4, amber, the bar not full.
+  await newMap('annihilation');
+  await openPopover();
+  await pop.locator('button.cl-link', { hasText: 'Change mode' }).click();
+  await pop.locator('.cl-picker button', { hasText: 'Empty' }).click();
+  await page.waitForTimeout(150);
+  check('empty with the basics: chip', await chipState(), { text: 'Empty 3/4 ready ▴', ready: false });
+  check('empty with the basics: popover not ready', await pop.evaluate((el) => [el.classList.contains('ready'), el.querySelector('.cl-bar > div').style.width]), [false, '75%']);
+  await shot('popover-empty-with-basics');
   await closePopover();
 });
 

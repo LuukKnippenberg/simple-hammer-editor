@@ -10,7 +10,7 @@ import { h } from './dom.ts';
 /** Edits settle this long before the checks run again. */
 const REFRESH_DELAY_MS = 300;
 const POPOVER_GAP = 4;
-const ICONS: Record<CheckState, string> = { ok: '✓', warning: '!', error: '✕', pending: '–', info: '?' };
+const ICONS: Record<CheckState, string> = { ok: '✓', warning: '!', error: '✕', pending: '–' };
 const FOOTNOTE = 'Compile also checks static props and leaks. This list updates as you edit; it never blocks saving.';
 
 /** Modes picked with Change mode; a map that is loaded or created goes back to the mode it reads as. */
@@ -54,7 +54,7 @@ export function checkRows(editor: Editor, checks: Check[], opts: RowOptions): HT
 }
 
 function rowAction(editor: Editor, c: Check, opts: RowOptions): HTMLElement | null {
-  if (c.info && c.id === 'mode') {
+  if (c.id === 'mode') {
     return h('span.cl-modes', {}, ...MAP_MODES.filter((m) => m.mode !== 'empty').map((m) =>
       h('button', { onclick: () => { chooseMode(editor, m.mode); opts.onChange(); } }, m.label)));
   }
