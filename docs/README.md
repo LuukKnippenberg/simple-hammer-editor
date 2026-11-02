@@ -6,8 +6,8 @@ Start with the [project README](../README.md) for setup, the main workflow and t
 
 - [editing.md](editing.md): maps and files, the viewport, every tool and panel, entity I/O, map settings, the
   Generate menu, stairs, handles, and the editor data stored in a VMF.
-- [compiling.md](compiling.md): Compile & test, the pre-flight checks, the compile pipeline and navmesh, launching,
-  command-line compiles, engine limits and the t-junction budget.
+- [compiling.md](compiling.md): Compile & test, the map checklist and pre-flight checks, the compile pipeline and
+  navmesh, launching, command-line compiles, engine limits and the t-junction budget.
 - [mission.md](mission.md): Lambda Wars kits, the unit catalogue, the mission flowchart, how it is built into
   entities, checking and playing it through.
 - [audio.md](audio.md): soundscapes, zones, local sounds and presets, the audio preview.

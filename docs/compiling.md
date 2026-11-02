@@ -4,16 +4,38 @@
 game on it. The dev server does the work (`server/compile.ts`), so it needs the install and the Alien Swarm SDK
 tools (see [Setup in the README](../README.md#setup)).
 
-## Pre-flight checks
+## Map checklist and pre-flight checks
 
-Before compiling, the dialog checks the map and offers one-click fixes:
+The chip in the top bar ("Annihilation 5/7 ready") counts what the map's game mode needs. Its border is green when
+nothing is left to fix, amber otherwise. Click it for **Ready to play?**: the mode and player count, a progress bar
+and one row per check (✓ ready, ! or ✕ missing, – not checked yet) with a detail and, where the editor can do it, a
+**Fix**. A fix is one undo step. The chip updates as you edit (a moment after each change) and never blocks saving.
+
+The mode comes from the map (`detectMode` in `src/edit/preflight.ts`): the name prefix first (`hlw_` Annihilation,
+`or_` Overrun, `sp_` mission), then an `overrun_manager` or wave spawn, mission data (a flowchart,
+`wars_player_setup` or `wars_mission_objective`), player starts; otherwise *Empty*. **Change mode** shows another
+mode's list without changing the map; opening or creating a map goes back to the mode it reads as.
+
+| Mode | Checks |
+|---|---|
+| Annihilation | Player starts (numbered, at least 2; says whether they are symmetric), Resources (requisition points and scrap), Sky shell, Sun light, Name (`hlw_`), Map boundary, Units can reach every base |
+| Overrun | Player starts (together in the centre), Wave spawns, Overrun manager (wave type; **Fix** adds one), Sky shell, Sun light, Map boundary |
+| Singleplayer mission | Player camera (`info_player_wars`; **Fix** adds one), Mission flow (a way to win and to lose, no flowchart errors), Every objective area reachable, Name (`sp_`), Sky shell, Sun light, Map boundary |
+| Empty | Sky shell, Sun light, Map boundary, and **Pick a mode**, which switches to another mode's list (advice: not counted) |
+
+"Units can reach every base" and "Every objective area reachable" are the path check, which isn't built yet. They
+show "Not checked yet", count toward the total but never as ready, and don't keep the chip amber: a new
+Annihilation map reads "6/7 ready" in green.
+
+**Compile & test** shows the same list for the same mode, then what only Compile checks:
 
 - the map has geometry;
-- it is sealed by a sky shell of world brushes, so it doesn't leak;
-- a sun (`light_environment`) and a camera spawn (`info_player_start`);
-- a map boundary (`func_map_boundary`: camera limits and fog-of-war height data);
+- a camera spawn (`info_player_start` or `info_player_wars`);
 - every `prop_static` uses a static model: props vbsp would delete (no `$staticprop`, or a model moved without
   being recompiled so its vertex data can't be found) get **Convert to prop_dynamic**.
+
+The compile dialog's buttons say what each fix does, and **Fix all** runs every fix. Fixes that place things around
+the map's content (sky shell, sun, spawn, boundary) aren't offered until the map has some.
 
 Maps made by **New**, **Sketch** or **Generate map** pass every check without fixes. The mission flowchart's errors
 are listed in the compile log.

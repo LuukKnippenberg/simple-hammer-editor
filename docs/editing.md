@@ -17,6 +17,8 @@ How the editor reads and writes maps, and what each tool and panel does. Keyboar
   map with wave spawn points and an `overrun_manager`), *Singleplayer mission* (player camera, faction setup, a
   starting squad and a small mission flow) or *Empty*. Templates add the ground, sky shell, sun, fog and map
   boundary.
+- The **map checklist** chip in the top bar ("Annihilation 6/7 ready") tracks what the map's game mode still needs;
+  click it for the list and its fixes. See [Map checklist](compiling.md#map-checklist-and-pre-flight-checks).
 - Generated maps keep their sketch (`maps/<name>.sketch.json`) and mission flowchart (`maps/<name>.mission.json`)
   next to the VMF; they load and save with it.
 
