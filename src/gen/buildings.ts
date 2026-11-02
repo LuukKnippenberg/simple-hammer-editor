@@ -251,6 +251,13 @@ export function band(doc: VmfDocument, poly: Vector2[], out: number, zMin: numbe
   return solids;
 }
 
+/** Brackets under the cornice stand between these heights below the wall top. */
+const BRACKETS_FROM = 36, BRACKETS_TO = 24;
+/** Height of a flat roof's parapet. */
+const PARAPET = 32;
+/** How far the cornice's top band stands out of the wall (and a parapet or the eaves above it). */
+const corniceOverhang = (main: boolean, level: DetailLevel) => (main && level >= 1 ? 14 : 8);
+
 interface BandSpec { zMin: number; zMax: number; out: number; base?: boolean }
 
 /** The bands of a wing: base course, ledges (a heavy one over the ground floor, thin ones on every `every` floor line), cornice. */
@@ -264,18 +271,18 @@ function partBands(part: Part, z0: number, level: DetailLevel, every = 1): BandS
   }
   // Stepped cornice: a fascia, then the overhanging top band.
   if (main && level >= 1) bands.push({ zMin: top - 24, zMax: top - 16, out: 6 });
-  bands.push({ zMin: top - 16, zMax: top, out: main && level >= 1 ? 14 : 8 });
+  bands.push({ zMin: top - 16, zMax: top, out: corniceOverhang(main, level) });
   return bands;
 }
 
 /** A wing as the other wings see it: hidden up to its parapet or roof, reaching out by its bands and eaves. */
 function partNeighbour(part: Part, z0: number, level: DetailLevel, roof: RoofKind): Neighbour {
   const top = z0 + part.floors * FLOOR, main = part.kind === 'main';
-  const overhang = main && level >= 1 ? 14 : 8;
+  const overhang = corniceOverhang(main, level);
   // Pitched roofs: at least as high as the steepest roof over this footprint.
-  const cover = roof !== 'flat' ? top + 1.2 * inradius(part.poly) + 32 : main ? top + 32 : top;
+  const cover = roof !== 'flat' ? top + 1.2 * inradius(part.poly) + 32 : main ? top + PARAPET : top;
   const zones = partBands(part, z0, level);
-  if (level >= 3 && main && part.floors > 1) zones.push({ zMin: top - 36, zMax: top - 24, out: 12 });
+  if (level >= 3 && main && part.floors > 1) zones.push({ zMin: top - BRACKETS_FROM, zMax: top - BRACKETS_TO, out: 12 });
   const eaves = { zMin: top, zMax: cover, out: roof !== 'flat' ? overhang + 2 : main ? overhang : 0 };
   zones.push(eaves);
   return { poly: part.poly, cover, reach: (zMin, zMax, r) => Math.max(0, ...(r ? [eaves] : zones).filter((b) => b.zMin < zMax && zMin < b.zMax).map((b) => b.out)) };
@@ -302,183 +309,248 @@ function cornerBlock(doc: VmfDocument, poly: Vector2[], i: number, width: number
   return isConvexCcw(p) ? solidNode(doc, facadePrism(p, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
 }
 
+/** The street a wing's walls may face, and what its street fronts add to the block. */
+interface Street {
+  isStreet?: (a: Vector2, b: Vector2) => boolean; rng: Rng; entities: FeatureEntity[]; keep: (c: ExtraCategory) => boolean;
+  oriels: boolean; balconies: boolean; roofHuts: boolean; weathering: number; anchors: Anchor[];
+}
+
+/** What the steps of `partSolids` share about one wing. */
+interface Wing {
+  doc: VmfDocument; part: Part; s: Style; z0: number; level: DetailLevel;
+  /** Height of its walls' tops. */
+  top: number;
+  main: boolean;
+  windows: FacadeTile;
+  walls: Wall[];
+  neighbours: Neighbour[];
+}
+
+/** A column between window bays, `at` along wall `wall`. */
+interface Column { wall: number; at: number }
+
+/** Columns and quoins: 16 wide, standing 6 out, clear of the thin ledges' faces (4 out) they cross. */
+const COLUMN_WIDTH = 16, COLUMN_OUT = 6;
+/** Quoins go on corners that turn by more than 40° (not between the segments of a rounded corner). */
+const QUOIN_MIN_TURN = Math.cos((40 * Math.PI) / 180);
+/** Stretches of wall i that neighbours hide between two heights. */
+const party = (w: Wing, i: number, zMin: number, zMax: number) => partySpans(w.walls[i], w.neighbours, zMin, zMax);
+/** Whether neighbours hide any of wall i from `from` to `to` along it, between two heights. */
+const hidden = (w: Wing, i: number, from: number, to: number, zMin: number, zMax: number) => party(w, i, zMin, zMax).some((p) => p.from < to && p.to > from);
+/** Heights the columns and quoins span: from the ground-floor ledge to the cornice (or the brackets under it). */
+const columnSpan = (w: Wing): [number, number] => [w.z0 + FLOOR + 6, w.level >= 3 ? w.top - BRACKETS_FROM : w.top - BRACKETS_TO];
+
+/** The shell, as world brushes: the ground floor (sunk a little so the building sits on uneven ground) and the floors above. */
+function shellSolids(w: Wing, groundTiles: FacadeTile[], pitched: boolean): KVNode[] {
+  const { doc, part, z0, top } = w;
+  const roofTop = pitched ? NODRAW : ROOF;
+  const world = [solidNode(doc, facadePrism(part.poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : roofTop, z0))];
+  if (part.floors > 1) world.push(solidNode(doc, facadePrism(part.poly, z0 + FLOOR, top, w.windows, roofTop, z0)));
+  return world;
+}
+
+/** Quoins on the outer corners and columns between window bays on long walls (every second or third bay). */
+function quoinsAndColumns(w: Wing, deco: Rng): { solids: KVNode[]; columns: Column[] } {
+  const { doc, s } = w, poly = w.part.poly, n = poly.length;
+  const [colMin, colTop] = columnSpan(w);
+  const solids: KVNode[] = [];
+  const add = (node: KVNode | null) => { if (node) solids.push(node); };
+  // Not at party walls.
+  poly.forEach((v, i) => {
+    const prev = (i + n - 1) % n;
+    const dIn = new Vector2().subVectors(v, poly[prev]).normalize(), dOut = new Vector2().subVectors(poly[(i + 1) % n], v).normalize();
+    const free = !hidden(w, prev, w.walls[prev].len - 24, w.walls[prev].len, colMin, colTop) && !hidden(w, i, 0, 24, colMin, colTop);
+    if (dIn.dot(dOut) < QUOIN_MIN_TURN && free) add(cornerBlock(doc, poly, i, COLUMN_WIDTH, COLUMN_OUT, colMin, colTop, s.plain));
+  });
+  const columns: Column[] = [];
+  const step = deco.pick([2, 3]);
+  poly.forEach((a, i) => {
+    const { len, dir } = w.walls[i];
+    const bays = bayCount(len, w.windows);
+    if (len < 256 || bays < 4) return;
+    for (let k = step; k <= bays - step; k += step) {
+      const along = (k * len) / bays;
+      if (hidden(w, i, along - 10, along + 10, colMin, colTop)) continue;
+      add(wallBlock(doc, a.clone().addScaledVector(dir, along), dir, COLUMN_WIDTH, COLUMN_OUT, colMin, colTop, s.plain));
+      columns.push({ wall: i, at: along });
+    }
+  });
+  return { solids, columns };
+}
+
+/** Brackets under the cornice at every bay. */
+function corniceBrackets(w: Wing): KVNode[] {
+  const poly = w.part.poly, zMin = w.top - BRACKETS_FROM, zMax = w.top - BRACKETS_TO;
+  const solids: KVNode[] = [];
+  poly.forEach((a, i) => {
+    const b = poly[(i + 1) % poly.length];
+    const len = a.distanceTo(b);
+    const bays = Math.max(1, bayCount(len, w.windows) || Math.round(len / 64));
+    const dir = new Vector2().subVectors(b, a).normalize();
+    for (let k = 0; k <= bays; k++) {
+      if ((k === 0 || k === bays) && len < 96) continue;
+      const along = Math.min(len - 6, Math.max(6, (k * len) / bays));
+      if (hidden(w, i, along - 6, along + 6, zMin, zMax)) continue;
+      const node = wallBlock(w.doc, a.clone().addScaledVector(dir, along), dir, 8, 12, zMin, zMax, w.s.trim);
+      if (node) solids.push(node);
+    }
+  });
+  return solids;
+}
+
+/** A pitched roof, and a TV antenna on some ridges. */
+function pitchedRoof(w: Wing, roof: { kind: RoofKind; material: string }, deco: Rng, street: Street): { solids: KVNode[]; heightAt: (p: Vector2) => number } {
+  const { doc, s, top, main, level } = w, poly = w.part.poly;
+  // No eaves over party walls, nor on walls that meet a neighbour at an inside corner (the two roofs'
+  // eaves would cross there).
+  const eavesStop = w.walls.map((wall, i) => {
+    const corner = cornerReach(wall, w.neighbours, top, top + 1);
+    return party(w, i, top, top + 1).length > 0 || corner.start > 0 || corner.end > 0;
+  });
+  const r = roofSolids(doc, poly, top, {
+    kind: roof.kind, material: roof.material, wall: s.plain, window: w.windows, overhang: corniceOverhang(main, level),
+    dormers: main && level >= 1, chimneys: main && level >= 1, party: eavesStop,
+  }, deco);
+  if (main && level >= 1 && deco.chance(0.35)) {
+    const c = new Box2().setFromPoints(poly).getCenter(new Vector2());
+    if (inside(poly, c)) {
+      const antenna = { classname: 'prop_static', origin: new Vector3(Math.round(c.x), Math.round(c.y), Math.round(r.heightAt(c) + 100)), keys: { model: 'models/props_rooftop/antenna04a.mdl', angles: `0 ${deco.int(0, 359)} 0`, solid: '0' } };
+      if (street.keep('clutter')) street.entities.push(antenna);
+    }
+  }
+  return { solids: r.solids, heightAt: r.heightAt };
+}
+
+/**
+ * Parapet: one brush per edge between the cornice line and 4 units inside the wall; none on walls a
+ * neighbour hides, and flush with the wall where one hides it in part.
+ */
+function parapet(w: Wing): KVNode[] {
+  const { doc, s, top } = w, poly = w.part.poly;
+  const shared = w.walls.map((_, i) => party(w, i, top, top + PARAPET));
+  const outer = cleanPolygon(offsetPolygon(poly, shared.map((p) => (p.length ? 0 : corniceOverhang(w.main, w.level)))));
+  const inner = cleanPolygon(offsetPolygon(poly, -4));
+  if (inner.length !== outer.length || !isConvexCcw(inner)) return [];
+  const solids: KVNode[] = [];
+  outer.forEach((a, i) => {
+    if (shared[i].some((p) => p.from < 0.5 && p.to > w.walls[i].len - 0.5)) return;
+    const b = outer[(i + 1) % outer.length];
+    const quad = [a, b, inner[(i + 1) % inner.length], inner[i]];
+    if (isConvexCcw(quad)) solids.push(solidNode(doc, facadePrism(quad, top, top + PARAPET, s.plain, s.plain.material, top, NODRAW)));
+  });
+  return solids;
+}
+
+/** A stair house on the roof (lift machinery of the blocks), away from the edges. */
+function roofHut(w: Wing, deco: Rng): KVNode[] {
+  const { doc, s, top } = w, poly = w.part.poly;
+  const box = new Box2().setFromPoints(poly);
+  const size = box.getSize(new Vector2());
+  if (size.x < 256 || size.y < 256) return [];
+  const wide = deco.pick([96, 128]), deep = deco.pick([96, 128]);
+  const cx = Math.round(deco.range(box.min.x + 64 + wide / 2, box.max.x - 64 - wide / 2)), cy = Math.round(deco.range(box.min.y + 64 + deep / 2, box.max.y - 64 - deep / 2));
+  const hut = [new Vector2(cx - wide / 2, cy - deep / 2), new Vector2(cx + wide / 2, cy - deep / 2), new Vector2(cx + wide / 2, cy + deep / 2), new Vector2(cx - wide / 2, cy + deep / 2)];
+  if (!hut.every((p) => inside(poly, p))) return [];
+  return [
+    solidNode(doc, facadePrism(hut, top, top + 96, s.plain, ROOF, top)),
+    solidNode(doc, facadePrism(offsetPolygon(hut, 6), top + 96, top + 104, s.trim, s.trim.material, top + 96, s.trim.material)),
+  ];
+}
+
+/**
+ * Weathering on a street wall: stains running down from under the cornice and the ledges. An infodecal lands
+ * on every brush face it covers, so each stays clear of the bands, the brackets and what stands on the wall
+ * (oriels, balconies, columns, quoins).
+ */
+function wallStains(w: Wing, wall: Wall, i: number, facade: KVNode[], bands: BandSpec[], columns: Column[], street: Street): void {
+  const { z0, top } = w;
+  const [colMin, colTop] = columnSpan(w);
+  const zones = bands.map((b) => [b.zMin, b.zMax]);
+  if (w.level >= 3 && w.part.floors > 1) zones.push([top - BRACKETS_FROM, top - BRACKETS_TO]);
+  const busy = facade.map((n) => {
+    const box = solidBounds(new MapSolid(n, null));
+    const along = [box.min, box.max].flatMap((p) => [box.min, box.max].map((q) => new Vector2(p.x, q.y).sub(wall.a).dot(wall.dir)));
+    return { from: Math.min(...along), to: Math.max(...along), zMin: box.min.z, zMax: box.max.z };
+  });
+  busy.push(...columns.filter((c) => c.wall === i).map((c) => ({ from: c.at - COLUMN_WIDTH / 2, to: c.at + COLUMN_WIDTH / 2, zMin: colMin, zMax: colTop })));
+  const drips = zones.map(([zMin]) => zMin).filter((z) => z > z0 + 20);
+  const stains = Math.round((wall.len / 256) * street.weathering * 2 * street.rng.next());
+  // A few tries per stain to find a free spot.
+  for (let k = 0, tries = 0; k < stains && drips.length && tries < stains * 6; tries++) {
+    const stain = street.rng.pick(STAINS);
+    const along = street.rng.range(16 + stain.w / 2, wall.len - 16 - stain.w / 2);
+    const z = street.rng.pick(drips) - 2 - stain.h / 2;
+    const z1 = z - stain.h / 2, z2 = z + stain.h / 2, u1 = along - stain.w / 2, u2 = along + stain.w / 2;
+    if (wall.len < 32 + stain.w || z1 < z0 + 22 || zones.some(([zMin, zMax]) => zMin < z2 + 2 && zMax > z1 - 2)) continue;
+    if (busy.some((b) => b.from < u2 + 2 && b.to > u1 - 2 && b.zMin < z2 + 2 && b.zMax > z1 - 2)) continue;
+    const p = wall.a.clone().addScaledVector(wall.dir, along).addScaledVector(wall.out, 2);
+    street.entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), Math.round(z)), keys: { texture: stain.texture } });
+    k++;
+  }
+}
+
+/** Street fronts: oriels, balconies and awnings on walls that face the street, their clutter and stains; steps at a cut-corner entrance. */
+function streetFronts(w: Wing, groundTiles: FacadeTile[], bands: BandSpec[], columns: Column[], street: Street): KVNode[] {
+  const isStreet = street.isStreet;
+  if (!isStreet) return [];
+  const { doc, part, s, z0, level, windows } = w, poly = part.poly;
+  const [colMin, colTop] = columnSpan(w);
+  const solids: KVNode[] = [];
+  poly.forEach((a, i) => {
+    const b = poly[(i + 1) % poly.length];
+    if (part.cornerEdges.includes(i) || !isStreet(a, b)) return;
+    const wall = wallOf(a, b);
+    const f = streetFacade(doc, wall, {
+      z0, floors: part.floors, windows, trim: s.trim, plain: s.plain, level, oriels: street.oriels, balconies: street.balconies,
+    }, street.rng);
+    solids.push(...f.solids);
+    if (street.keep('awnings')) street.entities.push(...f.entities);
+    // Pilasters, in the wall's plane (x along it, y height), for the street clutter to keep clear of.
+    const pilasters = columns.filter((c) => c.wall === i).map((c) => new Box2(new Vector2(c.at - COLUMN_WIDTH / 2, colMin), new Vector2(c.at + COLUMN_WIDTH / 2, colTop)));
+    // Cable brackets go with the cables; their anchors stay, so the street pass deals its cables as always.
+    if (level >= 1) street.entities.push(...wallClutter(wall, z0, part.floors, street.rng, street.anchors, { windows, ground: groundTiles[i], taken: [...f.taken, ...pilasters] })
+      .filter((e) => street.keep(e.keys.model === WALL_MOUNT.model ? 'cables' : 'clutter')));
+    wallStains(w, wall, i, f.solids, bands, columns, street);
+  });
+  if (level >= 1 && part.cornerEdges.length === 1) {
+    const i = part.cornerEdges[0];
+    solids.push(...entranceSteps(doc, wallOf(poly[i], poly[(i + 1) % poly.length]), z0));
+  }
+  return solids;
+}
+
 /**
  * Brushes of one wing. The shell (ground floor, upper floors) is world geometry for visibility; the
  * decoration (base course, ledges, columns, cornice, brackets, parapet) goes to `detail` for func_detail.
  */
 function partSolids(
   doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel, roof: { kind: RoofKind; material: string },
-  street: {
-    isStreet?: (a: Vector2, b: Vector2) => boolean; rng: Rng; entities: FeatureEntity[]; keep: (c: ExtraCategory) => boolean;
-    oriels: boolean; balconies: boolean; roofHuts: boolean; weathering: number; anchors: Anchor[];
-  },
-  neighbours: Neighbour[] = [],
+  street: Street, neighbours: Neighbour[] = [],
 ): { world: KVNode[]; detail: KVNode[]; roofHeight: (p: Vector2) => number; windows: FacadeTile } {
-  const world: KVNode[] = [], detail: KVNode[] = [];
-  let roofHeight = (_p: Vector2) => z0 + part.floors * FLOOR + 32;
-  const add = (n: KVNode | null) => { if (n) detail.push(n); };
-  const poly = part.poly;
-  const top = z0 + part.floors * FLOOR;
+  const poly = part.poly, top = z0 + part.floors * FLOOR, main = part.kind === 'main';
   const ground = rng.pick(s.ground);
   const windows = rng.pick(s.windows);
   const groundTiles = poly.map((_, i) => (part.cornerEdges.includes(i) ? s.door : ground));
-  const pitched = roof.kind !== 'flat';
-  const roofTop = pitched ? NODRAW : ROOF;
-  // Ground floor, sunk a little so the building sits on uneven ground.
-  world.push(solidNode(doc, facadePrism(poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : roofTop, z0)));
-  if (part.floors > 1) world.push(solidNode(doc, facadePrism(poly, z0 + FLOOR, top, windows, roofTop, z0)));
-  const main = part.kind === 'main';
-  const walls = poly.map((a, i) => wallOf(a, poly[(i + 1) % poly.length]));
-  /** Stretches of wall i that neighbours hide between two heights. */
-  const party = (i: number, zMin: number, zMax: number) => partySpans(walls[i], neighbours, zMin, zMax);
-  const hidden = (i: number, from: number, to: number, zMin: number, zMax: number) => party(i, zMin, zMax).some((p) => p.from < to && p.to > from);
-  // Pilasters per wall, in the wall's plane (x along it, y height), for the street clutter to keep clear of.
-  const pilasters = poly.map((): Box2[] => []);
-
+  const w: Wing = { doc, part, s, z0, level, top, main, windows, neighbours, walls: poly.map((a, i) => wallOf(a, poly[(i + 1) % poly.length])) };
+  const world = shellSolids(w, groundTiles, roof.kind !== 'flat');
   // Base course of stone along the street; ledges, a heavier one over the ground floor and thin ones
   // between upper floors (all, or every other); the stepped cornice. All stop at party walls.
-  const every = level >= 2 && main && part.floors > 1 ? deco.pick([1, 2]) : 1;
-  const bands = partBands(part, z0, level, every);
-  for (const b of bands) detail.push(...band(doc, poly, b.out, b.zMin, b.zMax, b.base ? BASE : s.trim, neighbours));
-  const overhang = main && level >= 1 ? 14 : 8;
-
-  // Columns and quoins stand 6 out, clear of the thin ledges' faces (4 out) they cross.
-  const columns: { wall: number; at: number }[] = [];
-  const colMin = z0 + FLOOR + 6, colTop = level >= 3 ? top - 36 : top - 24;
-  if (level >= 2 && main && part.floors > 1) {
-    // Quoins on the outer corners (not between the segments of a rounded corner, nor at party walls).
-    poly.forEach((v, i) => {
-      const n = poly.length, prev = (i + n - 1) % n;
-      const dIn = new Vector2().subVectors(v, poly[prev]).normalize(), dOut = new Vector2().subVectors(poly[(i + 1) % n], v).normalize();
-      const free = !hidden(prev, walls[prev].len - 24, walls[prev].len, colMin, colTop) && !hidden(i, 0, 24, colMin, colTop);
-      if (dIn.dot(dOut) < Math.cos((40 * Math.PI) / 180) && free) add(cornerBlock(doc, poly, i, 16, 6, colMin, colTop, s.plain));
-    });
-    // Columns between window bays on long walls: every second or third bay.
-    const step = deco.pick([2, 3]);
-    poly.forEach((a, i) => {
-      const len = walls[i].len;
-      const bays = bayCount(len, windows);
-      if (len < 256 || bays < 4) return;
-      for (let k = step; k <= bays - step; k += step) {
-        const along = (k * len) / bays;
-        if (hidden(i, along - 10, along + 10, colMin, colTop)) continue;
-        add(wallBlock(doc, a.clone().addScaledVector(walls[i].dir, along), walls[i].dir, 16, 6, colMin, colTop, s.plain));
-        columns.push({ wall: i, at: along });
-        pilasters[i].push(new Box2(new Vector2(along - 8, colMin), new Vector2(along + 8, colTop)));
-      }
-    });
-  }
-  // Brackets under the cornice at every bay.
-  if (level >= 3 && main && part.floors > 1) {
-    poly.forEach((a, i) => {
-      const b = poly[(i + 1) % poly.length];
-      const len = a.distanceTo(b);
-      const bays = Math.max(1, bayCount(len, windows) || Math.round(len / 64));
-      const dir = new Vector2().subVectors(b, a).normalize();
-      for (let k = 0; k <= bays; k++) {
-        if ((k === 0 || k === bays) && len < 96) continue;
-        const along = Math.min(len - 6, Math.max(6, (k * len) / bays));
-        if (hidden(i, along - 6, along + 6, top - 36, top - 24)) continue;
-        add(wallBlock(doc, a.clone().addScaledVector(dir, along), dir, 8, 12, top - 36, top - 24, s.trim));
-      }
-    });
-  }
-  if (pitched) {
-    // No eaves over party walls, nor on walls that meet a neighbour at an inside corner (the two roofs'
-    // eaves would cross there).
-    const eavesStop = walls.map((w, i) => {
-      const corner = cornerReach(w, neighbours, top, top + 1);
-      return party(i, top, top + 1).length > 0 || corner.start > 0 || corner.end > 0;
-    });
-    const r = roofSolids(doc, poly, top, {
-      kind: roof.kind, material: roof.material, wall: s.plain, window: windows, overhang,
-      dormers: main && level >= 1, chimneys: main && level >= 1, party: eavesStop,
-    }, deco);
+  const tall = main && part.floors > 1;
+  const bands = partBands(part, z0, level, level >= 2 && tall ? deco.pick([1, 2]) : 1);
+  const detail = bands.flatMap((b) => band(doc, poly, b.out, b.zMin, b.zMax, b.base ? BASE : s.trim, neighbours));
+  const { solids: columnSolids, columns } = level >= 2 && tall ? quoinsAndColumns(w, deco) : { solids: [], columns: [] };
+  detail.push(...columnSolids);
+  if (level >= 3 && tall) detail.push(...corniceBrackets(w));
+  let roofHeight = (_p: Vector2) => top + PARAPET;
+  if (roof.kind !== 'flat') {
+    const r = pitchedRoof(w, roof, deco, street);
     detail.push(...r.solids);
     roofHeight = r.heightAt;
-    // A TV antenna on some ridges.
-    if (main && level >= 1 && deco.chance(0.35)) {
-      const c = new Box2().setFromPoints(poly).getCenter(new Vector2());
-      if (inside(poly, c)) {
-        const antenna = { classname: 'prop_static', origin: new Vector3(Math.round(c.x), Math.round(c.y), Math.round(r.heightAt(c) + 100)), keys: { model: 'models/props_rooftop/antenna04a.mdl', angles: `0 ${deco.int(0, 359)} 0`, solid: '0' } };
-        if (street.keep('clutter')) street.entities.push(antenna);
-      }
-    }
   } else if (main) {
-    // Parapet: one brush per edge between the cornice line and 4 units inside the wall; none on walls a
-    // neighbour hides, and flush with the wall where one hides it in part.
-    const shared = walls.map((_, i) => party(i, top, top + 32));
-    const outer = cleanPolygon(offsetPolygon(poly, shared.map((p) => (p.length ? 0 : overhang))));
-    const inner = cleanPolygon(offsetPolygon(poly, -4));
-    if (inner.length === outer.length && isConvexCcw(inner)) {
-      outer.forEach((a, i) => {
-        if (shared[i].some((p) => p.from < 0.5 && p.to > walls[i].len - 0.5)) return;
-        const b = outer[(i + 1) % outer.length];
-        const quad = [a, b, inner[(i + 1) % inner.length], inner[i]];
-        if (isConvexCcw(quad)) detail.push(solidNode(doc, facadePrism(quad, top, top + 32, s.plain, s.plain.material, top, NODRAW)));
-      });
-    }
-    // A stair house on the roof (lift machinery of the blocks), away from the edges.
-    if (street.roofHuts && level >= 1 && deco.chance(0.7)) {
-      const box = new Box2().setFromPoints(poly);
-      const size = box.getSize(new Vector2());
-      if (size.x >= 256 && size.y >= 256) {
-        const w = deco.pick([96, 128]), d = deco.pick([96, 128]);
-        const cx = Math.round(deco.range(box.min.x + 64 + w / 2, box.max.x - 64 - w / 2)), cy = Math.round(deco.range(box.min.y + 64 + d / 2, box.max.y - 64 - d / 2));
-        const hut = [new Vector2(cx - w / 2, cy - d / 2), new Vector2(cx + w / 2, cy - d / 2), new Vector2(cx + w / 2, cy + d / 2), new Vector2(cx - w / 2, cy + d / 2)];
-        if (hut.every((p) => inside(poly, p))) {
-          detail.push(solidNode(doc, facadePrism(hut, top, top + 96, s.plain, ROOF, top)));
-          detail.push(solidNode(doc, facadePrism(offsetPolygon(hut, 6), top + 96, top + 104, s.trim, s.trim.material, top + 96, s.trim.material)));
-        }
-      }
-    }
+    detail.push(...parapet(w));
+    if (street.roofHuts && level >= 1 && deco.chance(0.7)) detail.push(...roofHut(w, deco));
   }
-  // Street fronts: oriels, balconies and awnings on walls that face the street; steps at a cut-corner entrance.
-  const isStreet = street.isStreet;
-  if (main && isStreet) {
-    poly.forEach((a, i) => {
-      const b = poly[(i + 1) % poly.length];
-      if (part.cornerEdges.includes(i) || !isStreet(a, b)) return;
-      const w = wallOf(a, b);
-      const f = streetFacade(doc, w, {
-        z0, floors: part.floors, windows, trim: s.trim, plain: s.plain, level, oriels: street.oriels, balconies: street.balconies,
-      }, street.rng);
-      detail.push(...f.solids);
-      if (street.keep('awnings')) street.entities.push(...f.entities);
-      // Cable brackets go with the cables; their anchors stay, so the street pass deals its cables as always.
-      if (level >= 1) street.entities.push(...wallClutter(w, z0, part.floors, street.rng, street.anchors, { windows, ground: groundTiles[i], taken: [...f.taken, ...pilasters[i]] })
-        .filter((e) => street.keep(e.keys.model === WALL_MOUNT.model ? 'cables' : 'clutter')));
-      // Weathering: stains running down from under the cornice and the ledges. An infodecal lands on every
-      // brush face it covers, so each stays clear of the bands, the brackets and what stands on the wall
-      // (oriels, balconies, columns, quoins).
-      const zones = bands.map((b) => [b.zMin, b.zMax]);
-      if (level >= 3 && main && part.floors > 1) zones.push([top - 36, top - 24]);
-      const busy = f.solids.map((n) => {
-        const box = solidBounds(new MapSolid(n, null));
-        const along = [box.min, box.max].flatMap((p) => [box.min, box.max].map((q) => new Vector2(p.x, q.y).sub(a).dot(w.dir)));
-        return { from: Math.min(...along), to: Math.max(...along), zMin: box.min.z, zMax: box.max.z };
-      });
-      busy.push(...columns.filter((c) => c.wall === i).map((c) => ({ from: c.at - 8, to: c.at + 8, zMin: colMin, zMax: colTop })));
-      const drips = zones.map(([zMin]) => zMin).filter((z) => z > z0 + 20);
-      const stains = Math.round((w.len / 256) * street.weathering * 2 * street.rng.next());
-      // A few tries per stain to find a free spot.
-      for (let k = 0, tries = 0; k < stains && drips.length && tries < stains * 6; tries++) {
-        const stain = street.rng.pick(STAINS);
-        const along = street.rng.range(16 + stain.w / 2, w.len - 16 - stain.w / 2);
-        const z = street.rng.pick(drips) - 2 - stain.h / 2;
-        const z1 = z - stain.h / 2, z2 = z + stain.h / 2, u1 = along - stain.w / 2, u2 = along + stain.w / 2;
-        if (w.len < 32 + stain.w || z1 < z0 + 22 || zones.some(([zMin, zMax]) => zMin < z2 + 2 && zMax > z1 - 2)) continue;
-        if (busy.some((b) => b.from < u2 + 2 && b.to > u1 - 2 && b.zMin < z2 + 2 && b.zMax > z1 - 2)) continue;
-        const p = a.clone().addScaledVector(w.dir, along).addScaledVector(w.out, 2);
-        street.entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), Math.round(z)), keys: { texture: stain.texture } });
-        k++;
-      }
-    });
-    if (level >= 1 && part.cornerEdges.length === 1) {
-      const i = part.cornerEdges[0];
-      detail.push(...entranceSteps(doc, wallOf(poly[i], poly[(i + 1) % poly.length]), z0));
-    }
-  }
+  if (main) detail.push(...streetFronts(w, groundTiles, bands, columns, street));
   return { world, detail, roofHeight, windows };
 }
 
