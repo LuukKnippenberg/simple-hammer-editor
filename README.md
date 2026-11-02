@@ -64,8 +64,10 @@ saves the choice to `editor.config.json` and reloads, keeping unsaved work as an
 - **Viewport**: the 3D or top view, with the tool's options in the top-left corner and frame stats in the top
   right. The status bar names what is under the cursor.
 - **Panels** (right): Selection (the inspector, entity outputs and generator settings), Materials, Entities, POI,
-  Mission, Cinema, Logic (the I/O graph), Map (document, lighting, outliner) and Settings (sky, sun, fog, exposure,
+  Mission, Cinema, Logic (the I/O graph), Map (document, history, lighting, outliner) and Settings (sky, sun, fog, exposure,
   colour correction and other map-wide settings). Panels follow the tool in use; the pin keeps one open.
+- **Status bar** (bottom): the map name, a save reminder after 20 minutes of unsaved changes, the camera, grid and
+  what is under the cursor.
 
 | Tool | Key | Use |
 |---|---|---|

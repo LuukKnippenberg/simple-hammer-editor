@@ -55,6 +55,10 @@ panels, lighting, the sketch and mission dialogs, `setView`, `project` (world po
 `busy()`. Vite serves the source as modules, so a script can also `import('/src/...')` inside the page and call the
 same functions the UI does.
 
+Browser checks that exit non-zero when something fails: `scripts/inspector-clicks-test.mjs` (inspector fields) and
+`scripts/history-test.mjs` (Map › History jumps, the rail's undo and redo, the save reminder; `SHOTS_DIR=<folder>`
+also saves screenshots). Run them against a dev server, for example `SHE_PORT=5214 node scripts/history-test.mjs`.
+
 `npm run screenshot -- <shots.json>` captures a list of views (map, camera, optional JS before and after) without a
 script of its own.
 

@@ -13,6 +13,18 @@ How the editor reads and writes maps, and what each tool and panel does. Keyboar
   game's own `mapsrc/` is never overwritten. **Download** saves the `.vmf` through the browser.
 - The map picker lists `maps/` (*Editor maps*), the game's `mapsrc/` and *Autosaves*. Unsaved work is autosaved
   every minute to `.autosave/`.
+- After 20 minutes of unsaved changes the status bar shows an amber *unsaved for N min · Save* pill; clicking it
+  saves. It never interrupts, and autosave runs either way.
+
+## Undo and history
+
+- **Undo** (Ctrl+Z) and **Redo** (Ctrl+Y or Ctrl+Shift+Z) are also the ↶ and ↷ buttons at the foot of the tool
+  rail, greyed out when there is nothing to undo or redo. The history keeps the last 200 steps and is cleared when
+  a map is opened.
+- **Map › History** lists every step with its icon, label and time, oldest first, starting from *Opened <map>*.
+  The current step is highlighted. Click a step to jump back to it: the steps after it turn grey and can be redone
+  (click one, or Redo) until the next edit drops them. A generator run, from placing it to the last tweak, is one
+  step. Jumping restores the map exactly; the selection may be cleared.
 - **New** starts from a game-mode template: *Annihilation* (an `hlw_` map with player bases), *Overrun* (an `or_`
   map with wave spawn points and an `overrun_manager`), *Singleplayer mission* (player camera, faction setup, a
   starting squad and a small mission flow) or *Empty*. Templates add the ground, sky shell, sun, fog and map
