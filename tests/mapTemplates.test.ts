@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Box3, Vector3 } from 'three';
-import type { Editor } from '../src/editor.ts';
 import { MAP_SIZES, TEMPLATES, buildTemplate, type MapSize, type TemplateOptions } from '../src/lw/mapTemplates.ts';
 import { runChecks } from '../src/edit/preflight.ts';
 import { solidBounds } from '../src/edit/brushes.ts';
 import { checkMission } from '../src/lw/missionCheck.ts';
 import { VmfDocument, type MapEntity } from '../src/vmf/map.ts';
 import { buildSolidChunks } from '../src/render/worldRenderer.ts';
+import { stubEditor } from './stubEditor.ts';
 
 const SIZES = Object.keys(MAP_SIZES) as MapSize[];
 const count = (doc: VmfDocument, cls: string) => doc.entities.filter((e) => e.classname === cls).length;
@@ -37,7 +37,7 @@ function commonChecks(o: TemplateOptions) {
   for (const cls of ['light_environment', 'env_fog_controller', 'func_map_boundary', 'info_player_start', 'shadow_control', 'env_tonemap_controller']) expect(count(doc, cls), cls).toBe(1);
   expect(doc.worldEntity.solids.some((s) => s.isDisplacement)).toBe(true);
   // The pre-flight checks of the compile dialog all pass.
-  const checks = runChecks({ doc } as unknown as Editor);
+  const checks = runChecks(stubEditor(doc));
   for (const c of checks) expect(c.ok, `${c.id}: ${c.detail}`).toBe(true);
   // Gameplay entities stay inside the map boundary, away from its walls.
   const inside = boundaryBox(doc);

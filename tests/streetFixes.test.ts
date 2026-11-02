@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { VmfDocument, MapSolid, type MapEntity } from '../src/vmf/map.ts';
-import { History } from '../src/edit/history.ts';
-import type { Editor } from '../src/editor.ts';
+import { VmfDocument, MapSolid } from '../src/vmf/map.ts';
 import { buildBrushFaces } from '../src/geom/brush.ts';
 import { buildRoads, defaultRoad, roadGround, roadOf, type RoadSpec } from '../src/gen/roads.ts';
 import { emptySketch, generateFromSketch, sketchPoiPlacements, Surface } from '../src/gen/sketch.ts';
@@ -11,6 +9,7 @@ import { buildPoi, newSpec, poiType } from '../src/gen/poi/registry.ts';
 import { applyRooms } from '../src/gen/rooms/action.ts';
 import { STATION_TRACKS, stationSpec } from '../src/examples/gardenDistrict.ts';
 import '../src/gen/poi/catalogue.ts';
+import { stubEditor } from './stubEditor.ts';
 
 const road = (ax: number, ay: number, bx: number, by: number, materials?: RoadSpec['materials']): RoadSpec =>
   ({ ...defaultRoad('asphalt', [new Vector3(ax, ay, 0), new Vector3(bx, by, 0)]), width: 256, pavement: 96, radius: 0, materials });
@@ -24,11 +23,6 @@ function tops(nodes: ReturnType<typeof buildRoads>[number]) {
 }
 /** Texture coordinate of a world point on an axis, in texels, wrapped into one tile. */
 const texel = (a: { axis: Vector3; shift: number; scale: number }, p: Vector3, w: number) => ((((p.dot(a.axis) / a.scale + a.shift) % w) + w) % w);
-
-function stubEditor(doc = VmfDocument.empty()): Editor {
-  const selection = { solids: new Set(), entities: new Set<MapEntity>(), set() {}, clear() {} };
-  return { doc, history: new History(() => doc), changed() {}, emit() {}, selection, world: { raycast: () => null, visibleKinds: { handle: true } } } as unknown as Editor;
-}
 
 describe('street fixes', () => {
   it('lines the pavement slabs and the gutter setts up with the street', () => {

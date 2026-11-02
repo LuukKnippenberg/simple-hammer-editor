@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MapSolid, VmfDocument } from '../src/vmf/map.ts';
-import { History } from '../src/edit/history.ts';
 import { buildBrushFaces } from '../src/geom/brush.ts';
 import { writeKeyValues, type KVNode } from '../src/vmf/keyvalues.ts';
-import type { Editor } from '../src/editor.ts';
 import { POI_TYPES, buildPoi, defaultParams, newSpec, poiOf, registerPoi, sharedParams } from '../src/gen/poi/registry.ts';
 import { applyPoi, deletePoi, poiMembers, regeneratePoi } from '../src/gen/poi/action.ts';
 import { decodePoi, encodePoi } from '../src/gen/poi/spec.ts';
@@ -11,16 +9,7 @@ import { modelInfo } from '../src/gen/poi/models.ts';
 import { modelFootprint, overlaps, rect, walkable } from '../src/gen/poi/kit.ts';
 import type { PoiOutput, PoiSpec, PoiType, Rotation } from '../src/gen/poi/types.ts';
 import '../src/gen/poi/catalogue.ts';
-
-/** Just enough of an Editor for POI actions: a document, history, no world to ray-cast against. */
-function stubEditor(): Editor {
-  const doc = VmfDocument.empty();
-  return {
-    doc, history: new History(() => doc), changed() {}, emit() {},
-    selection: { set() {}, clear() {} },
-    world: { raycast: () => null },
-  } as unknown as Editor;
-}
+import { stubEditor } from './stubEditor.ts';
 
 const DUMMY: PoiType = {
   id: 'test_dummy', label: 'Dummy', icon: '?', hint: '', landscapes: ['city'],

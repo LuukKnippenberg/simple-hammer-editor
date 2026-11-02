@@ -1,22 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { VmfDocument, type MapEntity, type MapSolid } from '../src/vmf/map.ts';
-import { History } from '../src/edit/history.ts';
+import { VmfDocument } from '../src/vmf/map.ts';
 import { remapSolid, solidBounds, translateSolid } from '../src/edit/brushes.ts';
-import type { Editor } from '../src/editor.ts';
 import { ROOMS_HANDLE, findHandle, handleBox, stripHandles } from '../src/gen/handle.ts';
 import { applyRooms, deleteRooms, regenerateRooms, roomsHandleDragged, selectedRooms } from '../src/gen/rooms/action.ts';
 import { decodeRooms, encodeRooms, roomsMembers, roomsOf, roomsOwner } from '../src/gen/rooms/store.ts';
 import { presetSpec } from '../src/gen/rooms/presets.ts';
-
-function stubEditor(doc = VmfDocument.empty()): Editor {
-  const selection = {
-    solids: new Set<MapSolid>(), entities: new Set<MapEntity>(),
-    set(s: MapSolid[], e: MapEntity[] = []) { this.solids = new Set(s); this.entities = new Set(e); },
-    clear() { this.solids.clear(); this.entities.clear(); },
-  };
-  return { doc, history: new History(() => doc), changed() {}, emit() {}, selection, world: { raycast: () => null, visibleKinds: { handle: true } } } as unknown as Editor;
-}
+import { stubEditor } from './stubEditor.ts';
 
 describe('stored interior buildings', () => {
   it('keeps the whole spec in one key', () => {

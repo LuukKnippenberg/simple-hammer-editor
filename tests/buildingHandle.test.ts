@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Box3, Vector3 } from 'three';
-import { VmfDocument, type MapEntity, type MapSolid } from '../src/vmf/map.ts';
-import { History } from '../src/edit/history.ts';
+import { VmfDocument, type MapEntity } from '../src/vmf/map.ts';
 import { boxSolid, remapSolid, solidBounds, translateSolid } from '../src/edit/brushes.ts';
 import type { Editor } from '../src/editor.ts';
 import {
@@ -14,19 +13,7 @@ import { BUILDING_HANDLE, HANDLE_HEIGHT, findHandle, handleBox, stripHandles } f
 import { generateFromSketch } from '../src/gen/sketch.ts';
 import { generateMap, randomLayout } from '../src/gen/layout.ts';
 import { buildDistrictSketch } from '../src/examples/district.ts';
-
-/** Enough of an Editor for building actions, with a selection that remembers what was selected. */
-function stubEditor(doc = VmfDocument.empty()): Editor {
-  const selection = {
-    solids: new Set<MapSolid>(), entities: new Set<MapEntity>(),
-    set(s: MapSolid[], e: MapEntity[] = []) { this.solids = new Set(s); this.entities = new Set(e); },
-    clear() { this.solids.clear(); this.entities.clear(); },
-  };
-  return {
-    doc, history: new History(() => doc), changed() {}, emit() {}, selection,
-    world: { raycast: () => null, visibleKinds: { handle: true } },
-  } as unknown as Editor;
-}
+import { stubEditor } from './stubEditor.ts';
 
 const OPTS = { seed: 11, minFloors: 3, maxFloors: 5, alleys: false, roofProps: true, architecture: 'tenement' as const };
 
