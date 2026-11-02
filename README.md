@@ -39,7 +39,8 @@ saves the choice to `editor.config.json` and reloads, keeping unsaved work as an
 ## Workflow
 
 1. **Open or start a map.** The map picker lists this repo's `maps/` folder, the game's `mapsrc/` and autosaves.
-   **New** starts from a template: *Annihilation*, *Overrun*, *Singleplayer mission* or *Empty*.
+   **New** opens a four-step wizard: mode (*Annihilation*, *Overrun*, *Singleplayer mission* or *Empty*), size and
+   ground, start from (template layout, sketch or empty ground) and the name.
 2. **Lay it out.** Draw the map from above with **✎ Sketch** (height levels, surfaces, buildings, markers, points
    of interest, free streets and areas), or paint a coarse layout in **⚙ Generate map**. Both build a complete map
    you can keep editing, and the sketch is saved with the map so it can be redrawn and regenerated.

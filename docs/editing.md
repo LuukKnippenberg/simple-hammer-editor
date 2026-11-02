@@ -13,10 +13,25 @@ How the editor reads and writes maps, and what each tool and panel does. Keyboar
   game's own `mapsrc/` is never overwritten. **Download** saves the `.vmf` through the browser.
 - The map picker lists `maps/` (*Editor maps*), the game's `mapsrc/` and *Autosaves*. Unsaved work is autosaved
   every minute to `.autosave/`.
-- **New** starts from a game-mode template: *Annihilation* (an `hlw_` map with player bases), *Overrun* (an `or_`
-  map with wave spawn points and an `overrun_manager`), *Singleplayer mission* (player camera, faction setup, a
-  starting squad and a small mission flow) or *Empty*. Templates add the ground, sky shell, sun, fog and map
-  boundary.
+- **New** opens the New map wizard: four numbered steps on the left, a preview from above and the list of what gets
+  placed on the right.
+
+  1. **Mode:** *Annihilation* (an `hlw_` map with player bases, 2, 4, 6 or 8 players), *Overrun* (an `or_` map with
+     wave spawn points and an `overrun_manager`, 1 to 4 players and the wave type), *Singleplayer mission* (an
+     `sp_` map with the player camera, faction setup, a starting squad and a small mission flow) or *Empty*.
+     Switching mode keeps the player count valid: the closest count the mode offers, and the one you picked when
+     you switch back.
+  2. **Size and look:** Small (4096 units), Medium (6144) or Large (8192), and the ground blend.
+  3. **Start from:** *Template layout* places the mode's bases, resources and boundary as in the preview.
+     *Sketch it* creates the same map, then opens the sketch on it with the starts, requisition points and scrap
+     as markers; generating the sketch replaces the map and keeps its name. *Empty ground* places only the ground,
+     sky shell, sun, fog and map boundary. *Empty* with *Template layout* is an empty document, as before.
+  4. **Name:** the mode's prefix is a fixed chip in front of the name field (a typed or pasted prefix goes back into
+     the chip), with the target path and three live checks: the prefix, lowercase without spaces, and no map in
+     `maps/` with that name yet. **Create map** waits until all three pass.
+
+  Every template adds the ground, sky shell, sun, fog and map boundary. A double click on a mode card creates the
+  map straight away.
 - Generated maps keep their sketch (`maps/<name>.sketch.json`) and mission flowchart (`maps/<name>.mission.json`)
   next to the VMF; they load and save with it.
 
