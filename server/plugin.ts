@@ -31,6 +31,8 @@ export function resolveMap(cfg: EditorConfig, id: string): string | null {
 }
 
 function send(res: ServerResponse, status: number, body: string | Buffer, type = 'application/json') {
+  // A streaming route (compile) that fails half-way can only end its stream.
+  if (res.headersSent) return void (res.writableEnded || res.end());
   res.statusCode = status;
   res.setHeader('Content-Type', type);
   res.setHeader('Cache-Control', 'no-store');
@@ -200,9 +202,10 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
         '/api/compile': async (req, res, url) => {
           if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
           if (compiling) return send(res, 409, JSON.stringify({ error: 'A compile is already running' }));
-          compiling = true;
           const name = safeMapName(url.searchParams.get('name') ?? 'untitled');
           const vmf = (await readBody(req)).toString('latin1');
+          if (compiling) return send(res, 409, JSON.stringify({ error: 'A compile is already running' }));
+          compiling = true;
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/x-ndjson');
           res.setHeader('Cache-Control', 'no-store');
@@ -214,6 +217,13 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
               navmesh: url.searchParams.get('navmesh') !== '0',
             }, write);
             res.end(JSON.stringify({ kind: 'result', text: JSON.stringify({ ...r, name }) }) + '\n');
+          } catch (e) {
+            // The 200 header is out already: report the failure in the stream and close it.
+            console.error(e);
+            if (!res.writableEnded) {
+              write('error', `Compile failed: ${(e as Error).message}`);
+              res.end();
+            }
           } finally {
             compiling = false;
           }
