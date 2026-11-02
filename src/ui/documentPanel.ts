@@ -1,12 +1,14 @@
 import type { Editor } from '../editor.ts';
 import { h } from './dom.ts';
+import { mountHistorySection } from './historyPanel.ts';
 
-/** Sidebar panel with map facts and a round-trip check (parse → write must reproduce the file exactly). */
+/** Sidebar panel with map facts, a round-trip check (parse → write must reproduce the file exactly) and the undo history. */
 export function mountDocumentPanel(editor: Editor, sidebar: HTMLElement): void {
   const body = h('div');
   const result = h('div', { style: { marginTop: '6px', lineHeight: '1.5' } });
   const verify = h('button', { title: 'Write the map back out and compare it with the file on disk' }, 'Verify round-trip');
   sidebar.append(h('div.section', {}, h('h3', {}, 'Document'), body, verify, result));
+  mountHistorySection(editor, sidebar);
 
   const fmtBytes = (n: number) => `${(n / 1024 / 1024).toFixed(2)} MB`;
   const render = () => {

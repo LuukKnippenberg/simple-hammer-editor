@@ -542,3 +542,20 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .mvp-busy { color: var(--accent); margin: 6px 0; }
 .mvp-add { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px; }
 .mvp-add .row select { flex: 1; min-width: 0; }
+
+/* History (Map panel) and the rail's undo and redo */
+#toolbar button:disabled:hover { color: var(--muted); background: transparent; }
+.hist-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+.hist-btn { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; }
+.hist-btn .kbd { font: 11px var(--font-mono); color: var(--text-2); border: 1px solid var(--line); border-radius: 3px; padding: 0 5px; }
+.hist-list { max-height: 300px; overflow-y: auto; }
+.hist-step { display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 0 8px; border-radius: 3px; cursor: pointer; }
+.hist-step:hover { background: var(--field); }
+.hist-step.cur { background: rgba(233, 149, 42, 0.12); box-shadow: inset 2px 0 0 var(--accent); }
+.hist-step.fut { color: var(--faint); }
+.hist-icon { width: 16px; flex: none; text-align: center; color: var(--muted); }
+.hist-icon.add { color: var(--ok); }
+.hist-icon.remove { color: var(--danger); }
+.hist-step.fut .hist-icon { color: var(--faint); }
+.hist-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-time { flex: none; font: 11px var(--font-mono); color: var(--faint); }

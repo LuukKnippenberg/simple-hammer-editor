@@ -83,7 +83,11 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     undo.disabled = !editor.history.canUndo;
     redo.disabled = !editor.history.canRedo;
   };
-  editor.history.onChange = syncHistory;
+  // The History panel listens for 'history'.
+  editor.history.onChange = () => {
+    syncHistory();
+    editor.emit('history');
+  };
   editor.on('document', syncHistory);
   syncHistory();
 
