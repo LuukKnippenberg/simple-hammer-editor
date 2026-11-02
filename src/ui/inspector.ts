@@ -7,7 +7,7 @@ import { h, toast } from './dom.ts';
 import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, selectBlock, selectedBlocks } from '../gen/buildingAction.ts';
 import { blockFinder, blockOf } from '../gen/buildingStore.ts';
 import type { BuildingOptions } from '../gen/buildings.ts';
-import { buildingSheet } from './buildingOptions.ts';
+import { buildingSheet, type BuildingRow } from './buildingOptions.ts';
 import { roadSheet } from './roadOptions.ts';
 import { powerlineSheet } from './powerlineOptions.ts';
 import { num, row, select } from './form.ts';
@@ -326,9 +326,12 @@ function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
 }
 
 const LAYOUT_LABEL = { block: 'Block of buildings', single: 'Building', house: 'Simple interior building' } as const;
-/** The building sheet's More options and Extras stay folded or open while the panel re-renders. */
+/** The building sheet's Extras stay folded or open while the panel re-renders. */
 const folds = { more: false, extras: false };
 const SHEET_KIND = { block: 'block', single: 'building', house: 'house' } as const;
+/** Every building option, flat, for each kind of block. */
+const SHEET_ROWS: BuildingRow[] = ['architecture', 'floors', 'facade', 'corners', 'roofs', 'quality', 'detail', 'towers', 'courtyards', 'annexes', 'alleys',
+  'weathering', 'interiors', 'interiorStyle', 'cutHeight', 'furnish', 'lights', 'lightLevel', 'wideDoors'];
 /** What blocks generated from the selected block brushes start with. */
 const NEW_BLOCK = {
   minFloors: 3, maxFloors: 6, architecture: 'mixed', alleys: false, roofProps: true, weathering: 0.5, detail: 2, quality: 'high', roofs: 'mixed',
@@ -338,7 +341,7 @@ const NEW_BLOCK = {
 /** The building sheet over `o`: changes are kept in `o` until the panel's button uses them. */
 function draftSheet(o: BuildingOptions): HTMLElement {
   const sheet = h('div');
-  const draw = () => sheet.replaceChildren(...buildingSheet({ options: o, kind: SHEET_KIND[o.layout ?? 'block'], set: (patch) => { Object.assign(o, patch); draw(); }, folds, redraw: draw }));
+  const draw = () => sheet.replaceChildren(...buildingSheet({ options: o, kind: SHEET_KIND[o.layout ?? 'block'], rows: SHEET_ROWS, set: (patch) => { Object.assign(o, patch); draw(); }, folds, redraw: draw }));
   draw();
   return sheet;
 }
