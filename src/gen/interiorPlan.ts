@@ -22,6 +22,60 @@ const G = 64;
 const DOOR_MARGIN = 16;
 const WINDOW_MARGIN = 32;
 const EPS = 0.01;
+/** Wall height above z0 unless `InteriorPlanOptions.cut` says otherwise. */
+const DEFAULT_CUT = 112;
+/** Smallest room side, and with wide doors (room for the large hulls). */
+const MIN_ROOM = 128;
+const MIN_ROOM_WIDE = 192;
+/** Door widths: narrow, normal, and every door with wide doors. */
+const DOOR_NARROW = 64;
+const DOOR = 96;
+const DOOR_WIDE = 128;
+/** Door heights above the floor, normal and with wide doors. */
+const DOOR_HEIGHT = 96;
+const DOOR_HEIGHT_WIDE = 112;
+/** Width of the open archways between hall, living room and kitchen. */
+const GAP_WIDTH = 160;
+/** Window sill and lintel above the storey's base. */
+const WINDOW_SILL = 40;
+const WINDOW_LINTEL = 96;
+/** Window widths (one per house), the wall between two windows, and the wall length per window. */
+const WINDOW_WIDTHS = [64, 96];
+const WINDOW_GAP = 32;
+const WINDOW_SPACINGS = [128, 160, 192];
+/** Stairs: 8 steps of 16 rise one storey (units climb at most 18), on 24 deep treads. */
+const STAIR_STEPS = 8;
+const STAIR_RISE = 16;
+const STAIR_TREAD = 24;
+const STAIR_RUN = STAIR_STEPS * STAIR_TREAD; // 192
+/** Flight widths, normal and with wide doors. */
+const STAIR_WIDTH = 96;
+const STAIR_WIDTH_WIDE = 128;
+/** The flight's foot point lies this far in front of the lowest step, its head point this far past the top step. */
+const STAIR_FOOT = 32;
+const STAIR_HEAD = 40;
+/**
+ * Length the open part beside the upper floor needs along the flight: half the partition at the boundary, the
+ * flight, a grid cell of floor in front of it, the far outside wall and 32 to spare.
+ */
+const STAIR_OPEN_LENGTH = PARTITION / 2 + STAIR_RUN + G + EXTERIOR_WALL + 32;
+/** Rooms split by chance: never below SPLIT_MIN_AREA, always above SPLIT_MAX_AREA; a SPLIT_LENGTH wing always once. */
+const SPLIT_MIN_AREA = 160 * 160;
+const SPLIT_MAX_AREA = 320 * 320;
+const SPLIT_LENGTH = 384;
+/** Houses longer than this get a second entrance. */
+const LONG_HOUSE = 384;
+/** A front room this narrow is a hall (in a house of three rooms or more). */
+const HALL_WIDTH = 192;
+/** The kitchen is the room nearest this size; a bath at most BATH_MAX_AREA (the last free room only up to LAST_BATH_AREA). */
+const KITCHEN_AREA = 192 * 192;
+const BATH_MAX_AREA = 256 * 256;
+const LAST_BATH_AREA = 160 * 192;
+/** Leftover rooms this big are bedrooms, smaller ones storage. */
+const BEDROOM_AREA = 128 * 192;
+/** Porch depths, and how far the porch reaches past the main door on each side. */
+const PORCH_DEPTHS = [64, 96];
+const PORCH_OVERHANGS = [32, 64, 96];
 
 export type RoomType = 'hall' | 'living' | 'kitchen' | 'bedroom' | 'bath' | 'storage' | 'workshop';
 
@@ -383,449 +437,538 @@ export function doorGraph(plan: InteriorPlan): Map<number, Set<number>> {
   return g;
 }
 
-/**
- * Plans the rooms, walls, openings, entrances and (for two storeys) the stairs and upper floor of a house on
- * an axis-aligned footprint (a rectangle, an L or any rectilinear outline; other edges are stepped on the
- * 64 grid).
- */
-export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOptions = {}): InteriorPlan {
-  const cut = o.cut ?? 112;
-  const minRoom = o.wideDoors ? 192 : 128;
-  const grid = new Grid(gridLines(footprint.map((p) => p.x)), gridLines(footprint.map((p) => p.y)), footprint);
-  const cells: [number, number][] = [];
-  for (let j = 0; j < grid.ny; j++) for (let i = 0; i < grid.nx; i++) if (grid.isIn(i, j)) cells.push([i, j]);
-  const regions = decompose(grid, cells, rng);
-  const area = regions.reduce((s, r) => { const b = grid.box(r); return s + (b.max.x - b.min.x) * (b.max.y - b.min.y); }, 0);
-  const lines = (ax: Axis) => (ax === 'x' ? grid.xs : grid.ys);
-  const lo = (r: CellRect, ax: Axis) => (ax === 'x' ? r.i0 : r.j0);
-  const hi = (r: CellRect, ax: Axis) => (ax === 'x' ? r.i1 : r.j1);
-  const withRange = (r: CellRect, ax: Axis, a: number, b: number): CellRect => (ax === 'x' ? { ...r, i0: a, i1: b } : { ...r, j0: a, j1: b });
-  const rlen = (r: CellRect, ax: Axis) => lines(ax)[hi(r, ax)] - lines(ax)[lo(r, ax)];
+/** Area of a box seen from above. */
+const boxArea = (b: Box2) => (b.max.x - b.min.x) * (b.max.y - b.min.y);
 
-  // Two storeys: an upper floor over one end (at most half the house) and stairs in the open part beside it.
-  let storeys: 1 | 2 = 1;
-  let upper: CellRect | undefined;
-  let stairs: Stairs | undefined;
-  let zone: Box2 | undefined;
-  const rects: CellRect[] = [];
-  if (o.storeys === 2) {
-    const stairWidth = o.wideDoors ? 128 : 96;
-    const run = 8 * 24;
-    type Option = { up: CellRect; open: CellRect; ax: Axis; side: 1 | -1 };
-    const options: Option[] = [];
-    const tryPair = (up: CellRect, open: CellRect, ax: Axis, side: 1 | -1) => {
-      const ub = grid.box(up);
-      if ((ub.max.x - ub.min.x) * (ub.max.y - ub.min.y) > area / 2 + EPS) return;
-      if (rlen(up, ax) < minRoom || rlen(open, ax) < run + 4 + G + EXTERIOR_WALL + 32) return;
-      if (rlen(open, other(ax)) < stairWidth + EXTERIOR_WALL + G) return;
-      options.push({ up, open, ax, side });
-    };
-    if (regions.length === 1) {
-      const R = regions[0];
-      for (const ax of ['x', 'y'] as const) {
-        for (let k = lo(R, ax) + 1; k < hi(R, ax); k++) {
-          // Upper floor at the low end (open part beyond, side +1) or at the high end.
-          tryPair(withRange(R, ax, lo(R, ax), k), withRange(R, ax, k, hi(R, ax)), ax, 1);
-          tryPair(withRange(R, ax, k, hi(R, ax)), withRange(R, ax, lo(R, ax), k), ax, -1);
-        }
-      }
-    } else if (regions.length === 2) {
-      for (const [up, open] of rectPairs(cells).flatMap(([p, q]) => [[p, q], [q, p]])) {
-        for (const ax of ['x', 'y'] as const) {
-          if (lines(ax)[hi(up, ax)] === lines(ax)[lo(open, ax)]) tryPair(up, open, ax, 1);
-          if (lines(ax)[lo(up, ax)] === lines(ax)[hi(open, ax)]) tryPair(up, open, ax, -1);
-        }
+// Cell rectangles along an axis: grid lines, first and past-the-end cell index, a sub-range, the length in units.
+const lines = (grid: Grid, axis: Axis) => (axis === 'x' ? grid.xs : grid.ys);
+const lo = (r: CellRect, axis: Axis) => (axis === 'x' ? r.i0 : r.j0);
+const hi = (r: CellRect, axis: Axis) => (axis === 'x' ? r.i1 : r.j1);
+const withRange = (r: CellRect, axis: Axis, a: number, b: number): CellRect => (axis === 'x' ? { ...r, i0: a, i1: b } : { ...r, j0: a, j1: b });
+const rlen = (grid: Grid, r: CellRect, axis: Axis) => lines(grid, axis)[hi(r, axis)] - lines(grid, axis)[lo(r, axis)];
+
+/** Whether a point lies under the upper floor (within EPS). */
+const underUpper = (upperBox: Box2 | undefined, p: Vector2) => !!upperBox && p.x >= upperBox.min.x - EPS && p.x <= upperBox.max.x + EPS && p.y >= upperBox.min.y - EPS && p.y <= upperBox.max.y + EPS;
+
+/** The upper floor over `up` and the open part with the stairs, beside it on the `side` (+1/-1) of `up` along `axis`. */
+interface UpperChoice { up: CellRect; open: CellRect; axis: Axis; side: 1 | -1 }
+
+/**
+ * Two storeys: picks an upper floor over one end of the house (at most half of it, preferably at least a third)
+ * whose open part beside it is long and wide enough for a flight.
+ */
+function chooseUpperFloor(grid: Grid, regions: CellRect[], cells: [number, number][], minRoom: number, stairWidth: number, rng: Rng): UpperChoice | undefined {
+  const area = regions.reduce((s, r) => s + boxArea(grid.box(r)), 0);
+  const choices: UpperChoice[] = [];
+  const tryPair = (up: CellRect, open: CellRect, axis: Axis, side: 1 | -1) => {
+    if (boxArea(grid.box(up)) > area / 2 + EPS) return;
+    if (rlen(grid, up, axis) < minRoom || rlen(grid, open, axis) < STAIR_OPEN_LENGTH) return;
+    if (rlen(grid, open, other(axis)) < stairWidth + EXTERIOR_WALL + G) return;
+    choices.push({ up, open, axis, side });
+  };
+  if (regions.length === 1) {
+    const whole = regions[0];
+    for (const axis of ['x', 'y'] as const) {
+      for (let k = lo(whole, axis) + 1; k < hi(whole, axis); k++) {
+        // Upper floor at the low end (open part beyond, side +1) or at the high end.
+        tryPair(withRange(whole, axis, lo(whole, axis), k), withRange(whole, axis, k, hi(whole, axis)), axis, 1);
+        tryPair(withRange(whole, axis, k, hi(whole, axis)), withRange(whole, axis, lo(whole, axis), k), axis, -1);
       }
     }
-    // Prefer an upper floor of a third to a half of the house.
-    const good = options.filter((p) => { const b = grid.box(p.up); return (b.max.x - b.min.x) * (b.max.y - b.min.y) >= area / 3; });
-    const choice = good.length ? rng.pick(good) : options.length ? rng.pick(options) : undefined;
-    if (choice) {
-      const { up, open, ax, side } = choice;
-      const oa = other(ax);
-      const ob = grid.box(open);
-      const boundary = side === 1 ? ob.min[ax] : ob.max[ax];
-      // The flight runs along an outside wall of the open part, rising towards the upper floor.
-      const ub = grid.box(up);
-      const sides = ([-1, 1] as const).filter((s) => {
-        const at = s === -1 ? ob.min[oa] - 1 : ob.max[oa] + 1;
-        const p = new Vector2();
-        p[ax] = boundary + side * 8;
-        p[oa] = at;
-        // The flight has to land on the upper floor.
-        const near = s === -1 ? ob.min[oa] + EXTERIOR_WALL : ob.max[oa] - EXTERIOR_WALL;
-        const far = near - s * stairWidth;
-        const lands = Math.min(near, far) >= ub.min[oa] + EXTERIOR_WALL - EPS && Math.max(near, far) <= ub.max[oa] - EXTERIOR_WALL + EPS;
-        return !grid.inAt(p) && lands;
-      });
-      if (sides.length) {
-        const s = rng.pick(sides);
-        const wallFace = s === -1 ? ob.min[oa] + EXTERIOR_WALL : ob.max[oa] - EXTERIOR_WALL;
-        const top = boundary + side * PARTITION / 2;
-        const bottom = top + side * run;
-        const box = new Box2();
-        box.min[ax] = Math.min(top, bottom); box.max[ax] = Math.max(top, bottom);
-        box.min[oa] = Math.min(wallFace, wallFace - s * stairWidth); box.max[oa] = Math.max(wallFace, wallFace - s * stairWidth);
-        const dir = new Vector2(); dir[ax] = -side;
-        const mid = (box.min[oa] + box.max[oa]) / 2;
-        const foot = new Vector2(); foot[ax] = bottom + side * 32; foot[oa] = mid;
-        const head = new Vector2(); head[ax] = boundary - side * 40; head[oa] = mid;
-        stairs = { box, dir, foot, head, room: -1, steps: 8, rise: 16, tread: 24, width: stairWidth };
-        zone = box.clone();
-        if (side === 1) zone.max[ax] += G; else zone.min[ax] -= G;
-        if (s === -1) zone.min[oa] = ob.min[oa]; else zone.max[oa] = ob.max[oa];
-        storeys = 2;
-        upper = up;
-        rects.push(up, open);
+  } else if (regions.length === 2) {
+    for (const [up, open] of rectPairs(cells).flatMap(([p, q]) => [[p, q], [q, p]])) {
+      for (const axis of ['x', 'y'] as const) {
+        if (lines(grid, axis)[hi(up, axis)] === lines(grid, axis)[lo(open, axis)]) tryPair(up, open, axis, 1);
+        if (lines(grid, axis)[lo(up, axis)] === lines(grid, axis)[hi(open, axis)]) tryPair(up, open, axis, -1);
       }
     }
   }
-  if (!rects.length) rects.push(...regions);
+  const good = choices.filter((p) => boxArea(grid.box(p.up)) >= area / 3);
+  return good.length ? rng.pick(good) : choices.length ? rng.pick(choices) : undefined;
+}
 
-  // Rooms: split each rectangle along its longer side until the pieces are room sized.
+/** A placed upper storey: the stairs, and the zone in front of them that room splits must not cross. */
+interface UpperStorey { up: CellRect; open: CellRect; stairs: Stairs; zone: Box2 }
+
+/**
+ * The flight runs along an outside wall of the open part, rising towards the upper floor, and has to land on it.
+ * Undefined when neither outside wall works (the house then gets one storey).
+ */
+function placeStairs(grid: Grid, choice: UpperChoice, stairWidth: number, rng: Rng): UpperStorey | undefined {
+  const { up, open, axis, side } = choice;
+  const across = other(axis);
+  const ob = grid.box(open), ub = grid.box(up);
+  const boundary = side === 1 ? ob.min[axis] : ob.max[axis];
+  const wallSides = ([-1, 1] as const).filter((s) => {
+    // Just past the open part's side, a little way from the boundary, must be outside the house.
+    const probe = new Vector2();
+    probe[axis] = boundary + side * 8;
+    probe[across] = s === -1 ? ob.min[across] - 1 : ob.max[across] + 1;
+    const near = s === -1 ? ob.min[across] + EXTERIOR_WALL : ob.max[across] - EXTERIOR_WALL;
+    const far = near - s * stairWidth;
+    const lands = Math.min(near, far) >= ub.min[across] + EXTERIOR_WALL - EPS && Math.max(near, far) <= ub.max[across] - EXTERIOR_WALL + EPS;
+    return !grid.inAt(probe) && lands;
+  });
+  if (!wallSides.length) return undefined;
+  const wallSide = rng.pick(wallSides);
+  const wallFace = wallSide === -1 ? ob.min[across] + EXTERIOR_WALL : ob.max[across] - EXTERIOR_WALL;
+  const top = boundary + side * PARTITION / 2;
+  const bottom = top + side * STAIR_RUN;
+  const box = new Box2();
+  box.min[axis] = Math.min(top, bottom); box.max[axis] = Math.max(top, bottom);
+  box.min[across] = Math.min(wallFace, wallFace - wallSide * stairWidth); box.max[across] = Math.max(wallFace, wallFace - wallSide * stairWidth);
+  const dir = new Vector2(); dir[axis] = -side;
+  const mid = (box.min[across] + box.max[across]) / 2;
+  const foot = new Vector2(); foot[axis] = bottom + side * STAIR_FOOT; foot[across] = mid;
+  const head = new Vector2(); head[axis] = boundary - side * STAIR_HEAD; head[across] = mid;
+  const stairs: Stairs = { box, dir, foot, head, room: -1, steps: STAIR_STEPS, rise: STAIR_RISE, tread: STAIR_TREAD, width: stairWidth };
+  // The stairs, the floor in front of their foot and the strip to the outside wall.
+  const zone = box.clone();
+  if (side === 1) zone.max[axis] += G; else zone.min[axis] -= G;
+  if (wallSide === -1) zone.min[across] = ob.min[across]; else zone.max[across] = ob.max[across];
+  return { up, open, stairs, zone };
+}
+
+/** Whether to split a w × h rectangle: wings of SPLIT_LENGTH always at the top level, else by chance growing with the area. */
+const wantsSplit = (w: number, h: number, depth: number, rng: Rng) => (depth === 0 && Math.max(w, h) >= SPLIT_LENGTH)
+  || rng.chance(Math.min(1, Math.max(0, (w * h - SPLIT_MIN_AREA) / (SPLIT_MAX_AREA - SPLIT_MIN_AREA))));
+
+/** Grid lines across `axis` where `r` may be split: both rooms at least `minRoom`, never through the stairs and the space in front of them. */
+function splitLines(grid: Grid, r: CellRect, axis: Axis, zone: Box2 | undefined, minRoom: number): number[] {
+  const across = other(axis);
+  const at = lines(grid, axis);
+  const cuts: number[] = [];
+  for (let k = lo(r, axis) + 1; k < hi(r, axis); k++) {
+    const c = at[k];
+    if (c - at[lo(r, axis)] < minRoom || at[hi(r, axis)] - c < minRoom) continue;
+    if (zone) {
+      const b = grid.box(r);
+      const crosses = c > zone.min[axis] - EPS && c < zone.max[axis] + EPS
+        && Math.min(zone.max[across], b.max[across]) > Math.max(zone.min[across], b.min[across]);
+      if (crosses) continue;
+    }
+    cuts.push(k);
+  }
+  return cuts;
+}
+
+/**
+ * Rooms: splits each rectangle along its longer side until the pieces are room sized. The part under the upper
+ * floor stays one sealed room: nobody sees its partitions.
+ */
+function splitRooms(grid: Grid, rects: CellRect[], upper: CellRect | undefined, zone: Box2 | undefined, minRoom: number, rng: Rng): CellRect[] {
   const roomRects: CellRect[] = [];
   const split = (r: CellRect, depth: number) => {
-    const w = rlen(r, 'x'), h = rlen(r, 'y');
-    const a = w * h;
-    const wantSplit = depth === 0 && Math.max(w, h) >= 384 ? true : rng.chance(Math.min(1, Math.max(0, (a - 160 * 160) / (320 * 320 - 160 * 160))));
-    if (wantSplit) {
+    const w = rlen(grid, r, 'x'), h = rlen(grid, r, 'y');
+    if (wantsSplit(w, h, depth, rng)) {
       const axes: Axis[] = w >= h ? ['x', 'y'] : ['y', 'x'];
-      for (const ax of axes) {
-        const cuts: number[] = [];
-        for (let k = lo(r, ax) + 1; k < hi(r, ax); k++) {
-          const c = lines(ax)[k];
-          if (c - lines(ax)[lo(r, ax)] < minRoom || lines(ax)[hi(r, ax)] - c < minRoom) continue;
-          // Never through the stairs and the space in front of them.
-          if (zone) {
-            const b = grid.box(r);
-            const crosses = c > zone.min[ax] - EPS && c < zone.max[ax] + EPS
-              && Math.min(zone.max[other(ax)], b.max[other(ax)]) > Math.max(zone.min[other(ax)], b.min[other(ax)]);
-            if (crosses) continue;
-          }
-          cuts.push(k);
-        }
+      for (const axis of axes) {
+        const cuts = splitLines(grid, r, axis, zone, minRoom);
         if (!cuts.length) continue;
         const k = rng.pick(cuts);
-        split(withRange(r, ax, lo(r, ax), k), depth + 1);
-        split(withRange(r, ax, k, hi(r, ax)), depth + 1);
+        split(withRange(r, axis, lo(r, axis), k), depth + 1);
+        split(withRange(r, axis, k, hi(r, axis)), depth + 1);
         return;
       }
     }
     roomRects.push(r);
   };
-  // The part under the upper floor is one sealed room: nobody sees its partitions.
   for (const r of rects) if (r === upper) roomRects.push(r); else split(r, 0);
+  return roomRects;
+}
 
+/**
+ * One ground room per rectangle, marked on the grid. Ground rooms under the upper floor are out of the camera's
+ * sight: sealed off. The upper floor is the last room.
+ */
+function makeRooms(grid: Grid, roomRects: CellRect[], upperBox: Box2 | undefined): Room[] {
   const rooms: Room[] = roomRects.map((r) => ({ box: grid.box(r), type: 'living', storey: 1 }));
   roomRects.forEach((r, n) => {
     for (let j = r.j0; j < r.j1; j++) for (let i = r.i0; i < r.i1; i++) grid.room[j * grid.nx + i] = n;
   });
-  const upperBox = upper ? grid.box(upper) : undefined;
-  const underUpper = (p: Vector2) => !!upperBox && p.x >= upperBox.min.x - EPS && p.x <= upperBox.max.x + EPS && p.y >= upperBox.min.y - EPS && p.y <= upperBox.max.y + EPS;
-  // Ground rooms under the upper floor are out of the camera's sight: sealed off.
-  for (const r of rooms) if (underUpper(r.box.getCenter(new Vector2()))) r.sealed = true;
-  let upperRoom = -1;
-  if (upperBox) {
-    upperRoom = rooms.length;
-    rooms.push({ box: upperBox.clone(), type: 'bedroom', storey: 2 });
-  }
-  if (stairs) stairs.room = grid.roomAt(stairs.box.getCenter(new Vector2()));
+  for (const room of rooms) if (underUpper(upperBox, room.box.getCenter(new Vector2()))) room.sealed = true;
+  if (upperBox) rooms.push({ box: upperBox.clone(), type: 'bedroom', storey: 2 });
+  return rooms;
+}
 
-  // Walls from the cell edges: runs along each grid line where the room changes.
+/** What lies on either side of a grid line: the same room (none), two rooms (a partition), or the outside below or above it. */
+type EdgeKind = 'none' | 'part' | 'ext-' | 'ext+';
+
+/** The edge kind at cell `t` along `axis`, between cells k-1 and k across it. */
+function edgeKind(grid: Grid, axis: Axis, t: number, k: number): EdgeKind {
+  const roomOf = (kk: number) => (axis === 'x' ? grid.roomOf(t, kk) : grid.roomOf(kk, t));
+  const isIn = (kk: number) => (axis === 'x' ? grid.isIn(t, kk) : grid.isIn(kk, t));
+  const below = roomOf(k - 1), above = roomOf(k);
+  if (below === above) return 'none';
+  if (below === -1 && !isIn(k - 1)) return 'ext+';
+  if (above === -1 && !isIn(k)) return 'ext-';
+  return 'part';
+}
+
+/** The box of a wall from s0 to s1 along `axis` on the grid line at `c`. */
+function wallRun(grid: Grid, axis: Axis, c: number, s0: number, s1: number, kind: EdgeKind): Box {
+  const across = other(axis);
+  const box = new Box2();
+  if (kind === 'part') {
+    box.min[across] = c - PARTITION / 2; box.max[across] = c + PARTITION / 2;
+  } else {
+    const inward = kind === 'ext+' ? 1 : -1;
+    box.min[across] = Math.min(c, c + inward * EXTERIOR_WALL); box.max[across] = Math.max(c, c + inward * EXTERIOR_WALL);
+    // Inner corners: reach across the corner so the two walls close it.
+    const probe = (at: number, beyond: number) => {
+      const p = new Vector2(); p[axis] = at + beyond; p[across] = c - inward;
+      return grid.inAt(p);
+    };
+    if (probe(s0, -1)) s0 -= EXTERIOR_WALL;
+    if (probe(s1, 1)) s1 += EXTERIOR_WALL;
+  }
+  box.min[axis] = s0; box.max[axis] = s1;
+  return { box, axis, exterior: kind !== 'part' };
+}
+
+/** Walls from the cell edges: runs along each grid line where the room changes. */
+function wallRuns(grid: Grid): Box[] {
   const boxes: Box[] = [];
-  for (const ax of ['x', 'y'] as const) {
-    const oa = other(ax);
-    const along = lines(ax), across = lines(oa);
+  for (const axis of ['x', 'y'] as const) {
+    const along = lines(grid, axis), across = lines(grid, other(axis));
     const n = along.length - 1;
     for (let k = 0; k < across.length; k++) {
-      const c = across[k];
-      // Cell (index t along, k-1 / k across) on each side of the line.
-      const cellOf = (t: number, kk: number) => (ax === 'x' ? grid.roomOf(t, kk) : grid.roomOf(kk, t));
-      const inOf = (t: number, kk: number) => (ax === 'x' ? grid.isIn(t, kk) : grid.isIn(kk, t));
-      type Kind = 'none' | 'part' | 'ext-' | 'ext+';
-      const kindAt = (t: number): Kind => {
-        const below = cellOf(t, k - 1), above = cellOf(t, k);
-        if (below === above) return 'none';
-        if (below === -1 && !inOf(t, k - 1)) return 'ext+';
-        if (above === -1 && !inOf(t, k)) return 'ext-';
-        return 'part';
-      };
       let t = 0;
       while (t < n) {
-        const kind = kindAt(t);
+        const kind = edgeKind(grid, axis, t, k);
         if (kind === 'none') { t++; continue; }
         let e = t + 1;
-        while (e < n && kindAt(e) === kind) e++;
-        let s0 = along[t], s1 = along[e];
-        const box = new Box2();
-        if (kind === 'part') {
-          box.min[oa] = c - PARTITION / 2; box.max[oa] = c + PARTITION / 2;
-        } else {
-          const inward = kind === 'ext+' ? 1 : -1;
-          box.min[oa] = Math.min(c, c + inward * EXTERIOR_WALL); box.max[oa] = Math.max(c, c + inward * EXTERIOR_WALL);
-          // Inner corners: reach across the corner so the two walls close it.
-          const probe = (at: number, beyond: number) => {
-            const p = new Vector2(); p[ax] = at + beyond; p[oa] = c - inward;
-            return grid.inAt(p);
-          };
-          if (probe(s0, -1)) s0 -= EXTERIOR_WALL;
-          if (probe(s1, 1)) s1 += EXTERIOR_WALL;
-        }
-        box.min[ax] = s0; box.max[ax] = s1;
-        boxes.push({ box, axis: ax, exterior: kind !== 'part' });
+        while (e < n && edgeKind(grid, axis, e, k) === kind) e++;
+        boxes.push(wallRun(grid, axis, across[k], along[t], along[e], kind));
         t = e;
       }
     }
   }
-  const resolved = resolveOverlaps(boxes);
+  return boxes;
+}
 
-  // Split walls where the room on either side changes, so every piece faces one room per side.
+/** The rooms on the left and right of a→b of a wall box, at `at` along its axis. */
+function sideRooms(grid: Grid, b: Box2, axis: Axis, at: number): [number, number] {
+  const across = other(axis);
+  const c = (b.min[across] + b.max[across]) / 2, h = (b.max[across] - b.min[across]) / 2 + 1;
+  const p = (offset: number) => { const v = new Vector2(); v[axis] = at; v[across] = c + offset; return v; };
+  // Left of a→b: +y for walls along x, -x for walls along y.
+  const leftSign = axis === 'x' ? 1 : -1;
+  return [grid.roomAt(p(leftSign * h)), grid.roomAt(p(-leftSign * h))];
+}
+
+/**
+ * Ground floor walls: splits the wall boxes where the room on either side changes, so every piece faces one room
+ * per side. Walls under the upper floor reach up to it.
+ */
+function cutWalls(grid: Grid, boxes: Box[], upperBox: Box2 | undefined, cut: number): PlanWall[] {
   const walls: PlanWall[] = [];
-  const sideRooms = (b: Box2, ax: Axis, at: number) => {
-    const oa = other(ax);
-    const c = (b.min[oa] + b.max[oa]) / 2, h = (b.max[oa] - b.min[oa]) / 2 + 1;
-    const p = (d: number) => { const v = new Vector2(); v[ax] = at; v[oa] = c + d; return v; };
-    // Left of a→b: +y for walls along x, -x for walls along y.
-    const leftSign = ax === 'x' ? 1 : -1;
-    return [grid.roomAt(p(leftSign * h)), grid.roomAt(p(-leftSign * h))];
-  };
-  for (const w of resolved) {
-    const ax = w.axis, oa = other(ax);
-    const cuts = [w.box.min[ax]];
-    for (const g of lines(ax)) {
-      if (g <= w.box.min[ax] + EPS || g >= w.box.max[ax] - EPS) continue;
-      const [l0, r0] = sideRooms(w.box, ax, g - 1), [l1, r1] = sideRooms(w.box, ax, g + 1);
-      if (l0 !== l1 || r0 !== r1) cuts.push(g);
+  for (const w of boxes) {
+    const axis = w.axis, across = other(axis);
+    const cuts = [w.box.min[axis]];
+    for (const line of lines(grid, axis)) {
+      if (line <= w.box.min[axis] + EPS || line >= w.box.max[axis] - EPS) continue;
+      const [l0, r0] = sideRooms(grid, w.box, axis, line - 1), [l1, r1] = sideRooms(grid, w.box, axis, line + 1);
+      if (l0 !== l1 || r0 !== r1) cuts.push(line);
     }
-    cuts.push(w.box.max[ax]);
+    cuts.push(w.box.max[axis]);
     for (let k = 0; k + 1 < cuts.length; k++) {
-      const c = (w.box.min[oa] + w.box.max[oa]) / 2;
+      const c = (w.box.min[across] + w.box.max[across]) / 2;
       const a = new Vector2(), b = new Vector2();
-      a[ax] = cuts[k]; a[oa] = c; b[ax] = cuts[k + 1]; b[oa] = c;
-      const [left, right] = sideRooms(w.box, ax, (cuts[k] + cuts[k + 1]) / 2);
-      const mid = a.clone().add(b).multiplyScalar(0.5);
-      const under = underUpper(mid);
+      a[axis] = cuts[k]; a[across] = c; b[axis] = cuts[k + 1]; b[across] = c;
+      const [left, right] = sideRooms(grid, w.box, axis, (cuts[k] + cuts[k + 1]) / 2);
+      const under = underUpper(upperBox, a.clone().add(b).multiplyScalar(0.5));
       walls.push({
-        a, b, axis: ax, thickness: w.exterior ? EXTERIOR_WALL : PARTITION, exterior: w.exterior, storey: 1,
+        a, b, axis, thickness: w.exterior ? EXTERIOR_WALL : PARTITION, exterior: w.exterior, storey: 1,
         left, right, bottom: FLOOR_TOP, top: under ? STOREY : cut, openings: [],
       });
     }
   }
-  // Upper storey: the outside walls around the upper floor (the side facing the open part gets a railing).
-  if (upperBox) {
-    for (const w of walls.filter((x) => x.exterior && underUpper(x.a.clone().add(x.b).multiplyScalar(0.5)))) {
-      walls.push({
-        ...w, a: w.a.clone(), b: w.b.clone(), storey: 2,
-        left: w.left === -1 ? -1 : upperRoom, right: w.right === -1 ? -1 : upperRoom,
-        bottom: STOREY, top: STOREY + cut, openings: [],
-      });
-    }
+  return walls;
+}
+
+/** Upper storey: the outside walls around the upper floor (the side facing the open part gets a railing). */
+function upperWalls(ground: PlanWall[], upperBox: Box2, upperRoom: number, cut: number): PlanWall[] {
+  return ground.filter((x) => x.exterior && underUpper(upperBox, x.a.clone().add(x.b).multiplyScalar(0.5))).map((w) => ({
+    ...w, a: w.a.clone(), b: w.b.clone(), storey: 2,
+    left: w.left === -1 ? -1 : upperRoom, right: w.right === -1 ? -1 : upperRoom,
+    bottom: STOREY, top: STOREY + cut, openings: [],
+  }));
+}
+
+/** The plan once the rooms and walls stand, shared by the steps that place openings and type the rooms. */
+interface Draft {
+  footprint: Vector2[];
+  opts: InteriorPlanOptions;
+  rng: Rng;
+  rooms: Room[];
+  walls: PlanWall[];
+  /** The ground floor's walls. */
+  ground: PlanWall[];
+  entrances: Entrance[];
+  stairs?: Stairs;
+  /** Index of the upper floor room, -1 for one storey. */
+  upperRoom: number;
+  /** Narrowest door. */
+  minDoor: number;
+}
+
+/** Places on a wall where openings can't go: walls joining it, and the stairs. */
+function blockedOn(draft: Draft, w: PlanWall, margin: number): [number, number][] {
+  const wb = wallBox(w), axis = w.axis, across = other(axis);
+  const out: [number, number][] = [];
+  const add = (b: Box2) => {
+    const touches = (b.min[across] <= wb.max[across] + EPS && b.max[across] >= wb.min[across] - EPS)
+      && Math.min(b.max[axis], wb.max[axis]) - Math.max(b.min[axis], wb.min[axis]) > -EPS;
+    if (touches) out.push([b.min[axis] - wb.min[axis] - margin, b.max[axis] - wb.min[axis] + margin]);
+  };
+  for (const x of draft.walls) {
+    if (x === w || x.storey !== w.storey || x.axis === w.axis) continue;
+    add(wallBox(x));
   }
+  if (draft.stairs && w.storey === 1) add(draft.stairs.box);
+  return out;
+}
 
-  // Places where openings can't go: walls joining this one, and the stairs.
-  const blockedOn = (w: PlanWall, margin: number): [number, number][] => {
-    const wb = wallBox(w), ax = w.axis, oa = other(ax);
-    const out: [number, number][] = [];
-    const add = (b: Box2) => {
-      const touches = (b.min[oa] <= wb.max[oa] + EPS && b.max[oa] >= wb.min[oa] - EPS)
-        && Math.min(b.max[ax], wb.max[ax]) - Math.max(b.min[ax], wb.min[ax]) > -EPS;
-      if (touches) out.push([b.min[ax] - wb.min[ax] - margin, b.max[ax] - wb.min[ax] + margin]);
-    };
-    for (const x of walls) {
-      if (x === w || x.storey !== w.storey || x.axis === w.axis) continue;
-      add(wallBox(x));
-    }
-    if (stairs && w.storey === 1) add(stairs.box);
-    return out;
-  };
-  const freeOn = (w: PlanWall, margin: number) => freeIntervals(margin, wallLength(w) - margin, [
-    ...blockedOn(w, margin),
-    ...w.openings.map((x): [number, number] => [x.from - margin * 2, x.to + margin * 2]),
-  ]);
-  const fits = (w: PlanWall, width: number) => freeOn(w, DOOR_MARGIN).some(([s, e]) => e - s >= width);
-  const snap8 = (x: number) => Math.round(x / 8) * 8;
-  const placeOpening = (w: PlanWall, width: number, kind: OpeningKind, margin: number, centred = false): Opening | null => {
-    const free = freeOn(w, margin).filter(([s, e]) => e - s >= width);
-    if (!free.length) return null;
-    const [s, e] = centred ? free.reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a)) : rng.pick(free);
-    let from = centred ? (s + e) / 2 - width / 2 : s + rng.range(0, e - s - width);
-    from = Math.min(e - width, Math.max(s, snap8(from)));
-    const op: Opening = kind === 'window'
-      ? { from, to: from + width, kind, sill: storeyBase(w) + 40, lintel: storeyBase(w) + 96 }
-      : { from, to: from + width, kind, sill: w.bottom, lintel: Math.min(w.top, w.bottom + (o.wideDoors ? 112 : 96)) };
-    if (kind === 'gap' || op.lintel > w.top - 8) op.lintel = w.top;
-    w.openings.push(op);
-    w.openings.sort((p, q) => p.from - q.from);
-    return op;
-  };
-  const doorWidth = (w: PlanWall) => (o.wideDoors ? 128 : fits(w, 96) && rng.chance(0.6) ? 96 : 64);
+/** Stretches of a wall where an opening may go, `margin` clear of its ends, joining walls and other openings. */
+const freeOn = (draft: Draft, w: PlanWall, margin: number) => freeIntervals(margin, wallLength(w) - margin, [
+  ...blockedOn(draft, w, margin),
+  ...w.openings.map((x): [number, number] => [x.from - margin * 2, x.to + margin * 2]),
+]);
+const fits = (draft: Draft, w: PlanWall, width: number) => freeOn(draft, w, DOOR_MARGIN).some(([s, e]) => e - s >= width);
+const snap8 = (x: number) => Math.round(x / 8) * 8;
+const longest = (list: PlanWall[]) => list.reduce((a, b) => (wallLength(b) > wallLength(a) ? b : a));
+const groundRooms = (rooms: Room[]) => rooms.map((_, i) => i).filter((i) => rooms[i].storey === 1);
 
-  // Entrances: the requested edges, or one door (two on long houses) on different sides.
-  const entrances: Entrance[] = [];
-  const ground = walls.filter((w) => w.storey === 1);
-  const outNormal = (w: PlanWall) => { const { left } = wallDirs(w); return w.left === -1 ? left : left.clone().negate(); };
-  // Doors open away from neighbouring buildings, unless that leaves no way in.
-  const minDoor = o.wideDoors ? 128 : 64;
-  const facesNeighbour = (w: PlanWall) => {
-    const face = wallBox(w).translate(outNormal(w).multiplyScalar(w.thickness / 2 + 1));
-    return (o.noEntrance ?? []).some((b) => Math.min(b.max.x, face.max.x) - Math.max(b.min.x, face.min.x) > 0 && Math.min(b.max.y, face.max.y) - Math.max(b.min.y, face.min.y) > 0);
-  };
-  const sealedSide = (w: PlanWall) => [w.left, w.right].some((r) => r >= 0 && rooms[r].sealed);
-  const allOutside = ground.filter((w) => w.exterior && !sealedSide(w));
-  const facingOut = allOutside.filter((w) => !facesNeighbour(w));
-  const outside = facingOut.some((w) => fits(w, minDoor)) ? facingOut : allOutside;
-  const onEdge = (w: PlanWall, e: number) => {
-    const p = footprint[e], q = footprint[(e + 1) % footprint.length];
-    const n = outNormal(w), mid = w.a.clone().add(w.b).multiplyScalar(0.5).addScaledVector(n, w.thickness / 2);
-    const d = new Vector2().subVectors(q, p), l = d.length();
-    if (l < EPS) return false;
-    const t = new Vector2().subVectors(mid, p).dot(d) / l;
-    const off = Math.abs(new Vector2().subVectors(mid, p).cross(d) / l);
-    return off < 1 && t > -EPS && t < l + EPS;
-  };
-  const addEntrance = (w: PlanWall) => {
-    const width = o.wideDoors ? 128 : fits(w, 96) ? 96 : 64;
-    const op = placeOpening(w, width, 'door', DOOR_MARGIN, rng.chance(0.5));
-    if (!op) return false;
-    const n = outNormal(w);
-    entrances.push({
-      wall: walls.indexOf(w), opening: w.openings.indexOf(op), out: n, room: w.left === -1 ? w.right : w.left,
-      centre: wallPoint(w, (op.from + op.to) / 2).addScaledVector(n, w.thickness / 2),
-    });
-    return true;
-  };
-  const usable = (list: PlanWall[], width: number) => list.filter((w) => fits(w, width));
-  if (o.entranceEdges?.length) {
-    for (const e of o.entranceEdges) {
-      const c = usable(outside.filter((w) => onEdge(w, e)), minDoor);
-      if (c.length) addEntrance(rng.pick(c));
+/** Adds an opening to a wall: in the widest free stretch's middle if `centred`, else anywhere free (snapped to 8). */
+function placeOpening(draft: Draft, w: PlanWall, width: number, kind: OpeningKind, margin: number, centred = false): Opening | null {
+  const { rng } = draft;
+  const free = freeOn(draft, w, margin).filter(([s, e]) => e - s >= width);
+  if (!free.length) return null;
+  const [s, e] = centred ? free.reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a)) : rng.pick(free);
+  let from = centred ? (s + e) / 2 - width / 2 : s + rng.range(0, e - s - width);
+  from = Math.min(e - width, Math.max(s, snap8(from)));
+  const op: Opening = kind === 'window'
+    ? { from, to: from + width, kind, sill: storeyBase(w) + WINDOW_SILL, lintel: storeyBase(w) + WINDOW_LINTEL }
+    : { from, to: from + width, kind, sill: w.bottom, lintel: Math.min(w.top, w.bottom + (draft.opts.wideDoors ? DOOR_HEIGHT_WIDE : DOOR_HEIGHT)) };
+  // Gaps, and doors with only a sliver of wall above them, reach the wall top.
+  if (kind === 'gap' || op.lintel > w.top - 8) op.lintel = w.top;
+  w.openings.push(op);
+  w.openings.sort((p, q) => p.from - q.from);
+  return op;
+}
+
+/** An inside door: wide doors, or mostly the normal width where it fits, else narrow. */
+const doorWidth = (draft: Draft, w: PlanWall) => (draft.opts.wideDoors ? DOOR_WIDE : fits(draft, w, DOOR) && draft.rng.chance(0.6) ? DOOR : DOOR_NARROW);
+/** An outside door: wide doors, or the normal width where it fits, else narrow. */
+const outerDoorWidth = (draft: Draft, w: PlanWall) => (draft.opts.wideDoors ? DOOR_WIDE : fits(draft, w, DOOR) ? DOOR : DOOR_NARROW);
+
+const outNormal = (w: PlanWall) => { const { left } = wallDirs(w); return w.left === -1 ? left : left.clone().negate(); };
+/** The room inside an outside wall. */
+const insideRoom = (w: PlanWall) => (w.left === -1 ? w.right : w.left);
+const sealedSide = (draft: Draft, w: PlanWall) => [w.left, w.right].some((r) => r >= 0 && draft.rooms[r].sealed);
+
+function facesNeighbour(draft: Draft, w: PlanWall): boolean {
+  const face = wallBox(w).translate(outNormal(w).multiplyScalar(w.thickness / 2 + 1));
+  return (draft.opts.noEntrance ?? []).some((b) => Math.min(b.max.x, face.max.x) - Math.max(b.min.x, face.min.x) > 0 && Math.min(b.max.y, face.max.y) - Math.max(b.min.y, face.min.y) > 0);
+}
+
+/** Whether an outside wall's outer face lies on footprint edge `edge`. */
+function onEdge(footprint: Vector2[], w: PlanWall, edge: number): boolean {
+  const p = footprint[edge], q = footprint[(edge + 1) % footprint.length];
+  const n = outNormal(w), mid = w.a.clone().add(w.b).multiplyScalar(0.5).addScaledVector(n, w.thickness / 2);
+  const along = new Vector2().subVectors(q, p), l = along.length();
+  if (l < EPS) return false;
+  const t = new Vector2().subVectors(mid, p).dot(along) / l;
+  const off = Math.abs(new Vector2().subVectors(mid, p).cross(along) / l);
+  return off < 1 && t > -EPS && t < l + EPS;
+}
+
+/** Outside walls an entrance may open in: not into a sealed room, and away from neighbouring buildings unless that leaves no way in. */
+function entranceWalls(draft: Draft): PlanWall[] {
+  const allOutside = draft.ground.filter((w) => w.exterior && !sealedSide(draft, w));
+  const facingOut = allOutside.filter((w) => !facesNeighbour(draft, w));
+  return facingOut.some((w) => fits(draft, w, draft.minDoor)) ? facingOut : allOutside;
+}
+
+const usable = (draft: Draft, list: PlanWall[], width: number) => list.filter((w) => fits(draft, w, width));
+
+function addEntrance(draft: Draft, w: PlanWall): void {
+  const op = placeOpening(draft, w, outerDoorWidth(draft, w), 'door', DOOR_MARGIN, draft.rng.chance(0.5));
+  if (!op) return;
+  const n = outNormal(w);
+  draft.entrances.push({
+    wall: draft.walls.indexOf(w), opening: w.openings.indexOf(op), out: n, room: insideRoom(w),
+    centre: wallPoint(w, (op.from + op.to) / 2).addScaledVector(n, w.thickness / 2),
+  });
+}
+
+/** Entrances: the requested edges, or one door (two on long houses) on different sides. */
+function placeEntrances(draft: Draft, outside: PlanWall[]): void {
+  const { opts, rng, entrances } = draft;
+  if (opts.entranceEdges?.length) {
+    for (const edge of opts.entranceEdges) {
+      const c = usable(draft, outside.filter((w) => onEdge(draft.footprint, w, edge)), draft.minDoor);
+      if (c.length) addEntrance(draft, rng.pick(c));
     }
   }
   if (!entrances.length) {
-    const c = usable(outside, minDoor);
+    const c = usable(draft, outside, draft.minDoor);
     // Longer walls first: the front door is on a main side.
     c.sort((p, q) => wallLength(q) - wallLength(p));
-    if (c.length) addEntrance(rng.pick(c.slice(0, Math.max(1, Math.ceil(c.length / 2)))));
+    if (c.length) addEntrance(draft, rng.pick(c.slice(0, Math.max(1, Math.ceil(c.length / 2)))));
   }
-  const fb = new Box2().setFromPoints(footprint).getSize(new Vector2());
-  if (entrances.length === 1 && Math.max(fb.x, fb.y) > 384) {
-    const first = walls[entrances[0].wall];
-    const firstN = outNormal(first);
-    const c = usable(outside.filter((w) => !outNormal(w).equals(firstN)), minDoor);
-    if (c.length) {
-      const dist = (w: PlanWall) => w.a.clone().add(w.b).distanceTo(first.a.clone().add(first.b)) + ((w.left === -1 ? w.right : w.left) === entrances[0].room ? -10000 : 0);
-      c.sort((p, q) => dist(q) - dist(p));
-      addEntrance(c[0]);
-    }
-  }
+  const size = new Box2().setFromPoints(draft.footprint).getSize(new Vector2());
+  if (entrances.length !== 1 || Math.max(size.x, size.y) <= LONG_HOUSE) return;
+  // The second one on another side, as far from the first as possible and preferably into another room.
+  const first = draft.walls[entrances[0].wall];
+  const firstN = outNormal(first);
+  const c = usable(draft, outside.filter((w) => !outNormal(w).equals(firstN)), draft.minDoor);
+  if (!c.length) return;
+  const dist = (w: PlanWall) => w.a.clone().add(w.b).distanceTo(first.a.clone().add(first.b)) + (insideRoom(w) === entrances[0].room ? -10000 : 0);
+  c.sort((p, q) => dist(q) - dist(p));
+  addEntrance(draft, c[0]);
+}
 
-  // Room types: hall or living room at the front door, kitchen next to it, bath next to the kitchen, bedrooms.
-  const neighbours = (r: number) => new Set(ground.filter((w) => !w.exterior && (w.left === r || w.right === r)).map((w) => (w.left === r ? w.right : w.left)));
-  const areaOf = (r: number) => { const s = rooms[r].box.getSize(new Vector2()); return s.x * s.y; };
-  const groundRooms = rooms.map((_, i) => i).filter((i) => rooms[i].storey === 1);
-  const untyped = new Set(groundRooms);
+/** Room types: hall or living room at the front door, kitchen next to it, bath next to the kitchen, bedrooms. */
+function typeRooms(draft: Draft): void {
+  const { rooms, stairs } = draft;
+  const neighbours = (r: number) => new Set(draft.ground.filter((w) => !w.exterior && (w.left === r || w.right === r)).map((w) => (w.left === r ? w.right : w.left)));
+  const areaOf = (r: number) => boxArea(rooms[r].box);
+  const ground = groundRooms(rooms);
+  const untyped = new Set(ground);
   const assign = (r: number, t: RoomType) => { rooms[r].type = t; untyped.delete(r); };
-  const front = entrances.length ? entrances[0].room : groundRooms[0];
-  if (o.use === 'workshop') {
-    const biggest = [...groundRooms].sort((a, b) => areaOf(b) - areaOf(a))[0];
+  const front = draft.entrances.length ? draft.entrances[0].room : ground[0];
+  // The untyped room next to `near` (or anywhere) that passes `pred`, first in `order`.
+  const pickNear = (near: number[], pred: (r: number) => boolean, order: (a: number, b: number) => number) => {
+    const set = new Set(near.flatMap((r) => [...neighbours(r)]));
+    const c = [...untyped].filter((r) => set.has(r) && pred(r)).sort(order);
+    return c.length ? c[0] : [...untyped].filter(pred).sort(order)[0];
+  };
+  if (draft.opts.use === 'workshop') {
+    const biggest = [...ground].sort((a, b) => areaOf(b) - areaOf(a))[0];
     assign(biggest, 'workshop');
     for (const r of [...untyped]) assign(r, 'storage');
+  } else if (ground.length === 1) {
+    assign(front, 'living');
   } else {
-    if (groundRooms.length === 1) assign(front, 'living');
-    else {
-      const s = rooms[front].box.getSize(new Vector2());
-      assign(front, groundRooms.length > 2 && Math.min(s.x, s.y) <= 192 ? 'hall' : 'living');
-      if (!groundRooms.some((r) => rooms[r].type === 'living' && !untyped.has(r))) {
-        const big = [...untyped].sort((a, b) => areaOf(b) - areaOf(a))[0];
-        if (big !== undefined) assign(big, 'living');
-      }
-      const pickNear = (near: number[], pred: (r: number) => boolean, order: (a: number, b: number) => number) => {
-        const set = new Set(near.flatMap((r) => [...neighbours(r)]));
-        const c = [...untyped].filter((r) => set.has(r) && pred(r)).sort(order);
-        return c.length ? c[0] : [...untyped].filter(pred).sort(order)[0];
-      };
-      const lived = groundRooms.filter((r) => !untyped.has(r));
-      const kitchen = pickNear(lived, () => true, (a, b) => Math.abs(areaOf(a) - 192 * 192) - Math.abs(areaOf(b) - 192 * 192));
-      if (kitchen !== undefined) assign(kitchen, 'kitchen');
-      if (kitchen !== undefined && untyped.size) {
-        const bath = pickNear([kitchen], (r) => areaOf(r) <= 256 * 256, (a, b) => areaOf(a) - areaOf(b));
-        if (bath !== undefined && (untyped.size > 1 || areaOf(bath) <= 160 * 192)) assign(bath, 'bath');
-      }
-      for (const r of [...untyped]) assign(r, areaOf(r) >= 128 * 192 ? 'bedroom' : 'storage');
+    const s = rooms[front].box.getSize(new Vector2());
+    assign(front, ground.length > 2 && Math.min(s.x, s.y) <= HALL_WIDTH ? 'hall' : 'living');
+    if (!ground.some((r) => rooms[r].type === 'living' && !untyped.has(r))) {
+      const big = [...untyped].sort((a, b) => areaOf(b) - areaOf(a))[0];
+      if (big !== undefined) assign(big, 'living');
     }
+    const lived = ground.filter((r) => !untyped.has(r));
+    const kitchen = pickNear(lived, () => true, (a, b) => Math.abs(areaOf(a) - KITCHEN_AREA) - Math.abs(areaOf(b) - KITCHEN_AREA));
+    if (kitchen !== undefined) assign(kitchen, 'kitchen');
+    if (kitchen !== undefined && untyped.size) {
+      const bath = pickNear([kitchen], (r) => areaOf(r) <= BATH_MAX_AREA, (a, b) => areaOf(a) - areaOf(b));
+      if (bath !== undefined && (untyped.size > 1 || areaOf(bath) <= LAST_BATH_AREA)) assign(bath, 'bath');
+    }
+    for (const r of [...untyped]) assign(r, areaOf(r) >= BEDROOM_AREA ? 'bedroom' : 'storage');
   }
   if (stairs && rooms[stairs.room].type === 'bath') rooms[stairs.room].type = 'living';
+}
 
-  // Doors between rooms: a spanning tree (every room reachable), then a few more for loops.
-  const parent = rooms.map((_, i) => i);
-  const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+/** Inside walls between two rooms units may enter, by room pair ("a:b", a < b). */
+function wallsByRoomPair(draft: Draft): Map<string, PlanWall[]> {
   const pairs = new Map<string, PlanWall[]>();
-  for (const w of ground) {
-    if (w.exterior || w.left < 0 || w.right < 0 || w.left === w.right || sealedSide(w)) continue;
+  for (const w of draft.ground) {
+    if (w.exterior || w.left < 0 || w.right < 0 || w.left === w.right || sealedSide(draft, w)) continue;
     const key = `${Math.min(w.left, w.right)}:${Math.max(w.left, w.right)}`;
     if (!pairs.has(key)) pairs.set(key, []);
     pairs.get(key)!.push(w);
   }
-  const keys = [...pairs.keys()];
-  for (let k = keys.length - 1; k > 0; k--) { const j = rng.int(0, k); [keys[k], keys[j]] = [keys[j], keys[k]]; }
-  const open = (key: string) => {
-    const list = pairs.get(key)!.filter((w) => fits(w, minDoor));
-    if (!list.length) return false;
-    const w = list.reduce((a, b) => (wallLength(b) > wallLength(a) ? b : a));
-    const types = [rooms[w.left].type, rooms[w.right].type];
-    const social = types.every((t) => t === 'hall' || t === 'living' || t === 'kitchen');
-    const wide = freeOn(w, DOOR_MARGIN).reduce((m, [s, e]) => Math.max(m, e - s), 0);
-    if (social && !o.wideDoors && wide >= 160 && rng.chance(0.35)) return !!placeOpening(w, Math.min(160, snap8(wide - 16)), 'gap', DOOR_MARGIN, true);
-    return !!placeOpening(w, doorWidth(w), 'door', DOOR_MARGIN);
-  };
+  return pairs;
+}
+
+/** Shuffles a list in place (Fisher–Yates). */
+function shuffle<T>(list: T[], rng: Rng): T[] {
+  for (let k = list.length - 1; k > 0; k--) { const j = rng.int(0, k); [list[k], list[j]] = [list[j], list[k]]; }
+  return list;
+}
+
+/** Opens the longest of the walls between two rooms: a door, or between social rooms now and then a wide gap. */
+function openDoorway(draft: Draft, between: PlanWall[]): boolean {
+  const list = between.filter((w) => fits(draft, w, draft.minDoor));
+  if (!list.length) return false;
+  const w = longest(list);
+  const types = [draft.rooms[w.left].type, draft.rooms[w.right].type];
+  const social = types.every((t) => t === 'hall' || t === 'living' || t === 'kitchen');
+  const wide = freeOn(draft, w, DOOR_MARGIN).reduce((m, [s, e]) => Math.max(m, e - s), 0);
+  if (social && !draft.opts.wideDoors && wide >= GAP_WIDTH && draft.rng.chance(0.35)) return !!placeOpening(draft, w, Math.min(GAP_WIDTH, snap8(wide - 16)), 'gap', DOOR_MARGIN, true);
+  return !!placeOpening(draft, w, doorWidth(draft, w), 'door', DOOR_MARGIN);
+}
+
+/**
+ * Doors between rooms: a spanning tree (every room reachable), then a few more for loops. Rooms the inside doors
+ * can't reach (walls too short beside the stairs) get their own door outside.
+ */
+function placeDoors(draft: Draft, outside: PlanWall[]): void {
+  const { rooms, rng, stairs } = draft;
+  const parent = rooms.map((_, i) => i);
+  const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+  const pairs = wallsByRoomPair(draft);
+  const keys = shuffle([...pairs.keys()], rng);
   const doored = new Set<string>();
-  if (stairs) parent[find(stairs.room)] = find(upperRoom);
+  if (stairs) parent[find(stairs.room)] = find(draft.upperRoom);
   for (const key of keys) {
     const [a, b] = key.split(':').map(Number);
     if (find(a) === find(b)) continue;
-    if (open(key)) { parent[find(a)] = find(b); doored.add(key); }
+    if (openDoorway(draft, pairs.get(key)!)) { parent[find(a)] = find(b); doored.add(key); }
   }
-  for (const key of keys) if (!doored.has(key) && rng.chance(0.2)) open(key);
-  // Rooms the inside doors can't reach (walls too short beside the stairs) get their own door outside.
-  for (const r of groundRooms) {
-    if (rooms[r].sealed || entrances.some((e) => find(e.room) === find(r))) continue;
-    const c = usable(outside.filter((w) => w.left === r || w.right === r), minDoor);
-    if (c.length) addEntrance(rng.pick(c));
+  for (const key of keys) if (!doored.has(key) && rng.chance(0.2)) openDoorway(draft, pairs.get(key)!);
+  for (const r of groundRooms(rooms)) {
+    if (rooms[r].sealed || draft.entrances.some((e) => find(e.room) === find(r))) continue;
+    const c = usable(draft, outside.filter((w) => w.left === r || w.right === r), draft.minDoor);
+    if (c.length) addEntrance(draft, rng.pick(c));
   }
+}
 
-  // Sealed rooms still show a doorway now and then, closed off: on the wall to a room units can reach, and
-  // sometimes on the outside. A plain wall is the fourth choice (no doorway at all).
-  const blockedDoor = (w: PlanWall, kinds: (Blocker | 'wall')[]) => {
-    const kind = rng.pick(kinds);
-    if (kind === 'wall' || !fits(w, minDoor)) return;
-    const op = placeOpening(w, w.exterior ? (o.wideDoors ? 128 : fits(w, 96) ? 96 : 64) : doorWidth(w), 'door', DOOR_MARGIN, rng.chance(0.5));
-    if (op) op.blocked = kind;
-  };
-  for (const r of groundRooms) {
+/** A closed-off doorway of a kind picked from `kinds` ('wall': none at all). */
+function blockedDoor(draft: Draft, w: PlanWall, kinds: (Blocker | 'wall')[]): void {
+  const kind = draft.rng.pick(kinds);
+  if (kind === 'wall' || !fits(draft, w, draft.minDoor)) return;
+  const op = placeOpening(draft, w, w.exterior ? outerDoorWidth(draft, w) : doorWidth(draft, w), 'door', DOOR_MARGIN, draft.rng.chance(0.5));
+  if (op) op.blocked = kind;
+}
+
+/**
+ * Sealed rooms still show a doorway now and then, closed off: on the wall to a room units can reach, and
+ * sometimes on the outside. A plain wall is the fourth choice (no doorway at all).
+ */
+function placeBlockedDoors(draft: Draft): void {
+  const { rooms } = draft;
+  for (const r of groundRooms(rooms)) {
     if (!rooms[r].sealed) continue;
-    const inner = ground.filter((w) => !w.exterior && (w.left === r || w.right === r) && w.left >= 0 && w.right >= 0 && !(rooms[w.left].sealed && rooms[w.right].sealed));
-    if (inner.length) blockedDoor(inner.reduce((a, b) => (wallLength(b) > wallLength(a) ? b : a)), ['door', 'boarded', 'furniture', 'furniture', 'wall']);
-    const outer = ground.filter((w) => w.exterior && (w.left === r || w.right === r));
-    if (outer.length && rng.chance(0.35)) blockedDoor(rng.pick(outer), ['door', 'boarded']);
+    const inner = draft.ground.filter((w) => !w.exterior && (w.left === r || w.right === r) && w.left >= 0 && w.right >= 0 && !(rooms[w.left].sealed && rooms[w.right].sealed));
+    if (inner.length) blockedDoor(draft, longest(inner), ['door', 'boarded', 'furniture', 'furniture', 'wall']);
+    const outer = draft.ground.filter((w) => w.exterior && (w.left === r || w.right === r));
+    if (outer.length && draft.rng.chance(0.35)) blockedDoor(draft, draft.rng.pick(outer), ['door', 'boarded']);
   }
+}
 
-  // Windows on outside walls: 64 or 96 wide, about one per 128–192 units of wall.
-  const winWidth = rng.pick([64, 96]);
-  for (const w of walls.filter((x) => x.exterior)) {
-    for (const [s, e] of freeOn(w, WINDOW_MARGIN)) {
+/** Windows on outside walls: one width per house, about one per 128–192 units of wall. */
+function placeWindows(draft: Draft): void {
+  const width = draft.rng.pick(WINDOW_WIDTHS);
+  for (const w of draft.walls.filter((x) => x.exterior)) {
+    for (const [s, e] of freeOn(draft, w, WINDOW_MARGIN)) {
       const l = e - s;
-      const n = Math.min(Math.floor((l + 32) / (winWidth + 32)), Math.round(l / rng.pick([128, 160, 192])));
+      const n = Math.min(Math.floor((l + WINDOW_GAP) / (width + WINDOW_GAP)), Math.round(l / draft.rng.pick(WINDOW_SPACINGS)));
       for (let k = 0; k < n; k++) {
         const c = snap8(s + ((k + 0.5) * l) / n);
-        const from = Math.max(s, Math.min(e - winWidth, c - winWidth / 2));
-        w.openings.push({ from, to: from + winWidth, kind: 'window', sill: storeyBase(w) + 40, lintel: Math.min(w.top, storeyBase(w) + 96) });
+        const from = Math.max(s, Math.min(e - width, c - width / 2));
+        w.openings.push({ from, to: from + width, kind: 'window', sill: storeyBase(w) + WINDOW_SILL, lintel: Math.min(w.top, storeyBase(w) + WINDOW_LINTEL) });
       }
       w.openings.sort((p, q) => p.from - q.from);
     }
   }
+}
 
-  // Lanes: from each door into the middle of its room; zones in front of doors on both sides.
-  const lanes: Box2[] = [], doorZones: Box2[] = [];
+/** Lanes from each door into the middle of its room, zones in front of doors on both sides, and the stairs kept clear. */
+function planLanes(draft: Draft): { lanes: Box2[]; doorZones: Box2[]; keepClear: Box2[] } {
+  const { rooms, stairs } = draft;
+  const lanes: Box2[] = [], doorZones: Box2[] = [], keepClear: Box2[] = [];
   const centreOf = (r: number) => rooms[r].box.getCenter(new Vector2());
   const lane = (p: Vector2, q: Vector2, firstAxis: Axis) => {
     const corner = p.clone();
@@ -835,8 +978,8 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
       if (b.getSize(new Vector2()).length() > LANE * 1.5) lanes.push(b);
     }
   };
-  walls.forEach((w) => {
-    if (w.storey !== 1) return;
+  for (const w of draft.walls) {
+    if (w.storey !== 1) continue;
     const { dir, left } = wallDirs(w);
     for (const op of w.openings) {
       if (op.kind === 'window') continue;
@@ -845,38 +988,75 @@ export function planInterior(footprint: Vector2[], rng: Rng, o: InteriorPlanOpti
         // A closed-off doorway keeps the floor in front of it clear (for its blocker) but leads nowhere.
         if (op.blocked && r >= 0 && rooms[r].sealed) continue;
         const face = c.clone().addScaledVector(n, w.thickness / 2);
-        const z = new Box2().setFromPoints([
+        doorZones.push(new Box2().setFromPoints([
           face.clone().addScaledVector(dir, -(op.to - op.from) / 2), face.clone().addScaledVector(dir, (op.to - op.from) / 2).addScaledVector(n, DOOR_ZONE),
-        ]);
-        doorZones.push(z);
+        ]));
         if (r >= 0 && !op.blocked) lane(face, centreOf(r), w.axis === 'x' ? 'y' : 'x');
       }
     }
-  });
-  const keepClear: Box2[] = [];
+  }
   if (stairs) {
-    const ax: Axis = stairs.dir.x !== 0 ? 'x' : 'y';
-    lane(stairs.foot, centreOf(stairs.room), ax);
-    lane(stairs.head, centreOf(upperRoom), ax);
+    const axis: Axis = stairs.dir.x !== 0 ? 'x' : 'y';
+    lane(stairs.foot, centreOf(stairs.room), axis);
+    lane(stairs.head, centreOf(draft.upperRoom), axis);
     keepClear.push(stairs.box.clone().union(new Box2().setFromPoints([stairs.foot]).expandByScalar(stairs.width / 2)));
-    const headZone = new Box2().setFromPoints([stairs.head]).expandByScalar(stairs.width / 2);
-    keepClear.push(headZone);
+    keepClear.push(new Box2().setFromPoints([stairs.head]).expandByScalar(stairs.width / 2));
   }
+  return { lanes, doorZones, keepClear };
+}
 
-  // Porch: a deck along the wall in front of the main door.
-  let porch: Box2 | undefined;
-  if (entrances.length && (o.porch ?? rng.chance(0.5))) {
-    const e = entrances[0], w = walls[e.wall], op = w.openings[e.opening];
-    const ax = w.axis;
-    const depth = rng.pick([64, 96]);
-    const half = Math.min(wallLength(w) / 2 + 32, (op.to - op.from) / 2 + rng.pick([32, 64, 96]));
-    const c = e.centre;
-    const a = c.clone(), b = c.clone().addScaledVector(e.out, depth);
-    a[ax] -= half; b[ax] += half;
-    porch = new Box2().setFromPoints([a, b]);
-  }
+/** Porch: a deck along the wall in front of the main door (by default on half of the houses). */
+function planPorch(draft: Draft): Box2 | undefined {
+  const { rng } = draft;
+  if (!draft.entrances.length || !(draft.opts.porch ?? rng.chance(0.5))) return undefined;
+  const e = draft.entrances[0], w = draft.walls[e.wall], op = w.openings[e.opening];
+  const depth = rng.pick(PORCH_DEPTHS);
+  const half = Math.min(wallLength(w) / 2 + 32, (op.to - op.from) / 2 + rng.pick(PORCH_OVERHANGS));
+  const a = e.centre.clone(), b = e.centre.clone().addScaledVector(e.out, depth);
+  a[w.axis] -= half; b[w.axis] += half;
+  return new Box2().setFromPoints([a, b]);
+}
 
+/**
+ * Plans the rooms, walls, openings, entrances and (for two storeys) the stairs and upper floor of a house on
+ * an axis-aligned footprint (a rectangle, an L or any rectilinear outline; other edges are stepped on the
+ * 64 grid).
+ */
+export function planInterior(footprint: Vector2[], rng: Rng, opts: InteriorPlanOptions = {}): InteriorPlan {
+  const cut = opts.cut ?? DEFAULT_CUT;
+  const minRoom = opts.wideDoors ? MIN_ROOM_WIDE : MIN_ROOM;
+  const grid = new Grid(gridLines(footprint.map((p) => p.x)), gridLines(footprint.map((p) => p.y)), footprint);
+  const cells: [number, number][] = [];
+  for (let j = 0; j < grid.ny; j++) for (let i = 0; i < grid.nx; i++) if (grid.isIn(i, j)) cells.push([i, j]);
+  const regions = decompose(grid, cells, rng);
+
+  // Two storeys: an upper floor over one end and stairs in the open part beside it.
+  const stairWidth = opts.wideDoors ? STAIR_WIDTH_WIDE : STAIR_WIDTH;
+  const choice = opts.storeys === 2 ? chooseUpperFloor(grid, regions, cells, minRoom, stairWidth, rng) : undefined;
+  const upper = choice && placeStairs(grid, choice, stairWidth, rng);
+  const roomRects = splitRooms(grid, upper ? [upper.up, upper.open] : regions, upper?.up, upper?.zone, minRoom, rng);
+  const upperBox = upper && grid.box(upper.up);
+  const rooms = makeRooms(grid, roomRects, upperBox);
+  const upperRoom = upperBox ? rooms.length - 1 : -1;
+  const stairs = upper?.stairs;
+  if (stairs) stairs.room = grid.roomAt(stairs.box.getCenter(new Vector2()));
+
+  const walls = cutWalls(grid, resolveOverlaps(wallRuns(grid)), upperBox, cut);
+  if (upperBox) walls.push(...upperWalls(walls, upperBox, upperRoom, cut));
+
+  const draft: Draft = {
+    footprint, opts, rng, rooms, walls, ground: walls.filter((w) => w.storey === 1), entrances: [], stairs, upperRoom,
+    minDoor: opts.wideDoors ? DOOR_WIDE : DOOR_NARROW,
+  };
+  const outside = entranceWalls(draft);
+  placeEntrances(draft, outside);
+  typeRooms(draft);
+  placeDoors(draft, outside);
+  placeBlockedDoors(draft);
+  placeWindows(draft);
+  const { lanes, doorZones, keepClear } = planLanes(draft);
+  const porch = planPorch(draft);
   return {
-    footprint, storeys, cut, rooms, walls, entrances, porch, stairs, upperFloor: upperBox, lanes, doorZones, keepClear,
+    footprint, storeys: upper ? 2 : 1, cut, rooms, walls, entrances: draft.entrances, porch, stairs, upperFloor: upperBox, lanes, doorZones, keepClear,
   };
 }
