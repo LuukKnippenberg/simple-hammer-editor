@@ -67,8 +67,20 @@ Nothing here writes to the game's `mapsrc/`. Turned-down offers are kept in this
   map straight away.
 - The **map checklist** chip in the top bar ("Annihilation 6/7 ready") tracks what the map's game mode still needs;
   click it for the list and its fixes. See [Map checklist](compiling.md#map-checklist-and-pre-flight-checks).
+- After 20 minutes of unsaved changes the status bar shows an amber *unsaved for N min · Save* pill; clicking it
+  saves. It never interrupts, and autosave runs either way.
 - Generated maps keep their sketch (`maps/<name>.sketch.json`) and mission flowchart (`maps/<name>.mission.json`)
   next to the VMF; they load and save with it.
+
+## Undo and history
+
+- **Undo** (Ctrl+Z) and **Redo** (Ctrl+Y or Ctrl+Shift+Z) are also the ↶ and ↷ buttons at the foot of the tool
+  rail, greyed out when there is nothing to undo or redo. The history keeps the last 200 steps and is cleared when
+  a map is opened.
+- **Map › History** lists every step with its icon, label and time, oldest first, starting from *Opened <map>*.
+  The current step is highlighted. Click a step to jump back to it: the steps after it turn grey and can be redone
+  (click one, or Redo) until the next edit drops them. A generator run, from placing it to the last tweak, is one
+  step. Jumping restores the map exactly; the selection may be cleared.
 
 ## The viewport
 

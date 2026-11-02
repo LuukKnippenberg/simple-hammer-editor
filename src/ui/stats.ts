@@ -1,11 +1,39 @@
 import type { Editor } from '../editor.ts';
-import { h } from './dom.ts';
+import { h, toast } from './dom.ts';
 import { audio } from '../audio/engine.ts';
+
+/**
+ * The amber "unsaved for N min · Save" pill. It stays one element (the rest of the status bar is rebuilt every frame
+ * tick) so a click on it always lands.
+ */
+function saveReminder(editor: Editor): { pill: HTMLButtonElement; sync(): void } {
+  const text = h('span');
+  const pill = h('button.save-pill', { hidden: true, title: 'Save to maps/ (Ctrl+S)' }, h('span.save-pill-dot'), text);
+  pill.addEventListener('click', async () => {
+    try {
+      const r = await editor.save();
+      toast(editor.container, `Saved maps/${editor.mapName} (${(r.bytes / 1024).toFixed(0)} KB)`);
+    } catch (e) {
+      toast(editor.container, `Save failed: ${(e as Error).message}`);
+    }
+  });
+  const sync = () => {
+    const minutes = editor.unsaved.reminderMinutes();
+    pill.hidden = minutes === null;
+    if (minutes !== null) text.textContent = `unsaved for ${minutes} min · Save`;
+  };
+  editor.on('saved', sync);
+  return { pill, sync };
+}
 
 /** Performance overlay in the viewport plus the status bar text. */
 export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLElement, hoverLabel: () => string = () => ''): void {
   const overlay = h('div.overlay.tr');
   viewport.append(overlay);
+  const mapName = h('b');
+  const reminder = saveReminder(editor);
+  const rest = h('span.status-rest');
+  status.replaceChildren(h('span', {}, mapName), reminder.pill, rest);
   let last = 0;
   editor.on('frame', () => {
     const now = performance.now();
@@ -28,8 +56,9 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
     overlay.replaceChildren(...lines.flatMap((l, i) => (i ? [h('br'), ...l] : l)));
     const p = editor.camera.position;
     const hover = hoverLabel();
-    status.replaceChildren(...[
-      h('span', {}, h('b', {}, editor.mapName)),
+    mapName.textContent = editor.mapName;
+    reminder.sync();
+    rest.replaceChildren(...[
       h('span', {}, 'camera ', h('b', {}, `${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}`)),
       h('span', {}, 'entities ', h('b', {}, String(editor.doc.entities.length))),
       h('span', {}, editor.view === 'top' ? 'top view' : '3D view'),

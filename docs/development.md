@@ -63,6 +63,10 @@ same functions the UI does.
 recover button, nothing written to `mapsrc/`); it waits for two real autosaves, so it takes about two minutes, and
 exits non-zero on a failure. `--shots <folder>` saves the screens it passes.
 
+Browser checks that exit non-zero when something fails: `scripts/inspector-clicks-test.mjs` (inspector fields) and
+`scripts/history-test.mjs` (Map › History jumps, the rail's undo and redo, the save reminder; `SHOTS_DIR=<folder>`
+also saves screenshots). Run them against a dev server, for example `SHE_PORT=5214 node scripts/history-test.mjs`.
+
 `npm run screenshot -- <shots.json>` captures a list of views (map, camera, optional JS before and after) without a
 script of its own.
 

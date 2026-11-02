@@ -7,9 +7,19 @@ const cloneList = (items: Items): Items => items.map((it) => (it instanceof KVNo
 
 interface Op {
   label: string;
+  /** When the step was recorded (ms since the epoch). */
+  time: number;
   undo(): void;
   redo(): void;
 }
+
+/** One undo step as the History panel lists it. */
+export interface HistoryStep {
+  label: string;
+  time: number;
+}
+
+const MAX_STEPS = 200;
 
 /**
  * Undo/redo. Modifications snapshot the affected nodes' items before and after; creation and deletion
@@ -19,6 +29,10 @@ export class History {
   private undoStack: Op[] = [];
   private redoStack: Op[] = [];
   onChange: () => void = () => {};
+  /** The clock steps are stamped with (tests replace it). */
+  now: () => number = Date.now;
+  /** When the history was last cleared: the time of the state before the first step. */
+  openedAt = this.now();
   private doc: () => VmfDocument;
 
   constructor(doc: () => VmfDocument) {
@@ -28,6 +42,7 @@ export class History {
   clear(): void {
     this.undoStack = [];
     this.redoStack = [];
+    this.openedAt = this.now();
   }
 
   get canUndo(): boolean {
@@ -38,6 +53,26 @@ export class History {
   }
   get undoLabel(): string | null {
     return this.undoStack[this.undoStack.length - 1]?.label ?? null;
+  }
+
+  /** Every step, oldest first: the applied ones, then the undone ones that can still be redone. */
+  get steps(): HistoryStep[] {
+    return [...this.undoStack, ...[...this.redoStack].reverse()].map(({ label, time }) => ({ label, time }));
+  }
+
+  /** How many of `steps` are applied; 0 is the state the history started from. */
+  get position(): number {
+    return this.undoStack.length;
+  }
+
+  /** Undoes or redoes one step at a time until `position` steps are applied. Returns how many steps it moved. */
+  jumpTo(position: number): number {
+    const target = Math.max(0, Math.min(this.steps.length, position));
+    let moved = 0;
+    while (this.undoStack.length > target && this.stepBack()) moved++;
+    while (this.undoStack.length < target && this.stepForward()) moved++;
+    if (moved) this.onChange();
+    return moved;
   }
 
   private collecting: Op[] | null = null;
@@ -53,11 +88,7 @@ export class History {
       this.collecting = outer;
     }
     if (!ops.length) return;
-    this.push({
-      label,
-      undo: () => { for (let i = ops.length - 1; i >= 0; i--) ops[i].undo(); },
-      redo: () => { for (const op of ops) op.redo(); },
-    });
+    this.push(composite(label, ops));
     this.onChange();
   }
 
@@ -70,21 +101,18 @@ export class History {
   squash(depth: number, label: string): void {
     if (this.collecting || this.undoStack.length - depth < 2) return;
     const ops = this.undoStack.splice(depth);
-    this.undoStack.push({
-      label,
-      undo: () => { for (let i = ops.length - 1; i >= 0; i--) ops[i].undo(); },
-      redo: () => { for (const op of ops) op.redo(); },
-    });
+    this.undoStack.push({ ...composite(label, ops), time: this.now() });
     this.onChange();
   }
 
-  private push(op: Op): void {
+  private push(untimed: Omit<Op, 'time'>): void {
+    const op = { ...untimed, time: this.now() };
     if (this.collecting) {
       this.collecting.push(op);
       return;
     }
     this.undoStack.push(op);
-    if (this.undoStack.length > 200) this.undoStack.shift();
+    if (this.undoStack.length > MAX_STEPS) this.undoStack.shift();
     this.redoStack = [];
   }
 
@@ -150,20 +178,39 @@ export class History {
   }
 
   undo(): string | null {
-    const op = this.undoStack.pop();
-    if (!op) return null;
-    op.undo();
-    this.redoStack.push(op);
-    this.onChange();
-    return op.label;
+    const op = this.stepBack();
+    if (op) this.onChange();
+    return op?.label ?? null;
   }
 
   redo(): string | null {
+    const op = this.stepForward();
+    if (op) this.onChange();
+    return op?.label ?? null;
+  }
+
+  private stepBack(): Op | undefined {
+    const op = this.undoStack.pop();
+    if (!op) return undefined;
+    op.undo();
+    this.redoStack.push(op);
+    return op;
+  }
+
+  private stepForward(): Op | undefined {
     const op = this.redoStack.pop();
-    if (!op) return null;
+    if (!op) return undefined;
     op.redo();
     this.undoStack.push(op);
-    this.onChange();
-    return op.label;
+    return op;
   }
+}
+
+/** One step made of several recorded ones: undone in reverse order, redone in order. */
+function composite(label: string, ops: Op[]): Omit<Op, 'time'> {
+  return {
+    label,
+    undo: () => { for (let i = ops.length - 1; i >= 0; i--) ops[i].undo(); },
+    redo: () => { for (const op of ops) op.redo(); },
+  };
 }
