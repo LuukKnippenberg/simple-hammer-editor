@@ -6,17 +6,16 @@ import { remapSolid } from '../edit/brushes.ts';
 import { h, toast } from './dom.ts';
 import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, selectBlock, selectedBlocks } from '../gen/buildingAction.ts';
 import { blockFinder, blockOf } from '../gen/buildingStore.ts';
-import { ARCHITECTURES, FACADE_STYLES, QUALITY, type ArchitectureName, type BuildingOptions, type BuildingQuality, type DetailLevel, type FacadeStyle } from '../gen/buildings.ts';
-import { INTERIOR_STYLES, type InteriorStyleName } from '../gen/styles.ts';
-import { LIGHT_LEVELS } from '../gen/interiorDressing.ts';
-import { EXTRA_KEYS, extrasRows } from './extrasOptions.ts';
-import type { CornerOption } from '../gen/buildingPlan.ts';
-import type { RoofOption } from '../gen/roofs.ts';
+import type { BuildingOptions } from '../gen/buildings.ts';
+import { buildingSheet } from './buildingOptions.ts';
+import { roadSheet } from './roadOptions.ts';
+import { powerlineSheet } from './powerlineOptions.ts';
+import { num, row, select } from './form.ts';
 import { entityEditor, multiEntityEditor } from './entityEditor.ts';
-import { ROAD_STYLES, centreline, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
+import { centreline, roadOf, type RoadSpec } from '../gen/roads.ts';
 import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, type StreetMaterial } from '../gen/streetMaterials.ts';
 import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
-import { POLE_TYPES, powerlineOf, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
+import { powerlineOf, type PowerlineSpec } from '../gen/powerlines.ts';
 import { editPowerline } from '../edit/powerlineTool.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 import { soundBrowser } from './soundBrowser.ts';
@@ -79,7 +78,8 @@ export function mountInspector(editor: Editor): HTMLElement {
         h('div', {}, blocks.length > 1 ? `${blocks.length} blocks of buildings` : LAYOUT_LABEL[blockOf(blocks[0])?.options.layout ?? 'block']),
         h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
-      if (blocks.length === 1) panel.append(buildingPanel(editor, blocks[0]));
+      const p = blocks.length === 1 && blockPanel(editor, blocks[0]);
+      if (p) panel.append(p);
       return;
     }
     // Stairs handles stand for their stairs.
@@ -152,7 +152,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (ents.length === 1) panel.append(entityEditor(editor, ents[0], effects));
     else if (ents.length > 1) panel.append(multiEntityEditor(editor, ents));
     if (solids.length) panel.append(brushEditor(editor));
-    if (looseWorld.length && !partOf.size) panel.append(buildingPanel(editor));
+    if (looseWorld.length && !partOf.size) panel.append(newBuildingsPanel(editor));
     if (looseWorld.length === 1 && !partOf.size) {
       panel.append(h('div.section', {}, h('h3', {}, 'Interior building'),
         h('p.hint', {}, 'Replace this block with a building made of rooms, drawn on a floor plan.'),
@@ -198,37 +198,21 @@ function brushEditor(editor: Editor): HTMLElement {
   );
 }
 
-/** A road's style and sizes; changes rebuild all roads, so crossings stay open. */
+/** A road's style, sizes and materials; changes rebuild all roads, so crossings stay open. */
 function roadPanel(editor: Editor, e: MapEntity, road: RoadSpec): HTMLElement {
   const apply = (patch: Partial<RoadSpec>) => rebuildRoads(editor, 'Edit road', { replace: [e, { ...road, ...patch }] });
-  const style = h('select', {}, ...Object.entries(ROAD_STYLES).map(([k, s]) => h('option', { value: k }, s.label))) as HTMLSelectElement;
-  style.value = road.style;
-  style.addEventListener('change', () => apply({ style: style.value as RoadStyle }));
-  const num = (key: 'width' | 'pavement' | 'radius', step: number, min: number) => {
-    const i = h('input', { type: 'number', value: String(road[key]), step: String(step), min: String(min) }) as HTMLInputElement;
-    i.addEventListener('change', () => apply({ [key]: Math.max(min, parseFloat(i.value) || min) }));
-    return i;
-  };
   const len = centreline(road.points, road.radius).reduce((s, p, i, a) => s + (i ? p.distanceTo(a[i - 1]) : 0), 0);
-  const mat = (list: StreetMaterial[], key: 'carriageway' | 'pavement' | 'kerb' | 'gutter') => {
-    const sel = h('select', {}, h('option', { value: '' }, 'From style'), ...list.map((m) => h('option', { value: m.id }, m.label))) as HTMLSelectElement;
-    sel.value = road.materials?.[key] ?? '';
-    sel.addEventListener('change', () => apply({ materials: { ...road.materials, [key]: sel.value || undefined } }));
-    return sel;
-  };
-  const corner = h('input', { type: 'number', value: String(road.materials?.corner ?? 0), step: '16', min: '0', title: 'Kerb radius where this road crosses another' }) as HTMLInputElement;
-  corner.addEventListener('change', () => apply({ materials: { ...road.materials, corner: Math.max(0, parseFloat(corner.value) || 0) } }));
+  const mat = (label: string, list: StreetMaterial[], key: 'carriageway' | 'pavement' | 'kerb' | 'gutter') =>
+    row(label, select([['', 'From style'], ...list.map((m) => [m.id, m.label] as [string, string])], road.materials?.[key] ?? '',
+      (v) => apply({ materials: { ...road.materials, [key]: v || undefined } })));
   return h('div.section', {}, h('h3', {}, 'Road'),
     h('p.hint', {}, `${road.points.length} points, ${Math.round(len)} units long. Draw new roads with the Road tool (7).`),
-    h('div.row', {}, h('label', {}, 'Style'), style),
-    h('div.row', {}, h('label', {}, 'Width'), num('width', 32, 64)),
-    h('div.row', {}, h('label', {}, 'Pavement'), num('pavement', 16, 0)),
-    h('div.row', {}, h('label', {}, 'Corners'), num('radius', 32, 0)),
-    h('div.row', {}, h('label', {}, 'Carriageway'), mat(CARRIAGEWAYS, 'carriageway')),
-    h('div.row', {}, h('label', {}, 'Pavement'), mat(PAVEMENTS, 'pavement')),
-    h('div.row', {}, h('label', {}, 'Kerb'), mat(KERBS, 'kerb')),
-    h('div.row', {}, h('label', {}, 'Gutter'), mat(GUTTERS, 'gutter')),
-    h('div.row', {}, h('label', {}, 'Round kerbs'), corner),
+    ...roadSheet(road, apply),
+    mat('Carriageway', CARRIAGEWAYS, 'carriageway'),
+    mat('Pavement', PAVEMENTS, 'pavement'),
+    mat('Kerb', KERBS, 'kerb'),
+    mat('Gutter', GUTTERS, 'gutter'),
+    row('Round kerbs', num(road.materials?.corner ?? 0, (v) => apply({ materials: { ...road.materials, corner: v } }), { step: 16, min: 0, title: 'Kerb radius where this road crosses another' })),
     h('div.row', {},
       h('button', { onclick: () => rebuildRoads(editor, 'Rebuild roads') }, 'Rebuild all roads'),
       h('button', {
@@ -278,25 +262,12 @@ function soundscapePanel(editor: Editor, e: MapEntity): HTMLElement {
 
 /** A powerline's settings; changes rebuild its poles and wires. */
 function powerlinePanel(editor: Editor, e: MapEntity, spec: PowerlineSpec, count: number): HTMLElement {
-  const pole = h('select', {}, ...Object.entries(POLE_TYPES).map(([k, p]) => h('option', { value: k }, p.label))) as HTMLSelectElement;
-  pole.value = spec.pole;
-  pole.addEventListener('change', () => editPowerline(editor, e, { pole: pole.value as PoleType }));
-  const spacing = h('input', { type: 'number', value: String(spec.spacing), step: '64', min: '192' }) as HTMLInputElement;
-  spacing.addEventListener('change', () => editPowerline(editor, e, { spacing: Math.max(192, Number(spacing.value) || 640) }));
-  const sag = h('input', { type: 'range', min: 0, max: 0.15, step: 0.01, value: spec.slack }) as HTMLInputElement;
-  sag.addEventListener('change', () => editPowerline(editor, e, { slack: Number(sag.value) }));
-  const feeds = h('input', { type: 'checkbox', checked: !!spec.feeds }) as HTMLInputElement;
-  feeds.addEventListener('change', () => editPowerline(editor, e, { feeds: feeds.checked }));
   return h('div.section', {}, h('h3', {}, 'Powerline'),
     h('p.hint', {}, `${spec.points.length} route points, ${count} entities (poles and rope keyframes).`),
-    h('div.row', {}, h('label', {}, 'Poles'), pole),
-    h('div.row', {}, h('label', {}, 'Spacing'), spacing),
-    h('div.row', {}, h('label', {}, 'Sag'), sag),
-    h('div.row', {}, h('label', {}, 'House feeds'), feeds),
+    ...powerlineSheet(spec, (patch) => editPowerline(editor, e, patch)),
     h('button', { onclick: () => { const l = powerlineOf(editor.doc.entities, e); if (l) { editor.history.remove('Delete powerline', [], l.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline'));
 }
 
-/** Turns the selected block brushes into buildings; for a generated block (`block`), its stored settings. */
 /** An interior building's handle: its rooms, what is wrong with them, and the dialog to change them. */
 function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
   const one = details.length === 1 ? details[0] : null;
@@ -355,144 +326,49 @@ function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
 }
 
 const LAYOUT_LABEL = { block: 'Block of buildings', single: 'Building', house: 'Simple interior building' } as const;
-/** The Extras group stays folded or open while the panel re-renders. */
-let extrasOpen = false;
+/** The building sheet's More options and Extras stay folded or open while the panel re-renders. */
+const folds = { more: false, extras: false };
+const SHEET_KIND = { block: 'block', single: 'building', house: 'house' } as const;
+/** What blocks generated from the selected block brushes start with. */
+const NEW_BLOCK = {
+  minFloors: 3, maxFloors: 6, architecture: 'mixed', alleys: false, roofProps: true, weathering: 0.5, detail: 2, quality: 'high', roofs: 'mixed',
+  towers: true, courtyards: true, annexes: true, cutHeight: 112, furnish: 'full', interiorLights: true, wideDoors: false,
+} as const;
 
-function buildingPanel(editor: Editor, block: MapEntity | null = null): HTMLElement {
-  const minF = h('input', { type: 'number', value: '3', min: '1', max: '12' }) as HTMLInputElement;
-  const maxF = h('input', { type: 'number', value: '6', min: '1', max: '12' }) as HTMLInputElement;
-  const arch = h('select', { title: 'Kind of buildings: facades, roofs, corners, towers and street features' },
-    ...Object.entries(ARCHITECTURES).map(([k, a]) => h('option', { value: k }, a.label))) as HTMLSelectElement;
-  // Each architecture has its usual height.
-  arch.addEventListener('change', () => {
-    const f = ARCHITECTURES[arch.value as ArchitectureName].floors;
-    minF.value = String(f[0]);
-    maxF.value = String(f[1]);
-  });
-  const style = h('select', {}, h('option', { value: '' }, 'From architecture'), ...Object.keys(FACADE_STYLES).map((k) => h('option', { value: k }, k))) as HTMLSelectElement;
-  const alleys = h('input', { type: 'checkbox', checked: false }) as HTMLInputElement;
-  const corners = h('select', {},
-    h('option', { value: '' }, 'From architecture'), h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'chamfer' }, 'Cut (45°)'),
-    h('option', { value: 'round' }, 'Rounded'), h('option', { value: 'square' }, 'Square')) as HTMLSelectElement;
-  const weathering = h('input', { type: 'range', min: 0, max: 1, step: 0.1, value: 0.5, title: 'Water stains and dirt on street walls' }) as HTMLInputElement;
-  const seed = h('input', { type: 'number', value: String(Math.floor(Math.random() * 100000)), title: 'The same seed and settings give the same buildings' }) as HTMLInputElement;
-  const reroll = h('button', { title: 'New seed', onclick: () => (seed.value = String(Math.floor(Math.random() * 100000))) }, '🎲');
-  const detail = h('select', { title: 'Facade decoration, built as func_detail' },
-    h('option', { value: '0' }, 'None'), h('option', { value: '1' }, 'Low: base and cornice'),
-    h('option', { value: '2', selected: true }, 'Medium: + ledges, columns'), h('option', { value: '3' }, 'High: + brackets')) as HTMLSelectElement;
-  // Filler blocks away from the action cost vbsp far less (decoration is what fills its t-junction buffer).
-  const quality = h('select', { title: 'High near the action, filler further away: decoration is what a big map runs out of room for' },
-    ...Object.entries(QUALITY).map(([k, q]) => h('option', { value: k, title: q.hint }, q.label))) as HTMLSelectElement;
-  const roofs = h('select', {},
-    h('option', { value: 'mixed' }, 'Mixed'), h('option', { value: 'mansard' }, 'Mansard with dormers'),
-    h('option', { value: 'hip' }, 'Hipped'), h('option', { value: 'gable' }, 'Gabled'),
-    h('option', { value: 'curved' }, 'Curved (bell)'), h('option', { value: 'flat' }, 'Flat with parapet')) as HTMLSelectElement;
-  const towers = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
-  // Enterable open-top houses on small lots and sheds.
-  const interiors = h('select', { title: 'Enterable open-top houses on small lots and sheds of 1–2 floors (rooms, doors, furniture)' },
-    h('option', { value: '' }, 'From architecture'), h('option', { value: 'none' }, 'None'), h('option', { value: 'some' }, 'Some'), h('option', { value: 'all' }, 'All')) as HTMLSelectElement;
-  const interiorStyle = h('select', {}, h('option', { value: '' }, 'From architecture'),
-    ...Object.entries(INTERIOR_STYLES).map(([k, st]) => h('option', { value: k }, st.label))) as HTMLSelectElement;
-  const cut = h('input', { type: 'number', value: '112', min: '96', max: '128', step: '8', title: 'Height the walls are cut off at; the RTS camera sees more floor when lower' }) as HTMLInputElement;
-  const furnish = h('select', {}, h('option', { value: 'full' }, 'Full'), h('option', { value: 'sparse' }, 'Sparse'), h('option', { value: 'none' }, 'None')) as HTMLSelectElement;
-  const lights = h('input', { type: 'checkbox', checked: true, title: 'Wall lamps with lights in most rooms' }) as HTMLInputElement;
-  const lightLevel = h('select', { title: 'How bright the lamps inside the houses are' }, ...LIGHT_LEVELS.map(([v, l]) => h('option', { value: String(v) }, l))) as HTMLSelectElement;
-  lightLevel.value = '1';
-  const wideDoors = h('input', { type: 'checkbox', checked: false, title: '128-wide doorways so the antlion guard fits through' }) as HTMLInputElement;
-  const courtyards = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
-  const annexes = h('input', { type: 'checkbox', checked: true }) as HTMLInputElement;
+/** The building sheet over `o`: changes are kept in `o` until the panel's button uses them. */
+function draftSheet(o: BuildingOptions): HTMLElement {
+  const sheet = h('div');
+  const draw = () => sheet.replaceChildren(...buildingSheet({ options: o, kind: SHEET_KIND[o.layout ?? 'block'], set: (patch) => { Object.assign(o, patch); draw(); }, folds, redraw: draw }));
+  draw();
+  return sheet;
+}
+
+/** A generated block's stored settings; changes wait for Regenerate. */
+function blockPanel(editor: Editor, block: MapEntity): HTMLElement | null {
   const stored = blockOf(block);
-  // Trees, lamps, cables and props round the buildings: the same Extras group as the Generate panel. Every key is
-  // kept (undefined = default), so a value set back to its default also overrides the stored one on Regenerate.
-  const extra = {} as Pick<BuildingOptions, (typeof EXTRA_KEYS)[number]>;
-  for (const k of EXTRA_KEYS) (extra as Record<string, unknown>)[k] = stored?.options[k];
-  extra.roofProps = stored?.options.roofProps ?? true;
-  const kind = ({ block: 'block', single: 'building', house: 'house' } as const)[stored?.options.layout ?? 'block'];
-  const extrasBox = h('div');
-  const renderExtras = () => extrasBox.replaceChildren(...extrasRows(extra as BuildingOptions,
-    (k, v) => { extra[k] = v as never; renderExtras(); }, kind, extrasOpen, (open) => { extrasOpen = open; renderExtras(); }));
-  renderExtras();
-  if (stored) {
-    const o = stored.options;
-    arch.value = o.architecture ?? 'mixed';
-    minF.value = String(o.minFloors);
-    maxF.value = String(o.maxFloors);
-    style.value = o.style ?? '';
-    corners.value = o.corners ?? '';
-    roofs.value = o.roofs ?? 'mixed';
-    detail.value = String(o.detail ?? 2);
-    quality.value = o.quality ?? 'high';
-    towers.checked = o.towers ?? true;
-    courtyards.checked = o.courtyards ?? true;
-    annexes.checked = o.annexes ?? true;
-    alleys.checked = o.alleys;
-    weathering.value = String(o.weathering ?? 0.5);
-    interiors.value = o.interiors ?? '';
-    interiorStyle.value = o.interiorStyle ?? '';
-    cut.value = String(o.cutHeight ?? 112);
-    furnish.value = o.furnish ?? 'full';
-    lights.checked = o.interiorLights ?? true;
-    lightLevel.value = String(o.interiorLightLevel ?? 1);
-    wideDoors.checked = o.wideDoors ?? false;
-    seed.value = String(o.seed);
-  }
-  const read = (): BuildingOptions => {
-    const lo = Math.max(1, parseInt(minF.value, 10) || 2);
-    return {
-      seed: parseInt(seed.value, 10) || 1,
-      minFloors: lo, maxFloors: Math.max(lo, parseInt(maxF.value, 10) || lo),
-      ...extra, alleys: alleys.checked, style: (style.value || undefined) as FacadeStyle | undefined,
-      architecture: arch.value as ArchitectureName, weathering: parseFloat(weathering.value),
-      corners: (corners.value || undefined) as CornerOption | undefined, courtyards: courtyards.checked, annexes: annexes.checked,
-      detail: Number(detail.value) as DetailLevel, quality: quality.value as BuildingQuality, roofs: roofs.value as RoofOption, towers: towers.checked,
-      interiors: (interiors.value || undefined) as BuildingOptions['interiors'], interiorStyle: (interiorStyle.value || undefined) as InteriorStyleName | undefined,
-      cutHeight: Math.max(96, Math.min(128, parseInt(cut.value, 10) || 112)), furnish: furnish.value as BuildingOptions['furnish'],
-      interiorLights: lights.checked, wideDoors: wideDoors.checked,
-      // A number, left out at its default.
-      interiorLightLevel: Number(lightLevel.value) === 1 ? undefined : Number(lightLevel.value),
-    };
-  };
+  if (!stored) return null;
+  const o: BuildingOptions = { ...NEW_BLOCK, ...stored.options };
+  const r = stored.rect;
+  const rebuild = (label: string) => regenerateBlock(editor, block, { options: o }, label);
+  return h('div.section', {}, h('h3', {}, stored.options.layout === 'house' ? '🏚 Simple interior building' : stored.options.layout === 'single' ? '🏠 Building' : '🏢 Buildings'),
+    h('p.hint', {}, `${r.x1 - r.x0} × ${r.y1 - r.y0} units. Change the settings and press Regenerate.`),
+    draftSheet(o),
+    h('div.row', {},
+      h('button.primary', { title: 'Rebuild with these settings', onclick: () => rebuild('Regenerate buildings') }, 'Regenerate'),
+      h('button', { title: 'Same settings, new seed', onclick: () => { o.seed = Math.floor(Math.random() * 100000); rebuild('Re-roll buildings'); } }, 'Re-roll'),
+      h('button', { onclick: () => deleteBlock(editor, block) }, 'Delete')));
+}
+
+/** Turns the selected block brushes into buildings. */
+function newBuildingsPanel(editor: Editor): HTMLElement {
+  const o: BuildingOptions = { ...NEW_BLOCK, seed: Math.floor(Math.random() * 100000) };
   const go = () => {
-    const n = buildingsFromSelection(editor, read());
-    toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''} (seed ${seed.value})` : 'Selection is too small for a building (min 128×128)');
+    const n = buildingsFromSelection(editor, o);
+    toast(editor.container, n ? `Generated ${n} building${n > 1 ? 's' : ''} (seed ${o.seed})` : 'Selection is too small for a building (min 128×128)');
   };
-  const rows = [
-    h('div.row', {}, h('label', {}, 'Architecture'), arch),
-    h('div.row', {}, h('label', {}, 'Floors'), minF, h('span.muted', {}, 'to'), maxF),
-    h('div.row', {}, h('label', {}, 'Facade'), style),
-    h('div.row', {}, h('label', {}, 'Corners'), corners),
-    h('div.row', {}, h('label', {}, 'Roofs'), roofs),
-    h('div.row', {}, h('label', {}, 'Quality'), quality),
-    h('div.row', {}, h('label', {}, 'Detail'), detail),
-    h('div.row', {}, h('label', {}, 'Towers'), towers, h('span.hint', {}, 'domes and spires on corners')),
-    h('div.row', {}, h('label', {}, 'Courtyards'), courtyards, h('span.hint', {}, 'blocks of 896+ units')),
-    h('div.row', {}, h('label', {}, 'Annexes'), annexes, h('span.hint', {}, 'sheds in yards')),
-    h('div.row', {}, h('label', {}, 'Alleys'), alleys, h('span.hint', {}, 'with sky bridges')),
-    h('div.row', {}, h('label', {}, 'Weathering'), weathering),
-    h('div.row', {}, h('label', {}, 'Interiors'), interiors),
-    h('div.row', {}, h('label', {}, 'Interior style'), interiorStyle),
-    h('div.row', {}, h('label', {}, 'Cut height'), cut),
-    h('div.row', {}, h('label', {}, 'Furnish'), furnish),
-    h('div.row', {}, h('label', {}, 'Lights'), lights),
-    h('div.row', {}, h('label', {}, 'Light level'), lightLevel),
-    h('div.row', {}, h('label', {}, 'Wide doors'), wideDoors, h('span.hint', {}, 'for large units')),
-    extrasBox,
-    h('div.row', {}, h('label', {}, 'Seed'), seed, reroll),
-  ];
-  if (block && stored) {
-    const r = stored.rect;
-    const rebuild = (label: string) => regenerateBlock(editor, block, { options: read() }, label);
-    return h('div.section', {}, h('h3', {}, stored.options.layout === 'house' ? '🏚 Simple interior building' : stored.options.layout === 'single' ? '🏠 Building' : '🏢 Buildings'),
-      h('p.hint', {}, `${r.x1 - r.x0} × ${r.y1 - r.y0} units. Change the settings and press Regenerate.`),
-      ...rows,
-      h('div.row', {},
-        h('button.primary', { title: 'Rebuild with these settings', onclick: () => rebuild('Regenerate buildings') }, 'Regenerate'),
-        h('button', { title: 'Same settings, new seed', onclick: () => { seed.value = String(Math.floor(Math.random() * 100000)); rebuild('Re-roll buildings'); } }, 'Re-roll'),
-        h('button', { onclick: () => deleteBlock(editor, block) }, 'Delete')));
-  }
   return h('div.section', {},
     h('h3', {}, 'Generate buildings'),
     h('p.hint', {}, 'Replaces the selected block(s) with a city block: a ring around a courtyard when large enough, otherwise a row of buildings.'),
-    ...rows,
+    draftSheet(o),
     h('button.primary', { onclick: go }, '🏢 Generate buildings'));
 }
