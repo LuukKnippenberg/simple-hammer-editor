@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 export const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const shotsDir = join(root, 'docs', 'screenshots');
 mkdirSync(shotsDir, { recursive: true });
-export const baseUrl = process.env.EDITOR_URL ?? 'http://localhost:5190/';
+/** The dev server: EDITOR_URL, else the port vite.config.ts reads from SHE_PORT. */
+export const baseUrl = process.env.EDITOR_URL ?? `http://localhost:${process.env.SHE_PORT ?? 5190}/`;
 
 export async function launch() {
   const executablePath = [
@@ -17,8 +18,26 @@ export async function launch() {
   return chromium.launch({
     executablePath,
     headless: true,
-    args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'],
+    // SwiftShader is the software WebGL fallback when the GPU can't be used (screenshot.mjs always passed it).
+    args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader'],
   });
+}
+
+/**
+ * Runs `fn(d, page)` on a new 1600×900 editor page, then closes the browser (also when `fn` throws).
+ * Page errors are logged and dialogs accepted. `fn` opens the map itself (`await d.open('repo:x.vmf')`), so it can
+ * add page listeners or a viewport size before the editor loads.
+ */
+export async function withEditor(fn) {
+  const browser = await launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+    page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
+    page.on('dialog', (dlg) => dlg.accept());
+    return await fn(driver(page), page);
+  } finally {
+    await browser.close();
+  }
 }
 
 /** Wraps a page with editor-aware helpers. */

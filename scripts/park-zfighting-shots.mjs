@@ -1,6 +1,6 @@
 // Parks seen from above, to compare the path surfaces (z-fighting where path pieces overlapped): one on its own
 // ground, one set into paving. Shots are named park-zf-<tag>-*.
-//   EDITOR_URL=http://localhost:5197/ node scripts/park-zfighting-shots.mjs --tag after
+//   node scripts/park-zfighting-shots.mjs --tag after
 import { makePoi, poiSession, rtsView } from './poi-common.mjs';
 
 const arg = (k) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : null; };

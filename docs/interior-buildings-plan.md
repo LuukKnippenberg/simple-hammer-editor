@@ -240,7 +240,7 @@ New `src/gen/interiorDressing.ts`.
 
 ### Interior phase 6: test map, compile and in-game check
 
-- `scripts/interiors-demo.mjs` (pattern of `buildings-p6-demo.mjs`) builds `maps/interiors_test.vmf`:
+- `scripts/interiors-demo.mjs` (pattern of `scripts/archive/buildings-p6-demo.mjs`) builds `maps/interiors_test.vmf`:
   one row per interior style, one-storey and two-storey, furnish none / full, plus a mixed rural block,
   with player starts and a few units placed near the houses (Lambda Wars kits from `src/lw/kits.ts`).
 - Compile with `node --experimental-transform-types scripts/compile-map.mjs`; require no vbsp errors,
