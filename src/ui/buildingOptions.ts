@@ -5,15 +5,22 @@ import { extrasRows, type ExtrasFor } from './extrasOptions.ts';
 import { num, row, seedButton, select, toggle } from './form.ts';
 import { h } from './dom.ts';
 
+/** One row of the building sheet, by the option it sets. */
+export type BuildingRow = 'architecture' | 'floors' | 'facade' | 'corners' | 'roofs' | 'quality' | 'detail' | 'towers' | 'courtyards' | 'annexes'
+  | 'alleys' | 'weathering' | 'interiors' | 'interiorStyle' | 'cutHeight' | 'furnish' | 'lights' | 'lightLevel' | 'wideDoors';
+
 /**
- * The building generators' option sheet (the Tune step and the Selection panel): the generator's main options,
- * the rest folded under "More options", the Extras group and the seed. Every change calls back with a patch; the
- * caller rebuilds (Tune) or keeps it for Regenerate (Selection).
+ * The building generators' option sheet (the Tune step and the Selection panel): the rows the caller asks for,
+ * optionally more folded under "More options", the Extras group and the seed. Every change calls back with a
+ * patch; the caller rebuilds (Tune) or keeps it for Regenerate (Selection).
  */
 export interface BuildingSheet {
   options: BuildingOptions;
-  /** Which generator: the rows it shows, which come first, and the extras it gets. */
+  /** Which generator: its floor limit, some hints, and the extras it gets. */
   kind: ExtrasFor;
+  rows: BuildingRow[];
+  /** Rows folded under "More options" (Tune); none: no fold. */
+  more?: BuildingRow[];
   set(patch: Partial<BuildingOptions>): void;
   /** "More options" and "Extras" folded open: the sheet flips them and calls `redraw`. */
   folds: { more: boolean; extras: boolean };
@@ -27,6 +34,7 @@ const DETAIL: [string, string][] = [['0', 'None'], ['1', 'Low: base and cornice'
 
 export function buildingSheet(s: BuildingSheet): HTMLElement[] {
   const o = s.options, kind = s.kind;
+  // A house has 1–2 floors whatever is asked (layoutOptions).
   const topFloor = kind === 'house' ? 2 : 12;
   /** A drop-down for option `k`; '' (From architecture) stores undefined. */
   const choice = (label: string, k: keyof BuildingOptions, choices: [string, string, string?][], fallback = '', title = '') =>
@@ -65,23 +73,23 @@ export function buildingSheet(s: BuildingSheet): HTMLElement[] {
     (v) => s.set({ interiorLightLevel: Number(v) === 1 ? undefined : Number(v) }), 'How bright the lamps inside the houses are'));
   const wide = check('Wide doors', 'wideDoors', false, 'for large units', '128-wide doorways so the antlion guard fits through');
 
-  const main: HTMLElement[] = [], rest: HTMLElement[] = [];
-  if (kind === 'block') {
-    main.push(arch, floors, roofs, quality, check('Courtyards', 'courtyards', true, 'blocks of 896+ units'), interiors);
-    rest.push(facade, corners, detail, check('Towers', 'towers', true, 'domes and spires'), check('Annexes', 'annexes', true, 'sheds in yards'),
-      check('Alleys', 'alleys', false, 'with sky bridges'), weathering, interiorStyle, cut, furnish, lights, lightLevel, wide);
-  } else if (kind === 'building') {
-    main.push(arch, floors, roofs, quality, facade, corners);
-    rest.push(detail, check('Towers', 'towers', true, 'on a corner'), check('Annexes', 'annexes', true, 'a shed in its yard'), weathering);
-  } else {
-    main.push(interiorStyle, floors, furnish, lights, lightLevel, arch);
-    rest.push(cut, wide, weathering, detail);
+  const all: Record<BuildingRow, HTMLElement> = {
+    architecture: arch, floors, facade, corners, roofs, quality, detail,
+    towers: check('Towers', 'towers', true, kind === 'building' ? 'on a corner' : 'domes and spires'),
+    courtyards: check('Courtyards', 'courtyards', true, 'blocks of 896+ units'),
+    annexes: check('Annexes', 'annexes', true, kind === 'building' ? 'a shed in its yard' : 'sheds in yards'),
+    alleys: check('Alleys', 'alleys', false, 'with sky bridges'),
+    weathering, interiors, interiorStyle, cutHeight: cut, furnish, lights, lightLevel, wideDoors: wide,
+  };
+  const out = s.rows.map((k) => all[k]);
+  if (s.more) {
+    const open = s.folds.more;
+    out.push(h('button.gen-more', { onclick: () => { s.folds.more = !open; s.redraw(); } }, `${open ? '▾' : '▸'} More options (${s.more.length})`));
+    if (open) out.push(...s.more.map((k) => all[k]));
   }
-  const more = s.folds.more;
-  const moreButton = h('button.gen-more', { onclick: () => { s.folds.more = !more; s.redraw(); } }, `${more ? '▾' : '▸'} More options (${rest.length})`);
   // Trees, lamps, cables and props round the buildings, under their own heading.
   const extras = extrasRows(o, (k, v) => s.set({ [k]: v }), kind, s.folds.extras, (open) => { s.folds.extras = open; s.redraw(); });
   const seed = row('Seed', num(o.seed, (v) => s.set({ seed: Math.trunc(v) }), { min: 1, title: 'The same seed and settings give the same buildings' }),
     seedButton(() => s.set({ seed: Math.floor(Math.random() * 100000) })));
-  return [...main, moreButton, ...(more ? rest : []), ...extras, seed];
+  return [...out, ...extras, seed];
 }

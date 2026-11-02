@@ -1,5 +1,5 @@
 import type { Editor } from '../editor.ts';
-import type { GenerateTool } from '../edit/generateTool.ts';
+import type { GenerateTool, BuildingGenerator } from '../edit/generateTool.ts';
 import { selectedBlockBrushes } from '../edit/generateTool.ts';
 import { generator, isBuildingGenerator } from '../edit/generators.ts';
 import type { RoadTool } from '../edit/roadTool.ts';
@@ -11,7 +11,7 @@ import { rebuildRoads } from '../gen/roadAction.ts';
 import { POI_TYPES, poiOf, poiParams } from '../gen/poi/registry.ts';
 import { LANDSCAPES } from '../gen/poi/types.ts';
 import { paramRow, rotationRow } from './poiPanel.ts';
-import { buildingSheet } from './buildingOptions.ts';
+import { buildingSheet, type BuildingRow } from './buildingOptions.ts';
 import { roadSheet } from './roadOptions.ts';
 import { powerlineSheet } from './powerlineOptions.ts';
 import { stairsSheet } from './stairsOptions.ts';
@@ -51,7 +51,7 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
     if (isBuildingGenerator(s.id)) {
       // Every change rebuilds what is being tuned.
       const o = tool.options[s.id];
-      body = buildingSheet({ options: o, kind: s.id, set: (patch) => { Object.assign(o, patch); changed(); }, folds, redraw: render });
+      body = buildingSheet({ options: o, kind: s.id, ...TUNE_ROWS[s.id], set: (patch) => { Object.assign(o, patch); changed(); }, folds, redraw: render });
     }
     else if (s.id === 'road') body = roadRows(tune);
     else if (s.id === 'powerline') body = powerlineRows(tune);
@@ -198,6 +198,16 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   editor.on('selection', () => { if (tool.session?.step === 'place' && selectedBlockBrushes(editor).length) render(); });
   render();
 }
+
+/** The building rows Tune shows per generator: the main ones, then the ones under More options. */
+const TUNE_ROWS: Record<BuildingGenerator, { rows: BuildingRow[]; more: BuildingRow[] }> = {
+  block: {
+    rows: ['architecture', 'floors', 'roofs', 'quality', 'courtyards', 'interiors'],
+    more: ['facade', 'corners', 'detail', 'towers', 'annexes', 'alleys', 'weathering', 'interiorStyle', 'cutHeight', 'furnish', 'lights', 'lightLevel', 'wideDoors'],
+  },
+  building: { rows: ['architecture', 'floors', 'roofs', 'quality', 'facade', 'corners'], more: ['detail', 'towers', 'annexes', 'weathering'] },
+  house: { rows: ['interiorStyle', 'floors', 'furnish', 'lights', 'lightLevel', 'architecture'], more: ['cutHeight', 'wideDoors', 'weathering', 'detail'] },
+};
 
 function hintFor(id: string, tune: boolean): string {
   if (tune) return `Every change rebuilds it · ${id === 'road' || id === 'powerline' ? 'click points' : 'drag again'} for another · Enter: done · Esc: back`;
