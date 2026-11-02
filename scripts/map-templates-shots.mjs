@@ -14,7 +14,7 @@ await withEditor(async (d, page) => {
     await page.click('#topbar button:has-text("New")');
     await page.click(`.newmap [data-template="${kind}"]`);
     if (players) await page.click(`.newmap .row:has(label:text-is("Players")) button:text-is("${players}")`);
-    if (size) await page.click(`.newmap .row:has(label:text-is("Size")) button:text-is("${size}")`);
+    if (size) await page.click(`.newmap .np-step:has(h3:text-is("Size and look")) .np-card:has(b:has-text("${size}"))`);
     await page.waitForTimeout(200);
     if (shot) await d.shot(shot);
     await page.click('.newmap button:has-text("Create map")');
