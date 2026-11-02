@@ -21,7 +21,7 @@ import { hideCoveredFaces } from '../geom/hidden.ts';
 
 export { ARCHITECTURES, FACADE_STYLES, type ArchitectureName, type FacadeStyle };
 
-const t = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
+const templateTile = (name: string, bays: number, widthPx?: number): FacadeTile => ({ material: `BUILDING_TEMPLATE/${name.toUpperCase()}`, bays, widthPx });
 /** Weathering on street walls: water stains and dirt, with their size on the wall (texture × $decalscale). */
 export const STAINS = [
   { texture: 'decals/decalstain001a', w: 128, h: 128 }, { texture: 'decals/decalstain002a', w: 128, h: 128 },
@@ -138,7 +138,7 @@ export const QUALITY: Record<BuildingQuality, { label: string; hint: string; max
   filler: { label: 'Filler', hint: 'Plain walls with their windows and a cornice; no towers, oriels or balconies', maxDetail: 0, interiors: false, towers: false, streetFeatures: false },
 };
 
-const BASE = t('building_template003a', 0);
+const BASE = templateTile('building_template003a', 0);
 
 /**
  * Another wing or wall of the block. Where one stands against a wall (a party wall), the decoration of
@@ -156,29 +156,29 @@ export interface Neighbour {
 interface PartySpan { from: number; to: number; reachFrom: number; reachTo: number }
 
 /** Where neighbours standing higher than `zMin` hide the wall, sorted and merged. */
-function partySpans(w: Wall, neighbours: Neighbour[], zMin: number, zMax: number): PartySpan[] {
+function partySpans(wall: Wall, neighbours: Neighbour[], zMin: number, zMax: number): PartySpan[] {
   const spans: PartySpan[] = [];
-  for (const nb of neighbours) {
-    if (nb.cover <= zMin) continue;
-    nb.poly.forEach((c, i) => {
-      const d = nb.poly[(i + 1) % nb.poly.length];
+  for (const neighbour of neighbours) {
+    if (neighbour.cover <= zMin) continue;
+    neighbour.poly.forEach((edgeStart, i) => {
+      const edgeEnd = neighbour.poly[(i + 1) % neighbour.poly.length];
       // A shared wall runs the other way round the neighbour, on the same line.
-      if (new Vector2().subVectors(d, c).normalize().dot(w.dir) > -0.999) return;
-      if (Math.abs(new Vector2().subVectors(c, w.a).dot(w.out)) > 0.5) return;
-      const from = Math.max(0, new Vector2().subVectors(d, w.a).dot(w.dir)), to = Math.min(w.len, new Vector2().subVectors(c, w.a).dot(w.dir));
-      const reach = nb.reach(zMin, zMax);
+      if (new Vector2().subVectors(edgeEnd, edgeStart).normalize().dot(wall.dir) > -0.999) return;
+      if (Math.abs(new Vector2().subVectors(edgeStart, wall.a).dot(wall.out)) > 0.5) return;
+      const from = Math.max(0, new Vector2().subVectors(edgeEnd, wall.a).dot(wall.dir)), to = Math.min(wall.len, new Vector2().subVectors(edgeStart, wall.a).dot(wall.dir));
+      const reach = neighbour.reach(zMin, zMax);
       if (to - from > 0.5) spans.push({ from, to, reachFrom: reach, reachTo: reach });
     });
   }
   spans.sort((a, b) => a.from - b.from);
-  const out: PartySpan[] = [];
-  for (const s of spans) {
-    const last = out[out.length - 1];
-    if (!last || s.from > last.to + 0.5) out.push({ ...s });
-    else if (s.to > last.to + 0.5) { last.to = s.to; last.reachTo = s.reachTo; }
-    else if (s.to > last.to - 0.5) last.reachTo = Math.max(last.reachTo, s.reachTo);
+  const merged: PartySpan[] = [];
+  for (const span of spans) {
+    const last = merged[merged.length - 1];
+    if (!last || span.from > last.to + 0.5) merged.push({ ...span });
+    else if (span.to > last.to + 0.5) { last.to = span.to; last.reachTo = span.reachTo; }
+    else if (span.to > last.to - 0.5) last.reachTo = Math.max(last.reachTo, span.reachTo);
   }
-  return out;
+  return merged;
 }
 
 /**
@@ -187,14 +187,14 @@ function partySpans(w: Wall, neighbours: Neighbour[], zMin: number, zMax: number
  * bands meeting there the one on the wall that ends at the corner gives way; a neighbour's eaves or
  * parapet can't, so a band gives way to those at either end.
  */
-function cornerReach(w: Wall, neighbours: Neighbour[], zMin: number, zMax: number): { start: number; end: number } {
+function cornerReach(wall: Wall, neighbours: Neighbour[], zMin: number, zMax: number): { start: number; end: number } {
   const reach = { start: 0, end: 0 };
-  for (const nb of neighbours) {
-    if (nb.cover <= zMin) continue;
-    nb.poly.forEach((c, i) => {
-      const d = nb.poly[(i + 1) % nb.poly.length];
-      if (c.distanceTo(w.b) < 0.5 && new Vector2().subVectors(d, c).dot(w.out) > 0.5) reach.end = Math.max(reach.end, nb.reach(zMin, zMax));
-      if (d.distanceTo(w.a) < 0.5 && new Vector2().subVectors(c, d).dot(w.out) > 0.5) reach.start = Math.max(reach.start, nb.reach(zMin, zMax, true));
+  for (const neighbour of neighbours) {
+    if (neighbour.cover <= zMin) continue;
+    neighbour.poly.forEach((edgeStart, i) => {
+      const edgeEnd = neighbour.poly[(i + 1) % neighbour.poly.length];
+      if (edgeStart.distanceTo(wall.b) < 0.5 && new Vector2().subVectors(edgeEnd, edgeStart).dot(wall.out) > 0.5) reach.end = Math.max(reach.end, neighbour.reach(zMin, zMax));
+      if (edgeEnd.distanceTo(wall.a) < 0.5 && new Vector2().subVectors(edgeStart, edgeEnd).dot(wall.out) > 0.5) reach.start = Math.max(reach.start, neighbour.reach(zMin, zMax, true));
     });
   }
   return reach;
@@ -215,37 +215,37 @@ function meet(p: Vector2, u: Vector2, q: Vector2, v: Vector2): Vector2 {
  * reach, so the two bands butt instead of overlapping.
  */
 export function band(doc: VmfDocument, poly: Vector2[], out: number, zMin: number, zMax: number, tile: FacadeTile, neighbours: Neighbour[] = []): KVNode[] {
-  const solid = (p: Vector2[]) => {
-    const q = cleanPolygon(p);
-    return isConvexCcw(q) ? [solidNode(doc, facadePrism(q, zMin, zMax, tile, tile.material, zMin, tile.material))] : [];
+  const solidsOf = (outline: Vector2[]) => {
+    const clean = cleanPolygon(outline);
+    return isConvexCcw(clean) ? [solidNode(doc, facadePrism(clean, zMin, zMax, tile, tile.material, zMin, tile.material))] : [];
   };
   const n = poly.length;
-  const walls = poly.map((a, i) => wallOf(a, poly[(i + 1) % n]));
-  const party = walls.map((w) => partySpans(w, neighbours, zMin, zMax));
-  const cut = walls.map((w) => cornerReach(w, neighbours, zMin, zMax));
-  const strip = party.map((s, i) => s.length > 0 || cut[i].start > 0 || cut[i].end > 0);
-  const solids = solid(offsetPolygon(poly, strip.map((s) => (s ? 0 : out))));
-  const openStart = (k: number) => !party[k].some((s) => s.from < 0.5);
-  const openEnd = (k: number) => !party[k].some((s) => s.to > walls[k].len - 0.5) && !cut[k].end;
-  const at = (w: Wall, t: number, d: number) => w.a.clone().addScaledVector(w.dir, t).addScaledVector(w.out, d);
-  walls.forEach((w, i) => {
-    if (!strip[i]) return;
-    const p = (i + n - 1) % n, q = (i + 1) % n;
+  const walls = poly.map((start, i) => wallOf(start, poly[(i + 1) % n]));
+  const spansByWall = walls.map((wall) => partySpans(wall, neighbours, zMin, zMax));
+  const cornerReaches = walls.map((wall) => cornerReach(wall, neighbours, zMin, zMax));
+  const isStrip = spansByWall.map((spans, i) => spans.length > 0 || cornerReaches[i].start > 0 || cornerReaches[i].end > 0);
+  const solids = solidsOf(offsetPolygon(poly, isStrip.map((strip) => (strip ? 0 : out))));
+  const openStart = (wallIndex: number) => !spansByWall[wallIndex].some((span) => span.from < 0.5);
+  const openEnd = (wallIndex: number) => !spansByWall[wallIndex].some((span) => span.to > walls[wallIndex].len - 0.5) && !cornerReaches[wallIndex].end;
+  const pointOn = (wall: Wall, along: number, offset: number) => wall.a.clone().addScaledVector(wall.dir, along).addScaledVector(wall.out, offset);
+  walls.forEach((wall, i) => {
+    if (!isStrip[i]) return;
+    const prev = (i + n - 1) % n, next = (i + 1) % n;
     // The corner before a strip belongs to the strip; the one after it to the next wall when that is a
     // strip too, or to this one when the next wall is part of the slab.
-    const dPrev = openEnd(p) ? out : 0;
-    const dNext = openStart(q) && !strip[q] ? out : 0;
-    const corner = (other: Wall, d: number) => [0, out].map((o) => meet(at(w, 0, o), w.dir, at(other, 0, d), other.dir));
-    let from = 0, reachFrom: number | null = cut[i].start || null;
-    for (const s of [...party[i], null]) {
-      const reachTo = s ? s.reachFrom : cut[i].end || null;
-      const t0 = from + (reachFrom ?? 0), t1 = (s ? s.from : w.len) - (reachTo ?? 0);
-      if (t1 - t0 >= 8) {
-        const [a0, a1] = reachFrom === null ? corner(walls[p], dPrev) : [at(w, t0, 0), at(w, t0, out)];
-        const [b0, b1] = reachTo === null ? corner(walls[q], dNext) : [at(w, t1, 0), at(w, t1, out)];
-        solids.push(...solid(ccw([a0, b0, b1, a1])));
+    const prevDepth = openEnd(prev) ? out : 0;
+    const nextDepth = openStart(next) && !isStrip[next] ? out : 0;
+    const cornerPoints = (otherWall: Wall, depth: number) => [0, out].map((offset) => meet(pointOn(wall, 0, offset), wall.dir, pointOn(otherWall, 0, depth), otherWall.dir));
+    let from = 0, reachFrom: number | null = cornerReaches[i].start || null;
+    for (const span of [...spansByWall[i], null]) {
+      const reachTo = span ? span.reachFrom : cornerReaches[i].end || null;
+      const stripFrom = from + (reachFrom ?? 0), stripTo = (span ? span.from : wall.len) - (reachTo ?? 0);
+      if (stripTo - stripFrom >= 8) {
+        const [startInner, startOuter] = reachFrom === null ? cornerPoints(walls[prev], prevDepth) : [pointOn(wall, stripFrom, 0), pointOn(wall, stripFrom, out)];
+        const [endInner, endOuter] = reachTo === null ? cornerPoints(walls[next], nextDepth) : [pointOn(wall, stripTo, 0), pointOn(wall, stripTo, out)];
+        solids.push(...solidsOf(ccw([startInner, endInner, endOuter, startOuter])));
       }
-      if (s) { from = s.to; reachFrom = s.reachTo; }
+      if (span) { from = span.to; reachFrom = span.reachTo; }
     }
   });
   return solids;
@@ -285,28 +285,28 @@ function partNeighbour(part: Part, z0: number, level: DetailLevel, roof: RoofKin
   if (level >= 3 && main && part.floors > 1) zones.push({ zMin: top - BRACKETS_FROM, zMax: top - BRACKETS_TO, out: 12 });
   const eaves = { zMin: top, zMax: cover, out: roof !== 'flat' ? overhang + 2 : main ? overhang : 0 };
   zones.push(eaves);
-  return { poly: part.poly, cover, reach: (zMin, zMax, r) => Math.max(0, ...(r ? [eaves] : zones).filter((b) => b.zMin < zMax && zMin < b.zMax).map((b) => b.out)) };
+  return { poly: part.poly, cover, reach: (zMin, zMax, eavesOnly) => Math.max(0, ...(eavesOnly ? [eaves] : zones).filter((zone) => zone.zMin < zMax && zMin < zone.zMax).map((zone) => zone.out)) };
 }
 
 /** A small block standing on the wall at `at`, `width` along the wall and `depth` proud of it. */
 function wallBlock(doc: VmfDocument, at: Vector2, dir: Vector2, width: number, depth: number, zMin: number, zMax: number, tile: FacadeTile): KVNode | null {
-  const n = new Vector2(dir.y, -dir.x);
-  const pts = [-1, 1].flatMap((sgn) => [-2, depth].map((d) => at.clone().addScaledVector(dir, (sgn * width) / 2).addScaledVector(n, d)));
-  const p = cleanPolygon(convexHull(pts));
-  return isConvexCcw(p) ? solidNode(doc, facadePrism(p, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
+  const normal = new Vector2(dir.y, -dir.x);
+  const corners = [-1, 1].flatMap((side) => [-2, depth].map((offset) => at.clone().addScaledVector(dir, (side * width) / 2).addScaledVector(normal, offset)));
+  const outline = cleanPolygon(convexHull(corners));
+  return isConvexCcw(outline) ? solidNode(doc, facadePrism(outline, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
 }
 
 /** A quoin column wrapping the corner at poly[i]: `width` along both walls, `depth` proud. */
 function cornerBlock(doc: VmfDocument, poly: Vector2[], i: number, width: number, depth: number, zMin: number, zMax: number, tile: FacadeTile): KVNode | null {
   const n = poly.length;
-  const v = poly[i], prev = poly[(i + n - 1) % n], next = poly[(i + 1) % n];
-  const dIn = new Vector2().subVectors(v, prev).normalize(), dOut = new Vector2().subVectors(next, v).normalize();
+  const cornerPoint = poly[i], prev = poly[(i + n - 1) % n], next = poly[(i + 1) % n];
+  const dIn = new Vector2().subVectors(cornerPoint, prev).normalize(), dOut = new Vector2().subVectors(next, cornerPoint).normalize();
   const nIn = new Vector2(dIn.y, -dIn.x), nOut = new Vector2(dOut.y, -dOut.x);
-  const a = v.clone().addScaledVector(dIn, -width), e = v.clone().addScaledVector(dOut, width);
-  const corner = offsetPolygon([a, v, e], depth)[1];
-  const inner = v.clone().addScaledVector(nIn.clone().add(nOut).normalize(), -width);
-  const p = cleanPolygon(convexHull([a, a.clone().addScaledVector(nIn, depth), corner, e.clone().addScaledVector(nOut, depth), e, inner]));
-  return isConvexCcw(p) ? solidNode(doc, facadePrism(p, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
+  const alongIn = cornerPoint.clone().addScaledVector(dIn, -width), alongOut = cornerPoint.clone().addScaledVector(dOut, width);
+  const outerCorner = offsetPolygon([alongIn, cornerPoint, alongOut], depth)[1];
+  const inner = cornerPoint.clone().addScaledVector(nIn.clone().add(nOut).normalize(), -width);
+  const outline = cleanPolygon(convexHull([alongIn, alongIn.clone().addScaledVector(nIn, depth), outerCorner, alongOut.clone().addScaledVector(nOut, depth), alongOut, inner]));
+  return isConvexCcw(outline) ? solidNode(doc, facadePrism(outline, zMin, zMax, tile, tile.material, zMin, tile.material)) : null;
 }
 
 /** The street a wing's walls may face, and what its street fronts add to the block. */
@@ -317,7 +317,7 @@ interface Street {
 
 /** What the steps of `partSolids` share about one wing. */
 interface Wing {
-  doc: VmfDocument; part: Part; s: Style; z0: number; level: DetailLevel;
+  doc: VmfDocument; part: Part; style: Style; z0: number; level: DetailLevel;
   /** Height of its walls' tops. */
   top: number;
   main: boolean;
@@ -334,44 +334,44 @@ const COLUMN_WIDTH = 16, COLUMN_OUT = 6;
 /** Quoins go on corners that turn by more than 40° (not between the segments of a rounded corner). */
 const QUOIN_MIN_TURN = Math.cos((40 * Math.PI) / 180);
 /** Stretches of wall i that neighbours hide between two heights. */
-const party = (w: Wing, i: number, zMin: number, zMax: number) => partySpans(w.walls[i], w.neighbours, zMin, zMax);
+const party = (wing: Wing, i: number, zMin: number, zMax: number) => partySpans(wing.walls[i], wing.neighbours, zMin, zMax);
 /** Whether neighbours hide any of wall i from `from` to `to` along it, between two heights. */
-const hidden = (w: Wing, i: number, from: number, to: number, zMin: number, zMax: number) => party(w, i, zMin, zMax).some((p) => p.from < to && p.to > from);
+const hidden = (wing: Wing, i: number, from: number, to: number, zMin: number, zMax: number) => party(wing, i, zMin, zMax).some((span) => span.from < to && span.to > from);
 /** Heights the columns and quoins span: from the ground-floor ledge to the cornice (or the brackets under it). */
-const columnSpan = (w: Wing): [number, number] => [w.z0 + FLOOR + 6, w.level >= 3 ? w.top - BRACKETS_FROM : w.top - BRACKETS_TO];
+const columnSpan = (wing: Wing): [number, number] => [wing.z0 + FLOOR + 6, wing.level >= 3 ? wing.top - BRACKETS_FROM : wing.top - BRACKETS_TO];
 
 /** The shell, as world brushes: the ground floor (sunk a little so the building sits on uneven ground) and the floors above. */
-function shellSolids(w: Wing, groundTiles: FacadeTile[], pitched: boolean): KVNode[] {
-  const { doc, part, z0, top } = w;
+function shellSolids(wing: Wing, groundTiles: FacadeTile[], pitched: boolean): KVNode[] {
+  const { doc, part, z0, top } = wing;
   const roofTop = pitched ? NODRAW : ROOF;
   const world = [solidNode(doc, facadePrism(part.poly, z0 - 32, Math.min(top, z0 + FLOOR), groundTiles, part.floors > 1 ? NODRAW : roofTop, z0))];
-  if (part.floors > 1) world.push(solidNode(doc, facadePrism(part.poly, z0 + FLOOR, top, w.windows, roofTop, z0)));
+  if (part.floors > 1) world.push(solidNode(doc, facadePrism(part.poly, z0 + FLOOR, top, wing.windows, roofTop, z0)));
   return world;
 }
 
 /** Quoins on the outer corners and columns between window bays on long walls (every second or third bay). */
-function quoinsAndColumns(w: Wing, deco: Rng): { solids: KVNode[]; columns: Column[] } {
-  const { doc, s } = w, poly = w.part.poly, n = poly.length;
-  const [colMin, colTop] = columnSpan(w);
+function quoinsAndColumns(wing: Wing, deco: Rng): { solids: KVNode[]; columns: Column[] } {
+  const { doc, style } = wing, poly = wing.part.poly, n = poly.length;
+  const [columnBottom, columnTop] = columnSpan(wing);
   const solids: KVNode[] = [];
   const add = (node: KVNode | null) => { if (node) solids.push(node); };
   // Not at party walls.
-  poly.forEach((v, i) => {
+  poly.forEach((corner, i) => {
     const prev = (i + n - 1) % n;
-    const dIn = new Vector2().subVectors(v, poly[prev]).normalize(), dOut = new Vector2().subVectors(poly[(i + 1) % n], v).normalize();
-    const free = !hidden(w, prev, w.walls[prev].len - 24, w.walls[prev].len, colMin, colTop) && !hidden(w, i, 0, 24, colMin, colTop);
-    if (dIn.dot(dOut) < QUOIN_MIN_TURN && free) add(cornerBlock(doc, poly, i, COLUMN_WIDTH, COLUMN_OUT, colMin, colTop, s.plain));
+    const dIn = new Vector2().subVectors(corner, poly[prev]).normalize(), dOut = new Vector2().subVectors(poly[(i + 1) % n], corner).normalize();
+    const free = !hidden(wing, prev, wing.walls[prev].len - 24, wing.walls[prev].len, columnBottom, columnTop) && !hidden(wing, i, 0, 24, columnBottom, columnTop);
+    if (dIn.dot(dOut) < QUOIN_MIN_TURN && free) add(cornerBlock(doc, poly, i, COLUMN_WIDTH, COLUMN_OUT, columnBottom, columnTop, style.plain));
   });
   const columns: Column[] = [];
   const step = deco.pick([2, 3]);
-  poly.forEach((a, i) => {
-    const { len, dir } = w.walls[i];
-    const bays = bayCount(len, w.windows);
+  poly.forEach((start, i) => {
+    const { len, dir } = wing.walls[i];
+    const bays = bayCount(len, wing.windows);
     if (len < 256 || bays < 4) return;
     for (let k = step; k <= bays - step; k += step) {
       const along = (k * len) / bays;
-      if (hidden(w, i, along - 10, along + 10, colMin, colTop)) continue;
-      add(wallBlock(doc, a.clone().addScaledVector(dir, along), dir, COLUMN_WIDTH, COLUMN_OUT, colMin, colTop, s.plain));
+      if (hidden(wing, i, along - 10, along + 10, columnBottom, columnTop)) continue;
+      add(wallBlock(doc, start.clone().addScaledVector(dir, along), dir, COLUMN_WIDTH, COLUMN_OUT, columnBottom, columnTop, style.plain));
       columns.push({ wall: i, at: along });
     }
   });
@@ -379,19 +379,19 @@ function quoinsAndColumns(w: Wing, deco: Rng): { solids: KVNode[]; columns: Colu
 }
 
 /** Brackets under the cornice at every bay. */
-function corniceBrackets(w: Wing): KVNode[] {
-  const poly = w.part.poly, zMin = w.top - BRACKETS_FROM, zMax = w.top - BRACKETS_TO;
+function corniceBrackets(wing: Wing): KVNode[] {
+  const poly = wing.part.poly, zMin = wing.top - BRACKETS_FROM, zMax = wing.top - BRACKETS_TO;
   const solids: KVNode[] = [];
-  poly.forEach((a, i) => {
-    const b = poly[(i + 1) % poly.length];
-    const len = a.distanceTo(b);
-    const bays = Math.max(1, bayCount(len, w.windows) || Math.round(len / 64));
-    const dir = new Vector2().subVectors(b, a).normalize();
+  poly.forEach((start, i) => {
+    const end = poly[(i + 1) % poly.length];
+    const len = start.distanceTo(end);
+    const bays = Math.max(1, bayCount(len, wing.windows) || Math.round(len / 64));
+    const dir = new Vector2().subVectors(end, start).normalize();
     for (let k = 0; k <= bays; k++) {
       if ((k === 0 || k === bays) && len < 96) continue;
       const along = Math.min(len - 6, Math.max(6, (k * len) / bays));
-      if (hidden(w, i, along - 6, along + 6, zMin, zMax)) continue;
-      const node = wallBlock(w.doc, a.clone().addScaledVector(dir, along), dir, 8, 12, zMin, zMax, w.s.trim);
+      if (hidden(wing, i, along - 6, along + 6, zMin, zMax)) continue;
+      const node = wallBlock(wing.doc, start.clone().addScaledVector(dir, along), dir, 8, 12, zMin, zMax, wing.style.trim);
       if (node) solids.push(node);
     }
   });
@@ -399,51 +399,51 @@ function corniceBrackets(w: Wing): KVNode[] {
 }
 
 /** A pitched roof, and a TV antenna on some ridges. */
-function pitchedRoof(w: Wing, roof: { kind: RoofKind; material: string }, deco: Rng, street: Street): { solids: KVNode[]; heightAt: (p: Vector2) => number } {
-  const { doc, s, top, main, level } = w, poly = w.part.poly;
+function pitchedRoof(wing: Wing, roof: { kind: RoofKind; material: string }, deco: Rng, street: Street): { solids: KVNode[]; heightAt: (p: Vector2) => number } {
+  const { doc, style, top, main, level } = wing, poly = wing.part.poly;
   // No eaves over party walls, nor on walls that meet a neighbour at an inside corner (the two roofs'
   // eaves would cross there).
-  const eavesStop = w.walls.map((wall, i) => {
-    const corner = cornerReach(wall, w.neighbours, top, top + 1);
-    return party(w, i, top, top + 1).length > 0 || corner.start > 0 || corner.end > 0;
+  const eavesStop = wing.walls.map((wall, i) => {
+    const corner = cornerReach(wall, wing.neighbours, top, top + 1);
+    return party(wing, i, top, top + 1).length > 0 || corner.start > 0 || corner.end > 0;
   });
-  const r = roofSolids(doc, poly, top, {
-    kind: roof.kind, material: roof.material, wall: s.plain, window: w.windows, overhang: corniceOverhang(main, level),
+  const pitched = roofSolids(doc, poly, top, {
+    kind: roof.kind, material: roof.material, wall: style.plain, window: wing.windows, overhang: corniceOverhang(main, level),
     dormers: main && level >= 1, chimneys: main && level >= 1, party: eavesStop,
   }, deco);
   if (main && level >= 1 && deco.chance(0.35)) {
-    const c = new Box2().setFromPoints(poly).getCenter(new Vector2());
-    if (inside(poly, c)) {
-      const antenna = { classname: 'prop_static', origin: new Vector3(Math.round(c.x), Math.round(c.y), Math.round(r.heightAt(c) + 100)), keys: { model: 'models/props_rooftop/antenna04a.mdl', angles: `0 ${deco.int(0, 359)} 0`, solid: '0' } };
+    const centre = new Box2().setFromPoints(poly).getCenter(new Vector2());
+    if (inside(poly, centre)) {
+      const antenna = { classname: 'prop_static', origin: new Vector3(Math.round(centre.x), Math.round(centre.y), Math.round(pitched.heightAt(centre) + 100)), keys: { model: 'models/props_rooftop/antenna04a.mdl', angles: `0 ${deco.int(0, 359)} 0`, solid: '0' } };
       if (street.keep('clutter')) street.entities.push(antenna);
     }
   }
-  return { solids: r.solids, heightAt: r.heightAt };
+  return { solids: pitched.solids, heightAt: pitched.heightAt };
 }
 
 /**
  * Parapet: one brush per edge between the cornice line and 4 units inside the wall; none on walls a
  * neighbour hides, and flush with the wall where one hides it in part.
  */
-function parapet(w: Wing): KVNode[] {
-  const { doc, s, top } = w, poly = w.part.poly;
-  const shared = w.walls.map((_, i) => party(w, i, top, top + PARAPET));
-  const outer = cleanPolygon(offsetPolygon(poly, shared.map((p) => (p.length ? 0 : corniceOverhang(w.main, w.level)))));
+function parapet(wing: Wing): KVNode[] {
+  const { doc, style, top } = wing, poly = wing.part.poly;
+  const shared = wing.walls.map((_, i) => party(wing, i, top, top + PARAPET));
+  const outer = cleanPolygon(offsetPolygon(poly, shared.map((spans) => (spans.length ? 0 : corniceOverhang(wing.main, wing.level)))));
   const inner = cleanPolygon(offsetPolygon(poly, -4));
   if (inner.length !== outer.length || !isConvexCcw(inner)) return [];
   const solids: KVNode[] = [];
-  outer.forEach((a, i) => {
-    if (shared[i].some((p) => p.from < 0.5 && p.to > w.walls[i].len - 0.5)) return;
-    const b = outer[(i + 1) % outer.length];
-    const quad = [a, b, inner[(i + 1) % inner.length], inner[i]];
-    if (isConvexCcw(quad)) solids.push(solidNode(doc, facadePrism(quad, top, top + PARAPET, s.plain, s.plain.material, top, NODRAW)));
+  outer.forEach((start, i) => {
+    if (shared[i].some((span) => span.from < 0.5 && span.to > wing.walls[i].len - 0.5)) return;
+    const end = outer[(i + 1) % outer.length];
+    const quad = [start, end, inner[(i + 1) % inner.length], inner[i]];
+    if (isConvexCcw(quad)) solids.push(solidNode(doc, facadePrism(quad, top, top + PARAPET, style.plain, style.plain.material, top, NODRAW)));
   });
   return solids;
 }
 
 /** A stair house on the roof (lift machinery of the blocks), away from the edges. */
-function roofHut(w: Wing, deco: Rng): KVNode[] {
-  const { doc, s, top } = w, poly = w.part.poly;
+function roofHut(wing: Wing, deco: Rng): KVNode[] {
+  const { doc, style, top } = wing, poly = wing.part.poly;
   const box = new Box2().setFromPoints(poly);
   const size = box.getSize(new Vector2());
   if (size.x < 256 || size.y < 256) return [];
@@ -452,8 +452,8 @@ function roofHut(w: Wing, deco: Rng): KVNode[] {
   const hut = [new Vector2(cx - wide / 2, cy - deep / 2), new Vector2(cx + wide / 2, cy - deep / 2), new Vector2(cx + wide / 2, cy + deep / 2), new Vector2(cx - wide / 2, cy + deep / 2)];
   if (!hut.every((p) => inside(poly, p))) return [];
   return [
-    solidNode(doc, facadePrism(hut, top, top + 96, s.plain, ROOF, top)),
-    solidNode(doc, facadePrism(offsetPolygon(hut, 6), top + 96, top + 104, s.trim, s.trim.material, top + 96, s.trim.material)),
+    solidNode(doc, facadePrism(hut, top, top + 96, style.plain, ROOF, top)),
+    solidNode(doc, facadePrism(offsetPolygon(hut, 6), top + 96, top + 104, style.trim, style.trim.material, top + 96, style.trim.material)),
   ];
 }
 
@@ -462,55 +462,55 @@ function roofHut(w: Wing, deco: Rng): KVNode[] {
  * on every brush face it covers, so each stays clear of the bands, the brackets and what stands on the wall
  * (oriels, balconies, columns, quoins).
  */
-function wallStains(w: Wing, wall: Wall, i: number, facade: KVNode[], bands: BandSpec[], columns: Column[], street: Street): void {
-  const { z0, top } = w;
-  const [colMin, colTop] = columnSpan(w);
-  const zones = bands.map((b) => [b.zMin, b.zMax]);
-  if (w.level >= 3 && w.part.floors > 1) zones.push([top - BRACKETS_FROM, top - BRACKETS_TO]);
-  const busy = facade.map((n) => {
-    const box = solidBounds(new MapSolid(n, null));
-    const along = [box.min, box.max].flatMap((p) => [box.min, box.max].map((q) => new Vector2(p.x, q.y).sub(wall.a).dot(wall.dir)));
+function wallStains(wing: Wing, wall: Wall, i: number, facade: KVNode[], bands: BandSpec[], columns: Column[], street: Street): void {
+  const { z0, top } = wing;
+  const [columnBottom, columnTop] = columnSpan(wing);
+  const zones = bands.map((band) => [band.zMin, band.zMax]);
+  if (wing.level >= 3 && wing.part.floors > 1) zones.push([top - BRACKETS_FROM, top - BRACKETS_TO]);
+  const busy = facade.map((node) => {
+    const box = solidBounds(new MapSolid(node, null));
+    const along = [box.min, box.max].flatMap((corner) => [box.min, box.max].map((other) => new Vector2(corner.x, other.y).sub(wall.a).dot(wall.dir)));
     return { from: Math.min(...along), to: Math.max(...along), zMin: box.min.z, zMax: box.max.z };
   });
-  busy.push(...columns.filter((c) => c.wall === i).map((c) => ({ from: c.at - COLUMN_WIDTH / 2, to: c.at + COLUMN_WIDTH / 2, zMin: colMin, zMax: colTop })));
-  const drips = zones.map(([zMin]) => zMin).filter((z) => z > z0 + 20);
-  const stains = Math.round((wall.len / 256) * street.weathering * 2 * street.rng.next());
+  busy.push(...columns.filter((column) => column.wall === i).map((column) => ({ from: column.at - COLUMN_WIDTH / 2, to: column.at + COLUMN_WIDTH / 2, zMin: columnBottom, zMax: columnTop })));
+  const drips = zones.map(([zMin]) => zMin).filter((drip) => drip > z0 + 20);
+  const stainCount = Math.round((wall.len / 256) * street.weathering * 2 * street.rng.next());
   // A few tries per stain to find a free spot.
-  for (let k = 0, tries = 0; k < stains && drips.length && tries < stains * 6; tries++) {
+  for (let k = 0, tries = 0; k < stainCount && drips.length && tries < stainCount * 6; tries++) {
     const stain = street.rng.pick(STAINS);
     const along = street.rng.range(16 + stain.w / 2, wall.len - 16 - stain.w / 2);
     const z = street.rng.pick(drips) - 2 - stain.h / 2;
-    const z1 = z - stain.h / 2, z2 = z + stain.h / 2, u1 = along - stain.w / 2, u2 = along + stain.w / 2;
-    if (wall.len < 32 + stain.w || z1 < z0 + 22 || zones.some(([zMin, zMax]) => zMin < z2 + 2 && zMax > z1 - 2)) continue;
-    if (busy.some((b) => b.from < u2 + 2 && b.to > u1 - 2 && b.zMin < z2 + 2 && b.zMax > z1 - 2)) continue;
-    const p = wall.a.clone().addScaledVector(wall.dir, along).addScaledVector(wall.out, 2);
-    street.entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(p.x), Math.round(p.y), Math.round(z)), keys: { texture: stain.texture } });
+    const stainBottom = z - stain.h / 2, stainTop = z + stain.h / 2, stainFrom = along - stain.w / 2, stainTo = along + stain.w / 2;
+    if (wall.len < 32 + stain.w || stainBottom < z0 + 22 || zones.some(([zMin, zMax]) => zMin < stainTop + 2 && zMax > stainBottom - 2)) continue;
+    if (busy.some((spot) => spot.from < stainTo + 2 && spot.to > stainFrom - 2 && spot.zMin < stainTop + 2 && spot.zMax > stainBottom - 2)) continue;
+    const point = wall.a.clone().addScaledVector(wall.dir, along).addScaledVector(wall.out, 2);
+    street.entities.push({ classname: 'infodecal', origin: new Vector3(Math.round(point.x), Math.round(point.y), Math.round(z)), keys: { texture: stain.texture } });
     k++;
   }
 }
 
 /** Street fronts: oriels, balconies and awnings on walls that face the street, their clutter and stains; steps at a cut-corner entrance. */
-function streetFronts(w: Wing, groundTiles: FacadeTile[], bands: BandSpec[], columns: Column[], street: Street): KVNode[] {
+function streetFronts(wing: Wing, groundTiles: FacadeTile[], bands: BandSpec[], columns: Column[], street: Street): KVNode[] {
   const isStreet = street.isStreet;
   if (!isStreet) return [];
-  const { doc, part, s, z0, level, windows } = w, poly = part.poly;
-  const [colMin, colTop] = columnSpan(w);
+  const { doc, part, style, z0, level, windows } = wing, poly = part.poly;
+  const [columnBottom, columnTop] = columnSpan(wing);
   const solids: KVNode[] = [];
-  poly.forEach((a, i) => {
-    const b = poly[(i + 1) % poly.length];
-    if (part.cornerEdges.includes(i) || !isStreet(a, b)) return;
-    const wall = wallOf(a, b);
-    const f = streetFacade(doc, wall, {
-      z0, floors: part.floors, windows, trim: s.trim, plain: s.plain, level, oriels: street.oriels, balconies: street.balconies,
+  poly.forEach((start, i) => {
+    const end = poly[(i + 1) % poly.length];
+    if (part.cornerEdges.includes(i) || !isStreet(start, end)) return;
+    const wall = wallOf(start, end);
+    const facade = streetFacade(doc, wall, {
+      z0, floors: part.floors, windows, trim: style.trim, plain: style.plain, level, oriels: street.oriels, balconies: street.balconies,
     }, street.rng);
-    solids.push(...f.solids);
-    if (street.keep('awnings')) street.entities.push(...f.entities);
+    solids.push(...facade.solids);
+    if (street.keep('awnings')) street.entities.push(...facade.entities);
     // Pilasters, in the wall's plane (x along it, y height), for the street clutter to keep clear of.
-    const pilasters = columns.filter((c) => c.wall === i).map((c) => new Box2(new Vector2(c.at - COLUMN_WIDTH / 2, colMin), new Vector2(c.at + COLUMN_WIDTH / 2, colTop)));
+    const pilasters = columns.filter((column) => column.wall === i).map((column) => new Box2(new Vector2(column.at - COLUMN_WIDTH / 2, columnBottom), new Vector2(column.at + COLUMN_WIDTH / 2, columnTop)));
     // Cable brackets go with the cables; their anchors stay, so the street pass deals its cables as always.
-    if (level >= 1) street.entities.push(...wallClutter(wall, z0, part.floors, street.rng, street.anchors, { windows, ground: groundTiles[i], taken: [...f.taken, ...pilasters] })
-      .filter((e) => street.keep(e.keys.model === WALL_MOUNT.model ? 'cables' : 'clutter')));
-    wallStains(w, wall, i, f.solids, bands, columns, street);
+    if (level >= 1) street.entities.push(...wallClutter(wall, z0, part.floors, street.rng, street.anchors, { windows, ground: groundTiles[i], taken: [...facade.taken, ...pilasters] })
+      .filter((entity) => street.keep(entity.keys.model === WALL_MOUNT.model ? 'cables' : 'clutter')));
+    wallStains(wing, wall, i, facade.solids, bands, columns, street);
   });
   if (level >= 1 && part.cornerEdges.length === 1) {
     const i = part.cornerEdges[0];
@@ -524,33 +524,33 @@ function streetFronts(w: Wing, groundTiles: FacadeTile[], bands: BandSpec[], col
  * decoration (base course, ledges, columns, cornice, brackets, parapet) goes to `detail` for func_detail.
  */
 function partSolids(
-  doc: VmfDocument, part: Part, s: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel, roof: { kind: RoofKind; material: string },
+  doc: VmfDocument, part: Part, style: Style, z0: number, rng: Rng, deco: Rng, level: DetailLevel, roof: { kind: RoofKind; material: string },
   street: Street, neighbours: Neighbour[] = [],
 ): { world: KVNode[]; detail: KVNode[]; roofHeight: (p: Vector2) => number; windows: FacadeTile } {
   const poly = part.poly, top = z0 + part.floors * FLOOR, main = part.kind === 'main';
-  const ground = rng.pick(s.ground);
-  const windows = rng.pick(s.windows);
-  const groundTiles = poly.map((_, i) => (part.cornerEdges.includes(i) ? s.door : ground));
-  const w: Wing = { doc, part, s, z0, level, top, main, windows, neighbours, walls: poly.map((a, i) => wallOf(a, poly[(i + 1) % poly.length])) };
-  const world = shellSolids(w, groundTiles, roof.kind !== 'flat');
+  const ground = rng.pick(style.ground);
+  const windows = rng.pick(style.windows);
+  const groundTiles = poly.map((_, i) => (part.cornerEdges.includes(i) ? style.door : ground));
+  const wing: Wing = { doc, part, style, z0, level, top, main, windows, neighbours, walls: poly.map((a, i) => wallOf(a, poly[(i + 1) % poly.length])) };
+  const world = shellSolids(wing, groundTiles, roof.kind !== 'flat');
   // Base course of stone along the street; ledges, a heavier one over the ground floor and thin ones
   // between upper floors (all, or every other); the stepped cornice. All stop at party walls.
   const tall = main && part.floors > 1;
   const bands = partBands(part, z0, level, level >= 2 && tall ? deco.pick([1, 2]) : 1);
-  const detail = bands.flatMap((b) => band(doc, poly, b.out, b.zMin, b.zMax, b.base ? BASE : s.trim, neighbours));
-  const { solids: columnSolids, columns } = level >= 2 && tall ? quoinsAndColumns(w, deco) : { solids: [], columns: [] };
+  const detail = bands.flatMap((spec) => band(doc, poly, spec.out, spec.zMin, spec.zMax, spec.base ? BASE : style.trim, neighbours));
+  const { solids: columnSolids, columns } = level >= 2 && tall ? quoinsAndColumns(wing, deco) : { solids: [], columns: [] };
   detail.push(...columnSolids);
-  if (level >= 3 && tall) detail.push(...corniceBrackets(w));
+  if (level >= 3 && tall) detail.push(...corniceBrackets(wing));
   let roofHeight = (_p: Vector2) => top + PARAPET;
   if (roof.kind !== 'flat') {
-    const r = pitchedRoof(w, roof, deco, street);
-    detail.push(...r.solids);
-    roofHeight = r.heightAt;
+    const pitched = pitchedRoof(wing, roof, deco, street);
+    detail.push(...pitched.solids);
+    roofHeight = pitched.heightAt;
   } else if (main) {
-    detail.push(...parapet(w));
-    if (street.roofHuts && level >= 1 && deco.chance(0.7)) detail.push(...roofHut(w, deco));
+    detail.push(...parapet(wing));
+    if (street.roofHuts && level >= 1 && deco.chance(0.7)) detail.push(...roofHut(wing, deco));
   }
-  if (main) detail.push(...streetFronts(w, groundTiles, bands, columns, street));
+  if (main) detail.push(...streetFronts(wing, groundTiles, bands, columns, street));
   return { world, detail, roofHeight, windows };
 }
 
@@ -558,78 +558,78 @@ function partSolids(
  * A tower on the building's street corner: on a rounded corner it continues the curved facade (up to a
  * radius of 160, touching the curve at its apex); on cut and square corners it stands tangent to both walls.
  */
-function cornerTower(doc: VmfDocument, part: Part, s: Style, windows: FacadeTile, z0: number, roofHeight: (p: Vector2) => number, rng: Rng): KVNode[] {
-  const c = part.corner!;
-  const diag = c.inward.clone().normalize();
+function cornerTower(doc: VmfDocument, part: Part, style: Style, windows: FacadeTile, z0: number, roofHeight: (p: Vector2) => number, rng: Rng): KVNode[] {
+  const corner = part.corner!;
+  const diag = corner.inward.clone().normalize();
   let radius: number, centre: Vector2;
-  if (c.shape === 'round') {
-    radius = Math.min(c.size, 160);
-    const arcCentre = c.at.clone().addScaledVector(c.inward, c.size);
-    centre = arcCentre.addScaledVector(diag, -(c.size - radius));
+  if (corner.shape === 'round') {
+    radius = Math.min(corner.size, 160);
+    const arcCentre = corner.at.clone().addScaledVector(corner.inward, corner.size);
+    centre = arcCentre.addScaledVector(diag, -(corner.size - radius));
   } else {
     radius = rng.pick([96, 112, 128]);
-    centre = c.at.clone().addScaledVector(c.inward, radius);
+    centre = corner.at.clone().addScaledVector(corner.inward, radius);
   }
   const top = z0 + part.floors * FLOOR;
-  let z1 = top + rng.int(1, 2) * FLOOR;
-  while (z1 < roofHeight(centre) + 64) z1 += FLOOR;
+  let towerTop = top + rng.int(1, 2) * FLOOR;
+  while (towerTop < roofHeight(centre) + 64) towerTop += FLOOR;
   const { cap, material } = chooseCap(rng);
   return towerSolids(doc, {
     centre: new Vector2(Math.round(centre.x), Math.round(centre.y)), radius, sides: towerSides(radius),
-    z0: top - 16, z1, windows, trim: s.trim, plain: s.plain, cap, capMaterial: material,
+    z0: top - 16, z1: towerTop, windows, trim: style.trim, plain: style.plain, cap, capMaterial: material,
   }).solids;
 }
 
 /** A func_detail entity holding `solids` (decoration that should not cut visibility), or null when empty. */
 export function detailEntityNode(doc: VmfDocument, solids: KVNode[]): KVNode | null {
   if (!solids.length) return null;
-  const e = new KVNode('entity');
-  e.items.push(new KVPair('id', String(doc.nextId())), new KVPair('classname', 'func_detail'), ...solids);
-  const ed = new KVNode('editor');
-  ed.items.push(new KVPair('color', '0 180 0'), new KVPair('visgroupshown', '1'), new KVPair('visgroupautoshown', '1'), new KVPair('logicalpos', '[0 0]'));
-  e.items.push(ed);
-  return e;
+  const entity = new KVNode('entity');
+  entity.items.push(new KVPair('id', String(doc.nextId())), new KVPair('classname', 'func_detail'), ...solids);
+  const editor = new KVNode('editor');
+  editor.items.push(new KVPair('color', '0 180 0'), new KVPair('visgroupshown', '1'), new KVPair('visgroupautoshown', '1'), new KVPair('logicalpos', '[0 0]'));
+  entity.items.push(editor);
+  return entity;
 }
 
 /** A 16-unit wall along a→b; a gateway leaves a 128-unit opening under a lintel. */
-function wallSolids(doc: VmfDocument, w: WallPlan, s: Style, z0: number): KVNode[] {
-  const dir = new Vector2().subVectors(w.b, w.a);
+function wallSolids(doc: VmfDocument, wall: WallPlan, style: Style, z0: number): KVNode[] {
+  const dir = new Vector2().subVectors(wall.b, wall.a);
   const len = dir.length();
   dir.normalize();
   const side = new Vector2(dir.y, -dir.x).multiplyScalar(8);
-  const seg = (from: number, to: number, zMin: number, zMax: number) => {
-    const p = w.a.clone().addScaledVector(dir, from), q = w.a.clone().addScaledVector(dir, to);
+  const segment = (from: number, to: number, zMin: number, zMax: number) => {
+    const start = wall.a.clone().addScaledVector(dir, from), end = wall.a.clone().addScaledVector(dir, to);
     // Counter-clockwise: along the outer side, back along the inner side.
-    const poly = cleanPolygon([p.clone().add(side), q.clone().add(side), q.clone().sub(side), p.clone().sub(side)]);
-    return isConvexCcw(poly) ? [solidNode(doc, facadePrism(poly, zMin, zMax, s.plain, s.trim.material, z0))] : [];
+    const poly = cleanPolygon([start.clone().add(side), end.clone().add(side), end.clone().sub(side), start.clone().sub(side)]);
+    return isConvexCcw(poly) ? [solidNode(doc, facadePrism(poly, zMin, zMax, style.plain, style.trim.material, z0))] : [];
   };
-  const top = z0 + w.height;
-  if (!w.gate || len < 256) return seg(0, len, z0 - 32, top);
-  const g0 = Math.round((len / 2 - 64) / 16) * 16, g1 = g0 + 128;
-  return [...seg(0, g0, z0 - 32, top), ...seg(g1, len, z0 - 32, top), ...seg(g0, g1, z0 + 160, top)];
+  const top = z0 + wall.height;
+  if (!wall.gate || len < 256) return segment(0, len, z0 - 32, top);
+  const gateFrom = Math.round((len / 2 - 64) / 16) * 16, gateTo = gateFrom + 128;
+  return [...segment(0, gateFrom, z0 - 32, top), ...segment(gateTo, len, z0 - 32, top), ...segment(gateFrom, gateTo, z0 + 160, top)];
 }
 
 /** A convex polygon as whole units, still convex (rounding can bend it a hair: then its hull). */
 function wholeUnits(poly: Vector2[]): Vector2[] {
-  const r = cleanPolygon(ccw(poly.map((p) => new Vector2(Math.round(p.x), Math.round(p.y)))));
-  return isConvexCcw(r) ? r : cleanPolygon(convexHull(r));
+  const rounded = cleanPolygon(ccw(poly.map((p) => new Vector2(Math.round(p.x), Math.round(p.y)))));
+  return isConvexCcw(rounded) ? rounded : cleanPolygon(convexHull(rounded));
 }
 
-const polyArea = (p: Vector2[]) => Math.abs(p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]; return s + a.x * b.y - b.x * a.y; }, 0)) / 2;
-const boxPoly = (b: Box2) => [b.min.clone(), new Vector2(b.max.x, b.min.y), b.max.clone(), new Vector2(b.min.x, b.max.y)];
-const cutsInto = (poly: Vector2[], cuts: Vector2[][]) => cuts.some((c) => convexOverlap(ccw(poly), c));
+const polyArea = (poly: Vector2[]) => Math.abs(poly.reduce((sum, point, i) => { const next = poly[(i + 1) % poly.length]; return sum + point.x * next.y - next.x * point.y; }, 0)) / 2;
+const boxPoly = (box: Box2) => [box.min.clone(), new Vector2(box.max.x, box.min.y), box.max.clone(), new Vector2(box.min.x, box.max.y)];
+const cutsInto = (poly: Vector2[], cuts: Vector2[][]) => cuts.some((cut) => convexOverlap(ccw(poly), cut));
 
 /**
  * The options a layout implies: a house has 1–2 floors, square corners and is enterable; a single building
  * has no courtyard and no enterable houses of its own.
  */
-export function layoutOptions(o: BuildingOptions): BuildingOptions {
-  if (o.layout === 'house') {
-    const lo = Math.min(2, Math.max(1, o.minFloors));
-    return { ...o, minFloors: lo, maxFloors: Math.max(lo, Math.min(2, o.maxFloors)), corners: 'square', courtyards: false, annexes: false, alleys: false, interiors: 'all' };
+export function layoutOptions(options: BuildingOptions): BuildingOptions {
+  if (options.layout === 'house') {
+    const minFloors = Math.min(2, Math.max(1, options.minFloors));
+    return { ...options, minFloors, maxFloors: Math.max(minFloors, Math.min(2, options.maxFloors)), corners: 'square', courtyards: false, annexes: false, alleys: false, interiors: 'all' };
   }
-  if (o.layout === 'single') return { ...o, courtyards: false, interiors: 'none', alleys: false };
-  return o;
+  if (options.layout === 'single') return { ...options, courtyards: false, interiors: 'none', alleys: false };
+  return options;
 }
 
 /**
@@ -640,25 +640,25 @@ export function layoutOptions(o: BuildingOptions): BuildingOptions {
 export function cutPlan(plan: ReturnType<typeof planBlock>, cuts: Vector2[][]): void {
   const pieces = (poly: Vector2[]) => cutBack(ccw(poly), cuts).map(wholeUnits).filter((p) => p.length >= 3 && polyArea(p) >= 128 * 160 && inradius(p) >= 56);
   const buildings: typeof plan.buildings = [];
-  for (const b of plan.buildings) {
-    const [main, ...rest] = b.parts;
+  for (const building of plan.buildings) {
+    const [main, ...rest] = building.parts;
     const mainPieces = pieces(main.poly).sort((p, q) => polyArea(q) - polyArea(p));
     if (!mainPieces.length) continue;
     const changed = !cutsInto(main.poly, cuts) ? null : mainPieces;
     const head = changed ? { ...main, poly: changed[0], cornerEdges: [], corner: undefined } : main;
     const annexes = rest.flatMap((part) => {
       if (!cutsInto(part.poly, cuts)) return [part];
-      const ps = pieces(part.poly).sort((p, q) => polyArea(q) - polyArea(p));
-      return ps.length ? [{ ...part, poly: ps[0], cornerEdges: [] }] : [];
+      const annexPieces = pieces(part.poly).sort((p, q) => polyArea(q) - polyArea(p));
+      return annexPieces.length ? [{ ...part, poly: annexPieces[0], cornerEdges: [] }] : [];
     });
-    buildings.push({ ...b, parts: [head, ...annexes] });
-    for (const extra of changed?.slice(1) ?? []) buildings.push({ parts: [{ ...main, poly: extra, cornerEdges: [], corner: undefined }], styleSlot: b.styleSlot + 1 });
+    buildings.push({ ...building, parts: [head, ...annexes] });
+    for (const extra of changed?.slice(1) ?? []) buildings.push({ parts: [{ ...main, poly: extra, cornerEdges: [], corner: undefined }], styleSlot: building.styleSlot + 1 });
   }
   plan.buildings = buildings;
-  plan.yards = plan.yards.filter((y) => !cutsInto(boxPoly(y), cuts));
-  plan.sheds = plan.sheds.filter((y) => !cutsInto(boxPoly(y), cuts));
-  plan.lots = plan.lots.filter((l) => !cutsInto(boxPoly(l.box), cuts));
-  plan.walls = plan.walls.filter((w) => !cutsInto(boxPoly(new Box2().setFromPoints([w.a, w.b]).expandByScalar(8)), cuts));
+  plan.yards = plan.yards.filter((yard) => !cutsInto(boxPoly(yard), cuts));
+  plan.sheds = plan.sheds.filter((shed) => !cutsInto(boxPoly(shed), cuts));
+  plan.lots = plan.lots.filter((lot) => !cutsInto(boxPoly(lot.box), cuts));
+  plan.walls = plan.walls.filter((wall) => !cutsInto(boxPoly(new Box2().setFromPoints([wall.a, wall.b]).expandByScalar(8)), cuts));
 }
 
 type Arch = (typeof ARCHITECTURES)[ArchitectureName];
@@ -674,7 +674,7 @@ const MAX_BRIDGE_GAP = 96, MIN_BRIDGE_FACING = 160, HALF_BRIDGE = 64;
 interface Block {
   doc: VmfDocument; opts: BuildingOptions; out: GeneratedBuildings; plan: BlockPlan; area: Box2; z0: number; arch: Arch; level: DetailLevel;
   /** Which lots become enterable houses; drawn from their own sequence, so the other choices keep their seeds. */
-  interiors: 'none' | 'some' | 'all'; intRng: Rng;
+  interiors: 'none' | 'some' | 'all'; interiorRng: Rng;
 }
 
 const boxOf = (p: Part) => new Box2().setFromPoints(p.poly);
@@ -695,12 +695,12 @@ function qualityFor(opts: BuildingOptions): (typeof QUALITY)[BuildingQuality] {
 
 /** Walls on the block's outline face the street, and so do walls along a cut (the street that made it); the rest face courtyards, yards or neighbours. */
 function streetTest(area: Box2, cuts: Vector2[][]): (a: Vector2, b: Vector2) => boolean {
-  const onLine = (a: Vector2, b: Vector2, axis: 'x' | 'y', v: number) => Math.abs(a[axis] - v) < 1 && Math.abs(b[axis] - v) < 1;
-  const alongCut = (a: Vector2, b: Vector2) => cuts.some((c) => c.some((p, i) => {
-    const q = c[(i + 1) % c.length], d = new Vector2().subVectors(q, p), len = d.length();
+  const onLine = (a: Vector2, b: Vector2, axis: 'x' | 'y', line: number) => Math.abs(a[axis] - line) < 1 && Math.abs(b[axis] - line) < 1;
+  const alongCut = (a: Vector2, b: Vector2) => cuts.some((cut) => cut.some((start, i) => {
+    const end = cut[(i + 1) % cut.length], edge = new Vector2().subVectors(end, start), len = edge.length();
     if (len < 1) return false;
-    const off = (v: Vector2) => Math.abs((d.x * (v.y - p.y) - d.y * (v.x - p.x)) / len);
-    return off(a) < 3 && off(b) < 3;
+    const distance = (point: Vector2) => Math.abs((edge.x * (point.y - start.y) - edge.y * (point.x - start.x)) / len);
+    return distance(a) < 3 && distance(b) < 3;
   }));
   return (a, b) => onLine(a, b, 'x', area.min.x) || onLine(a, b, 'x', area.max.x) || onLine(a, b, 'y', area.min.y) || onLine(a, b, 'y', area.max.y) || alongCut(a, b);
 }
@@ -721,30 +721,30 @@ function planOptions(opts: BuildingOptions, arch: Arch): PlanOptions {
 function dressYards(doc: VmfDocument, plan: BlockPlan, opts: BuildingOptions, z0: number, extras: Extras, out: GeneratedBuildings): void {
   if (opts.yards !== 'green') { out.dressing.yards.push(...plan.yards); return; }
   const yardRng = new Rng(opts.seed * 43 + 19);
-  const gates = plan.walls.filter((w) => w.gate).map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(96));
-  for (const y of plan.yards) {
-    const g = greenYard(doc, y, z0, yardRng, gates, extras);
-    out.solids.push(...g.solids);
-    out.entities.push(...g.entities);
+  const gates = plan.walls.filter((wall) => wall.gate).map((wall) => new Box2().setFromPoints([wall.a, wall.b]).expandByScalar(96));
+  for (const yard of plan.yards) {
+    const green = greenYard(doc, yard, z0, yardRng, gates, extras);
+    out.solids.push(...green.solids);
+    out.entities.push(...green.entities);
   }
 }
 
 /** Each building's roof and its parts' roofs, from their own sequence. */
 function chooseRoofs(plan: BlockPlan, opts: BuildingOptions, arch: Arch) {
   const roofRng = new Rng(opts.seed * 17 + 3);
-  return plan.buildings.map((b) => {
-    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', b.parts[0].poly.length === 4, arch.roofs);
+  return plan.buildings.map((building) => {
+    const roof = chooseRoof(roofRng, opts.roofs ?? 'mixed', building.parts[0].poly.length === 4, arch.roofs);
     // Sheds get a low metal roof half of the time.
     const shedRoof = roofRng.chance(0.5) ? { kind: 'hip' as const, material: 'METAL/METALROOF005A' } : { kind: 'flat' as const, material: ROOF };
-    return { roof, parts: b.parts.map((part) => (part.kind === 'annex' ? shedRoof : roof.kind === 'gable' && part.poly.length !== 4 ? { ...roof, kind: 'hip' as const } : roof)) };
+    return { roof, parts: building.parts.map((part) => (part.kind === 'annex' ? shedRoof : roof.kind === 'gable' && part.poly.length !== 4 ? { ...roof, kind: 'hip' as const } : roof)) };
   });
 }
 
 /** A courtyard wall as the wings see it: 16 thick, hiding them up to its height, with nothing standing out. */
-function courtWallNeighbour(w: WallPlan, z0: number): Neighbour {
-  const side = new Vector2().subVectors(w.b, w.a).normalize().multiplyScalar(8);
-  const n = new Vector2(side.y, -side.x);
-  return { poly: ccw([w.a.clone().add(n), w.b.clone().add(n), w.b.clone().sub(n), w.a.clone().sub(n)]), cover: z0 + w.height, reach: () => 0 };
+function courtWallNeighbour(wall: WallPlan, z0: number): Neighbour {
+  const side = new Vector2().subVectors(wall.b, wall.a).normalize().multiplyScalar(8);
+  const normal = new Vector2(side.y, -side.x);
+  return { poly: ccw([wall.a.clone().add(normal), wall.b.clone().add(normal), wall.b.clone().sub(normal), wall.a.clone().sub(normal)]), cover: z0 + wall.height, reach: () => 0 };
 }
 
 /**
@@ -752,73 +752,73 @@ function courtWallNeighbour(w: WallPlan, z0: number): Neighbour {
  * floors (ring buildings around courtyards stay solid). The wings of an L become one house of at most
  * 640 × 640; a single lot longer than that gets a smaller house at the street, the rest is its yard.
  */
-function houseOn(k: Block, parts: Part[]): Vector2[] | null {
-  const { interiors, intRng, plan, arch, area } = k;
+function houseOn(block: Block, parts: Part[]): Vector2[] | null {
+  const { interiors, interiorRng, plan, arch, area } = block;
   if (interiors === 'none' || !parts.length) return null;
   if (parts.some((p) => p.kind === 'main') && plan.ring) return null;
-  if (parts.some((p) => p.floors > 2 || p.poly.length !== 4 || !p.poly.every((q, i) => { const r = p.poly[(i + 1) % 4]; return q.x === r.x || q.y === r.y; }))) return null;
-  const lot = parts.reduce((b, p) => b.union(boxOf(p)), new Box2());
+  if (parts.some((p) => p.floors > 2 || p.poly.length !== 4 || !p.poly.every((point, i) => { const next = p.poly[(i + 1) % 4]; return point.x === next.x || point.y === next.y; }))) return null;
+  const lot = parts.reduce((box, p) => box.union(boxOf(p)), new Box2());
   const size = lot.getSize(new Vector2());
   if (parts.length > 1 && (size.x > MAX_HOUSE || size.y > MAX_HOUSE)) return null;
-  if (interiors !== 'all' && !intRng.chance(arch.interiorShare)) return null;
+  if (interiors !== 'all' && !interiorRng.chance(arch.interiorShare)) return null;
   if (parts.length > 1) return outlineOf(parts.map(boxOf));
   const house = lot.clone();
-  for (const ax of ['x', 'y'] as const) {
-    if (size[ax] <= MAX_HOUSE) continue;
-    const len = intRng.pick([384, 448, 512, 576]);
-    const atMin = Math.abs(lot.min[ax] - area.min[ax]) < 1, atMax = Math.abs(lot.max[ax] - area.max[ax]) < 1;
-    if (atMin && (!atMax || intRng.chance(0.5))) house.max[ax] = lot.min[ax] + len;
-    else if (atMax) house.min[ax] = lot.max[ax] - len;
-    else { house.min[ax] = Math.round((lot.min[ax] + lot.max[ax] - len) / 128) * 64; house.max[ax] = house.min[ax] + len; }
+  for (const axis of ['x', 'y'] as const) {
+    if (size[axis] <= MAX_HOUSE) continue;
+    const houseLength = interiorRng.pick([384, 448, 512, 576]);
+    const atMin = Math.abs(lot.min[axis] - area.min[axis]) < 1, atMax = Math.abs(lot.max[axis] - area.max[axis]) < 1;
+    if (atMin && (!atMax || interiorRng.chance(0.5))) house.max[axis] = lot.min[axis] + houseLength;
+    else if (atMax) house.min[axis] = lot.max[axis] - houseLength;
+    else { house.min[axis] = Math.round((lot.min[axis] + lot.max[axis] - houseLength) / 128) * 64; house.max[axis] = house.min[axis] + houseLength; }
   }
   // What the house leaves of its lot is yard (trees may grow there).
   const yards = [
     new Box2(new Vector2(lot.min.x, lot.min.y), new Vector2(house.min.x, lot.max.y)), new Box2(new Vector2(house.max.x, lot.min.y), new Vector2(lot.max.x, lot.max.y)),
     new Box2(new Vector2(house.min.x, lot.min.y), new Vector2(house.max.x, house.min.y)), new Box2(new Vector2(house.min.x, house.max.y), new Vector2(house.max.x, lot.max.y)),
   ];
-  k.out.dressing.yards.push(...yards.filter((y) => y.max.x - y.min.x >= 64 && y.max.y - y.min.y >= 64));
+  block.out.dressing.yards.push(...yards.filter((yard) => yard.max.x - yard.min.x >= 64 && yard.max.y - yard.min.y >= 64));
   return [new Vector2(house.min.x, house.min.y), new Vector2(house.max.x, house.min.y), new Vector2(house.max.x, house.max.y), new Vector2(house.min.x, house.max.y)];
 }
 
-/** Builds an enterable house on footprint `fp` in place of `parts`, keeping the ground in front of its doors free. */
-function buildInterior(k: Block, parts: Part[], fp: Vector2[]): void {
-  const { doc, opts, out, plan, arch, intRng } = k;
-  const others = plan.buildings.flatMap((b) => b.parts).filter((p) => !parts.includes(p)).map((p) => boxOf(p).expandByScalar(1));
-  const h = interiorHouse(doc, fp, k.z0, {
-    seed: intRng.int(1, 1e9), storeys: Math.max(...parts.map((p) => p.floors)) >= 2 ? 2 : 1,
-    style: opts.interiorStyle ?? intRng.pick(arch.interiorStyles), cutHeight: opts.cutHeight, furnish: opts.furnish,
-    lights: opts.interiorLights, lightLevel: opts.interiorLightLevel, wideDoors: opts.wideDoors, weathering: opts.weathering, eaves: k.level >= 2,
-    noEntrance: [...others, ...plan.walls.map((w) => new Box2().setFromPoints([w.a, w.b]).expandByScalar(9))],
+/** Builds an enterable house on footprint `footprint` in place of `parts`, keeping the ground in front of its doors free. */
+function buildInterior(block: Block, parts: Part[], footprint: Vector2[]): void {
+  const { doc, opts, out, plan, arch, interiorRng } = block;
+  const others = plan.buildings.flatMap((building) => building.parts).filter((p) => !parts.includes(p)).map((p) => boxOf(p).expandByScalar(1));
+  const house = interiorHouse(doc, footprint, block.z0, {
+    seed: interiorRng.int(1, 1e9), storeys: Math.max(...parts.map((p) => p.floors)) >= 2 ? 2 : 1,
+    style: opts.interiorStyle ?? interiorRng.pick(arch.interiorStyles), cutHeight: opts.cutHeight, furnish: opts.furnish,
+    lights: opts.interiorLights, lightLevel: opts.interiorLightLevel, wideDoors: opts.wideDoors, weathering: opts.weathering, eaves: block.level >= 2,
+    noEntrance: [...others, ...plan.walls.map((wall) => new Box2().setFromPoints([wall.a, wall.b]).expandByScalar(9))],
   });
-  out.solids.push(...h.world);
-  out.detail.push(...h.detail);
-  out.entities.push(...h.entities);
+  out.solids.push(...house.world);
+  out.detail.push(...house.detail);
+  out.entities.push(...house.entities);
   out.interiorHouses++;
   // No lamps or trees there.
-  for (const e of h.plan.entrances) {
-    const w = h.plan.walls[e.wall], o = w.openings[e.opening];
-    const half = (o.to - o.from) / 2 + 16;
-    const side = new Vector2(-e.out.y, e.out.x);
+  for (const entrance of house.plan.entrances) {
+    const wall = house.plan.walls[entrance.wall], opening = wall.openings[entrance.opening];
+    const half = (opening.to - opening.from) / 2 + 16;
+    const side = new Vector2(-entrance.out.y, entrance.out.x);
     (out.dressing.doors ??= []).push(new Box2().setFromPoints([
-      e.centre.clone().addScaledVector(side, -half), e.centre.clone().addScaledVector(side, half).addScaledVector(e.out, 128),
+      entrance.centre.clone().addScaledVector(side, -half), entrance.centre.clone().addScaledVector(side, half).addScaledVector(entrance.out, 128),
     ]));
   }
 }
 
 /** Builds a building's enterable houses: the wings of a lot become one house; each shed is a house of its own. Returns the parts they take. */
-function buildHouses(k: Block, b: BuildingPlan): Set<Part> {
+function buildHouses(block: Block, building: BuildingPlan): Set<Part> {
   const enterable = new Set<Part>();
-  const mains = b.parts.filter((p) => p.kind === 'main');
-  const lot = mains.reduce((x, p) => x.union(boxOf(p)), new Box2()).getSize(new Vector2());
+  const mains = building.parts.filter((p) => p.kind === 'main');
+  const lotSize = mains.reduce((box, p) => box.union(boxOf(p)), new Box2()).getSize(new Vector2());
   // An L too big for one house becomes a house per wing.
-  const groups = mains.length > 1 && (lot.x > MAX_HOUSE || lot.y > MAX_HOUSE) ? mains.map((p) => [p]) : [mains];
-  for (const g of groups) {
-    const fp = houseOn(k, g);
-    if (fp) { g.forEach((p) => enterable.add(p)); buildInterior(k, g, fp); }
+  const groups = mains.length > 1 && (lotSize.x > MAX_HOUSE || lotSize.y > MAX_HOUSE) ? mains.map((p) => [p]) : [mains];
+  for (const group of groups) {
+    const footprint = houseOn(block, group);
+    if (footprint) { group.forEach((p) => enterable.add(p)); buildInterior(block, group, footprint); }
   }
-  for (const p of b.parts.filter((x) => x.kind === 'annex')) {
-    const shed = houseOn(k, [p]);
-    if (shed) { enterable.add(p); buildInterior(k, [p], shed); }
+  for (const annex of building.parts.filter((part) => part.kind === 'annex')) {
+    const shed = houseOn(block, [annex]);
+    if (shed) { enterable.add(annex); buildInterior(block, [annex], shed); }
   }
   return enterable;
 }
@@ -830,33 +830,33 @@ function buildHouses(k: Block, b: BuildingPlan): Set<Part> {
 function roofProps(main: Part, z0: number, rng: Rng, keep: boolean): GeneratedBuildings['entities'] {
   const box = new Box2().setFromPoints(main.poly);
   const size = box.getSize(new Vector2());
-  const n = Math.min(3, Math.floor((size.x * size.y) / (256 * 256)));
+  const count = Math.min(3, Math.floor((size.x * size.y) / (256 * 256)));
   const top = z0 + main.floors * FLOOR;
   const props: GeneratedBuildings['entities'] = [];
-  for (let i = 0; i < n; i++) {
-    const p = new Vector2(Math.round(rng.range(box.min.x + 48, box.max.x - 48)), Math.round(rng.range(box.min.y + 48, box.max.y - 48)));
-    if (!inside(cleanPolygon(offsetPolygon(main.poly, -40)), p)) continue;
-    const prop = { classname: 'prop_static', origin: new Vector3(p.x, p.y, top), keys: { model: rng.pick(ROOF_PROPS), angles: `0 ${rng.int(0, 3) * 90} 0`, solid: '6' } };
+  for (let i = 0; i < count; i++) {
+    const spot = new Vector2(Math.round(rng.range(box.min.x + 48, box.max.x - 48)), Math.round(rng.range(box.min.y + 48, box.max.y - 48)));
+    if (!inside(cleanPolygon(offsetPolygon(main.poly, -40)), spot)) continue;
+    const prop = { classname: 'prop_static', origin: new Vector3(spot.x, spot.y, top), keys: { model: rng.pick(ROOF_PROPS), angles: `0 ${rng.int(0, 3) * 90} 0`, solid: '6' } };
     if (keep) props.push(prop);
   }
   return props;
 }
 
 /** The footprint of a sky bridge across the alley between two lots along `axis`, or null when they don't face each other across one. */
-function bridgeFootprint(a: Box2, b: Box2, axis: 'x' | 'y'): Vector2[] | null {
-  const other = axis === 'x' ? 'y' : 'x';
-  const gap = b.min[axis] - a.max[axis];
-  const gap2 = a.min[axis] - b.max[axis];
-  const lo2 = Math.max(a.min[other], b.min[other]), hi2 = Math.min(a.max[other], b.max[other]);
-  if (hi2 - lo2 < MIN_BRIDGE_FACING) return null;
+function bridgeFootprint(lotA: Box2, lotB: Box2, axis: 'x' | 'y'): Vector2[] | null {
+  const crossAxis = axis === 'x' ? 'y' : 'x';
+  const gapAfter = lotB.min[axis] - lotA.max[axis];
+  const gapBefore = lotA.min[axis] - lotB.max[axis];
+  const facingFrom = Math.max(lotA.min[crossAxis], lotB.min[crossAxis]), facingTo = Math.min(lotA.max[crossAxis], lotB.max[crossAxis]);
+  if (facingTo - facingFrom < MIN_BRIDGE_FACING) return null;
   let from: number, to: number;
-  if (gap > 0 && gap <= MAX_BRIDGE_GAP) { from = a.max[axis]; to = b.min[axis]; }
-  else if (gap2 > 0 && gap2 <= MAX_BRIDGE_GAP) { from = b.max[axis]; to = a.min[axis]; }
+  if (gapAfter > 0 && gapAfter <= MAX_BRIDGE_GAP) { from = lotA.max[axis]; to = lotB.min[axis]; }
+  else if (gapBefore > 0 && gapBefore <= MAX_BRIDGE_GAP) { from = lotB.max[axis]; to = lotA.min[axis]; }
   else return null;
-  const mid = Math.round((lo2 + hi2) / 2 / 16) * 16;
+  const mid = Math.round((facingFrom + facingTo) / 2 / 16) * 16;
   const min = new Vector2(), max = new Vector2();
   min[axis] = from; max[axis] = to;
-  min[other] = mid - HALF_BRIDGE; max[other] = mid + HALF_BRIDGE;
+  min[crossAxis] = mid - HALF_BRIDGE; max[crossAxis] = mid + HALF_BRIDGE;
   return [new Vector2(min.x, min.y), new Vector2(max.x, min.y), new Vector2(max.x, max.y), new Vector2(min.x, max.y)];
 }
 
@@ -868,10 +868,10 @@ function skyBridges(doc: VmfDocument, lots: BlockPlan['lots'], rng: Rng, z0: num
       const a = lots[i], b = lots[j];
       const floor = Math.min(a.floors, b.floors) - 1;
       if (floor < 2 || !rng.chance(0.6)) continue;
-      const zb = z0 + floor * FLOOR;
+      const bridgeZ = z0 + floor * FLOOR;
       for (const axis of ['x', 'y'] as const) {
         const poly = bridgeFootprint(a.box, b.box, axis);
-        if (poly) solids.push(solidNode(doc, facadePrism(poly, zb, zb + FLOOR, FACADE_STYLES.stone.windows[0], ROOF, z0, FACADE_STYLES.stone.plain.material)));
+        if (poly) solids.push(solidNode(doc, facadePrism(poly, bridgeZ, bridgeZ + FLOOR, FACADE_STYLES.stone.windows[0], ROOF, z0, FACADE_STYLES.stone.plain.material)));
       }
     }
   }
@@ -895,7 +895,7 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, options: Bu
   const deco = new Rng(opts.seed * 31 + 7);
   const towerRng = new Rng(opts.seed * 13 + 5);
   const arch = ARCHITECTURES[opts.architecture ?? 'mixed'];
-  const cuts = decodeCuts(opts.cut).filter((c) => boxesOverlap(c, boxPoly(area)));
+  const cuts = decodeCuts(opts.cut).filter((cut) => boxesOverlap(cut, boxPoly(area)));
   const extras = resolveExtras(opts);
   const street: Street = {
     keep: extras.keep, isStreet: streetTest(area, cuts), rng: new Rng(opts.seed * 7 + 11), entities: out.entities,
@@ -913,30 +913,30 @@ export function generateBuildings(doc: VmfDocument, footprint: Box3, options: Bu
 
   // Roofs first: every wing's decoration stops at its neighbours' walls, up to their roofs.
   const roofs = chooseRoofs(plan, opts, arch);
-  const wings = plan.buildings.flatMap((b, i) => b.parts.map((part, j) => ({ part, as: partNeighbour(part, z0, level, roofs[i].parts[j].kind) })));
+  const wings = plan.buildings.flatMap((building, i) => building.parts.map((part, j) => ({ part, as: partNeighbour(part, z0, level, roofs[i].parts[j].kind) })));
   const courtWalls = plan.walls.map((w) => courtWallNeighbour(w, z0));
-  const block: Block = { doc, opts, out, plan, area, z0, arch, level, interiors: quality.interiors ? opts.interiors ?? arch.interiors : 'none', intRng: new Rng(opts.seed * 41 + 17) };
+  const block: Block = { doc, opts, out, plan, area, z0, arch, level, interiors: quality.interiors ? opts.interiors ?? arch.interiors : 'none', interiorRng: new Rng(opts.seed * 41 + 17) };
 
-  plan.buildings.forEach((b, bi) => {
-    const s = styleOf(b.styleSlot);
-    const main = b.parts[0];
-    const enterable = buildHouses(block, b);
-    b.parts.forEach((part, j) => {
+  plan.buildings.forEach((building, buildingIndex) => {
+    const style = styleOf(building.styleSlot);
+    const main = building.parts[0];
+    const enterable = buildHouses(block, building);
+    building.parts.forEach((part, j) => {
       if (enterable.has(part)) return;
-      const neighbours = [...wings.filter((w) => w.part !== part).map((w) => w.as), ...courtWalls];
-      const r = partSolids(doc, part, s, z0, rng, deco, level, roofs[bi].parts[j], street, neighbours);
-      out.solids.push(...r.world);
-      out.detail.push(...r.detail);
+      const neighbours = [...wings.filter((wing) => wing.part !== part).map((wing) => wing.as), ...courtWalls];
+      const built = partSolids(doc, part, style, z0, rng, deco, level, roofs[buildingIndex].parts[j], street, neighbours);
+      out.solids.push(...built.world);
+      out.detail.push(...built.detail);
       // Corner towers: most rounded corners, some cut and square ones.
       if (part.corner && part.floors >= 3 && (opts.towers ?? true) && quality.towers) {
         const chance = arch.towers * (part.corner.shape === 'round' ? 0.6 : part.corner.shape === 'chamfer' ? 0.35 : 0.2);
-        if (towerRng.chance(chance)) out.detail.push(...cornerTower(doc, part, s, r.windows, z0, r.roofHeight, towerRng));
+        if (towerRng.chance(chance)) out.detail.push(...cornerTower(doc, part, style, built.windows, z0, built.roofHeight, towerRng));
       }
     });
     if (main.kind === 'main') out.buildings++;
-    if (opts.roofProps && main.kind === 'main' && roofs[bi].roof.kind === 'flat' && !enterable.has(main)) out.entities.push(...roofProps(main, z0, rng, extras.keep('roofProps')));
+    if (opts.roofProps && main.kind === 'main' && roofs[buildingIndex].roof.kind === 'flat' && !enterable.has(main)) out.entities.push(...roofProps(main, z0, rng, extras.keep('roofProps')));
   });
-  for (const w of plan.walls) out.detail.push(...wallSolids(doc, w, styleOf(rng.int(0, 4)), z0));
+  for (const wall of plan.walls) out.detail.push(...wallSolids(doc, wall, styleOf(rng.int(0, 4)), z0));
   if (opts.alleys) out.solids.push(...skyBridges(doc, plan.lots, rng, z0));
   // Wall caps under roofs, parts and wings against each other, relief backs on walls, bottoms on the ground.
   hideCoveredFaces([...out.solids, ...out.detail], { groundAt: () => z0 });
