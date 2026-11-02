@@ -1,4 +1,4 @@
-import { Box3, Plane, Ray, Vector2, Vector3 } from 'three';
+import { Box3, Plane, Ray, Vector2, Vector3, type Camera } from 'three';
 
 /**
  * Snap move (V with the Select tool): the pure geometry. The selection offers handles (corners, edge middles,
@@ -270,3 +270,21 @@ export function fmtNum(n: number): string {
   return (r === 0 ? 0 : r).toString().replace('-', '−');
 }
 export const fmtVec = (v: Vector3) => `${fmtNum(v.x)} ${fmtNum(v.y)} ${fmtNum(v.z)}`;
+
+/**
+ * Which overlay pieces show: the handle canvas and the card while V is held, the cursor chip only while dragging.
+ * Everything is hidden (and the canvas cleared) on every way out: drop, Esc, V up, blur, another tool.
+ */
+export function overlayParts(held: boolean, dragging: boolean): { canvas: boolean; card: boolean; chip: boolean } {
+  return { canvas: held, card: held, chip: held && dragging };
+}
+
+/**
+ * Brings the camera's matrices up to date and returns a key that changes whenever it moves, turns or zooms.
+ * The camera controls move the camera before the editor's frame event but three.js only refreshes the matrices
+ * when the scene renders, after it; projecting without this draws the overlay where the camera was a frame ago.
+ */
+export function syncCamera(cam: Camera): string {
+  cam.updateMatrixWorld();
+  return [...cam.matrixWorld.elements, ...cam.projectionMatrix.elements].map((n) => n.toFixed(4)).join(',');
+}
