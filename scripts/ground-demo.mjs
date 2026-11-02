@@ -94,7 +94,7 @@ console.log('  ', JSON.stringify(await d.eval(async () => {
   const { applyMapSettings } = await import('/src/lw/mapSettings.ts');
   const copy = VmfDocument.parse(ed.doc.serialize());
   applyMapSettings(copy);
-  const r = await fetch('/api/autosave?name=she_ground_test.vmf', { method: 'POST', body: copy.serialize() });
+  const r = await fetch('/api/autosave?name=she_ground_test.vmf', { method: 'POST', headers: { 'X-SHE': '1' }, body: copy.serialize() });
   return { patches: ed.doc.worldEntity.solids.filter((s) => s.isDisplacement).length, saved: r.ok };
 })));
 await browser.close();

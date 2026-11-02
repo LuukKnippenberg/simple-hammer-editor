@@ -17,6 +17,7 @@ import { History } from './edit/history.ts';
 import { ToolManager } from './edit/tools.ts';
 import type { Sketch } from './gen/sketch.ts';
 import { parseMission, type MissionGraph } from './lw/mission.ts';
+import { apiPost } from './api.ts';
 
 export interface FrameStats {
   fps: number;
@@ -291,14 +292,14 @@ export class Editor {
       if (this.doc.world.get('mapversion') !== undefined) this.doc.world.set('mapversion', String(v));
     }
     const text = this.doc.serialize();
-    const res = await fetch(`/api/map/save?name=${encodeURIComponent(name)}`, { method: 'POST', body: text });
+    const res = await apiPost(`/api/map/save?name=${encodeURIComponent(name)}`, text);
     const out = await res.json();
     if (!res.ok) throw new Error(out.error ?? 'save failed');
     if (this.sketch) {
-      await fetch(`/api/sketch?name=${encodeURIComponent(name.replace(/\.vmf$/i, '.sketch.json'))}`, { method: 'POST', body: JSON.stringify(this.sketch) });
+      await apiPost(`/api/sketch?name=${encodeURIComponent(name.replace(/\.vmf$/i, '.sketch.json'))}`, JSON.stringify(this.sketch));
     }
     if (this.mission) {
-      await fetch(`/api/mission?name=${encodeURIComponent(name.replace(/\.vmf$/i, '.mission.json'))}`, { method: 'POST', body: JSON.stringify(this.mission, null, 1) });
+      await apiPost(`/api/mission?name=${encodeURIComponent(name.replace(/\.vmf$/i, '.mission.json'))}`, JSON.stringify(this.mission, null, 1));
     }
     this.mapName = name;
     this.sourceText = text;

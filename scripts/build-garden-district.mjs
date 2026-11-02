@@ -52,7 +52,7 @@ console.log('multiblend', JSON.stringify(await d.eval(async () => {
     { texture: 'nature/forest_dirt_02', scale: 1.25, rotation: 20 },
     { texture: 'nature/mudfloor005a', scale: 1, rotation: 80 },
   ] };
-  const r = await fetch('/api/blend', { method: 'POST', body: JSON.stringify({ ...def, spec: 'nature/forest_grass_10a_spec' }) });
+  const r = await fetch('/api/blend', { method: 'POST', headers: { 'X-SHE': '1' }, body: JSON.stringify({ ...def, spec: 'nature/forest_grass_10a_spec' }) });
   const { material } = await r.json();
   const info = await ed.materials.reload(material);
   const [x0, y0, x1, y1] = AREAS.garden;

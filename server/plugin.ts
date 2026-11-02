@@ -8,6 +8,7 @@ import { loadFgd, type FgdClass } from './fgd.ts';
 import { modelIndex, type ModelEntry } from './models.ts';
 import { compileMap, launchGame, safeMapName } from './compile.ts';
 import { BLEND_FOLDER, blendVmt, safeBlendName, type BlendDef } from '../src/edit/multiblend.ts';
+import { API_HEADER } from '../src/api.ts';
 
 export interface MapLocation {
   id: string;
@@ -37,6 +38,26 @@ function send(res: ServerResponse, status: number, body: string | Buffer, type =
 }
 
 export type Route = (req: IncomingMessage, res: ServerResponse, url: URL) => void | Promise<void>;
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * Why a request has to be refused, or null. The editor's routes write maps, run the compile tools and start the
+ * game, so other web pages must not reach them (CSRF). Browsers send `Origin` on every cross-origin request, and it
+ * has to be this server exactly: Vite's CORS default trusts every localhost port. Writes also need the API header,
+ * which a page on another origin can only add through a preflight. Requests without `Origin` (curl, Node) come from
+ * local processes and pass.
+ */
+export function refuseReason(req: IncomingMessage): string | null {
+  const origin = req.headers.origin;
+  if (origin !== undefined) {
+    let u: URL | null = null;
+    try { u = new URL(origin); } catch { /* "null" (sandboxed frames, file://) or malformed */ }
+    if (!u || !LOCAL_HOSTS.has(u.hostname) || u.host !== req.headers.host) return `requests from ${origin} are not allowed`;
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers[API_HEADER.toLowerCase()] !== '1') return `${API_HEADER} header missing`;
+  return null;
+}
 
 export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: AssetFS }) => Record<string, Route> = () => ({})): Plugin {
   return {
@@ -233,6 +254,8 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
         const url = new URL(req.url ?? '/', 'http://localhost');
         const route = routes[url.pathname];
         if (!route) return next();
+        const refused = refuseReason(req);
+        if (refused) return send(res, 403, JSON.stringify({ error: refused }));
         try {
           await route(req, res, url);
         } catch (e) {

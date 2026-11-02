@@ -63,7 +63,7 @@ const finish = (name) => d.eval(async (name) => {
   }
   ed.changed();
   const text = ed.doc.serialize();
-  const r = await fetch(`/api/map/save?name=${encodeURIComponent(name)}`, { method: 'POST', body: text });
+  const r = await fetch(`/api/map/save?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'X-SHE': '1' }, body: text });
   return r.ok ? `${name}: ${text.length} bytes` : `save failed ${r.status}`;
 }, name);
 
@@ -88,7 +88,7 @@ const mats = await d.eval(async (defs) => {
   const ed = window.__editor.editor;
   const out = [];
   for (const def of defs) {
-    const r = await fetch('/api/blend', { method: 'POST', body: JSON.stringify({ ...def, spec: 'nature/forest_grass_10a_spec' }) });
+    const r = await fetch('/api/blend', { method: 'POST', headers: { 'X-SHE': '1' }, body: JSON.stringify({ ...def, spec: 'nature/forest_grass_10a_spec' }) });
     const { material } = await r.json();
     const info = await ed.materials.reload(material);
     const { loadTexture } = await import('/src/assets/textures.ts');

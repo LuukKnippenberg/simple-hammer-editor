@@ -72,7 +72,7 @@ await page.click('.mf-node[data-id="assault"] .mf-title');
 await d.settle(300);
 await d.shot('mission-flow-stage');
 // Save the flowchart next to the map.
-console.log('  saved', await d.eval(async () => (await fetch('/api/mission?name=sp_sofia.mission.json', { method: 'POST', body: JSON.stringify(window.__editor.editor.mission, null, 1) })).ok));
+console.log('  saved', await d.eval(async () => (await fetch('/api/mission?name=sp_sofia.mission.json', { method: 'POST', headers: { 'X-SHE': '1' }, body: JSON.stringify(window.__editor.editor.mission, null, 1) })).ok));
 await page.click('.mission-flow .modal-head button:text("✕")');
 await d.settle(300);
 await d.shot('mission-tab-flow');

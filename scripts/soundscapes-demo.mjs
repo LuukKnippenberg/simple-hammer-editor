@@ -78,6 +78,6 @@ console.log('  saved copy', await d.eval(async () => {
   const { applyMapSettings } = await import('/src/lw/mapSettings.ts');
   const copy = VmfDocument.parse(ed.doc.serialize());
   applyMapSettings(copy);
-  return (await fetch('/api/autosave?name=she_sound_test.vmf', { method: 'POST', body: copy.serialize() })).ok;
+  return (await fetch('/api/autosave?name=she_sound_test.vmf', { method: 'POST', headers: { 'X-SHE': '1' }, body: copy.serialize() })).ok;
 }));
 await browser.close();

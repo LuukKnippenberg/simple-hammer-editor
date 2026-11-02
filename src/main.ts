@@ -42,6 +42,7 @@ import { mountCinemaPanel } from './ui/cinemaPanel.ts';
 import { CinematicsRenderer } from './render/cinematicsRenderer.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
+import { apiPost } from './api.ts';
 
 const viewport = document.getElementById('viewport')!;
 const loading = h('div.loading', { hidden: true });
@@ -187,7 +188,7 @@ editor.on('document', () => (window.__editor.ready = true));
 setInterval(() => {
   if (!editor.dirty || !editor.doc.allSolids().length) return;
   const name = editor.mapName.replace(/\.vmf$/i, '') + '.autosave.vmf';
-  void fetch(`/api/autosave?name=${encodeURIComponent(name)}`, { method: 'POST', body: editor.doc.serialize() }).then((r) => {
+  void apiPost(`/api/autosave?name=${encodeURIComponent(name)}`, editor.doc.serialize()).then((r) => {
     if (!r.ok) return;
     editor.lastAutosave = new Date();
     editor.emit('autosave');

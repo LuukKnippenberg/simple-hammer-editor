@@ -39,7 +39,7 @@ if (only !== 'test') {
     const pre = await import('/src/edit/preflight.ts');
     for (const id of ['shell', 'spawn']) { const c = pre.runChecks(ed).find((c) => c.id === id); if (c && !c.ok) c.fix(); }
     const bad = await pre.nonStaticProps(ed);
-    const res = await fetch('/api/map/save?name=poi_showcase.vmf', { method: 'POST', body: ed.doc.serialize() });
+    const res = await fetch('/api/map/save?name=poi_showcase.vmf', { method: 'POST', headers: { 'X-SHE': '1' }, body: ed.doc.serialize() });
     return { placed, nonStatic: bad.map((e) => e.get('model')), saved: res.ok, entities: doc.entities.length, brushes: doc.allSolids().length, size: [W, D] };
   }, types);
   console.log('showcase:', JSON.stringify({ ...r, placed: r.placed.length }));
@@ -59,7 +59,7 @@ if (only !== 'showcase') {
     // The generator's own rocks include models vbsp won't take as static props: the compile dialog's fix.
     const bad = await pre.nonStaticProps(ed);
     pre.convertToDynamic(ed, bad);
-    const res = await fetch('/api/map/save?name=poi_test.vmf', { method: 'POST', body: ed.doc.serialize() });
+    const res = await fetch('/api/map/save?name=poi_test.vmf', { method: 'POST', headers: { 'X-SHE': '1' }, body: ed.doc.serialize() });
     const pois = ed.doc.entities.filter((e) => e.get('she_poi')).map((e) => e.get('she_poi').split('|')[0]);
     if (!W.lighting.enabled) { W.lighting.setEnabled(true); ed.emit('lighting'); }
     return { pois, nonStatic: bad.map((e) => e.get('model')), saved: res.ok, entities: ed.doc.entities.length, brushes: ed.doc.allSolids().length };

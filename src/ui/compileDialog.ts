@@ -8,6 +8,7 @@ import { buildMissionInto } from '../lw/missionBuild.ts';
 import { logicAnchor } from '../lw/missionAction.ts';
 import { checkMission } from '../lw/missionCheck.ts';
 import { stripHandles } from '../gen/handle.ts';
+import { apiPost } from '../api.ts';
 
 export interface CompileOutcome {
   ok: boolean;
@@ -23,7 +24,7 @@ export async function compileCurrent(
   onLine: (kind: string, text: string) => void,
 ): Promise<CompileOutcome | null> {
   if (opts.name.toLowerCase().startsWith('sp_')) {
-    await fetch(`/api/mapres?name=${encodeURIComponent(opts.name)}`, { method: 'POST', body: missionRes(editor, opts.name.toLowerCase()) });
+    await apiPost(`/api/mapres?name=${encodeURIComponent(opts.name)}`, missionRes(editor, opts.name.toLowerCase()));
     onLine('step', `Wrote maps/${opts.name.toLowerCase()}.res (mission list entry)`);
   }
   // Map settings the map lacks are added to the compiled copy only.
@@ -40,7 +41,7 @@ export async function compileCurrent(
     for (const i of checkMission(editor.mission, editor.doc)) if (i.severity === 'error') onLine('warn', `Mission: ${i.text}`);
   }
   const q = new URLSearchParams({ name: opts.name, quality: opts.quality, navmesh: opts.navmesh ? '1' : '0' });
-  const res = await fetch(`/api/compile?${q}`, { method: 'POST', body: copy.serialize() });
+  const res = await apiPost(`/api/compile?${q}`, copy.serialize());
   if (!res.ok || !res.body) {
     onLine('error', (await res.json().catch(() => ({ error: res.statusText }))).error);
     return null;
@@ -66,7 +67,7 @@ export async function compileCurrent(
 }
 
 export function launchMap(name: string): Promise<boolean> {
-  return fetch(`/api/launch?name=${encodeURIComponent(name)}`, { method: 'POST' }).then((r) => r.ok);
+  return apiPost(`/api/launch?name=${encodeURIComponent(name)}`).then((r) => r.ok);
 }
 
 /** "Compile & test" dialog: pre-flight checks with one-click fixes, compile options, live log. */

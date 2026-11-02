@@ -3,6 +3,7 @@ import type { GroundTool } from '../edit/groundTool.ts';
 import { loadVmt } from '../assets/vmt.ts';
 import { BLEND_FOLDER, DEFAULT_SPEC, safeBlendName, type BlendDef, type BlendLayer } from '../edit/multiblend.ts';
 import { h, toast } from './dom.ts';
+import { apiPost } from '../api.ts';
 
 /** A ground set choice: a material plus a label for the picker. */
 export interface BlendChoice {
@@ -135,7 +136,7 @@ export function openBlendDialog(editor: Editor, tool: GroundTool, render: () => 
 
   const save = async () => {
     const def: BlendDef = { name: safeBlendName(name.value), layers, spec: DEFAULT_SPEC, detailtype: detail.value.trim() || undefined };
-    const r = await fetch('/api/blend', { method: 'POST', body: JSON.stringify(def) });
+    const r = await apiPost('/api/blend', JSON.stringify(def));
     const res = await r.json();
     if (!r.ok) return toast(editor.container, res.error ?? 'Could not save the blend');
     await editor.materials.reload(res.material);

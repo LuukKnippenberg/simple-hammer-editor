@@ -1,5 +1,6 @@
 import type { Editor } from '../editor.ts';
 import { h, toast } from './dom.ts';
+import { apiPost } from '../api.ts';
 
 interface Install {
   name: string;
@@ -40,11 +41,11 @@ export function mountInstallPicker(editor: Editor): HTMLSelectElement {
     // Unsaved work goes to an autosave first, and the page reopens it.
     if (editor.dirty && editor.doc.allSolids().length) {
       const name = editor.mapName.replace(/\.vmf$/i, '') + '.autosave.vmf';
-      const r = await fetch(`/api/autosave?name=${encodeURIComponent(name)}`, { method: 'POST', body: editor.doc.serialize() });
+      const r = await apiPost(`/api/autosave?name=${encodeURIComponent(name)}`, editor.doc.serialize());
       if (!r.ok) return toast(editor.container, 'Could not autosave the map; install not switched.');
       url.searchParams.set('map', (await r.json()).id);
     }
-    const r = await fetch('/api/install', { method: 'POST', body: JSON.stringify({ dir }) });
+    const r = await apiPost('/api/install', JSON.stringify({ dir }));
     if (!r.ok) {
       toast(editor.container, `Switch failed: ${(await r.json().catch(() => ({ error: r.statusText }))).error}`);
       return;

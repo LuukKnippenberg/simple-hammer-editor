@@ -65,7 +65,7 @@ console.log('multiblend', JSON.stringify(await d.eval(async (defs) => {
   const out = [];
   const mats = [];
   for (const def of defs) {
-    const r = await fetch('/api/blend', { method: 'POST', body: JSON.stringify({ ...def, spec: 'nature/forest_grass_10a_spec' }) });
+    const r = await fetch('/api/blend', { method: 'POST', headers: { 'X-SHE': '1' }, body: JSON.stringify({ ...def, spec: 'nature/forest_grass_10a_spec' }) });
     const { material } = await r.json();
     const info = await ed.materials.reload(material);
     const missing = [];
