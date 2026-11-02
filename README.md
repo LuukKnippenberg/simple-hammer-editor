@@ -40,7 +40,8 @@ saves the choice to `editor.config.json` and reloads, keeping unsaved work as an
 
 1. **Open or start a map.** The editor opens on a start screen: new map, examples (opened as a copy), recent maps
    from `maps/` and the game's `mapsrc/`, a setup check of the game and the compile tools, and an offer to recover
-   autosaved work. **New** starts from a template: *Annihilation*, *Overrun*, *Singleplayer mission* or *Empty*.
+   autosaved work. **New** opens a four-step wizard: mode (*Annihilation*, *Overrun*, *Singleplayer mission* or
+   *Empty*), size and ground, start from (template layout, sketch or empty ground) and the name.
 2. **Lay it out.** Draw the map from above with **✎ Sketch** (height levels, surfaces, buildings, markers, points
    of interest, free streets and areas), or paint a coarse layout in **⚙ Generate map**. Both build a complete map
    you can keep editing, and the sketch is saved with the map so it can be redrawn and regenerated.
