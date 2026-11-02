@@ -1,6 +1,7 @@
 import type { Editor } from '../editor.ts';
-import { convertToDynamic, nonStaticProps, runChecks, type Check } from '../edit/preflight.ts';
+import { compileChecks } from '../edit/preflight.ts';
 import { h, toast } from './dom.ts';
+import { checkRows, checklistSubtitle, currentChecklist } from './checklist.ts';
 import { missionRes } from './missionPanel.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { applyMapSettings } from '../lw/mapSettings.ts';
@@ -95,22 +96,17 @@ export function mountCompileDialog(editor: Editor): { open(): void } {
   const playBtn = h('button', { disabled: true }, '▶ Launch game') as HTMLButtonElement;
   let lastName = '';
 
+  // The map checklist's list (the chip's, in the same mode), then what only Compile checks.
   const renderChecks = async () => {
-    const checks: Check[] = runChecks(editor);
-    const bad = await nonStaticProps(editor);
-    checks.push({
-      id: 'static', label: 'Static props use static models', severity: 'warning', ok: !bad.length,
-      detail: bad.length ? `${bad.length} prop_static use a physics-only or moved model; vbsp would delete them or stop. Converting them to prop_dynamic keeps them.` : 'All prop_static models were compiled with $staticprop.',
-      fixLabel: 'Convert to prop_dynamic',
-      fix: bad.length ? () => convertToDynamic(editor, bad) : undefined,
-    });
-    const fixable = checks.filter((c) => !c.ok && c.fix);
-    checksEl.replaceChildren();
-    checksEl.append(
-      ...checks.map((c) => h('div.check' + (c.ok ? '.ok' : c.severity === 'error' ? '.err' : '.warn') as 'div', {},
-        h('span.icon', {}, c.ok ? '✓' : c.severity === 'error' ? '✗' : '!'),
-        h('div', { style: { flex: '1' } }, h('b', {}, c.label), h('div.hint', {}, c.detail)),
-        !c.ok && c.fix ? h('button', { onclick: () => { c.fix!(); void renderChecks(); } }, c.fixLabel ?? 'Fix') : null)),
+    const list = currentChecklist(editor);
+    const extras = await compileChecks(editor);
+    const fixable = [...list.checks, ...extras].filter((c) => !c.ok && c.fix);
+    const rows = { onChange: () => void renderChecks(), longLabels: true };
+    checksEl.replaceChildren(
+      h('div.cl-sub', {}, `${checklistSubtitle(list)} · ${list.ready}/${list.total} ready`),
+      ...checkRows(editor, list.checks, rows),
+      h('div.cl-also', {}, 'Compile also checks'),
+      ...checkRows(editor, extras, rows),
     );
     if (fixable.length > 1) checksEl.append(h('button', { onclick: () => { for (const c of fixable) c.fix!(); void renderChecks(); } }, 'Fix all'));
   };

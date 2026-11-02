@@ -327,7 +327,8 @@ function environmentChecks(editor: Editor): Check[] {
     { ...shell, label: 'Sky shell', detail: shell.ok ? 'Sealed: world sky brushes enclose the map.' : empty ? 'Nothing to enclose yet: draw a floor with the Block tool first.' : shell.detail },
     { ...sun, label: 'Sun light', detail: sun.detail === 'Present.' ? 'light_environment present.' : sun.detail },
     {
-      ...boundary, label: 'Map boundary',
+      // ✕ on the board: without it the RTS camera and fog of war don't work at all.
+      ...boundary, label: 'Map boundary', severity: 'error',
       detail: boundary.ok ? 'Present: it limits the camera and gives fog of war its height data.' : 'Missing: the camera has no limits and fog of war no height data.',
     },
   ];
