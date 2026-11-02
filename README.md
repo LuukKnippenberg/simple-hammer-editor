@@ -111,7 +111,7 @@ Development is split into phases; each phase ends with screenshots in `docs/scre
   from the VTFs; undo/redo; duplicate; delete.
 - Fixed brush picking after BVH construction (triangle order changes inside the BVH).
 
-The screenshots below were taken by `scripts/phase3-demo.mjs`, which builds a small arena from an empty
+The screenshots below were taken by `scripts/archive/phase3-demo.mjs`, which builds a small arena from an empty
 map with real mouse and keyboard input (it is saved as `maps/phase3_arena.vmf`).
 
 ![Drawing a wall with the block tool](docs/screenshots/phase3-block-tool-drawing.png)
@@ -2269,11 +2269,13 @@ Garden District's station and customs house also have window bands on their sout
 npm test           # unit tests (vitest)
 npm run typecheck
 npm run screenshot -- scripts/shots/phase0.json   # needs the dev server running
-node scripts/phase3-demo.mjs                      # scripted editing session with screenshots
-node scripts/phase4-demo.mjs [map] [prefix]        # compile checks + compile through the dialog
-node scripts/phase5-demo.mjs                      # map and building generators
+node scripts/archive/phase3-demo.mjs              # scripted editing session with screenshots
+node scripts/archive/phase4-demo.mjs [map] [prefix] # compile checks + compile through the dialog
+node scripts/archive/phase5-demo.mjs              # map and building generators
 node scripts/build-sofia.mjs                      # builds and compiles maps/sp_sofia.vmf
 node scripts/build-rooms-station.mjs              # the interior building test map, maps/rooms_station.vmf
 node scripts/build-garden-district.mjs            # the Combine mission maps/sp_garden_district.vmf
 powershell -File scripts/capture-window.ps1 -Out shot.png   # in-game screenshot of the game window
 ```
+
+Scripts in `scripts/archive/` (the phase demos) are kept for reference and are not maintained.
