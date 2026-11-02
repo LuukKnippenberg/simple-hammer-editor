@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig, saveInstall, type EditorConfig } from './config.ts';
-import { AssetFS, contentDir } from './assets.ts';
+import { AssetFS, contentDir, insideGame } from './assets.ts';
 import { loadFgd, type FgdClass } from './fgd.ts';
 import { modelIndex, type ModelEntry } from './models.ts';
 import { compileMap, launchGame, safeMapName } from './compile.ts';
@@ -39,6 +39,7 @@ function send(res: ServerResponse, status: number, body: string | Buffer, type =
 
 export type Route = (req: IncomingMessage, res: ServerResponse, url: URL) => void | Promise<void>;
 
+const LIST_CACHE_SIZE = 64;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /**
@@ -125,8 +126,13 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
         '/api/list': (_req, res, url) => {
           const folder = url.searchParams.get('folder') ?? '';
           const ext = url.searchParams.get('ext') ?? '';
+          if (!insideGame(folder.replace(/^[\\/]+/, ''))) return send(res, 400, JSON.stringify({ error: 'invalid folder' }));
           const key = folder + '|' + ext;
-          if (!listCache.has(key)) listCache.set(key, assets.list(folder, ext));
+          if (!listCache.has(key)) {
+            // The editor asks for a handful of folders; drop the oldest listing past that.
+            if (listCache.size >= LIST_CACHE_SIZE) listCache.delete(listCache.keys().next().value!);
+            listCache.set(key, assets.list(folder, ext));
+          }
           send(res, 200, JSON.stringify(listCache.get(key)));
         },
 

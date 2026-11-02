@@ -5,6 +5,12 @@ import type { EditorConfig } from './config.ts';
 
 type Source = { kind: 'dir'; root: string } | { kind: 'vpk'; vpk: VpkArchive };
 
+/** Lowercase, forward slashes, no leading slash: how paths are keyed in the game file system. */
+const gamePath = (path: string) => path.toLowerCase().replace(/\\/g, '/').replace(/^\/+/, '');
+
+/** False for paths that could leave the search roots: `..` segments and drive letters (`c:/...`). */
+export const insideGame = (key: string) => !key.includes('..') && !key.includes(':');
+
 /** Content made in the editor (MultiBlend materials), laid out like a game folder and packed into maps that use it. */
 export const contentDir = (cfg: EditorConfig) => join(cfg.rootDir, 'content');
 
@@ -39,12 +45,12 @@ export class AssetFS {
 
   /** Drops a cached file (or a cached miss) after it was written. */
   forget(path: string): void {
-    this.cache.delete(path.toLowerCase().replace(/\\/g, '/').replace(/^\/+/, ''));
+    this.cache.delete(gamePath(path));
   }
 
   read(path: string): Buffer | null {
-    const key = path.toLowerCase().replace(/\\/g, '/').replace(/^\/+/, '');
-    if (key.includes('..')) return null;
+    const key = gamePath(path);
+    if (!insideGame(key)) return null;
     if (this.cache.has(key)) return this.cache.get(key)!;
     let data: Buffer | null = null;
     for (const s of this.sources) {
@@ -67,7 +73,8 @@ export class AssetFS {
   /** Lists files with an extension below a folder, merged over all sources (lowercase, deduplicated). */
   list(folder: string, ext: string): string[] {
     const out = new Set<string>();
-    const pre = folder.toLowerCase().replace(/\/$/, '');
+    const pre = gamePath(folder).replace(/\/+$/, '');
+    if (!insideGame(pre)) return [];
     for (const s of this.sources) {
       if (s.kind === 'vpk') {
         for (const p of s.vpk.list(pre, ext)) out.add(p);
