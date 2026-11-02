@@ -1,8 +1,8 @@
 import { Box3, Vector3 } from 'three';
+import type { MapEntity } from '../vmf/map.ts';
 import type { Editor } from '../editor.ts';
 import { applyMaterial, BRUSH_CLASSES, deleteSelection, duplicateSelection, moveToWorld, tieToEntity } from '../edit/actions.ts';
 import { remapSolid } from '../edit/brushes.ts';
-import type { MapEntity } from '../vmf/map.ts';
 import { h, toast } from './dom.ts';
 import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, selectBlock, selectedBlocks } from '../gen/buildingAction.ts';
 import { blockFinder, blockOf } from '../gen/buildingStore.ts';
@@ -33,6 +33,12 @@ import { roomType } from '../gen/rooms/types.ts';
 import { openRoomsDialog } from './roomsDialog.ts';
 import { openGenerateMenu } from './generateMenu.ts';
 import { partInspector } from './partPanel.ts';
+import { deleteStairs, duplicateStairs, regenerateStairs, selectedStairs } from '../gen/stairsAction.ts';
+import { stairsOf } from '../gen/stairsStore.ts';
+import { buildStairs, pointNames, stairsSummary, type StairsFlight } from '../gen/stairs.ts';
+import { stairsSheet } from './stairsOptions.ts';
+import type { GenerateTool } from '../edit/generateTool.ts';
+import { VmfDocument } from '../vmf/map.ts';
 import { snapMoveSection } from './snapMovePanel.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
@@ -74,6 +80,12 @@ export function mountInspector(editor: Editor): HTMLElement {
         h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
       if (blocks.length === 1) panel.append(buildingPanel(editor, blocks[0]));
+      return;
+    }
+    // Stairs handles stand for their stairs.
+    const stairs = selectedStairs(editor);
+    if (stairs.length) {
+      panel.append(...stairsPanel(editor, stairs));
       return;
     }
     // Interior building handles stand for their buildings.
@@ -303,6 +315,43 @@ function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
       h('button', { title: 'Same rooms, new seed: other furniture and wear', onclick: () => regenerateRooms(editor, one, { seed: Math.floor(Math.random() * 100000) }, 'Re-roll interior building') }, 'Re-roll'),
       h('button', { onclick: () => deleteRooms(editor, one) }, 'Delete')));
   return out;
+}
+
+/**
+ * Selected stairs: what they are, their points' heights, and the same option sheet as the Tune step (every change
+ * rebuilds them). Add flights carries on placing points on them with the Stairs tool.
+ */
+function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
+  const one = details.length === 1 ? details[0] : null;
+  const spec = one ? stairsOf(one) : null;
+  const head = h('div.section', {}, h('h3', {}, 'Selection'),
+    h('div', {}, details.length > 1 ? `${details.length} stairs` : '🪜 Stairs'),
+    h('p.hint', {}, 'Drag the gizmo to move them (W), up or down too; they are rebuilt where they land. Ctrl+D duplicates, Delete removes them. Hide the handles (Handles in the view bar) to pick single brushes.'));
+  if (!one || !spec) return [head];
+  const result = buildStairs(VmfDocument.empty(), spec);
+  const edit = (patch: Parameters<typeof regenerateStairs>[2]) => regenerateStairs(editor, one, patch);
+  head.append(h('div.gen-summary', {}, stairsSummary(result)),
+    h('div.row', {},
+      h('button.primary', { title: 'Click more points: each one adds a flight; Shift+click a landing to branch from it', onclick: () => (editor.tools.tools.generate as GenerateTool).continueStairs(one) }, 'Add flights…'),
+      h('button', { onclick: () => duplicateStairs(editor, one) }, 'Duplicate'),
+      h('button', { onclick: () => deleteStairs(editor, one) }, 'Delete')));
+  const names = pointNames(spec);
+  const points = h('div.section', {}, h('h3', {}, 'Points'), h('p.hint', {}, 'Height of each point; A is the foot.'),
+    ...spec.nodes.map((n, i) => {
+      const z = h('input.num', { type: 'number', value: String(n.z), step: '8' }) as HTMLInputElement;
+      z.addEventListener('change', () => { z.blur(); edit({ nodes: spec.nodes.map((m, k) => (k === i ? { ...m, z: Number(z.value) || 0 } : m)) }); });
+      return h('div.row', {}, h('label', {}, names[i]), z, h('span.unit', {}, `at ${Math.round(n.x)} ${Math.round(n.y)}`));
+    }));
+  const setFlight = (i: number, patch: Partial<StairsFlight>) => edit({
+    flights: spec.flights.map((f, k) => {
+      if (k !== i) return f;
+      const g = { ...f };
+      for (const [key, v] of Object.entries(patch) as [keyof StairsFlight, number | undefined][]) { if (v === undefined) delete g[key]; else g[key] = v; }
+      return g;
+    }),
+  });
+  const sheet = h('div.section.stairs-sheet', {}, h('h3', {}, 'Stairs'), ...stairsSheet({ spec, result, set: (o) => edit({ options: o }), setFlight }));
+  return [head, points, sheet];
 }
 
 const LAYOUT_LABEL = { block: 'Block of buildings', single: 'Building', house: 'Simple interior building' } as const;

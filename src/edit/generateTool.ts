@@ -7,10 +7,13 @@ import { solidBounds } from './brushes.ts';
 import type { RoadTool } from './roadTool.ts';
 import type { PowerlineTool } from './powerlineTool.ts';
 import type { PoiTool } from './poiTool.ts';
+import type { StairsTool } from './stairsTool.ts';
 import { ARCHITECTURES, type BuildingOptions } from '../gen/buildings.ts';
 import { applyBlock, deleteBlock, dressGroup, selectBlock } from '../gen/buildingAction.ts';
 import { blockOf, newBlockUid, type BlockSpec } from '../gen/buildingStore.ts';
-import { BUILDING_HANDLE, findHandle } from '../gen/handle.ts';
+import { BUILDING_HANDLE, findHandle, STAIRS_HANDLE } from '../gen/handle.ts';
+import { deleteStairs } from '../gen/stairsAction.ts';
+import { stairsOf } from '../gen/stairsStore.ts';
 import { deletePoi, poisFromBlocks, regeneratePoi } from '../gen/poi/action.ts';
 import { poiOf } from '../gen/poi/registry.ts';
 import { POI_ID_KEY } from '../gen/poi/spec.ts';
@@ -44,10 +47,10 @@ export interface GenSession {
 
 /** The tool that places each generator. */
 export const TOOL_OF: Record<GeneratorId, ToolName | null> = {
-  building: 'generate', block: 'generate', house: 'generate', interior: null, road: 'road', powerline: 'powerline', poi: 'poi',
+  building: 'generate', block: 'generate', house: 'generate', interior: null, road: 'road', powerline: 'powerline', stairs: 'stairs', poi: 'poi',
 };
 /** Tools that belong to the Generate menu (the rail shows them on its Generate button). */
-export const GENERATE_TOOLS = new Set<ToolName>(['generate', 'road', 'powerline', 'poi']);
+export const GENERATE_TOOLS = new Set<ToolName>(['generate', 'road', 'powerline', 'stairs', 'poi']);
 
 /** A POI's size and type, for the Tune step. */
 function poiSummary(e: MapEntity): string {
@@ -226,6 +229,17 @@ export class GenerateTool implements Tool {
     ed.emit('generate');
   }
 
+  /** Carries on placing points on stairs already built (their Selection panel): a Tune session for them. */
+  continueStairs(detail: MapEntity): void {
+    const ed = this.editor, s = stairsOf(detail);
+    if (!s) return;
+    this.session = { id: 'stairs', step: 'tune', made: [detail], mark: ed.history.depth, summary: '' };
+    this.setTool('stairs');
+    (ed.tools.tools.stairs as StairsTool).continueStairs(detail);
+    this.selectMade();
+    ed.emit('generate');
+  }
+
   /** Squashes an edit made through another action (a road's or powerline's rebuild) into the generate. */
   squashed(made?: MapEntity[]): void {
     const s = this.session;
@@ -252,6 +266,7 @@ export class GenerateTool implements Tool {
       if (!ed.doc.entities.includes(d)) continue;
       if (blockOf(d)) deleteBlock(ed, d);
       else if (poiOf(d)) deletePoi(ed, d);
+      else if (stairsOf(d)) deleteStairs(ed, d);
     }
     ed.selection.clear();
     s.made = [];
@@ -334,7 +349,9 @@ export class GenerateTool implements Tool {
   /** Selects what was made by its handles. */
   private selectMade(made = this.session?.made ?? []): void {
     const doc = this.editor.doc;
-    const ents = made.map((d) => (blockOf(d) ? findHandle(doc, BUILDING_HANDLE, d.get(BUILDING_HANDLE.idKey) ?? '') : poiOf(d) ? handleOf(doc, d.get(POI_ID_KEY) ?? '') : null) ?? d);
+    const ents = made.map((d) => (blockOf(d) ? findHandle(doc, BUILDING_HANDLE, d.get(BUILDING_HANDLE.idKey) ?? '')
+      : poiOf(d) ? handleOf(doc, d.get(POI_ID_KEY) ?? '')
+        : stairsOf(d) ? findHandle(doc, STAIRS_HANDLE, d.get(STAIRS_HANDLE.idKey) ?? '') : null) ?? d);
     if (made.length === 1 && blockOf(made[0])) selectBlock(this.editor, made[0]);
     else this.editor.selection.set([], ents);
   }
@@ -352,6 +369,17 @@ export class GenerateTool implements Tool {
       this.built('powerline', e, l ? `${l.spec.points.length} route points · ${l.members.filter((m) => m.classname === 'prop_static').length} poles and mounts` : 'Powerline built');
     };
     (t.poi as PoiTool).onBuilt = (e) => this.built('poi', e, poiSummary(e));
+    const stairs = t.stairs as StairsTool;
+    stairs.onBuilt = (e, summary) => this.built('stairs', e, summary);
+    // Each point added or taken back joins the generate's undo step; with none left it is back to placing.
+    stairs.onChanged = (e, summary) => {
+      const s = this.session;
+      if (s?.id !== 'stairs') return;
+      s.summary = summary;
+      if (e) this.squashed([e]);
+      else { this.editor.history.squash(s.mark, 'Generate stairs'); s.made = []; s.step = 'place'; this.editor.emit('generate'); }
+    };
+    stairs.onFinish = () => this.done();
   }
 
   // --- Placing buildings ----------------------------------------------------------------------------------

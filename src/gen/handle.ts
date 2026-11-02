@@ -32,10 +32,13 @@ export const BUILDING_HANDLE: HandleKind = { classname: 'she_building_handle', i
 /** An interior building's handle (`src/gen/rooms/store.ts`): around its rooms, outside its outer walls. */
 export const ROOMS_HANDLE: HandleKind = { classname: 'she_rooms_handle', idKey: 'she_rooms_id', material: 'EDITOR/ROOMS_HANDLE', color: '96 200 120', pad: 24 };
 
-const kinds = [POI_HANDLE, BUILDING_HANDLE, ROOMS_HANDLE];
+/** Generated stairs' handle (`src/gen/stairsAction.ts`): a low box round their points. */
+export const STAIRS_HANDLE: HandleKind = { classname: 'she_stairs_handle', idKey: 'she_stairs_id', material: 'EDITOR/STAIRS_HANDLE', color: '230 120 200', pad: 8 };
+
+const kinds = [POI_HANDLE, BUILDING_HANDLE, ROOMS_HANDLE, STAIRS_HANDLE];
 
 /** Keys holding a generator's settings (not its ids, which logic may still use to find members). */
-const EDITOR_KEYS = ['she_buildings', 'she_road', 'she_rooms', 'she_rooms_world', 'she_building_world', 'she_building_anchor'];
+const EDITOR_KEYS = ['she_buildings', 'she_road', 'she_rooms', 'she_rooms_world', 'she_building_world', 'she_building_anchor', 'she_stairs', 'she_stairs_world'];
 
 /** The kind of a handle entity, or null when it is not a handle. */
 export function kindOf(e: MapEntity | null | undefined): HandleKind | null {

@@ -67,8 +67,8 @@ describe('single building layouts', () => {
 });
 
 describe('Generate menu', () => {
-  it('numbers its entries 1–7 in menu order', () => {
-    expect(GENERATORS.map((g) => g.key)).toEqual(['1', '2', '3', '4', '5', '6', '7']);
+  it('numbers its entries 1–8 in menu order', () => {
+    expect(GENERATORS.map((g) => g.key)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8']);
     expect(GENERATORS.filter((g) => g.fills).map((g) => g.id)).toEqual(['building', 'block', 'house', 'poi']);
   });
 
@@ -79,7 +79,8 @@ describe('Generate menu', () => {
     expect(menuKey('Enter', null)).toBeNull();
     expect(menuKey('Escape', 'block')).toEqual({ close: true });
     expect(menuKey('G', null)).toEqual({ close: true });
-    expect(menuKey('8', null)).toBeNull();
+    expect(menuKey('8', null)).toEqual({ pick: 'stairs' });
+    expect(menuKey('9', null)).toBeNull();
     expect(menuKey('x', null)).toBeNull();
   });
 
