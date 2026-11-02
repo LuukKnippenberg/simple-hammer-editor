@@ -85,14 +85,12 @@ export function mountNewMapDialog(editor: Editor, onCreated: () => void): { open
   }
 
   function renderPreview(): void {
-    const blank = o.kind === 'empty' && start !== 'basics';
     const plan = previewPlan(planTemplate(o), start);
-    preview.replaceChildren(...previewShapes(plan, blank));
-    preview.classList.toggle('blank', blank);
+    preview.replaceChildren(...previewShapes(plan));
     // Only what the preview shows.
     const items: [string, string, boolean][] = [
       ['start', 'player start', plan.starts.length > 0], ['point', 'requisition point', plan.points.length > 0], ['scrap', 'scrap', plan.scrap.length > 0],
-      ['boundary', 'boundary', !blank], ['wave', 'wave spawn', plan.waves.length > 0], ['goal', 'mission goal', plan.goal !== null],
+      ['boundary', 'boundary', true], ['wave', 'wave spawn', plan.waves.length > 0], ['goal', 'mission goal', plan.goal !== null],
     ];
     legend.replaceChildren(...items.filter(([, , shown]) => shown).map(([kind, text]) => h('span', {}, h('i', { class: `np-key ${kind}` }), ` ${text}`)));
   }
@@ -134,16 +132,13 @@ export function mountNewMapDialog(editor: Editor, onCreated: () => void): { open
     editor.emit('change');
     close();
     onCreated();
-    if (o.kind === 'empty' && start !== 'basics') editor.setView(new Vector3(-1200, -1200, 1100), new Vector3(0, 0, 0));
-    else {
-      // Look at the playable area from the south, high enough to see every start.
-      const size = built.plan.size;
-      editor.setView(new Vector3(0, -size * 0.95, size * 0.85), new Vector3(0, -size * 0.05, 0));
-      if (built.mission) window.__editor?.tabs?.show('Mission');
-      toast(editor.container, `${templateInfo(o.kind).label} map: ${built.doc.entities.length} entities in ${Math.round(performance.now() - t0)} ms`);
-    }
+    // Look at the playable area from the south, high enough to see every start.
+    const size = built.plan.size;
+    editor.setView(new Vector3(0, -size * 0.95, size * 0.85), new Vector3(0, -size * 0.05, 0));
+    if (built.mission) window.__editor?.tabs?.show('Mission');
+    toast(editor.container, `${templateInfo(o.kind).label} map: ${built.doc.entities.length} entities in ${Math.round(performance.now() - t0)} ms`);
     if (start === 'sketch') {
-      // The sketch starts with the template's markers; generating it keeps the map's name (sketchDialog.ts).
+      // The sketch starts with the template's markers, Overrun's waves and manager too; generating it keeps the map's name (sketchDialog.ts).
       editor.sketch = sketchFromPlan(o, built.plan);
       editor.emit('sketch');
       window.__editor?.sketch?.open();
@@ -227,9 +222,8 @@ function svg(tag: string, attrs: Record<string, string | number>, text = ''): SV
   return el;
 }
 
-/** The preview's shapes, north up like the top view. A blank map shows only a note. */
-function previewShapes(plan: TemplatePlan, blank: boolean): SVGElement[] {
-  if (blank) return [svg('text', { x: PREVIEW_W / 2, y: PREVIEW_H / 2, class: 'np-blank' }, 'An empty document: nothing placed')];
+/** The preview's shapes, north up like the top view. */
+function previewShapes(plan: TemplatePlan): SVGElement[] {
   const s = MAP_PX / plan.size;
   const left = (PREVIEW_W - MAP_PX) / 2, top = (PREVIEW_H - MAP_PX) / 2;
   const px = (x: number) => left + (x + plan.size / 2) * s, py = (y: number) => top + (plan.size / 2 - y) * s;

@@ -51,14 +51,16 @@ Nothing here writes to the game's `mapsrc/`. Turned-down offers are kept in this
 
   1. **Mode:** *Annihilation* (an `hlw_` map with player bases, 2, 4, 6 or 8 players), *Overrun* (an `or_` map with
      wave spawn points and an `overrun_manager`, 1 to 4 players and the wave type), *Singleplayer mission* (an
-     `sp_` map with the player camera, faction setup, a starting squad and a small mission flow) or *Empty*.
+     `sp_` map with the player camera, faction setup, a starting squad and a small mission flow) or *Empty*
+     (ground, sky shell, sun, fog and map boundary, with no mode yet).
      Switching mode keeps the player count valid: the closest count the mode offers, and the one you picked when
      you switch back.
   2. **Size and look:** Small (4096 units), Medium (6144) or Large (8192), and the ground blend.
   3. **Start from:** *Template layout* places the mode's bases, resources and boundary as in the preview.
-     *Sketch it* creates the same map, then opens the sketch on it with the starts, requisition points and scrap
-     as markers; generating the sketch replaces the map and keeps its name. *Empty ground* places only the ground,
-     sky shell, sun, fog and map boundary. *Empty* with *Template layout* is an empty document, as before.
+     *Sketch it* creates the same map, then opens the sketch on it with the starts, requisition points, scrap,
+     Overrun's wave spawns and its `overrun_manager` (with the chosen wave type) as markers; generating the sketch
+     replaces the map, keeps those pieces and keeps its name. *Empty ground* places only the ground, sky shell,
+     sun, fog and map boundary. *Empty* places the same with every start choice.
   4. **Name:** the mode's prefix is a fixed chip in front of the name field (a typed or pasted prefix goes back into
      the chip), with the target path and three live checks: the prefix, lowercase without spaces, and no map in
      `maps/` with that name yet. **Create map** waits until all three pass.
