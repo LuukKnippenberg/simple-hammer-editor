@@ -743,7 +743,7 @@ const groundRooms = (rooms: Room[]) => rooms.map((_, i) => i).filter((i) => room
 /** Adds an opening to a wall: in the widest free stretch's middle if `centred`, else anywhere free (snapped to 8). */
 function placeOpening(draft: Draft, wall: PlanWall, width: number, kind: OpeningKind, margin: number, centred = false): Opening | null {
   const { rng } = draft;
-  const free = freeOn(draft, wall, margin).filter(([start, end]) => end - start >= width);
+  const free = freeOn(draft, wall, margin).filter(([freeStart, freeEnd]) => freeEnd - freeStart >= width);
   if (!free.length) return null;
   const [start, end] = centred ? free.reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a)) : rng.pick(free);
   let from = centred ? (start + end) / 2 - width / 2 : start + rng.range(0, end - start - width);
@@ -823,11 +823,11 @@ function placeEntrances(draft: Draft, outside: PlanWall[]): void {
   // The second one on another side, as far from the first as possible and preferably into another room.
   const first = draft.walls[entrances[0].wall];
   const firstNormal = outNormal(first);
-  const candidates = usable(draft, outside.filter((wall) => !outNormal(wall).equals(firstNormal)), draft.minDoor);
-  if (!candidates.length) return;
+  const otherSide = usable(draft, outside.filter((wall) => !outNormal(wall).equals(firstNormal)), draft.minDoor);
+  if (!otherSide.length) return;
   const distance = (wall: PlanWall) => wall.a.clone().add(wall.b).distanceTo(first.a.clone().add(first.b)) + (insideRoom(wall) === entrances[0].room ? -10000 : 0);
-  candidates.sort((p, q) => distance(q) - distance(p));
-  addEntrance(draft, candidates[0]);
+  otherSide.sort((p, q) => distance(q) - distance(p));
+  addEntrance(draft, otherSide[0]);
 }
 
 /** Room types: hall or living room at the front door, kitchen next to it, bath next to the kitchen, bedrooms. */
@@ -890,7 +890,7 @@ function shuffle<T>(list: T[], rng: Rng): T[] {
 
 /** Opens the longest of the walls between two rooms: a door, or between social rooms now and then a wide gap. */
 function openDoorway(draft: Draft, between: PlanWall[]): boolean {
-  const fitting = between.filter((wall) => fits(draft, wall, draft.minDoor));
+  const fitting = between.filter((candidate) => fits(draft, candidate, draft.minDoor));
   if (!fitting.length) return false;
   const wall = longest(fitting);
   const types = [draft.rooms[wall.left].type, draft.rooms[wall.right].type];
