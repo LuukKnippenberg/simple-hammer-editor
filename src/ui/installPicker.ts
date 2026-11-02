@@ -2,7 +2,7 @@ import type { Editor } from '../editor.ts';
 import { h, toast } from './dom.ts';
 import { apiPost } from '../api.ts';
 
-interface Install {
+export interface Install {
   name: string;
   dir: string;
   hasVpks: boolean;
@@ -15,7 +15,7 @@ interface Install {
 export function mountInstallPicker(editor: Editor): HTMLSelectElement {
   const select = h('select.install', { title: 'Lambda Wars install: assets, compile and launch' });
   let active: string | null = null;
-  const sync = () => void fetch('/api/config').then((r) => r.json()).then((cfg: { installs: Install[]; install: string | null }) => {
+  const sync = () => void fetchInstalls().then((cfg) => {
     if (select.options.length) {
       if (cfg.install === active) return;
       // Switched from another tab: compiles already go to the new install; textures update on reload.
@@ -35,22 +35,28 @@ export function mountInstallPicker(editor: Editor): HTMLSelectElement {
   // Another tab (or the config file) can switch the install while this page is open.
   window.addEventListener('focus', sync);
 
-  select.addEventListener('change', async () => {
-    const dir = select.value;
-    const url = new URL(location.href);
-    // Unsaved work goes to an autosave first, and the page reopens it.
-    if (editor.dirty && editor.doc.allSolids().length) {
-      const name = editor.mapName.replace(/\.vmf$/i, '') + '.autosave.vmf';
-      const r = await apiPost(`/api/autosave?name=${encodeURIComponent(name)}`, editor.doc.serialize());
-      if (!r.ok) return toast(editor.container, 'Could not autosave the map; install not switched.');
-      url.searchParams.set('map', (await r.json()).id);
-    }
-    const r = await apiPost('/api/install', JSON.stringify({ dir }));
-    if (!r.ok) {
-      toast(editor.container, `Switch failed: ${(await r.json().catch(() => ({ error: r.statusText }))).error}`);
-      return;
-    }
-    location.href = url.toString();
-  });
+  select.addEventListener('change', () => void switchInstall(editor, select.value));
   return select;
+}
+
+/** The installs found and the active one (also for the start screen's "Change game…"). */
+export async function fetchInstalls(): Promise<{ installs: Install[]; install: string | null }> {
+  return (await fetch('/api/config')).json();
+}
+
+/** Makes `dir` the active install and reloads the page; unsaved work goes to an autosave first, and the page reopens it. */
+export async function switchInstall(editor: Editor, dir: string): Promise<void> {
+  const url = new URL(location.href);
+  if (editor.dirty && editor.doc.allSolids().length) {
+    const name = editor.mapName.replace(/\.vmf$/i, '') + '.autosave.vmf';
+    const r = await apiPost(`/api/autosave?name=${encodeURIComponent(name)}`, editor.doc.serialize());
+    if (!r.ok) return toast(editor.container, 'Could not autosave the map; install not switched.');
+    url.searchParams.set('map', (await r.json()).id);
+  }
+  const r = await apiPost('/api/install', JSON.stringify({ dir }));
+  if (!r.ok) {
+    toast(editor.container, `Switch failed: ${(await r.json().catch(() => ({ error: r.statusText }))).error}`);
+    return;
+  }
+  location.href = url.toString();
 }
