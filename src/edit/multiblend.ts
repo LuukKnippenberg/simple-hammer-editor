@@ -18,12 +18,31 @@ export const BLEND_FOLDER = 'she/blend';
 /** Softness map shared by the shipped Lambda Wars multiblends; its alpha sets how soft the edges are. */
 export const DEFAULT_SPEC = 'nature/forest_grass_10a_spec';
 
+/** How soft a painted layer's edge is: picks its softness map ($spectextureN). */
+export type BlendEdge = 'crisp' | 'medium' | 'soft';
+
+export const BLEND_EDGES: BlendEdge[] = ['crisp', 'medium', 'soft'];
+
+/**
+ * The softness map each edge writes. The shader shows a layer from (1 − map alpha) of paint upwards: Soft (alpha
+ * 0.87) from 13%, Medium (0.41) from 59%, Crisp (no map: the engine binds black) only where fully painted.
+ */
+export const EDGE_SPECS: Record<BlendEdge, string | null> = { crisp: null, medium: 'nature/forest_grass_10b_spec', soft: DEFAULT_SPEC };
+
+/** The edge a softness map gives; other maps (a few game blends use nature/mud_spec_01) count as Soft. */
+export function edgeFromSpec(spec: string | undefined): BlendEdge {
+  if (!spec) return 'crisp';
+  return spec.toLowerCase() === EDGE_SPECS.medium ? 'medium' : 'soft';
+}
+
 export interface BlendLayer {
   texture: string;
-  /** Texture size multiplier ($scaleN). */
+  /** Texture size ($scaleN divides the texture coordinates: 2 is twice as large). */
   scale: number;
-  /** Degrees ($rotationN). */
+  /** Degrees ($rotationN), around the texture's centre. */
   rotation: number;
+  /** Layers 1–3 only (the base has none); missing means Soft, what the editor wrote before edges existed. */
+  edge?: BlendEdge;
 }
 
 export interface BlendDef {
@@ -31,7 +50,6 @@ export interface BlendDef {
   name: string;
   /** Base layer first, then up to three layers painted on top. */
   layers: BlendLayer[];
-  spec?: string;
   /** Detail sprites (%detailtype), e.g. grass01b. */
   detailtype?: string;
 }
@@ -42,18 +60,24 @@ export function safeBlendName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'blend';
 }
 
-/** The VMT text for a blend definition. Unused slots repeat the base texture and are never painted. */
+/**
+ * The VMT text for a blend definition: only the keys the MultiBlend shader reads ($basetextureN, $spectextureN,
+ * $scaleN, $rotationN, $fow) plus the compile keys vbsp reads. The base is slot 4 and keeps the Soft map (it only
+ * adds shine there); layers 1–3 are slots 1–3. Unused slots repeat the base without a softness map and are never painted.
+ */
 export function blendVmt(def: BlendDef): string {
   const [base, ...top] = def.layers;
-  const slots = [top[0] ?? base, top[1] ?? base, top[2] ?? base, base];
-  const spec = def.spec ?? DEFAULT_SPEC;
+  const slots: { l: BlendLayer; spec: string | null }[] = [0, 1, 2].map((i) => top[i]
+    ? { l: top[i], spec: EDGE_SPECS[top[i].edge ?? 'soft'] }
+    : { l: base, spec: null });
+  slots.push({ l: base, spec: DEFAULT_SPEC });
   const q = (k: string, v: string | number) => `\t"${k}" "${v}"\n`;
   let out = '"MultiBlend"\n{\n' + q('%keywords', 'wars');
-  slots.forEach((l, i) => {
+  slots.forEach(({ l, spec }, i) => {
     const n = i ? String(i + 1) : '';
-    out += '\n' + q(`$basetexture${n}`, l.texture) + q(`$spectexture${n}`, spec) + q(`$scale${n}`, l.scale.toFixed(2)) + q(`$rotation${n}`, l.rotation.toFixed(1));
+    out += q(`$basetexture${n}`, l.texture) + (spec ? q(`$spectexture${n}`, spec) : '') + q(`$scale${n}`, l.scale.toFixed(2)) + q(`$rotation${n}`, l.rotation.toFixed(1));
   });
-  out += '\n' + q('%tooltexture', base.texture) + q('$fow', '_rt_fog_of_war');
+  out += q('%tooltexture', base.texture) + q('$fow', '_rt_fog_of_war');
   if (def.detailtype) out += q('%detailtype', def.detailtype);
   return out + '}\n';
 }
@@ -65,13 +89,14 @@ export function blendFromParams(name: string, p: Map<string, string>): BlendDef 
     return { texture: p.get(`$basetexture${n}`) ?? '', scale: parseFloat(p.get(`$scale${n}`) ?? '1') || 1, rotation: parseFloat(p.get(`$rotation${n}`) ?? '0') || 0 };
   };
   const base = slot(3);
-  // Unused slots are exact copies of the base (see blendVmt). Only trailing ones are dropped: layer i must stay
+  // Unused slots are copies of the base (see blendVmt). Only trailing ones are dropped: layer i must stay
   // slot i, and a layer may reuse the base texture at another size or angle to break up its tiling.
   const same = (l: BlendLayer) => !l.texture || (l.texture.toLowerCase() === base.texture.toLowerCase() && l.scale === base.scale && l.rotation === base.rotation);
-  const top = [slot(0), slot(1), slot(2)];
+  const top = [0, 1, 2].map((i) => ({ ...slot(i), edge: edgeFromSpec(p.get(`$spectexture${i ? i + 1 : ''}`)) }));
   while (top.length && same(top[top.length - 1])) top.pop();
   const layers = [base, ...top];
-  return { name, layers, spec: p.get('$spectexture'), detailtype: p.get('%detailtype') };
+  const detailtype = p.get('%detailtype');
+  return detailtype ? { name, layers, detailtype } : { name, layers };
 }
 
 /** Moves vertex `i`'s weights towards showing `layer` (0 = base) by `f` (0..1). */

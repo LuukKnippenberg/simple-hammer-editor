@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ViteDevServer } from 'vite';
-import { editorServer, readBody, safeTextureName } from '../server/plugin.ts';
+import { blendFromBody, editorServer, readBody, safeTextureName } from '../server/plugin.ts';
 import { AssetFS } from '../server/assets.ts';
 import { editorContent } from '../server/compile.ts';
 import { loadConfig } from '../server/config.ts';
@@ -26,6 +26,18 @@ beforeAll(async () => {
   writeFileSync(join(root, 'content', 'materials', 'she', 'grass.vmt'), '"LightmappedGeneric" {}');
   mkdirSync(join(root, 'maps'));
   writeFileSync(join(root, 'maps', 'outside.vmt'), '');
+  // Blend sprite types and ground textures: one DXT1 (no alpha) and one DXT5 cut-out.
+  writeFileSync(join(root, 'content', 'detail.vbsp'), 'detail { grass01b { "density" "1" } rocks1 { } }');
+  mkdirSync(join(root, 'content', 'materials', 'nature'), { recursive: true });
+  const vtf = (format: number) => {
+    const b = Buffer.alloc(80);
+    b.write('VTF\0', 0, 'latin1');
+    b.writeInt32LE(format, 52);
+    return b;
+  };
+  writeFileSync(join(root, 'content', 'materials', 'nature', 'dirt01.vtf'), vtf(13));
+  writeFileSync(join(root, 'content', 'materials', 'nature', 'leaves01.vtf'), vtf(15));
+  writeFileSync(join(root, 'content', 'materials', 'nature', 'dirt01_normal.vtf'), vtf(13));
 
   let handle!: (req: IncomingMessage, res: unknown, next: () => void) => Promise<void>;
   const vite = { config: { root }, middlewares: { use: (fn: typeof handle) => (handle = fn) } } as unknown as ViteDevServer;
@@ -127,6 +139,62 @@ describe('dev server: names and paths', () => {
     for (const t of ['a"b', 'a{', 'a\n"$basetexture2" "x"', 'tab\there', '', 7]) expect(safeTextureName(t), String(t)).toBe(false);
     const bad = await call('POST', '/api/blend', { headers: write, body: JSON.stringify({ name: 'x', layers: [{ texture: 'a\n"$x" "1"' }] }) });
     expect(bad.status).toBe(400);
+  });
+
+  it('checks blend layers: textures, sizes, rotations and edges', () => {
+    const layer = (o: object = {}) => ({ texture: 'nature/dirt', scale: 1, rotation: 0, ...o });
+    const ok = blendFromBody({ name: 'My Blend!', layers: [layer(), layer({ edge: 'medium' }), layer()] });
+    expect(ok).toEqual({ name: 'my_blend', layers: [layer(), layer({ edge: 'medium' }), layer({ edge: 'soft' })] });
+    // A spec on the blend (scripts written before edges) sets the edge of layers without one; only the edge maps pass.
+    expect((blendFromBody({ name: 'a', spec: 'nature/forest_grass_10b_spec', layers: [layer(), layer()] }) as { layers: { edge?: string }[] }).layers[1].edge).toBe('medium');
+    for (const bad of [
+      { name: 'a', layers: [] },
+      { name: 'a', layers: [layer(), layer(), layer(), layer(), layer()] },
+      { name: 'a', spec: 'nature/mud_spec_01', layers: [layer(), layer()] },
+      { name: 'a', layers: [layer({ edge: 'soft' }), layer()] },
+      { name: 'a', layers: [layer(), layer({ edge: 'blurry' })] },
+      { name: 'a', layers: [layer(), layer({ scale: 0.1 })] },
+      { name: 'a', layers: [layer(), layer({ scale: 'big' })] },
+      { name: 'a', layers: [layer(), layer({ rotation: Infinity })] },
+      { name: 'a', detailtype: 'grass"\n"$x', layers: [layer()] },
+      null,
+    ]) expect(typeof blendFromBody(bad), JSON.stringify(bad)).toBe('string');
+  });
+
+  it('saves, renames and deletes the editor\'s blends only', async () => {
+    const def = (name: string, edge = 'crisp') => JSON.stringify({ name, detailtype: 'rocks1', layers: [{ texture: 'nature/dirt', scale: 1, rotation: 0 }, { texture: 'nature/mud', scale: 2, rotation: 0, edge }] });
+    const file = (n: string) => join(root, 'content', 'materials', 'she', 'blend', `${n}.vmt`);
+    const saved = await call('POST', '/api/blend', { headers: write, body: def('canal') });
+    expect(JSON.parse(saved.text)).toEqual({ material: 'SHE/BLEND/CANAL' });
+    expect(readFileSync(file('canal'), 'utf8')).not.toMatch('$spectexture"');
+    // Save as new doesn't overwrite; Save does.
+    expect((await call('POST', '/api/blend?new=1', { headers: write, body: def('canal', 'soft') })).status).toBe(409);
+    expect((await call('POST', '/api/blend', { headers: write, body: def('canal', 'soft') })).status).toBe(200);
+    expect(readFileSync(file('canal'), 'utf8')).toMatch('"$spectexture" "nature/forest_grass_10a_spec"');
+    expect((await call('POST', '/api/blend', { headers: write, body: JSON.stringify({ ...JSON.parse(def('x')), detailtype: 'nope' }) })).status).toBe(400);
+    expect(JSON.parse((await call('GET', '/api/list?folder=materials/she/blend&ext=.vmt')).text)).toEqual(['materials/she/blend/canal.vmt']);
+
+    await call('POST', '/api/blend', { headers: write, body: def('other') });
+    expect((await call('POST', '/api/blend/rename', { headers: write, body: JSON.stringify({ from: 'canal', to: 'other' }) })).status).toBe(409);
+    expect((await call('POST', '/api/blend/rename', { headers: write, body: JSON.stringify({ from: 'nothing', to: 'x' }) })).status).toBe(404);
+    const renamed = await call('POST', '/api/blend/rename', { headers: write, body: JSON.stringify({ from: 'canal', to: 'Canal Mud' }) });
+    expect(JSON.parse(renamed.text)).toEqual({ material: 'SHE/BLEND/CANAL_MUD' });
+    expect([existsSync(file('canal')), existsSync(file('canal_mud'))]).toEqual([false, true]);
+    // The listing and the file cache follow at once.
+    expect(JSON.parse((await call('GET', '/api/list?folder=materials/she/blend&ext=.vmt')).text)).toEqual(['materials/she/blend/canal_mud.vmt', 'materials/she/blend/other.vmt']);
+    expect((await call('GET', '/api/file?path=materials/she/blend/canal.vmt')).status).toBe(404);
+
+    // Names are reduced to plain file names, so nothing outside she/blend can be renamed or deleted.
+    expect((await call('POST', '/api/blend/delete', { headers: write, body: JSON.stringify({ name: '../grass' }) })).status).toBe(404);
+    expect(existsSync(join(root, 'content', 'materials', 'she', 'grass.vmt'))).toBe(true);
+    expect((await call('POST', '/api/blend/delete', { headers: write, body: JSON.stringify({ name: 'canal_mud' }) })).status).toBe(200);
+    expect(existsSync(file('canal_mud'))).toBe(false);
+    expect((await call('POST', '/api/blend/delete', { body: JSON.stringify({ name: 'other' }) })).status).toBe(403);
+  });
+
+  it('lists sprite types and ground textures without alpha', async () => {
+    expect(JSON.parse((await call('GET', '/api/detailtypes')).text)).toEqual(['grass01b', 'rocks1']);
+    expect(JSON.parse((await call('GET', '/api/groundtextures')).text)).toEqual(['nature/dirt01']);
   });
 
   it('stops reading a body past the limit', async () => {

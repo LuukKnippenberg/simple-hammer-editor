@@ -124,6 +124,21 @@ function toRGBA(f: number, src: Uint8Array, w: number, h: number): Uint8Array {
   return out;
 }
 
+/** Whether a VTF's pixel format or flags carry an alpha channel. */
+export function formatHasAlpha(format: VtfFormat, flags: number): boolean {
+  return format === VtfFormat.DXT5 || format === VtfFormat.DXT3 || format === VtfFormat.DXT1_ONEBITALPHA ||
+    !!(flags & (TEXTUREFLAGS_ONEBITALPHA | TEXTUREFLAGS_EIGHTBITALPHA)) ||
+    [VtfFormat.RGBA8888, VtfFormat.ABGR8888, VtfFormat.ARGB8888, VtfFormat.BGRA8888, VtfFormat.BGRA4444, VtfFormat.BGRA5551, VtfFormat.IA88, VtfFormat.A8].includes(format);
+}
+
+/** Alpha from a VTF file's header alone (flags at 20, format at 52), without decoding it; false for a non-VTF. */
+export function vtfHeaderHasAlpha(buffer: Uint8Array): boolean {
+  if (buffer.byteLength < 64) return false;
+  const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  if (dv.getUint32(0, true) !== 0x00465456) return false;
+  return formatHasAlpha(dv.getInt32(52, true) as VtfFormat, dv.getUint32(20, true));
+}
+
 export function parseVtf(buffer: ArrayBuffer): VtfImage | null {
   const dv = new DataView(buffer);
   if (buffer.byteLength < 64 || dv.getUint32(0, true) !== 0x00465456) return null; // "VTF\0"
@@ -171,10 +186,7 @@ export function parseVtf(buffer: ArrayBuffer): VtfImage | null {
   }
   if (!mips.length) return null;
 
-  const hasAlpha =
-    format === VtfFormat.DXT5 || format === VtfFormat.DXT3 || format === VtfFormat.DXT1_ONEBITALPHA ||
-    !!(flags & (TEXTUREFLAGS_ONEBITALPHA | TEXTUREFLAGS_EIGHTBITALPHA)) ||
-    [VtfFormat.RGBA8888, VtfFormat.ABGR8888, VtfFormat.ARGB8888, VtfFormat.BGRA8888, VtfFormat.BGRA4444, VtfFormat.BGRA5551, VtfFormat.IA88, VtfFormat.A8].includes(format);
+  const hasAlpha = formatHasAlpha(format, flags);
   const encoding =
     format === VtfFormat.DXT1 ? (flags & TEXTUREFLAGS_ONEBITALPHA ? 'dxt1a' : 'dxt1')
       : format === VtfFormat.DXT1_ONEBITALPHA ? 'dxt1a'

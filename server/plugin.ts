@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadConfig, saveInstall, saveSdkBinDir, type EditorConfig } from './config.ts';
 import { diffSummary, diffVmf, heightThumb, mapMode, mtimeOf, newestFirst, recoverOffers, setupCheck, THUMB_H, THUMB_W, type MapFile } from './mapInfo.ts';
@@ -8,7 +8,9 @@ import { AssetFS, contentDir, insideGame } from './assets.ts';
 import { loadFgd, type FgdClass } from './fgd.ts';
 import { modelIndex, type ModelEntry } from './models.ts';
 import { compileMap, launchGame, safeMapName } from './compile.ts';
-import { BLEND_FOLDER, blendVmt, safeBlendName, type BlendDef } from '../src/edit/multiblend.ts';
+import { BLEND_EDGES, BLEND_FOLDER, EDGE_SPECS, blendVmt, materialForBlend, safeBlendName, type BlendDef, type BlendEdge } from '../src/edit/multiblend.ts';
+import { vtfHeaderHasAlpha } from '../src/assets/vtf.ts';
+import { parseKeyValues } from '../src/vmf/keyvalues.ts';
 import { API_HEADER } from '../src/api.ts';
 
 export interface MapLocation {
@@ -88,6 +90,49 @@ export function refuseReason(req: IncomingMessage): string | null {
 /** Usable as a VMT value: no quotes, braces or control characters (a line break would add keys). */
 export const safeTextureName = (t: unknown): boolean => typeof t === 'string' && t.length > 0 && !/["{}\x00-\x1f\x7f]/.test(t);
 
+/** Where a blend made in the editor lives, relative to content/. */
+const blendFile = (name: string) => `materials/${BLEND_FOLDER}/${name}.vmt`;
+
+/** Blend layer sizes ($scaleN) the blender offers; the game's own blends use 0.4 to 4. */
+export const BLEND_SCALE = { min: 0.25, max: 4 };
+
+/**
+ * A blend definition from a request body, checked and with a safe name, or why it can't be saved. Layers 1–3 may
+ * carry an `edge` (crisp, medium or soft); the base can't. A `spec` on the blend (what scripts sent before edges
+ * existed) may only name one of the softness maps an edge writes, and sets the edge of layers without one.
+ */
+export function blendFromBody(body: unknown): BlendDef | string {
+  const def = body as Partial<BlendDef> & { spec?: unknown } | null;
+  if (!def || typeof def !== 'object' || !Array.isArray(def.layers) || !def.layers.length || def.layers.length > 4) return 'A blend needs 1 to 4 layers';
+  const specs = new Map(BLEND_EDGES.map((e) => [EDGE_SPECS[e], e] as const));
+  if (def.spec !== undefined && def.spec !== null && (typeof def.spec !== 'string' || !specs.has(def.spec.toLowerCase()))) {
+    return `Softness map ${String(def.spec)} isn't one of ${[...specs.keys()].filter(Boolean).join(', ')}`;
+  }
+  const fallback: BlendEdge = typeof def.spec === 'string' ? specs.get(def.spec.toLowerCase())! : def.spec === null ? 'crisp' : 'soft';
+  const layers = [];
+  for (const [i, l] of def.layers.entries()) {
+    if (!l || !safeTextureName(l.texture)) return 'Every layer needs a texture';
+    const scale = Number(l.scale ?? 1), rotation = Number(l.rotation ?? 0);
+    if (!(scale >= BLEND_SCALE.min && scale <= BLEND_SCALE.max)) return `Size must be ${BLEND_SCALE.min} to ${BLEND_SCALE.max}`;
+    if (!Number.isFinite(rotation) || Math.abs(rotation) > 360) return 'Rotation must be -360 to 360 degrees';
+    if (i === 0 && l.edge !== undefined) return 'The base layer has no edge';
+    if (l.edge !== undefined && !BLEND_EDGES.includes(l.edge)) return `Edge must be one of ${BLEND_EDGES.join(', ')}`;
+    layers.push(i ? { texture: l.texture, scale, rotation, edge: l.edge ?? fallback } : { texture: l.texture, scale, rotation });
+  }
+  if (def.detailtype !== undefined && def.detailtype !== '' && !safeTextureName(def.detailtype)) return 'Bad sprite type';
+  return { name: safeBlendName(String(def.name ?? '')), layers, ...(def.detailtype ? { detailtype: def.detailtype } : {}) };
+}
+
+/** Folders the blender's texture browser lists, and the maps in them that aren't ground textures. */
+const GROUND_FOLDERS = ['materials/nature', 'materials/lostcoast/nature', 'materials/concrete'];
+const NOT_GROUND = /(_normal|_spec|_bump|_ssbump|_height|_mask|_exp|_detail)/;
+
+/** The sprite types in a detail.vbsp: the blocks inside its `detail` block. */
+export function parseDetailTypes(text: string): string[] {
+  const root = parseKeyValues(text).find((n) => n.name.toLowerCase() === 'detail');
+  return root ? root.children.map((c) => c.name) : [];
+}
+
 export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: AssetFS }) => Record<string, Route> = () => ({})): Plugin {
   return {
     name: 'simple-hammer-editor-server',
@@ -97,6 +142,8 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
       const listCache = new Map<string, string[]>();
       let fgd: FgdClass[] | null = null;
       let models: ModelEntry[] | null = null;
+      let details: string[] | null = null;
+      let groundTextures: string[] | null = null;
       let compiling = false;
       const load = () => {
         cfg = loadConfig(server.config.root);
@@ -105,9 +152,18 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
         listCache.clear();
         fgd = null;
         models = null;
+        details = null;
+        groundTextures = null;
         console.log(`[assets] install ${cfg.install}: ${assets.sources.length} sources indexed in ${Date.now() - t0} ms`);
       };
       load();
+
+      const detailTypes = () => (details ??= parseDetailTypes(assets.read('detail.vbsp')?.toString('latin1') ?? ''));
+      /** A blend file was written, renamed or deleted: forget the cached copies and folder listings. */
+      const blendChanged = (...rels: string[]) => {
+        for (const rel of rels) assets.forget(rel);
+        listCache.clear();
+      };
 
       const sidecar = (kind: string): Route => async (req, res, url) => {
         const ext = new RegExp(`^[\\w\\- .]+\\.${kind}\\.json$`, 'i');
@@ -310,21 +366,64 @@ export function editorServer(extraRoutes: (ctx: { cfg: EditorConfig; assets: Ass
           }
         },
 
-        // Saves a MultiBlend material made in the editor to content/materials/she/blend/<name>.vmt.
-        '/api/blend': async (req, res) => {
+        // Saves a MultiBlend material made in the editor to content/materials/she/blend/<name>.vmt. With ?new=1 an
+        // existing blend of that name is not overwritten (Save as new).
+        '/api/blend': async (req, res, url) => {
           if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
-          const def = JSON.parse((await readBody(req)).toString('utf8')) as BlendDef;
-          if (!def?.layers?.length || def.layers.length > 4 || def.layers.some((l) => !safeTextureName(l.texture))) {
-            return send(res, 400, JSON.stringify({ error: 'A blend needs 1 to 4 layers with textures' }));
-          }
-          const name = safeBlendName(def.name);
-          const rel = `materials/${BLEND_FOLDER}/${name}.vmt`;
+          const def = blendFromBody(JSON.parse((await readBody(req)).toString('utf8')));
+          if (typeof def === 'string') return send(res, 400, JSON.stringify({ error: def }));
+          const types = detailTypes();
+          if (def.detailtype && types.length && !types.includes(def.detailtype)) return send(res, 400, JSON.stringify({ error: `Unknown sprite type ${def.detailtype}` }));
+          const rel = blendFile(def.name);
           const file = join(contentDir(cfg), rel);
+          if (url.searchParams.get('new') === '1' && existsSync(file)) return send(res, 409, JSON.stringify({ error: `A blend named ${def.name} exists already` }));
           mkdirSync(join(file, '..'), { recursive: true });
-          writeFileSync(file, blendVmt({ ...def, name }));
-          assets.forget(rel);
-          listCache.clear();
-          send(res, 200, JSON.stringify({ material: `${BLEND_FOLDER}/${name}`.toUpperCase() }));
+          writeFileSync(file, blendVmt(def));
+          blendChanged(rel);
+          send(res, 200, JSON.stringify({ material: materialForBlend(def.name) }));
+        },
+
+        // Renames one of the editor's blends: {from, to}. Refuses to overwrite another blend.
+        '/api/blend/rename': async (req, res) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          const { from, to } = JSON.parse((await readBody(req)).toString('utf8')) as { from?: unknown; to?: unknown };
+          if (typeof from !== 'string' || typeof to !== 'string') return send(res, 400, JSON.stringify({ error: 'from and to are needed' }));
+          const [a, b] = [blendFile(safeBlendName(from)), blendFile(safeBlendName(to))];
+          if (!existsSync(join(contentDir(cfg), a))) return send(res, 404, JSON.stringify({ error: `No blend named ${from}` }));
+          if (a !== b && existsSync(join(contentDir(cfg), b))) return send(res, 409, JSON.stringify({ error: `A blend named ${to} exists already` }));
+          renameSync(join(contentDir(cfg), a), join(contentDir(cfg), b));
+          blendChanged(a, b);
+          send(res, 200, JSON.stringify({ material: materialForBlend(safeBlendName(to)) }));
+        },
+
+        // Deletes one of the editor's blends: {name}. The game's own blends (materials/blends) can't be reached.
+        '/api/blend/delete': async (req, res) => {
+          if (req.method !== 'POST') return send(res, 405, JSON.stringify({ error: 'POST only' }));
+          const { name } = JSON.parse((await readBody(req)).toString('utf8')) as { name?: unknown };
+          if (typeof name !== 'string') return send(res, 400, JSON.stringify({ error: 'name is needed' }));
+          const rel = blendFile(safeBlendName(name));
+          if (!existsSync(join(contentDir(cfg), rel))) return send(res, 404, JSON.stringify({ error: `No blend named ${name}` }));
+          rmSync(join(contentDir(cfg), rel));
+          blendChanged(rel);
+          send(res, 200, JSON.stringify({ material: materialForBlend(safeBlendName(name)) }));
+        },
+
+        // Detail sprite types (%detailtype) from the game's detail.vbsp.
+        '/api/detailtypes': (_req, res) => send(res, 200, JSON.stringify(detailTypes())),
+
+        // Textures a blend layer can use: nature/, lostcoast/nature/ and concrete/ without normal, spec or tool maps,
+        // and without textures that carry alpha (leaves, skybox treelines), which would punch holes in a layer.
+        '/api/groundtextures': (_req, res) => {
+          groundTextures ??= GROUND_FOLDERS.flatMap((folder) => assets.list(folder, '.vtf'))
+            .filter((f) => !NOT_GROUND.test(f))
+            .filter((f) => {
+              const data = assets.read(f);
+              // Only the header is needed: don't keep ~80 MB of textures in the file cache.
+              assets.forget(f);
+              return !!data && !vtfHeaderHasAlpha(data);
+            })
+            .map((f) => f.replace(/^materials\//, '').replace(/\.vtf$/, ''));
+          send(res, 200, JSON.stringify(groundTextures));
         },
 
         // Mission list entry (maps/<name>.res) next to the compiled map.
