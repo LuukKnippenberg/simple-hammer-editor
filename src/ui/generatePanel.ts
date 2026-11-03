@@ -114,7 +114,7 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   const stairsHint = (tune: boolean) => stairs.phase === 'height'
     ? 'Move the mouse up or down, scroll, or type a number. Click or Enter confirms, Esc goes back.'
     : stairs.phase === 'a' ? 'Click A, the foot of the stairs · Esc: back to the menu'
-      : tune ? 'Every change rebuilds them · click the next point to chain · Shift+click branches from the landing just left · Enter: done · Backspace: take back a point'
+      : tune ? 'Every change rebuilds them · click the next point to chain · drag a pin to move it, click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to branch from it · Enter: done · Backspace: take back a point'
         : 'Click B, the top end; its height starts at the surface you click · Esc: back to A';
   /** Stairs: the height read-out while setting one, the option sheet in Tune (every change rebuilds them). */
   const stairsRows = (tune: boolean): HTMLElement[] => {

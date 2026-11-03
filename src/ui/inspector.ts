@@ -34,7 +34,9 @@ import { openGenerateMenu } from './generateMenu.ts';
 import { partInspector } from './partPanel.ts';
 import { deleteStairs, duplicateStairs, regenerateStairs, selectedStairs } from '../gen/stairsAction.ts';
 import { stairsOf } from '../gen/stairsStore.ts';
-import { buildStairs, pointNames, stairsSummary, type StairsFlight } from '../gen/stairs.ts';
+import { buildStairs, stairsSummary, type StairsFlight } from '../gen/stairs.ts';
+import { pathLabels, type PathPoint } from '../edit/pathPoints.ts';
+import { pointsList } from './pathPointsList.ts';
 import { stairsSheet } from './stairsOptions.ts';
 import type { GenerateTool } from '../edit/generateTool.ts';
 import { VmfDocument } from '../vmf/map.ts';
@@ -162,6 +164,8 @@ export function mountInspector(editor: Editor): HTMLElement {
   editor.on('selection', render);
   editor.on('change', render);
   editor.on('fgd', render);
+  // The picked pin of selected stairs lights its row in the Points list.
+  editor.on('pathpins', render);
   render();
   return h('div', {}, snapMoveSection(editor), panel);
 }
@@ -289,15 +293,16 @@ function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
 }
 
 /**
- * Selected stairs: what they are, their points' heights, and the same option sheet as the Tune step (every change
- * rebuilds them). Add flights carries on placing points on them with the Stairs tool.
+ * Selected stairs: what they are, their points (the pins' Points list: typing a number moves a point), and the same
+ * option sheet as the Tune step (every change rebuilds them). Add flights carries on placing points on them with
+ * the Stairs tool.
  */
 function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
   const one = details.length === 1 ? details[0] : null;
   const spec = one ? stairsOf(one) : null;
   const head = h('div.section', {}, h('h3', {}, 'Selection'),
     h('div', {}, details.length > 1 ? `${details.length} stairs` : '🪜 Stairs'),
-    h('p.hint', {}, 'Drag the gizmo to move them (W), up or down too; they are rebuilt where they land. Ctrl+D duplicates, Delete removes them. Hide the handles (Handles in the view bar) to pick single brushes.'));
+    h('p.hint', {}, 'Drag a pin to move a point, click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to place more from it. The gizmo moves the whole stairs (W). Ctrl+D duplicates, Delete removes them (or the picked point). Hide the handles (Handles in the view bar) to pick single brushes.'));
   if (!one || !spec) return [head];
   const result = buildStairs(VmfDocument.empty(), spec);
   const edit = (patch: Parameters<typeof regenerateStairs>[2]) => regenerateStairs(editor, one, patch);
@@ -306,13 +311,22 @@ function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
       h('button.primary', { title: 'Click more points: each one adds a flight; Shift+click a landing to branch from it', onclick: () => (editor.tools.tools.generate as GenerateTool).continueStairs(one) }, 'Add flights…'),
       h('button', { onclick: () => duplicateStairs(editor, one) }, 'Duplicate'),
       h('button', { onclick: () => deleteStairs(editor, one) }, 'Delete')));
-  const names = pointNames(spec);
-  const points = h('div.section', {}, h('h3', {}, 'Points'), h('p.hint', {}, 'Height of each point; A is the foot.'),
-    ...spec.nodes.map((node, i) => {
-      const zInput = h('input.num', { type: 'number', value: String(node.z), step: '8' }) as HTMLInputElement;
-      zInput.addEventListener('change', () => { zInput.blur(); edit({ nodes: spec.nodes.map((other, k) => (k === i ? { ...other, z: Number(zInput.value) || 0 } : other)) }); });
-      return h('div.row', {}, h('label', {}, names[i]), zInput, h('span.unit', {}, `at ${Math.round(node.x)} ${Math.round(node.y)}`));
+  // One row per point, the same points (and order) as the pins; Tab or a click on a row picks one.
+  const pins = editor.tools.select.pins;
+  const points = h('div.section', {}, h('h3', {}, 'Points'), h('p.hint', {}, 'A is the foot. Typing a number moves the point; Tab picks the next pin.'));
+  // While the Stairs tool is placing them, the pins in the viewport are the stairs tool's own.
+  if (pins.target?.key === `stairs:${spec.uid}` && editor.tools.current === editor.tools.select) {
+    const path = pins.target.path();
+    const names = pathLabels(path);
+    const axes: (keyof PathPoint)[] = ['x', 'y', 'z'];
+    points.append(pointsList({
+      names, columns: ['x', 'y', 'height'], steps: [editor.grid, editor.grid, 8], values: path.points.map((p) => axes.map((a) => p[a])), selected: pins.selected,
+      select: (i) => pins.select(i),
+      set: (i, column, value) => pins.setPoint(i, { ...path.points[i], [axes[column]]: value }),
     }));
+    const picked = pins.selected;
+    if (picked >= 0 && names[picked]) points.append(h('div.row', { style: { marginTop: '6px' } }, h('button', { onclick: () => pins.remove(picked) }, `Remove ${names[picked]}`)));
+  }
   const setFlight = (i: number, patch: Partial<StairsFlight>) => edit({
     flights: spec.flights.map((flight, k) => {
       if (k !== i) return flight;
