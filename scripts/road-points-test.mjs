@@ -1,6 +1,7 @@
 // Road point pins (pathPins.ts, roadPath.ts): place A-B-C, drag a pin while placing, insert with +, Alt+click to
-// remove, branch with Shift+click (a second road, T junction), drag A onto another street (joins), finish; then on
-// the placed road drag a pin onto another road (joins) and undo it in one step, amber and red drags, type a corner
+// remove, branch with Shift+click (a second road, T junction), drag A onto another street (joins), build; in the Tune
+// step the road keeps its pins (a drag joins the generate's undo step); then on the placed road drag a pin onto another
+// road (an outline while dragging, the map untouched; joins) and undo it in one step, amber and red drags, type a corner
 // radius in the Points list, Tab, branch and extend from its pins, Delete a point, and Layers › Handles off.
 // Exits non-zero when a check fails.
 //   SHE_PORT=5208 node scripts/road-points-test.mjs [--shots <dir>]
@@ -68,6 +69,13 @@ await withEditor(async (d, page) => {
     return r ? { points: r.points.map((p) => [p.x, p.y]), radii: r.radii ?? null } : null;
   });
   const depth = () => d.eval(() => window.__editor.editor.history.depth);
+  /** The whole map as saved: unchanged while a pin is only being dragged. */
+  const mapText = () => d.eval(() => window.__editor.editor.doc.serialize());
+  /** Vertices of the drag preview outline of the shown pins (the Select tool's, else the Road tool's). */
+  const outline = () => d.eval(() => {
+    const t = window.__editor.editor.tools;
+    return (t.current === t.select ? t.select : t.tools.road).pins.outline.geometry.getAttribute('position').count;
+  });
   const tool = () => d.eval(() => window.__editor.editor.tools.current.name);
   const tip = () => page.$eval('.path-pins:not([hidden]) .path-tip', (e) => e.className);
   const dragTo = async (from, to, { hold } = {}) => {
@@ -152,6 +160,22 @@ await withEditor(async (d, page) => {
   }), true);
   check('Market\'s kerb opens where the main road comes in', await kindAt(0, 132), 'surface');
   check('Market\'s far kerb stays', await kindAt(0, -132), 'kerb');
+  // Tune step: the road just built keeps its pins; a drag previews, then rebuilds into the generate's one undo step.
+  check('Tune step', await d.eval(() => window.__editor.editor.tools.tools.generate.session?.step), 'tune');
+  check('Tune step keeps the pins', await names(), ['A', 'B', 'C']);
+  const stepsTune = await depth();
+  const mapTune = await mapText();
+  await dragTo(await pinBox('C'), [1152, 768, 0], {
+    hold: async () => {
+      check('Tune drag: map unchanged while dragging', (await mapText()) === mapTune, true);
+      check('Tune drag: outline while dragging', (await outline()) > 0, true);
+      await shot('road-points-tune-drag');
+    },
+  });
+  check('Tune drag moved C', (await roads())[1][2], [1152, 768]);
+  check('Tune drag joins the generate\'s undo step', (await depth()) - stepsTune, 0);
+  check('still in the Tune step', await d.eval(() => window.__editor.editor.tools.tools.generate.session?.step), 'tune');
+  await page.mouse.move(10, 10);
   await d.key('Enter');
   await d.settle(300);
   check('finished: Select tool', await tool(), 'select');
@@ -172,13 +196,19 @@ await withEditor(async (d, page) => {
   // --- Placed road, Select tool ------------------------------------------------------------------------------
   const before = await placed();
   const steps = await depth();
-  // Drag C onto Market street: live rebuild, joins, one undo step; undo puts it back.
+  // Drag C onto Market street: an outline while dragging (the map untouched), joins, one rebuild and one undo step
+  // on release; undo puts it back.
+  const mapBefore = await mapText();
   await dragTo(await pinBox('C'), [1024, 40, 0], {
     hold: async () => {
-      check('live rebuild while dragging', (await placed()).points[2], [1024, 0]);
+      check('map unchanged while dragging', (await mapText()) === mapBefore, true);
+      check('no history step while dragging', (await depth()) - steps, 0);
+      check('outline while dragging', (await outline()) > 0, true);
       check('joins while dragging', await tip(), 'path-tip joins');
+      await shot('road-points-drag-preview');
     },
   });
+  check('outline gone after release', await outline(), 0);
   check('C joined Market street', (await placed()).points[2], [1024, 0]);
   check('one undo step for the drag', (await depth()) - steps, 1);
   await d.eval(() => window.__editor.editor.undo());
@@ -260,7 +290,7 @@ await withEditor(async (d, page) => {
   await d.key('Enter');
   await d.settle(300);
   check('extended, still four roads', (await roads()).length, 4);
-  check('main road went on to D', (await roads())[1], [[0, 0], [0, 768], [1024, 768], [1536, 1280]]);
+  check('main road went on to D', (await roads())[1], [[0, 0], [0, 768], [1152, 768], [1536, 1280]]);
 
   // Delete with a pin picked removes that point; the branch from B stays joined to the road.
   await selectMain();
