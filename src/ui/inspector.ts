@@ -347,7 +347,7 @@ function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
   // One row per point, the same points (and order) as the pins; Tab or a click on a row picks one.
   const points = pathPointsSection(editor, stairsKey(spec.uid),
     [pointAxis('x', 'x', editor.grid), pointAxis('y', 'y', editor.grid), pointAxis('height', 'z', 8)],
-    'A is the foot. Typing a number moves the point; Tab picks the next pin.');
+    'A is the foot. Typing a number moves the point; Tab picks the next pin. Height: the wheel while holding a pin, or Page Up / Page Down on a picked one.');
   const setFlight = (i: number, patch: Partial<StairsFlight>) => edit({
     flights: spec.flights.map((flight, k) => {
       if (k !== i) return flight;

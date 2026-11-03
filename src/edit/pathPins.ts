@@ -11,7 +11,8 @@ import {
  * the Top view. Drag a pin to move its point (an outline shows what it would build and letting go rebuilds it once,
  * as one undo step; a target without an outline rebuilds live on every move instead), click
  * a + to insert a point, Alt+click a pin to remove it, Shift+click a pin to place more points from it, Tab to pick
- * the next pin, Delete to remove the picked one, Esc to cancel a drag.
+ * the next pin, Delete to remove the picked one, Esc to cancel a drag. Points with their own height (stairs) go up
+ * and down with the mouse wheel while their pin is held or dragged, and with Page Up / Page Down when picked.
  *
  * The pins edit a `PathTarget`: a generator's object as a path (stairs now; streets and powerlines can follow). The
  * Stairs tool shows them while placing, the Select tool on selected stairs.
@@ -117,7 +118,13 @@ interface Drag {
   /** With a preview: nothing is built until the drag ends; `moved` is the + drag's insert, set then. */
   preview: boolean;
   moved?: number[];
+  /** Where the pointer is (null: not moved yet, the point stays where it was), and the height the wheel added. */
+  cursor: { x: number; y: number; shift: boolean } | null;
+  lift: number;
 }
+
+/** How far one wheel notch or Page Up / Page Down moves a point with its own height. */
+export const HEIGHT_STEP = 8;
 
 const PIN_LIFT = 8;
 const DRAG_START = 5;
@@ -246,6 +253,11 @@ export class PathPins {
       return true;
     }
     if (e.key === 'Delete' && this.selected >= 0) { this.remove(this.selected); return true; }
+    if ((e.key === 'PageUp' || e.key === 'PageDown') && this.selected >= 0 && t.ownHeight) {
+      const p = t.path().points[this.selected];
+      if (p) this.setPoint(this.selected, { ...p, z: p.z + (e.key === 'PageUp' ? HEIGHT_STEP : -HEIGHT_STEP) });
+      return true;
+    }
     return false;
   }
 
@@ -259,6 +271,24 @@ export class PathPins {
     this.press = { pin: Number(el.dataset.pin ?? -1), link: Number(el.dataset.link ?? -1), x: e.clientX, y: e.clientY, alt: e.altKey, shift: e.shiftKey };
     window.addEventListener('pointermove', this.onMove, true);
     window.addEventListener('pointerup', this.onUp, true);
+    window.addEventListener('wheel', this.onWheel, { capture: true, passive: false });
+  }
+
+  /** The wheel while a pin is held or dragged: its point goes up or down (ahead of the camera's zoom). */
+  private onWheel = (e: WheelEvent): void => {
+    const p = this.press, t = this.target;
+    if (!p || !t?.ownHeight || p.alt || e.deltaY === 0) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (!this.drag) this.beginDrag(p);
+    this.drag!.lift += e.deltaY < 0 ? HEIGHT_STEP : -HEIGHT_STEP;
+    this.update();
+  };
+
+  private stopListening(): void {
+    window.removeEventListener('pointermove', this.onMove, true);
+    window.removeEventListener('pointerup', this.onUp, true);
+    window.removeEventListener('wheel', this.onWheel, true);
   }
 
   private onMove = (e: PointerEvent): void => {
@@ -272,8 +302,7 @@ export class PathPins {
   };
 
   private onUp = (): void => {
-    window.removeEventListener('pointermove', this.onMove, true);
-    window.removeEventListener('pointerup', this.onUp, true);
+    this.stopListening();
     const p = this.press, t = this.target;
     this.press = null;
     if (this.drag) return this.endDrag();
@@ -310,16 +339,29 @@ export class PathPins {
       i = r.added;
     }
     this.selected = i;
-    this.drag = { i, edit, start: path, was: t.shown(path)[i], path, check: null, key: '', preview, moved };
+    this.drag = { i, edit, start: path, was: t.shown(path)[i], path, check: null, key: '', preview, moved, cursor: null, lift: 0 };
   }
 
   private dragTo(e: PointerEvent): void {
+    this.drag!.cursor = { x: e.clientX, y: e.clientY, shift: e.shiftKey };
+    this.update();
+  }
+
+  /**
+   * The dragged point at the cursor (on the surface under it; its own height with Shift or after the wheel moved it),
+   * plus what the wheel added; checked, and previewed or rebuilt.
+   */
+  private update(): void {
     const d = this.drag!, t = this.target!, ed = this.editor;
-    const ray = ed.raycaster(ed.ndcFromEvent(e));
-    const hit = ed.world.raycast(ray, { skip: (s) => t.own(s) });
-    const at = hit?.point ?? ray.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), -d.was.z), new Vector3());
-    if (!at) return;
-    const p = t.snap(d.start, d.i, { x: at.x, y: at.y, z: Math.round(at.z) }, t.ownHeight && (e.shiftKey || !hit));
+    let p: PathPoint = { ...d.start.points[d.i] };
+    if (d.cursor) {
+      const ray = ed.raycaster(ed.ndcFromEvent({ clientX: d.cursor.x, clientY: d.cursor.y }));
+      const hit = ed.world.raycast(ray, { skip: (s) => t.own(s) });
+      const at = hit?.point ?? ray.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), -d.was.z), new Vector3());
+      if (!at) return;
+      p = t.snap(d.start, d.i, { x: at.x, y: at.y, z: Math.round(at.z) }, t.ownHeight && (d.cursor.shift || !hit || d.lift !== 0));
+    }
+    if (d.lift) p = { ...p, z: p.z + d.lift };
     const key = `${p.x},${p.y},${p.z}`;
     if (key === d.key) return;
     d.key = key;
@@ -330,7 +372,7 @@ export class PathPins {
       else d.edit.set(d.path);
     } else this.setOutline([]);
     const name = pathLabels(d.path)[d.i];
-    ed.status = `Dragging ${name} of ${t.name} · let go to ${d.check.level === 'refused' ? 'put it back' : 'rebuild'}${t.ownHeight ? ' · Shift keeps its height' : ''} · Esc cancels`;
+    ed.status = `Dragging ${name} of ${t.name} · let go to ${d.check.level === 'refused' ? 'put it back' : 'rebuild'}${t.ownHeight ? ' · wheel: height · Shift keeps its height' : ''} · Esc cancels`;
     this.draw();
   }
 
@@ -356,8 +398,7 @@ export class PathPins {
     const d = this.drag;
     if (!d) return;
     this.drag = null;
-    window.removeEventListener('pointermove', this.onMove, true);
-    window.removeEventListener('pointerup', this.onUp, true);
+    this.stopListening();
     this.press = null;
     d.edit.cancel();
     this.setOutline([]);
