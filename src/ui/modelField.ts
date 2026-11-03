@@ -5,6 +5,7 @@ import { loadModelIndex, modelEntry, modelName } from '../assets/modelIndex.ts';
 import { loadModel } from '../assets/mdl.ts';
 import { convertToDynamic, staticPropProblem } from '../edit/preflight.ts';
 import type { EntityTool } from '../edit/entityTool.ts';
+import { dropTarget, swapModel } from '../edit/assetDrop.ts';
 import { modelThumbnail } from '../render/modelViews.ts';
 import { edit, keyRow, type SpecialGroup } from './entityEditor.ts';
 import { modelsInMap, openModelPicker } from './modelPicker.ts';
@@ -110,6 +111,10 @@ export function modelGroups(editor: Editor, ents: MapEntity[]): SpecialGroup[] {
   const skinValues = new Map<string, number>();
   for (const e of ents) { const v = e.get('skin') ?? skinDef?.default ?? '0'; skinValues.set(v, (skinValues.get(v) ?? 0) + 1); }
 
+  // A model dragged from the asset dock onto the group sets it like Change… does.
+  const target = <T extends HTMLElement>(el: T) => dropTarget(el, 'model',
+    (d) => `set the model of ${ents.length > 1 ? `${ents.length} props` : `this ${ents[0].classname}`}${d.unsafe && statics.length ? ' · becomes prop_dynamic' : ''}`,
+    (id) => void swapModel(editor, ents, id));
   const body = (): HTMLElement => {
     if (counts.size === 1) {
       const path = ents[0].get('model') ?? '';
@@ -121,18 +126,18 @@ export function modelGroups(editor: Editor, ents: MapEntity[]): SpecialGroup[] {
           h(String(s) === cur ? 'button.active' : 'button', { onclick: () => edit(editor, 'Set skin', ents, (e) => e.set('skin', String(s))) }, String(s))));
       });
       return h('div', {},
-        h('div.mf', {}, thumb(editor, path), h('div', { style: { flex: '1', minWidth: '0' } }, pathLabel(path),
+        target(h('div.mf', {}, thumb(editor, path), h('div', { style: { flex: '1', minWidth: '0' } }, pathLabel(path),
           h('div.mf-buttons', {}, h('button.primary', { onclick: pick }, ents.length > 1 ? 'Set for all…' : 'Change…'),
-            recentMenu(editor, path, (p) => { recentModels.push(p); setModel(p, 0); })))),
+            recentMenu(editor, path, (p) => { recentModels.push(p); setModel(p, 0); }))))),
         statics.length ? staticStatus(editor, statics, pick) : null,
         h('div.row', {}, h('label', {}, 'Skin'), skins));
     }
     const top = [...counts].sort((a, b) => b[1] - a[1]);
     return h('div', {},
-      h('div.mf-multi', {},
+      target(h('div.mf-multi', {},
         h('div.mf-stack', {}, ...top.slice(0, 3).map(([p]) => thumb(editor, p))),
         h('span', {}, h('span.mixed', {}, `${counts.size} models`), h('span.mf-sub', {}, top.map(([p, n]) => `${modelName(p) || 'none'} ×${n}`).join(' · '))),
-        h('button', { onclick: pick }, 'Set for all…')),
+        h('button', { onclick: pick }, 'Set for all…'))),
       statics.length ? staticStatus(editor, statics, pick) : null,
       keyRow(editor, ents, { name: skinDef?.name ?? 'skin', def: skinDef, values: skinValues }));
   };
@@ -164,11 +169,12 @@ export function toolModelField(editor: Editor): HTMLElement {
       : h('div.mf-ok', {}, '✓ Works as prop_static')));
   }
   const used = modelsInMap(editor).get(norm(path));
+  const useModel = (p: string) => { editor.entityModel = p; recentModels.push(p); editor.emit('entityclass'); };
   return h('div', {},
-    h('div.mf', {}, thumb(editor, path, 'div.mf-thumb.small'),
+    dropTarget(h('div.mf', {}, thumb(editor, path, 'div.mf-thumb.small'),
       h('div', { style: { flex: '1', minWidth: '0' } },
         h('div', { style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, title: path }, modelName(path) || 'no model'),
         h('div.mf-sub', {}, [entry ? `${entry.size.join(' × ')} u` : '', used ? `in map ×${used}` : ''].filter(Boolean).join(' · '))),
-      h('button.primary', { onclick: pick, style: { alignSelf: 'center' } }, 'Change…')),
+      h('button.primary', { onclick: pick, style: { alignSelf: 'center' } }, 'Change…')), 'model', 'use for the Entity tool', useModel),
     status);
 }

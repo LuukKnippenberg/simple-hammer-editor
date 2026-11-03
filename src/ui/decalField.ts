@@ -2,6 +2,7 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { MAX_OVERLAYS, flipOverlay, overlayFlipped, overlayRotation, overlaySize, setOverlayRotation, setOverlaySize } from '../edit/overlays.ts';
 import { convertDecals } from '../edit/decals.ts';
+import { dropTarget } from '../edit/assetDrop.ts';
 import { edit, type SpecialGroup } from './entityEditor.ts';
 import { decalTexture, decalThumb, openDecalPicker, overlayBudget, overlayCount } from './decalPicker.ts';
 import { recentDecals } from './recent.ts';
@@ -98,15 +99,18 @@ export function decalGroups(editor: Editor, ents: MapEntity[]): SpecialGroup[] {
     useLabel: targets.length > 1 ? `Use for ${targets.length}` : 'Use decal', onPick: (name) => setTexture(editor, targets, name),
   });
   const out: SpecialGroup[] = [];
+  // A decal dragged from the asset dock onto the group sets the texture like Change… does.
+  const target = <T extends HTMLElement>(el: T) => dropTarget(el, 'decal',
+    `set the texture of ${ents.length > 1 ? `${ents.length} decals` : `this ${ents[0].classname}`}`, (name) => setTexture(editor, ents, name));
   const body = (): HTMLElement => {
     if (textures.size === 1) {
       const name = [...textures.keys()][0];
       const sub = h('div.mf-sub', {}, ' ');
       return h('div', {},
-        h('div.mf', {}, decalThumb(name, 'div.mf-thumb', 128, (w, hh) => (sub.textContent = `${w} × ${hh} px`)),
+        target(h('div.mf', {}, decalThumb(name, 'div.mf-thumb', 128, (w, hh) => (sub.textContent = `${w} × ${hh} px`)),
           h('div', { style: { flex: '1', minWidth: '0' } }, texLabel(name), sub,
             h('div.mf-buttons', {}, h('button.primary', { onclick: () => pick(ents, name) }, ents.length > 1 ? `Set for all ${ents.length}…` : 'Change…'),
-              recentMenu(name, (m) => setTexture(editor, ents, m))))),
+              recentMenu(name, (m) => setTexture(editor, ents, m)))))),
         ...ents.length === 1 && overlays.length ? overlayRows(editor, overlays) : []);
     }
     const top = [...textures].sort((a, b) => b[1].length - a[1].length);
@@ -120,10 +124,10 @@ export function decalGroups(editor: Editor, ents: MapEntity[]): SpecialGroup[] {
     } }, 'Swap one texture…');
     swapWrap.append(swap);
     return h('div', {},
-      h('div.mf-multi', {},
+      target(h('div.mf-multi', {},
         h('div.mf-stack', {}, ...top.slice(0, 3).map(([t]) => decalThumb(t, 'div.mf-thumb', 64))),
         h('span', {}, h('span.mixed', {}, `${textures.size} textures `), h('span.ne', {}, '≠'),
-          h('span.mf-sub', {}, top.map(([t, l]) => `${t.split('/').pop()} ×${l.length}`).join(' · ')))),
+          h('span.mf-sub', {}, top.map(([t, l]) => `${t.split('/').pop()} ×${l.length}`).join(' · '))))),
       h('div.row', {}, h('button.primary', { onclick: () => pick(ents, top[0][0]) }, `Set for all ${ents.length}…`), swapWrap));
   };
   out.push({ label: 'Texture', keys: ['texture', 'material'], summary: ents.length > 1 ? `shared by all ${ents.length}` : '', body });
@@ -157,9 +161,9 @@ export function decalToolOptions(editor: Editor, render: () => void): HTMLElemen
   const strip = [d.material, ...recentDecals.items.filter((m) => m !== d.material)].slice(0, 5);
   const more = new Set([d.material, ...recentDecals.items]).size - strip.length;
   const rows: HTMLElement[] = [
-    h('div.df', {}, decalThumb(d.material, 'div.mf-thumb.small', 64, (w, hh) => (sub.textContent = `${w} × ${hh} px`)),
+    dropTarget(h('div.df', {}, decalThumb(d.material, 'div.mf-thumb.small', 64, (w, hh) => (sub.textContent = `${w} × ${hh} px`)),
       h('div', { style: { flex: '1', minWidth: '0' } }, h('div.df-name', { title: d.material }, d.material.split('/').pop()!), sub),
-      h('button.primary', { onclick: pick }, 'Change…')),
+      h('button.primary', { onclick: pick }, 'Change…')), 'decal', 'use for the Decal tool', (m) => { recentDecals.push(m); set({ material: m }); }),
     h('div.strip', {}, ...strip.map((m) => {
       const t = decalThumb(m, `div.strip-th${m === d.material ? '.on' : ''}`, 32);
       t.title = m;
