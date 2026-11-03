@@ -3,6 +3,7 @@ import {
 } from 'three';
 import type { Editor } from '../editor.ts';
 import { loadModel, type SourceModel } from '../assets/mdl.ts';
+import { cachedThumb, canvasPng, taskQueue, type ThumbOptions } from '../assets/thumbCache.ts';
 
 /** Yaw and pitch (degrees) and zoom (1 = fits the frame) of a model view. */
 export interface ModelView {
@@ -94,29 +95,45 @@ async function whenReady(ready: () => boolean, ms = 4000): Promise<void> {
   while (!ready() && performance.now() < until) await new Promise((r) => setTimeout(r, 40));
 }
 
-const thumbs = new Map<string, Promise<string | null>>();
-let queue: Promise<unknown> = Promise.resolve();
+/** Loading a model and its materials: a few at once (mostly waiting on the network and texture decodes). */
+const loads = taskQueue(3);
+/** Drawing: one at a time on the shared renderer, a few milliseconds per frame. */
+const draws = taskQueue(1);
+const FRAME_BUDGET_MS = 8;
+let budgetEnd = 0;
 
-/** A cached thumbnail (data URL) of a model and skin, drawn by the editor's own MDL loader. */
-export function modelThumbnail(editor: Editor, path: string, skin = 0, size = 112): Promise<string | null> {
-  const key = `${path.toLowerCase()}|${skin}|${size}`;
-  let p = thumbs.get(key);
-  if (!p) {
-    // One at a time: each waits for its materials, then renders.
-    p = queue.then(async () => {
+/** Resolves at once while this frame's thumbnail budget lasts, else just after the next frame (the view draws first). */
+async function frameTurn(): Promise<void> {
+  if (performance.now() < budgetEnd) return;
+  await new Promise<void>((r) => (document.hidden ? setTimeout(r, 0) : requestAnimationFrame(() => setTimeout(r, 0))));
+  budgetEnd = performance.now() + FRAME_BUDGET_MS;
+}
+
+/**
+ * A thumbnail (object URL) of a model and skin, drawn by the editor's own MDL loader and kept across reloads.
+ * `opts.priority` moves it up the queue; aborting `opts.signal` resolves null and drops it when nobody else waits.
+ */
+export function modelThumbnail(editor: Editor, path: string, skin = 0, size = 112, opts: ThumbOptions = {}): Promise<string | null> {
+  const key = `model|${path.toLowerCase()}|${skin}|${size}`;
+  return cachedThumb(key, async (priority, signal) => {
+    const loaded = await loads.run(async () => {
       const model = await loadModel(path);
       if (!model || !model.parts.length) return null;
       const m = meshes(editor, model, skin);
       await whenReady(m.ready);
-      const c = document.createElement('canvas');
-      c.width = c.height = size;
-      draw(editor, model, m.group, DEFAULT_VIEW, c);
-      return c.toDataURL();
-    }).catch(() => null);
-    queue = p;
-    thumbs.set(key, p);
-  }
-  return p;
+      return { model, group: m.group };
+    }, priority, signal);
+    if (!loaded) return null;
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const drawn = await draws.run(async () => {
+      await frameTurn();
+      draw(editor, loaded.model, loaded.group, DEFAULT_VIEW, c);
+      return true;
+    }, priority, signal);
+    const blob = drawn && (await canvasPng(c));
+    return blob ? { blob, width: size, height: size } : null;
+  }, opts).then((t) => t?.url ?? null);
 }
 
 /**
