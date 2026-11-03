@@ -1,5 +1,5 @@
 import {
-  BufferAttribute, BufferGeometry, Color, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Vector3, type Box3,
+  BufferAttribute, BufferGeometry, Color, DoubleSide, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Vector3, type Box3,
 } from 'three';
 import type { Editor } from '../editor.ts';
 
@@ -192,4 +192,79 @@ export function buildCameraMarker(ax: PaneAxes, pos: Vector3, forward: Vector3, 
     add(s0[0], s0[1], s1[0], s1[1]);
   }
   into.add(lineSegments(pts, WIRE.camera, 'overlay'));
+}
+
+/** The 3D gizmo's axis colours, used by the 2D gizmos too (x, y, z). */
+export const AXIS_COLOURS = ['#e5484d', '#3fbf4f', '#3b6cf0'];
+const fills = new Map<string, MeshBasicMaterial>();
+
+/** A shared fill material for the 2D gizmos (kept, like the line materials). */
+function fillMaterial(color: string, opacity = 1): MeshBasicMaterial {
+  const key = `${color}/${opacity}`;
+  let m = fills.get(key);
+  if (!m) fills.set(key, (m = new MeshBasicMaterial({ color: new Color(color), transparent: opacity < 1, opacity, side: DoubleSide, depthTest: false, depthWrite: false, toneMapped: false })));
+  return m;
+}
+
+/** Triangles in a pane's (u, v) plane as one mesh over everything else. */
+function trianglesUV(ax: PaneAxes, uv: number[], color: string, opacity = 1): Mesh {
+  const pts: number[] = [];
+  for (let i = 0; i < uv.length; i += 2) {
+    const p = axisPoint(ax, uv[i], uv[i + 1]);
+    pts.push(p.x, p.y, p.z);
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new BufferAttribute(new Float32Array(pts), 3));
+  const m = new Mesh(geo, fillMaterial(color, opacity));
+  m.frustumCulled = false;
+  m.renderOrder = ORDER.overlay + 2;
+  return m;
+}
+
+/** Sizes of the 2D gizmos in screen pixels (QuadSpec D). */
+export const GIZMO_2D = { arrow: 70, head: 14, shaft: 1.5, headHalf: 6, square: 7, ringWidth: 1.25 };
+
+/**
+ * Move (W) in a 2D pane: an arrow along each of the pane's axes in that axis's colour and a square in the middle.
+ * `px` is world units per screen pixel.
+ */
+export function buildMoveGizmo(ax: PaneAxes, cu: number, cv: number, px: number, into: Group): void {
+  const G = GIZMO_2D, L = G.arrow * px, H = G.head * px, s = G.shaft * px, w = G.headHalf * px, q = G.square * px;
+  const arrow = (du: number, dv: number) => {
+    // Along (du, dv), with (-dv, du) across.
+    const p = (a: number, b: number) => [cu + du * a - dv * b, cv + dv * a + du * b];
+    return [...p(q, -s), ...p(L - H, -s), ...p(L - H, s), ...p(q, -s), ...p(L - H, s), ...p(q, s),
+      ...p(L - H, -w), ...p(L, 0), ...p(L - H, w)];
+  };
+  into.add(trianglesUV(ax, arrow(1, 0), AXIS_COLOURS[ax.u]), trianglesUV(ax, arrow(0, 1), AXIS_COLOURS[ax.v]));
+  const sq = [cu - q, cv - q, cu + q, cv - q, cu + q, cv + q, cu - q, cv - q, cu + q, cv + q, cu - q, cv + q];
+  into.add(trianglesUV(ax, sq, WIRE.selection, 0.35));
+  const rim: number[] = [];
+  const c = [[cu - q, cv - q], [cu + q, cv - q], [cu + q, cv + q], [cu - q, cv + q]];
+  for (let i = 0; i < 4; i++) {
+    const a = axisPoint(ax, c[i][0], c[i][1]), b = axisPoint(ax, c[(i + 1) % 4][0], c[(i + 1) % 4][1]);
+    rim.push(a.x, a.y, a.z, b.x, b.y, b.z);
+  }
+  into.add(lineSegments(rim, WIRE.selection, 'overlay'));
+}
+
+/**
+ * Rotate (E) in a 2D pane: a ring of radius `r` (world units) in the colour of the axis the pane looks along, with a
+ * dot at `angle` (radians from the pane's u axis) that follows the turn.
+ */
+export function buildRotateGizmo(ax: PaneAxes, cu: number, cv: number, r: number, angle: number, px: number, into: Group): void {
+  const t = GIZMO_2D.ringWidth * px, n = 96, uv: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2;
+    const p = (a: number, rr: number) => [cu + Math.cos(a) * rr, cv + Math.sin(a) * rr];
+    uv.push(...p(a0, r - t), ...p(a1, r - t), ...p(a1, r + t), ...p(a0, r - t), ...p(a1, r + t), ...p(a0, r + t));
+  }
+  const colour = AXIS_COLOURS[ax.w];
+  into.add(trianglesUV(ax, uv, colour));
+  const d = 5 * px, du = cu + Math.cos(angle) * r, dv = cv + Math.sin(angle) * r, dot: number[] = [];
+  for (let i = 0; i < 16; i++) {
+    const a0 = (i / 16) * Math.PI * 2, a1 = ((i + 1) / 16) * Math.PI * 2;
+    dot.push(du, dv, du + Math.cos(a0) * d, dv + Math.sin(a0) * d, du + Math.cos(a1) * d, dv + Math.sin(a1) * d);
+  }
+  into.add(trianglesUV(ax, dot, colour));
 }

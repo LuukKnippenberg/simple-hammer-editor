@@ -6,8 +6,8 @@ import type { Editor } from '../editor.ts';
 import { getPref, setPref } from '../ui/prefs.ts';
 import { isTyping } from './cameraControls.ts';
 import {
-  axisPoint, buildBrushLines, buildCameraMarker, buildEntityLines, buildGridLines, buildHandles, buildSelectionLines, clearGroup,
-  drawnStep, handlePoints, type PaneAxes,
+  axisPoint, buildBrushLines, buildCameraMarker, buildEntityLines, buildGridLines, buildHandles, buildMoveGizmo, buildRotateGizmo,
+  buildSelectionLines, clearGroup, drawnStep, GIZMO_2D, handlePoints, type PaneAxes,
 } from './wireframe.ts';
 
 /** What a pane of the quad view shows: the rendered Camera view or one of the three 2D wireframe views. */
@@ -23,6 +23,12 @@ const SIDE_TOOLS = new Set(['select', 'block', 'entity', 'paint', 'decal']);
 const GAP = 4;
 /** How far behind the plane a 2D camera sits, along the axis it looks down. */
 const DEPTH = 100000;
+
+/**
+ * What a press grabs in a 2D pane (QuadSpec D): a move along both of the pane's axes (the centre square or the
+ * selection itself) or one (an arrow), a resize handle (0–7: TL, T, TR, R, BR, B, BL, L) or the rotate ring.
+ */
+export type PaneGrab = { kind: 'move'; axes: 'uv' | 'u' | 'v' } | { kind: 'resize'; handle: number } | { kind: 'rotate' };
 
 /** Where a 2D pane looks: the centre in its (u, v) axes and the zoom in screen pixels per unit. */
 export interface View2d { cu: number; cv: number; ppu: number }
@@ -98,6 +104,8 @@ export class QuadView {
   private pan: { pane: number; last: Vector2; id: number } | null = null;
   private held = false;
   private splits: HTMLElement[] = [];
+  /** The turn so far next to the rotate ring, while one is dragged. */
+  private angle: HTMLElement;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -111,6 +119,9 @@ export class QuadView {
     editor.container.append(this.chrome);
     this.panes = [0, 1, 2, 3].map((i) => this.makePane(i, PANE_KINDS[i]));
     this.makeSplits();
+    this.angle = el('div', 'quad-angle');
+    this.angle.hidden = true;
+    this.chrome.append(this.angle);
     editor.on('selection', () => this.selRev++);
     editor.on('document', () => this.fitAll());
     this.listen();
@@ -380,10 +391,21 @@ export class QuadView {
     this.cameraAspect(this.input);
   }
 
-  /** Whether the 2D panes show resize handles: the Select tool on objects, with brushes selected. */
-  private showsHandles(): boolean {
-    const ed = this.editor;
-    return ed.tools.current.name === 'select' && ed.selection.mode === 'object' && !this.selBox.isEmpty() && ed.selection.allSolids().length > 0;
+  /**
+   * The gizmo the 2D panes show: the Select tool's mode (W move, E rotate, R resize; shared with the Camera pane), on
+   * a selection of objects, and none while V (snap move) is held. Resize needs brushes.
+   */
+  private gizmo(): 'translate' | 'rotate' | 'scale' | null {
+    const ed = this.editor, sel = ed.tools.select;
+    if (ed.tools.current !== sel || ed.selection.mode !== 'object' || this.selBox.isEmpty() || sel.snapMove.held || sel.extruder.active) return null;
+    if (sel.mode === 'scale' && !ed.selection.allSolids().length) return null;
+    return sel.mode;
+  }
+
+  /** The rotate ring's radius in screen pixels: around the selection, at least 52. */
+  private ringPx(ax: PaneAxes, ppu: number): number {
+    const [u0, v0, u1, v1] = this.selRect(ax);
+    return Math.max(52, Math.hypot(u1 - u0, v1 - v0) * ppu / 2 + 12);
   }
 
   /** Handles only where the selection is at least 16 px wide and tall in the pane (else they would cover it). */
@@ -398,23 +420,35 @@ export class QuadView {
     return [b.min.getComponent(ax.u), b.min.getComponent(ax.v), b.max.getComponent(ax.u), b.max.getComponent(ax.v)];
   }
 
-  /**
-   * What a press at a page position grabs in the input 2D pane: a resize handle (0–7: TL, T, TR, R, BR, B, BL, L),
-   * 8 inside the selection (move), or -1.
-   */
-  grabAt(x: number, y: number): number {
-    const ax = this.axes();
-    if (!ax) return -1;
-    this.syncWire();
-    if (this.selBox.isEmpty()) return -1;
-    const [u, v] = this.toUV(this.input, x, y), ppu = this.view().ppu;
+  /** The selection's centre in a 2D pane's axes (the gizmos' pivot). */
+  selCentre(ax: PaneAxes): [number, number] {
     const [u0, v0, u1, v1] = this.selRect(ax);
-    if (this.showsHandles() && this.handlesFit(ax, ppu)) {
+    return [(u0 + u1) / 2, (v0 + v1) / 2];
+  }
+
+  /** What a press at a page position grabs in the input 2D pane, or null (see PaneGrab). */
+  grabAt(x: number, y: number): PaneGrab | null {
+    const ax = this.axes();
+    if (!ax) return null;
+    this.syncWire();
+    if (this.selBox.isEmpty()) return null;
+    const [u, v] = this.toUV(this.input, x, y), ppu = this.view().ppu;
+    const [u0, v0, u1, v1] = this.selRect(ax), [cu, cv] = this.selCentre(ax);
+    // Offsets from the centre in screen pixels (v up).
+    const pu = (u - cu) * ppu, pv = (v - cv) * ppu;
+    const mode = this.gizmo(), G = GIZMO_2D;
+    if (mode === 'scale' && this.handlesFit(ax, ppu)) {
       const k = handlePoints(u0, v0, u1, v1).findIndex(([a, b]) => Math.abs(a - u) * ppu <= 6 && Math.abs(b - v) * ppu <= 6);
-      if (k >= 0) return k;
+      if (k >= 0) return { kind: 'resize', handle: k };
     }
+    if (mode === 'translate') {
+      if (Math.abs(pu) <= G.square + 1 && Math.abs(pv) <= G.square + 1) return { kind: 'move', axes: 'uv' };
+      if (pu > G.square && pu <= G.arrow + 2 && Math.abs(pv) <= G.headHalf + 1) return { kind: 'move', axes: 'u' };
+      if (pv > G.square && pv <= G.arrow + 2 && Math.abs(pu) <= G.headHalf + 1) return { kind: 'move', axes: 'v' };
+    }
+    if (mode === 'rotate' && Math.abs(Math.hypot(pu, pv) - this.ringPx(ax, ppu)) <= 7) return { kind: 'rotate' };
     const slack = 2 / ppu;
-    return u >= u0 - slack && u <= u1 + slack && v >= v0 - slack && v <= v1 + slack ? 8 : -1;
+    return u >= u0 - slack && u <= u1 + slack && v >= v0 - slack && v <= v1 + slack ? { kind: 'move', axes: 'uv' } : null;
   }
 
   /** The status bar's grid note for the focused 2D pane (or the first one shown). */
@@ -571,9 +605,15 @@ export class QuadView {
       r.render(this.blitScene, this.blitCam);
       const ax = this.axes(i)!, ppu = this.view(i).ppu;
       clearGroup(this.marks);
-      if (this.showsHandles() && this.handlesFit(ax, ppu)) {
+      const mode = this.gizmo();
+      if (mode === 'scale' && this.handlesFit(ax, ppu)) {
         const [u0, v0, u1, v1] = this.selRect(ax);
         buildHandles(ax, handlePoints(u0, v0, u1, v1), 3.5 / ppu, this.marks);
+      } else if (mode === 'translate') {
+        buildMoveGizmo(ax, ...this.selCentre(ax), 1 / ppu, this.marks);
+      } else if (mode === 'rotate') {
+        const turn = i === this.input ? ed.tools.select.paneTurn ?? 0 : 0;
+        buildRotateGizmo(ax, ...this.selCentre(ax), this.ringPx(ax, ppu) / ppu, (turn * Math.PI) / 180, 1 / ppu, this.marks);
       }
       buildCameraMarker(ax, ed.camera.position, ed.controls.forward(), 1 / ppu, this.marks);
       r.render(this.overlay, p.cam);
@@ -582,5 +622,20 @@ export class QuadView {
     }
     r.setScissorTest(false);
     this.cameraAspect(this.input);
+    this.placeAngle();
+  }
+
+  /** Shows the turn so far beside the rotate ring of the pane being dragged in. */
+  private placeAngle(): void {
+    const turn = this.editor.tools.select.paneTurn, ax = this.axes();
+    this.angle.hidden = turn === null || !ax;
+    if (turn === null || !ax) return;
+    const ppu = this.view().ppu, [cu, cv] = this.selCentre(ax), rp = this.ringPx(ax, ppu);
+    const r = this.clientRect(), c = this.editor.container.getBoundingClientRect(), v = this.view();
+    // Centred under the ring.
+    const x = r.left - c.left + r.width / 2 + (cu - v.cu) * ppu, y = r.top - c.top + r.height / 2 - (cv - v.cv) * ppu + rp + 8;
+    this.angle.style.left = `${x}px`;
+    this.angle.style.top = `${y}px`;
+    this.angle.textContent = `${Math.round(turn * 100) / 100}°`;
   }
 }

@@ -827,3 +827,7 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .grid-note { color: #7c8285; font-family: var(--font-mono); font-size: 11.5px; margin-left: 6px; }
 /* With the quad view on, the corner cards sit below the pane headers so pane names and zooms stay clickable. */
 #viewport.quad-on > .overlay.tl, #viewport.quad-on > .overlay.tr { top: 34px; }
+.quad-angle {
+  position: absolute; pointer-events: none; transform: translateX(-50%); padding: 1px 6px; border-radius: 3px; background: rgba(11, 12, 13, 0.85);
+  border: 1px solid rgba(59, 108, 240, 0.6); font: 12px var(--font-mono); color: var(--text);
+}

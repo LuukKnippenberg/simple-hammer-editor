@@ -1,6 +1,7 @@
 // Quad view (View › Quad) check: on/off and remembered after a reload, pane cycling, maximise and restore (Shift+Z),
 // grid 1/16/512 with line thinning, moving and resizing in the Front and Side panes (heights change, one undo step
-// each), Block and Entity in 2D panes, and F centring the 2D panes on the selection.
+// each), the 2D gizmos (W arrows and centre square, Shift free; E ring with 15° steps; R handles, Alt from the
+// centre; hold V snap move with the hidden axis kept), Block and Entity in 2D panes, and F centring the 2D panes.
 // Exits non-zero when a check fails. Against a running dev server:
 //   SHE_PORT=5201 node scripts/quad-view-test.mjs [--shots <dir>]
 import { join } from 'node:path';
@@ -39,17 +40,23 @@ await withEditor(async (d, page) => {
     Object.assign(q.view(i), { cu, cv, ppu });
     q.layout();
   }, [i, cu, cv, ppu]);
-  const dragScreen = async (a, b) => {
+  /** Drags between page points; `mods` are held throughout, `hold` runs before letting go, `path` bends the way. */
+  const dragScreen = async (a, b, { mods = [], hold, path } = {}) => {
     await page.mouse.move(a[0], a[1]);
     await page.waitForTimeout(60);
+    for (const m of mods) await page.keyboard.down(m);
     await page.mouse.down();
-    for (let k = 1; k <= 10; k++) {
-      await page.mouse.move(a[0] + ((b[0] - a[0]) * k) / 10, a[1] + ((b[1] - a[1]) * k) / 10);
+    for (let k = 1; k <= 12; k++) {
+      const p = path ? path(k / 12) : [a[0] + ((b[0] - a[0]) * k) / 12, a[1] + ((b[1] - a[1]) * k) / 12];
+      await page.mouse.move(p[0], p[1]);
       await page.waitForTimeout(16);
     }
+    if (hold) await hold();
     await page.mouse.up();
+    for (const m of mods) await page.keyboard.up(m);
     await page.waitForTimeout(200);
   };
+  const undo = () => d.eval(() => window.__editor.editor.undo());
   const box = () => d.eval(() => {
     const b = window.__editor.editor.selection.bounds();
     return [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z];
@@ -145,7 +152,72 @@ await withEditor(async (d, page) => {
   await d.eval(() => window.__editor.editor.undo());
   check('one undo puts it back', await box(), [0, 0, 0, 128, 256, 128]);
 
-  // Resize in Side: the top handle (middle of the top edge) raises the block to 256.
+  // Move (W): an arrow moves along its own axis only, the centre square along both; Shift moves freely.
+  await d.key('w');
+  await dragScreen(await at(2, 128 + 40 / 0.5, 64), await at(2, 128 + 40 / 0.5 + 64, 64 + 50));
+  check('W: the Y arrow in Front moves along y only', await box(), [0, 64, 0, 128, 320, 128]);
+  await undo();
+  await dragScreen(await at(3, 64, 64 + 40 / 0.5), await at(3, 64 + 50, 64 + 40 / 0.5 + 64));
+  check('W: the Z arrow in Side moves along z only', await box(), [0, 0, 64, 128, 256, 192]);
+  await undo();
+  check('one undo each', await box(), [0, 0, 0, 128, 256, 128]);
+  await shot('gizmo-move-top');
+  await dragScreen(await at(1, 64, 128), await at(1, 64 + 37, 128), { mods: ['Shift'] });
+  check('W: Shift + centre square in Top moves freely', await box(), [37, 0, 0, 165, 256, 128]);
+  await undo();
+  check('the Shift-drag kept the selection', await d.eval(() => window.__editor.editor.selection.solids.size), 1);
+
+  // Rotate (E): a quarter turn on the Top ring turns about z, on the Front ring about x; the angle shows by the ring.
+  await d.key('e');
+  const turn = async (i, cu, cv, rUnits, deg, opts = {}) => {
+    const start = await at(i, cu + rUnits, cv);
+    const pts = [];
+    for (let k = 1; k <= 12; k++) {
+      const a = ((deg * Math.PI) / 180) * (k / 12);
+      pts.push(await at(i, cu + Math.cos(a) * rUnits, cv + Math.sin(a) * rUnits));
+    }
+    await dragScreen(start, pts.at(-1), { ...opts, path: (t) => pts[Math.round(t * 12) - 1] });
+  };
+  // Top: the selection is 128 × 256 at 0.5 px per unit, so the ring is 83.5 px (167 units) round its centre.
+  let label = '';
+  await turn(1, 64, 128, Math.hypot(128, 256) / 2 + 24, 90, { hold: async () => {
+    label = await d.eval(() => document.querySelector('.quad-angle')?.textContent ?? '');
+    await shot('gizmo-rotate-top');
+  } });
+  check('E: the angle shows by the ring while turning', label, '90°');
+  check('E: a quarter turn in Top turns about z', await box(), [-64, 64, 0, 192, 192, 128]);
+  await undo();
+  check('one undo turns it back', await box(), [0, 0, 0, 128, 256, 128]);
+  await turn(2, 128, 64, Math.hypot(256, 128) / 2 + 24, 90);
+  check('E: a quarter turn in Front turns about x', await box(), [0, 64, -64, 128, 192, 192]);
+  await undo();
+  let turned = null;
+  await turn(1, 64, 128, Math.hypot(128, 256) / 2 + 24, 20, { hold: async () => { turned = await d.eval(() => window.__editor.editor.tools.select.paneTurn); } });
+  check('E: 20° of drag turns 15° (snapped)', turned, 15);
+  await undo();
+  await turn(1, 64, 128, Math.hypot(128, 256) / 2 + 24, 20, { mods: ['Shift'], hold: async () => { turned = await d.eval(() => Math.round(window.__editor.editor.tools.select.paneTurn)); } });
+  check('E: Shift turns freely', turned, 20);
+  await undo();
+  check('back where it was', await box(), [0, 0, 0, 128, 256, 128]);
+  // An entity turns by its angles key.
+  await d.eval(async () => {
+    const ed = window.__editor.editor, V = ed.camera.position.constructor;
+    const { placeEntity } = await import('/src/edit/actions.ts');
+    placeEntity(ed, 'info_target', new V(1024, 0, 0), {});
+    ed.selection.set([], [ed.doc.entities.at(-1)]);
+  });
+  await look(1, 1024, 0, 0.5);
+  await d.settle(200);
+  await turn(1, 1024, 0, 104, 90);
+  check('E: a quarter turn in Top sets the entity yaw', await d.eval(() => window.__editor.editor.doc.entities.at(-1).get('angles')), '0 90 0');
+  await undo();
+  await undo();
+  await look(1, 0, 0, 0.5);
+  await d.eval(() => { const ed = window.__editor.editor; ed.selection.set([ed.doc.allSolids()[0]], []); });
+  await d.settle(200);
+
+  // Resize (R): handles on the outline; in Side the top handle raises the block to 256.
+  await d.key('r');
   await dragScreen(await at(3, 64, 128), await at(3, 64, 256));
   check('top handle in Side sets the height', await box(), [0, 0, 0, 128, 256, 256]);
   await d.eval(() => window.__editor.editor.undo());
@@ -153,6 +225,36 @@ await withEditor(async (d, page) => {
   // The right handle in Front widens along y.
   await dragScreen(await at(2, 256, 64), await at(2, 384, 64));
   check('right handle in Front resizes along y', await box(), [0, 0, 0, 128, 384, 128]);
+  await d.eval(() => window.__editor.editor.undo());
+  // Alt resizes from the centre: the left side goes out as far as the right.
+  await dragScreen(await at(2, 256, 64), await at(2, 320, 64), { mods: ['Alt'], hold: () => shot('gizmo-resize-front-alt') });
+  check('R: Alt + right handle in Front resizes from the centre', await box(), [0, -64, 0, 128, 320, 128]);
+  await undo();
+  check('one undo puts the size back', await box(), [0, 0, 0, 128, 256, 128]);
+
+  // Snap move (hold V) in Front: the block's top corner onto another block's corner; x (hidden in Front) stays.
+  await d.eval(async () => {
+    const ed = window.__editor.editor, V = ed.camera.position.constructor;
+    const { boxSolid } = await import('/src/edit/brushes.ts');
+    const other = ed.doc.addSolid(boxSolid(ed.doc, new V(512, 512, 0), new V(640, 768, 64), 'DEV/DEV_MEASUREGENERIC01'));
+    ed.history.added('Add block', [other]);
+    ed.changed();
+    ed.selection.set([ed.doc.allSolids()[0]], []);
+  });
+  await d.key('w');
+  await d.settle(200);
+  await page.mouse.move(...(await at(2, 100, 100)));
+  await page.keyboard.down('v');
+  await page.waitForTimeout(150);
+  await dragScreen(await at(2, 256, 128), await at(2, 512, 64), { hold: async () => {
+    await page.waitForTimeout(150);
+    await shot('gizmo-snap-move-front');
+  } });
+  await page.keyboard.up('v');
+  await page.waitForTimeout(150);
+  check('V in Front: corner onto corner, x kept', await box(), [0, 256, -64, 128, 512, 64]);
+  await undo();
+  check('one undo puts the snap move back', await box(), [0, 0, 0, 128, 256, 128]);
   await d.eval(() => window.__editor.editor.undo());
 
   // Grid 1, 16 and 512 from the status bar, with line thinning at a far zoom.

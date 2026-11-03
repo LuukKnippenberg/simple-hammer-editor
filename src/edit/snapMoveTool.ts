@@ -318,6 +318,9 @@ export class SnapMoveTool {
     const plane = dragPlaneNormal(ed.activeCamera.getWorldDirection(new Vector3()), this.ctrl);
     const r = resolveSnap(g.handle, best, view.ray, ed.grid, plane, this.kinds.grid);
     if (r) g.delta = constrain(r.delta, { oneAxis: this.shift, keepHeight: this.ctrl });
+    // In a 2D quad pane the axis it looks along stays as it is: Top snaps in plan, Front and Side in height.
+    const ax = ed.quad.axes();
+    if (ax) g.delta.setComponent(ax.w, 0);
     this.select.snapStep(g.delta);
     const onto: SnapKind = r?.kind ?? 'grid';
     const label = best ? g.candidates.find((c) => c.owner === best.shape.owner)?.label ?? '' : '';
