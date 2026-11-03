@@ -278,18 +278,20 @@ export class WorldRenderer {
   }
 
   /** Nearest brush hit. Generator handles only count with `handles` (the Select tool); other tools reach what's inside. */
-  raycast(ray: Raycaster, opts: { handles?: boolean } = {}): BrushHit | null {
+  /** The nearest brush the ray hits; `skip` passes through some brushes (a dragged pin's own stairs). */
+  raycast(ray: Raycaster, opts: { handles?: boolean; skip?: (solid: MapSolid) => boolean } = {}): BrushHit | null {
     const meshes = [...this.batches.values()].filter((b) => b.mesh.visible && (opts.handles || b.kind !== 'handle')
       && (b.mesh.name !== BLOCKLIGHT || this.visibleKinds.tool)).map((b) => b.mesh);
     for (const m of meshes) if (!m.geometry.boundsTree) m.geometry.computeBoundsTree();
-    ray.firstHitOnly = true;
+    ray.firstHitOnly = !opts.skip;
     const hits: Intersection[] = ray.intersectObjects(meshes, false);
-    let best: Intersection | null = null;
-    for (const h of hits) if (!best || h.distance < best.distance) best = h;
-    if (!best || !best.face) return null;
-    const batch = this.batches.get(best.object.name)!;
     // The BVH reorders its index buffer, so faceIndex is not our triangle number. The batches are
     // non-indexed (three vertices per triangle), so the vertex index still identifies the triangle.
+    const solidOf = (h: Intersection) => this.batches.get(h.object.name)!.triSolid[Math.floor(h.face!.a / 3)];
+    let best: Intersection | null = null;
+    for (const h of hits) if (h.face && (!best || h.distance < best.distance) && !opts.skip?.(solidOf(h))) best = h;
+    if (!best || !best.face) return null;
+    const batch = this.batches.get(best.object.name)!;
     const tri = Math.floor(best.face.a / 3);
     const solid = batch.triSolid[tri];
     return {
