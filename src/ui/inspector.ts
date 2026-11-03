@@ -8,11 +8,11 @@ import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, s
 import { blockFinder, blockOf } from '../gen/buildingStore.ts';
 import type { BuildingOptions } from '../gen/buildings.ts';
 import { buildingSheet, type BuildingRow } from './buildingOptions.ts';
-import { roadSheet } from './roadOptions.ts';
+import { roadPointsSection, roadSheet } from './roadOptions.ts';
 import { powerlineSheet } from './powerlineOptions.ts';
 import { num, refill, row, select } from './form.ts';
 import { entityEditor, multiEntityEditor } from './entityEditor.ts';
-import { centreline, roadOf, type RoadSpec } from '../gen/roads.ts';
+import { roadLine, roadOf, type RoadSpec } from '../gen/roads.ts';
 import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, type StreetMaterial } from '../gen/streetMaterials.ts';
 import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
 import { powerlineOf, type PowerlineSpec } from '../gen/powerlines.ts';
@@ -137,7 +137,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     // A road, or a brush picked out of one: the road's settings.
     const roadEntity = entities.length === 1 ? entities[0] : !entities.length && owners.size === 1 ? [...owners][0] : null;
     const road = roadEntity ? roadOf(roadEntity) : null;
-    if (roadEntity && road) panel.append(roadPanel(editor, roadEntity, road));
+    if (roadEntity && road) panel.append(roadPanel(editor, roadEntity, road), roadPointsSection(editor, roadEntity, road));
     const poi = selectedPoi(editor);
     const poiPanel = poi && poiEditor(editor, poi);
     if (poiPanel) panel.append(poiPanel);
@@ -205,7 +205,7 @@ function brushEditor(editor: Editor): HTMLElement {
 /** A road's style, sizes and materials; changes rebuild all roads, so crossings stay open. */
 function roadPanel(editor: Editor, entity: MapEntity, road: RoadSpec): HTMLElement {
   const apply = (patch: Partial<RoadSpec>) => rebuildRoads(editor, 'Edit road', { replace: [entity, { ...road, ...patch }] });
-  const length = centreline(road.points, road.radius).reduce((sum, point, i, points) => sum + (i ? point.distanceTo(points[i - 1]) : 0), 0);
+  const length = roadLine(road).reduce((sum, point, i, points) => sum + (i ? point.distanceTo(points[i - 1]) : 0), 0);
   const materialRow = (label: string, list: StreetMaterial[], key: 'carriageway' | 'pavement' | 'kerb' | 'gutter') =>
     row(label, select([['', 'From style'], ...list.map((material) => [material.id, material.label] as [string, string])], road.materials?.[key] ?? '',
       (v) => apply({ materials: { ...road.materials, [key]: v || undefined } })));

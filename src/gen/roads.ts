@@ -44,6 +44,8 @@ export interface RoadSpec {
   pavement: number;
   /** Corner radius at bends. */
   radius: number;
+  /** A point's own corner radius, over `radius` (undefined: the road's). */
+  radii?: (number | undefined)[];
   /** Override: kerbs (default from the style). */
   kerbs?: boolean;
   /** Override: centre line (default from the style). */
@@ -65,7 +67,8 @@ export function defaultRoad(style: RoadStyle, points: Vector3[] = []): RoadSpec 
 const KEY = 'she_road';
 
 export function encodeRoad(r: RoadSpec): string {
-  const pts = r.points.map((p) => `${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}`).join(';');
+  const own = (i: number) => (r.radii?.[i] === undefined ? '' : ` ${Math.round(r.radii[i]!)}`);
+  const pts = r.points.map((p, i) => `${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}${own(i)}`).join(';');
   const flags = `${r.kerbs === undefined ? '' : r.kerbs ? 'k' : 'K'}${r.lined === undefined ? '' : r.lined ? 'l' : 'L'}`;
   const parts = [r.style, r.width, r.pavement, r.radius, flags, r.lift ?? '', pts];
   const m = encodeMaterials(r.materials);
@@ -75,8 +78,10 @@ export function encodeRoad(r: RoadSpec): string {
 export function decodeRoad(s: string): RoadSpec | null {
   const [style, width, pavement, radius, flags, lift, pts, materials] = s.split('|');
   if (!(style in ROAD_STYLES) || !pts) return null;
-  const points = pts.split(';').map((p) => { const [x, y, z] = p.split(' ').map(Number); return new Vector3(x, y, z); });
+  const coords = pts.split(';').map((p) => p.split(' ').map(Number));
+  const points = coords.map(([x, y, z]) => new Vector3(x, y, z));
   const r: RoadSpec = { style: style as RoadStyle, width: Number(width), pavement: Number(pavement), radius: Number(radius), points };
+  if (coords.some((c) => c.length > 3)) r.radii = coords.map((c) => (c.length > 3 ? c[3] : undefined));
   if (flags?.includes('k')) r.kerbs = true;
   if (flags?.includes('K')) r.kerbs = false;
   if (flags?.includes('l')) r.lined = true;
@@ -96,20 +101,33 @@ export function roadOf(e: MapEntity): RoadSpec | null {
 
 const v2 = (p: Vector3) => new Vector2(p.x, p.y);
 
-/** The control points with rounded corners: each bend becomes an arc of at most `radius`. */
-export function centreline(points: Vector3[], radius: number): Vector3[] {
-  if (points.length < 3 || radius <= 0) return points.map((p) => p.clone());
+/** How a bend at b (from a, on to c) is rounded: the turn, the tangent length `t` and the radius `r` it gets, or null when straight. */
+function fillet(a: Vector3, b: Vector3, c: Vector3, radius: number): { turn: number; d1: Vector2; l1: number; l2: number; t: number; r: number } | null {
+  const d1 = v2(b).sub(v2(a)), d2 = v2(c).sub(v2(b));
+  const l1 = d1.length(), l2 = d2.length();
+  d1.normalize(); d2.normalize();
+  const turn = Math.atan2(d1.x * d2.y - d1.y * d2.x, d1.dot(d2));
+  if (radius <= 0 || Math.abs(turn) < 0.05 || l1 < 1 || l2 < 1) return null;
+  const half = Math.tan(Math.abs(turn) / 2);
+  const t = Math.min(radius * half, l1 / 2, l2 / 2);
+  return { turn, d1, l1, l2, t, r: t / half };
+}
+
+/** The radius a point's corner wants: its own, else the road's. */
+const radiusAt = (radius: number, radii: (number | undefined)[] | undefined, i: number) => radii?.[i] ?? radius;
+
+/**
+ * The control points with rounded corners: each bend becomes an arc of at most its radius (`radii[i]`, else
+ * `radius`); a corner shrinks when the stretches beside it are too short for it.
+ */
+export function centreline(points: Vector3[], radius: number, radii?: (number | undefined)[]): Vector3[] {
+  if (points.length < 3) return points.map((p) => p.clone());
   const out: Vector3[] = [points[0].clone()];
   for (let i = 1; i < points.length - 1; i++) {
     const a = points[i - 1], b = points[i], c = points[i + 1];
-    const d1 = v2(b).sub(v2(a)), d2 = v2(c).sub(v2(b));
-    const l1 = d1.length(), l2 = d2.length();
-    d1.normalize(); d2.normalize();
-    const turn = Math.atan2(d1.x * d2.y - d1.y * d2.x, d1.dot(d2));
-    if (Math.abs(turn) < 0.05 || l1 < 1 || l2 < 1) { out.push(b.clone()); continue; }
-    const half = Math.tan(Math.abs(turn) / 2);
-    const t = Math.min(radius * half, l1 / 2, l2 / 2);
-    const r = t / half;
+    const f = fillet(a, b, c, radiusAt(radius, radii, i));
+    if (!f) { out.push(b.clone()); continue; }
+    const { turn, d1, l1, l2, t, r } = f;
     const p1 = v2(b).addScaledVector(d1, -t);
     const z1 = b.z + (a.z - b.z) * (t / l1), z2 = b.z + (c.z - b.z) * (t / l2);
     // The arc's centre lies on the inside of the turn.
@@ -124,6 +142,26 @@ export function centreline(points: Vector3[], radius: number): Vector3[] {
   }
   out.push(points[points.length - 1].clone());
   return out.filter((p, i) => i === 0 || p.distanceTo(out[i - 1]) > 0.5);
+}
+
+/** A road's rounded centre line. */
+export const roadLine = (r: RoadSpec): Vector3[] => centreline(r.points, r.radius, r.radii);
+
+/** A bend of a road: how far it turns (degrees, 0 to 180), the radius it wants and the one it got. */
+export interface RoadCorner { turn: number; want: number; got: number }
+
+/** Each point's bend (null at the ends and where the road runs straight on). */
+export function roadCorners(r: RoadSpec): (RoadCorner | null)[] {
+  return r.points.map((b, i) => {
+    if (i === 0 || i === r.points.length - 1) return null;
+    const want = radiusAt(r.radius, r.radii, i);
+    const a = r.points[i - 1], c = r.points[i + 1];
+    const d1 = v2(b).sub(v2(a)).normalize(), d2 = v2(c).sub(v2(b)).normalize();
+    const turn = (Math.abs(Math.atan2(d1.x * d2.y - d1.y * d2.x, d1.dot(d2))) * 180) / Math.PI;
+    if (turn < 3) return null;
+    const f = fillet(a, b, c, want);
+    return { turn, want, got: f ? f.r : want };
+  });
 }
 
 /** The line offset sideways by `d` (positive: left of the direction of travel), mitred at the joints. */
@@ -215,7 +253,7 @@ function roadPieces(r: RoadSpec, index: number): Piece[] {
   // Long straights are cut into pieces of at most 512 units: very long faces collect more t-junctions
   // from the brushes along their edges than vbsp can fix.
   const line: Vector3[] = [];
-  centreline(r.points, r.radius).forEach((p, i, all) => {
+  roadLine(r).forEach((p, i, all) => {
     if (i > 0) {
       const prev = all[i - 1];
       const n = Math.ceil(v2(p).distanceTo(v2(prev)) / 512);
@@ -471,6 +509,20 @@ export function setRoadSolids(node: KVNode, r: RoadSpec, solids: KVNode[]): void
   node.items.splice(ed >= 0 ? ed : node.items.length, 0, ...solids);
 }
 
+/** The nearest point on a line (with its height there) and how far it is, in plan. */
+export function nearestOnLine(line: Vector3[], p: Vector3): { at: Vector3; d: number } | null {
+  let best: { at: Vector3; d: number } | null = null;
+  for (let i = 0; i + 1 < line.length; i++) {
+    const a = v2(line[i]), b = v2(line[i + 1]);
+    const ab = new Vector2().subVectors(b, a);
+    const t = Math.max(0, Math.min(1, new Vector2().subVectors(v2(p), a).dot(ab) / (ab.lengthSq() || 1)));
+    const q = a.clone().addScaledVector(ab, t);
+    const d = q.distanceTo(v2(p));
+    if (!best || d < best.d) best = { at: new Vector3(q.x, q.y, line[i].z + (line[i + 1].z - line[i].z) * t), d };
+  }
+  return best;
+}
+
 /**
  * The nearest point on any road's centre line within `max` units (for joining roads), with that road's z.
  * Ends of roads are preferred, so a new road continues an old one cleanly.
@@ -482,17 +534,30 @@ export function snapToRoads(roads: RoadSpec[], p: Vector3, max: number): Vector3
       const d = v2(end).distanceTo(v2(p));
       if (d < Math.min(bestD, 64)) { best = end.clone(); bestD = d * 0.5; }
     }
-    const line = centreline(r.points, r.radius);
-    for (let i = 0; i + 1 < line.length; i++) {
-      const a = v2(line[i]), b = v2(line[i + 1]);
-      const ab = new Vector2().subVectors(b, a);
-      const t = Math.max(0, Math.min(1, new Vector2().subVectors(v2(p), a).dot(ab) / (ab.lengthSq() || 1)));
-      const q = a.clone().addScaledVector(ab, t);
-      const d = q.distanceTo(v2(p));
-      if (d < bestD) { bestD = d; best = new Vector3(q.x, q.y, line[i].z + (line[i + 1].z - line[i].z) * t); }
-    }
+    const near = nearestOnLine(roadLine(r), p);
+    if (near && near.d < bestD) { bestD = near.d; best = near.at; }
   }
   return best ? new Vector3(Math.round(best.x), Math.round(best.y), Math.round(best.z)) : null;
+}
+
+/**
+ * After road `i` changed from `before`: the other roads that ended on its old centre line (a T junction) with
+ * those ends moved onto the new one, so a branch stays joined when its main road moves.
+ */
+export function keepJoined(roads: RoadSpec[], i: number, before: RoadSpec): RoadSpec[] {
+  const was = roadLine(before), now = roadLine(roads[i]);
+  return roads.map((r, k) => {
+    if (k === i || r.points.length < 2) return r;
+    let points = r.points;
+    for (const end of [0, r.points.length - 1]) {
+      const p = r.points[end];
+      const on = nearestOnLine(was, p);
+      const to = nearestOnLine(now, p);
+      if (!on || !to || on.d > 1.5 || to.d <= 1.5) continue;
+      points = points.map((q, j) => (j === end ? new Vector3(Math.round(to.at.x), Math.round(to.at.y), Math.round(to.at.z)) : q));
+    }
+    return points === r.points ? r : { ...r, points };
+  });
 }
 
 /** What a road network has under a point: the kind of brush and the height of its top. */
