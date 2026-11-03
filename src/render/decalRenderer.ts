@@ -15,13 +15,15 @@ export interface DecalInfo {
   loaded: boolean;
 }
 
-/** Surface axes Source uses for an infodecal on a surface with normal n (R_DecalComputeBasis without an s-axis). */
+/**
+ * Surface axes Source uses for an infodecal on a surface with normal n (R_DecalComputeBasis without an s-axis):
+ * s runs along the texture's width, t down its height (texture v grows along t). On walls t points down and s to
+ * the right seen from in front; on floors and ceilings s follows world X and t = s × n.
+ */
 export function decalBasis(n: Vector3): { s: Vector3; t: Vector3 } {
-  // Walls: t points down. Floors and ceilings: s follows world X.
   if (Math.abs(n.z) < 0.7) {
-    const t = new Vector3(0, 0, -1);
-    const s = new Vector3().crossVectors(n, t).normalize();
-    return { s, t: new Vector3().crossVectors(s, n).normalize().negate() };
+    const s = new Vector3().crossVectors(n, new Vector3(0, 0, -1)).normalize();
+    return { s, t: new Vector3().crossVectors(s, n).normalize() };
   }
   const s = new Vector3(1, 0, 0).addScaledVector(n, -n.x).normalize();
   const t = new Vector3().crossVectors(n, s).normalize().negate();

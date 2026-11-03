@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
+import { decalBasis } from '../src/render/decalRenderer.ts';
 import { decalKind, flipOverlay, overlayFlipped, overlayKeys, overlayRotation, overlaySize, placeableDecals, setOverlayRotation, setOverlaySize, type Keys } from '../src/edit/overlays.ts';
 
 const keys = (init: Record<string, string>): Keys & { all: Record<string, string> } => {
@@ -12,7 +13,8 @@ describe('overlay geometry', () => {
     const k = overlayKeys(new Vector3(10, 20, 0), new Vector3(0, 0, 1), 256, 128, 0, [4, 9]);
     expect(k.sides).toBe('4 9');
     expect([k.uv0, k.uv1, k.uv2, k.uv3]).toEqual(['-128 -64 0', '-128 64 0', '128 64 0', '128 -64 0']);
-    expect([k.BasisU, k.BasisV, k.BasisNormal]).toEqual(['1 0 0', '0 1 0', '0 0 1']);
+    // On a floor the texture's top points north (+Y), as an infodecal's does: V (towards the bottom) is −Y.
+    expect([k.BasisU, k.BasisV, k.BasisNormal]).toEqual(['1 0 0', '0 -1 0', '0 0 1']);
     expect([k.StartU, k.EndU]).toEqual(['0', '1']);
     expect(overlayKeys(new Vector3(), new Vector3(0, 0, 1), 64, 64, 0, [1], { u: true }).StartU).toBe('1');
   });
@@ -30,6 +32,39 @@ describe('overlay geometry', () => {
     expect(u[0]).toBeCloseTo(0);
     expect(u[1] * v[1] + u[2] * v[2]).toBeCloseTo(0);
   });
+
+  // Seen from in front (looking along −N), with the texture's top (StartV, at −V) up and its left (StartU, at −U) left.
+  const vec = (s: string) => new Vector3(...s.split(' ').map(Number));
+  const surfaces: [string, Vector3, Vector3, Vector3][] = [
+    // name, normal, expected U (the texture's width, left to right), expected V (its height, top to bottom)
+    ['+X wall', new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, -1)],
+    ['−X wall', new Vector3(-1, 0, 0), new Vector3(0, -1, 0), new Vector3(0, 0, -1)],
+    ['+Y wall', new Vector3(0, 1, 0), new Vector3(-1, 0, 0), new Vector3(0, 0, -1)],
+    ['−Y wall', new Vector3(0, -1, 0), new Vector3(1, 0, 0), new Vector3(0, 0, -1)],
+    ['floor', new Vector3(0, 0, 1), new Vector3(1, 0, 0), new Vector3(0, -1, 0)],
+    ['ceiling', new Vector3(0, 0, -1), new Vector3(1, 0, 0), new Vector3(0, 1, 0)],
+  ];
+  for (const [name, n, u, v] of surfaces) {
+    it(`places an overlay on a ${name} the way an infodecal sits there`, () => {
+      const k = overlayKeys(new Vector3(), n, 256, 128, 0, [1]);
+      const U = vec(k.BasisU), V = vec(k.BasisV);
+      expect(U.distanceTo(u)).toBeCloseTo(0);
+      expect(V.distanceTo(v)).toBeCloseTo(0);
+      // V = U × N, so vbsp sets its flip flag (V against the engine's N × U).
+      expect(V.dot(new Vector3().crossVectors(n, U))).toBeCloseTo(-1);
+      // Not mirrored: seen from in front, U is the viewer's right.
+      const right = new Vector3().crossVectors(n.clone().negate(), Math.abs(n.z) > 0.7 ? new Vector3(0, 1, 0) : new Vector3(0, 0, 1));
+      if (Math.abs(n.z) < 0.7) expect(U.dot(right)).toBeCloseTo(1);
+      // Same axes as the infodecal preview uses.
+      const { s, t } = decalBasis(n);
+      expect([s.distanceTo(U), t.distanceTo(V)].map((x) => Math.round(x * 1e6))).toEqual([0, 0]);
+      // A positive turn is counter-clockwise seen from in front: 90° points the texture's width along its old top.
+      const e = keys(k);
+      setOverlayRotation(e, 90);
+      expect(vec(e.all.BasisU).distanceTo(v.clone().negate())).toBeCloseTo(0);
+      expect(overlayRotation(e)).toBeCloseTo(90, 3);
+    });
+  }
 
   it('flips by swapping start and end', () => {
     const e = keys({ StartU: '0', EndU: '1', StartV: '0', EndV: '1' });

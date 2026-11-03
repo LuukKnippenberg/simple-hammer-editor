@@ -222,10 +222,9 @@ function wallOverlay(f: RoomFace, walls: KVNode[], material: string, c: number, 
   const sides = facesUnder(walls, f, c - w / 2, c + w / 2, z - h / 2, z + h / 2);
   if (!sides.length) return null;
   const n = f.normal;
-  // As the editor's decal tool does on walls: U along the wall, V up.
-  const t = new Vector3(0, 0, -1);
-  const U = new Vector3().crossVectors(n, t).normalize();
-  const V = new Vector3().crossVectors(n, U).normalize();
+  // As the editor's decal tool does on walls: U to the right seen from in front, V down (the texture's top up).
+  const U = new Vector3().crossVectors(n, new Vector3(0, 0, -1)).normalize();
+  const V = new Vector3().crossVectors(U, n).normalize();
   const centre = f.axis === 'x' ? new Vector3(c, f.at, z) : new Vector3(f.at, c, z);
   const r = (x: number) => String(Math.round(x * 1000) / 1000);
   const v3 = (p: Vector3) => vecStr(new Vector3(+r(p.x), +r(p.y), +r(p.z)));

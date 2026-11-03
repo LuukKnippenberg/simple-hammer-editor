@@ -33,23 +33,36 @@ export function setOverlaySize(e: Keys, w: number, h: number): void {
   e.set('uv3', `${fmt(x)} ${fmt(-y)} 0`);
 }
 
+/**
+ * The surface axes an overlay turns against: `s` (the texture's width at 0°) and `up` (−t, towards the texture's
+ * top), so a positive turn is counter-clockwise seen from in front of the surface.
+ */
+function turnAxes(n: Vector3): { s: Vector3; up: Vector3 } {
+  const { s, t } = decalBasis(n);
+  return { s, up: t.negate() };
+}
+
 /** The overlay's turn in degrees: its U axis against the surface's own decal axes. */
 export function overlayRotation(e: Keys): number {
   const n = parseVec(e.get('BasisNormal') ?? '0 0 1').normalize();
   const u = parseVec(e.get('BasisU') ?? '1 0 0');
-  const { s, t } = decalBasis(n);
-  const deg = (Math.atan2(u.dot(t), u.dot(s)) * 180) / Math.PI;
+  const { s, up } = turnAxes(n);
+  const deg = (Math.atan2(u.dot(up), u.dot(s)) * 180) / Math.PI;
   return Math.round(((deg % 360) + 360) % 360 * 100) / 100;
 }
 
-/** Turns the overlay to `deg` about its normal (the U and V axes; the corners stay). */
+/**
+ * Turns the overlay to `deg` about its normal (the U and V axes; the corners stay). V = U × N: the texture's
+ * height runs along V (StartV at −V), so at 0° it is the way an infodecal would sit there: upright on walls, not
+ * mirrored. vbsp keeps V's sign (it flags V = U × N against the N × U the engine would assume).
+ */
 export function setOverlayRotation(e: Keys, deg: number): void {
   const n = parseVec(e.get('BasisNormal') ?? '0 0 1').normalize();
-  const { s, t } = decalBasis(n);
+  const { s, up } = turnAxes(n);
   const r = (deg * Math.PI) / 180;
-  const U = s.clone().multiplyScalar(Math.cos(r)).addScaledVector(t, Math.sin(r));
+  const U = s.clone().multiplyScalar(Math.cos(r)).addScaledVector(up, Math.sin(r));
   e.set('BasisU', v3(U));
-  e.set('BasisV', v3(new Vector3().crossVectors(n, U).normalize()));
+  e.set('BasisV', v3(new Vector3().crossVectors(U, n).normalize()));
 }
 
 /** Whether the texture runs backwards along U or V (StartU > EndU). */
