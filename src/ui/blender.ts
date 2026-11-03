@@ -6,12 +6,11 @@ import {
   BLEND_EDGES, BLEND_FOLDER, EDGE_SPECS, blendFromParams, materialForBlend, safeBlendName, type BlendDef, type BlendEdge, type BlendLayer,
 } from '../edit/multiblend.ts';
 import { layerOutline, noiseWeights, paintDab, previewGrid, sampleWeights, splitWeights, type PreviewGrid } from '../edit/blendSample.ts';
-import { patchesUsing, repointPatches } from '../edit/terrain.ts';
+import { GROUND_SETS, patchesUsing, repointPatches } from '../edit/terrain.ts';
 import { blendPreview, type BlendPreview } from '../render/blendPreview.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { openPicker, kbd, type PickerSource } from './assetPicker.ts';
 import { StoredList } from './recent.ts';
-import { multiblendSets } from './blendUi.ts';
 import { setToolButtons } from './toolbar.ts';
 import { apiPost } from '../api.ts';
 import { h } from './dom.ts';
@@ -23,6 +22,8 @@ interface Entry {
   material: string;
   /** Made in the editor (materials/she/blend); the game's own (materials/blends) are read-only. */
   mine: boolean;
+  /** One of the Ground tool's two-texture sets (Grass → dirt …): pick only, painted with Paint and Erase. */
+  two?: boolean;
   /** As on disk; null for a new blend that was never saved. */
   saved: BlendDef | null;
   draft: BlendDef;
@@ -37,6 +38,8 @@ const MODES: [Mode, string, string][] = [
   ['paint', 'Paint', 'Try it by hand; nothing in the map changes.'],
 ];
 const KIND = ['Base', 'Layer 1', 'Layer 2', 'Layer 3'];
+/** What a two-texture set calls its textures: Erase brings back the first, Paint shows the second. */
+const TWO_KIND = ['First', 'Second'];
 const EDGE_HINT: Record<BlendEdge, string> = {
   crisp: 'no $spectexture · only where fully painted',
   medium: 'forest_grass_10b_spec · from 59% painted',
@@ -79,6 +82,16 @@ async function loadLibrary(): Promise<void> {
     if (!old) library.push({ material, mine, saved, draft: clone(saved) });
     else if (!dirty(old)) Object.assign(old, { saved, draft: clone(saved) });
     else old.saved = saved;
+  }
+  // The two-texture sets: their first and second texture as the base and one layer.
+  for (const g of GROUND_SETS) {
+    found.add(g.material);
+    if (library.some((e) => e.material === g.material)) continue;
+    const p = (await loadVmt(g.material))?.params;
+    const [a, b] = [p?.get('$basetexture'), p?.get('$basetexture2')];
+    if (!a || !b) continue;
+    const saved: BlendDef = { name: g.label, layers: [{ texture: a.toLowerCase(), scale: 1, rotation: 0 }, { texture: b.toLowerCase(), scale: 1, rotation: 0, edge: 'soft' }] };
+    library.push({ material: g.material, mine: false, two: true, saved, draft: clone(saved) });
   }
   // Blends deleted on disk go; new ones that were never saved stay.
   for (let i = library.length - 1; i >= 0; i--) if (library[i].saved && !found.has(library[i].material)) library.splice(i, 1);
@@ -170,6 +183,8 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
     void preview.setBlend(e.draft);
   };
 
+  const kind = (i: number) => (sel?.two ? TWO_KIND : KIND)[i];
+
   /** A change to the selected blend: the library dot, the footer and the preview follow. */
   const changed = (rebuild = true) => {
     msg = '';
@@ -192,14 +207,17 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
   };
   function renderLibrary(): void {
     const mine = library.filter((e) => e.mine).sort((a, b) => Number(!a.saved) - Number(!b.saved) || a.draft.name.localeCompare(b.draft.name));
-    const game = library.filter((e) => !e.mine).sort((a, b) => a.draft.name.localeCompare(b.draft.name));
+    const game = library.filter((e) => !e.mine && !e.two).sort((a, b) => a.draft.name.localeCompare(b.draft.name));
+    const two = library.filter((e) => e.two);
     libEl.replaceChildren(
       h('div.bl-sh', {}, h('h3', {}, 'My blends'), h('span', {}, `materials/${BLEND_FOLDER}`)),
       ...mine.map(libItem),
       h('button.bl-new', { onclick: newBlend }, '+ New blend'),
       h('div.bl-sh', {}, h('h3', {}, 'Lambda Wars'), h('span', {}, 'read-only')),
       h('div.bl-game', {}, ...game.map(libItem)),
-      h('p.bl-note', {}, 'The two-texture ground sets (Grass → dirt and so on) stay as they are; the blender makes four-layer MultiBlend materials, like the game’s own.'));
+      h('div.bl-sh', {}, h('h3', {}, 'Two-texture'), h('span', {}, 'pick only')),
+      h('div.bl-two', {}, ...two.map(libItem)),
+      h('p.bl-note', {}, 'The classic ground sets: Paint shows the second texture, Erase brings back the first. The blender makes four-layer MultiBlend materials, like the game’s own.'));
   }
 
   // ---- preview ----
@@ -215,7 +233,7 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
     preview.setOutline(mode === 'split' ? [] : layerOutline(g, d, layer));
     preview.setLighting(light);
     preview.draw();
-    tag.textContent = mode === 'paint' ? `Painting with ${KIND[Math.max(1, layer)]} · brush ${radius}` : mode === 'split' ? KIND.slice(0, n).join(' · ') : `Dashed: where ${KIND[layer]} shows`;
+    tag.textContent = mode === 'paint' ? `Painting with ${kind(Math.max(1, layer))} · brush ${radius}` : mode === 'split' ? [0, 1, 2, 3].slice(0, n).map(kind).join(' · ') : `Dashed: where ${kind(layer)} shows`;
     modesEl.replaceChildren(...MODES.map(([m, label]) => {
       const b = h(m === mode ? 'button.active' : 'button', { onclick: () => { mode = m; refreshPreview(); } }, label);
       b.dataset.mode = m;
@@ -268,7 +286,7 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
     const card = h(i === layer ? 'div.bl-layer.on' : 'div.bl-layer', { onclick: () => { if (layer !== i) { layer = i; renderLayers(); refreshPreview(); } } },
       h('div.bl-layer-head', {},
         textureImg(l.texture),
-        h('span.bl-layer-name', {}, h('span.bl-kind', {}, KIND[i]), h('span.bl-tex', { title: l.texture }, l.texture)),
+        h('span.bl-layer-name', {}, h('span.bl-kind', {}, kind(i)), h('span.bl-tex', { title: l.texture }, l.texture)),
         h('button', { disabled: ro, onclick: (ev: Event) => { ev.stopPropagation(); layer = i; renderLayers(); openTextureBrowser(i); } }, 'Change…'),
         i >= 2 ? h('button.bl-x', { disabled: ro, 'aria-label': 'Remove layer', onclick: (ev: Event) => {
           ev.stopPropagation();
@@ -279,7 +297,7 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
       slider('Size', l.scale, SIZE.min, SIZE.max, 0.05, (v) => `${v.toFixed(2)}×`, (v) => edit(() => (l.scale = v)), ro),
       slider('Rotation', l.rotation, -180, 180, 5, (v) => `${Math.round(v)}°`, (v) => edit(() => (l.rotation = v)), ro));
     card.dataset.layer = String(i);
-    if (i > 0) {
+    if (i > 0 && !sel?.two) {
       const edge = l.edge ?? 'soft';
       card.append(
         h('div.bl-row', {}, h('label', {}, 'Edge'), h('div.seg.bl-edges', {}, ...BLEND_EDGES.map((e) => {
@@ -301,8 +319,9 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
     sprites.value = d.detailtype ?? '';
     sprites.addEventListener('change', () => edit((x) => { if (sprites.value) x.detailtype = sprites.value; else delete x.detailtype; }, false));
     layersEl.replaceChildren(...present(
-      ro ? h('div.bl-ro', {}, h('span', {}, 'A Lambda Wars blend: look, paint with it, or duplicate it to change it.'), h('button.primary', { onclick: duplicate }, 'Duplicate')) : null,
-      h('div.bl-sh', {}, h('h3', {}, 'Layers'), h('span', {}, `${d.layers.length} of 4 · base shows where nothing is painted`)),
+      sel.two ? h('div.bl-ro', {}, h('span', {}, 'A two-texture set: Paint shows the second texture, Erase brings back the first. Pick it and paint with it; it can’t be edited.'))
+        : ro ? h('div.bl-ro', {}, h('span', {}, 'A Lambda Wars blend: look, paint with it, or duplicate it to change it.'), h('button.primary', { onclick: duplicate }, 'Duplicate')) : null,
+      h('div.bl-sh', {}, h('h3', {}, sel.two ? 'Textures' : 'Layers'), h('span', {}, sel.two ? 'the second shows where painted' : `${d.layers.length} of 4 · base shows where nothing is painted`)),
       ...d.layers.map((l, i) => layerCard(l, i, ro)),
       !ro && d.layers.length < 4 ? h('button', { onclick: () => {
         edit((x) => x.layers.push({ texture: 'nature/gravelfloor006a', scale: 1, rotation: 0, edge: 'medium' }));
@@ -310,9 +329,9 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
         renderLayers();
         refreshPreview();
       } }, '+ Add layer') : null,
-      h('div.bl-sh', {}, h('h3', {}, 'Extras')),
-      h('div.bl-row', {}, h('label', {}, 'Sprites'), sprites),
-      h('p.bl-note', {}, `%detailtype: one of the ${detailTypes.length || 'game’s'} sprite types in the game’s detail.vbsp. vbsp places them when the map compiles.`)));
+      sel.two ? null : h('div.bl-sh', {}, h('h3', {}, 'Extras')),
+      sel.two ? null : h('div.bl-row', {}, h('label', {}, 'Sprites'), sprites),
+      sel.two ? null : h('p.bl-note', {}, `%detailtype: one of the ${detailTypes.length || 'game’s'} sprite types in the game’s detail.vbsp. vbsp places them when the map compiles.`)));
   }
 
   /** Texture browser for a layer: search, thumbnails, Recent, Favourites and Used in this map (no alpha textures). */
@@ -390,7 +409,6 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
       const copy: Entry = { material: res.material, mine: true, saved: clone(draft), draft: clone(draft) };
       if (!e.saved) library.splice(library.indexOf(e), 1);
       library.push(copy);
-      await multiblendSets(true);
       select(copy, layer);
       msg = `Saved as a new blend: materials/${BLEND_FOLDER}/${draft.name}.vmt`;
       renderFooter();
@@ -421,7 +439,6 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
     e.saved = clone(e.draft);
     // Patches share the material object: reloading it updates them in the viewport at once.
     await editor.materials.reload(e.material);
-    await multiblendSets(true);
     editor.changed();
     msg = `Saved materials/${BLEND_FOLDER}/${name}.vmt${patches.length ? ` · ${usersText(patches.length)} updated` : ''}`;
     renderAll();
@@ -456,7 +473,6 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
           () => void apiPost('/api/blend/delete', JSON.stringify({ name })).then(() => blendFilesChanged(editor, e.material)));
       });
       library.splice(library.indexOf(e), 1);
-      await multiblendSets(true);
       editor.changed();
       msg = `Deleted ${name}.vmt${patches.length ? ` · ${usersText(patches.length)} now use ${short(replacement!).toLowerCase()}` : ''}`;
     }
@@ -488,7 +504,7 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
     const delBox = deleting ? deletePanel(e, n) : null;
     footer.replaceChildren(...present(
       h('span.bl-muted', {}, 'Name'), name,
-      h('span.bl-path', {}, `→ materials/${BLEND_FOLDER}/${e.draft.name}.vmt`),
+      h('span.bl-path', {}, `→ materials/${e.mine ? `${BLEND_FOLDER}/${e.draft.name}` : e.material.toLowerCase()}.vmt`),
       h(n ? 'span.bl-used.on' : 'span.bl-used', {}, n ? `Used on ${usersText(n)} in this map${e.mine ? '; Save updates them' : ''}` : 'Not used in this map yet'),
       h('span', { style: { flex: '1' } }),
       h('span.bl-msg', {}, msg),
@@ -500,7 +516,8 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
   }
 
   function deletePanel(e: Entry, n: number): HTMLElement {
-    const others = library.filter((x) => x !== e && x.saved);
+    // Not the two-texture sets: they don't read the MultiBlend weights the patches carry.
+    const others = library.filter((x) => x !== e && x.saved && !x.two);
     const pick = h('select', { 'aria-label': 'Replacement blend' }, ...others.map((x) => h('option', { value: x.material }, `${x.mine ? '★ ' : ''}${x.draft.name}`))) as HTMLSelectElement;
     return h('div.bl-delete', {},
       h('b', {}, `Delete ${e.draft.name}?`),
@@ -562,10 +579,9 @@ export async function openBlender(editor: Editor, opts: BlenderOptions = {}): Pr
   void fetch('/api/detailtypes').then((r) => (r.ok ? r.json() : [])).then((t: string[]) => { detailTypes = t; renderLayers(); });
 }
 
-/** After a blend file changed outside the dialog (undo of a rename or delete): reread it and the blend list. */
+/** After a blend file changed outside the dialog (undo of a rename or delete): reread it. */
 async function blendFilesChanged(editor: Editor, material: string): Promise<void> {
   await editor.materials.reload(material);
-  await multiblendSets(true);
   editor.changed();
 }
 

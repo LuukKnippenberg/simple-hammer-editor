@@ -615,8 +615,9 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
   }
   document.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement | null)?.closest?.('button');
-    // Not from dialogs (the material blender's layer Change…): the bubble would cover them, and the dock can't help there.
-    if (b && /^(Change…|Set for all)/.test(b.textContent ?? '') && !b.closest('.modal-backdrop, .blender')) hint();
+    // Not from dialogs (the material blender's layer Change…) or the Ground tool's blend card (it opens the blender):
+    // the bubble would cover them, and the dock can't help there.
+    if (b && /^(Change…|Set for all)/.test(b.textContent ?? '') && !b.closest('.modal-backdrop, .blender, .gp-card')) hint();
   }, true);
   editor.on('toolchange', () => { if (size !== 'hidden') markCurrent(); });
   for (const ev of ['material', 'decal', 'entityclass']) editor.on(ev, () => { if (size !== 'hidden') markCurrent(); });

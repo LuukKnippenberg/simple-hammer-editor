@@ -1,17 +1,15 @@
 import type { Editor } from '../editor.ts';
 import type { BlockTool, KitTool, SelectTool } from '../edit/tools.ts';
 import { GENERATE_TOOLS } from '../edit/generateTool.ts';
-import { makeTerrain, type GroundTool } from '../edit/groundTool.ts';
+import type { GroundTool } from '../edit/groundTool.ts';
 import type { SoundTool, SoundToolMode } from '../edit/soundTool.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 import { soundBrowser } from './soundBrowser.ts';
 import { SOUND_PRESETS } from '../lw/soundPresets.ts';
 import { cinemaToolOptions } from './cinemaPanel.ts';
-import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
-import { multiblendRows, multiblendSets } from './blendUi.ts';
-import { openBlender } from './blender.ts';
-import { h, toast } from './dom.ts';
+import { groundHint, groundRows } from './groundPanel.ts';
+import { h } from './dom.ts';
 import { selectModeRows } from './partPanel.ts';
 import { entityToolOptions } from './entityToolOptions.ts';
 import { toolModelField } from './modelField.ts';
@@ -27,7 +25,6 @@ const HINTS = {
   kit: 'Click a surface to place · settings in the Mission tab',
   decal: 'Click a wall or floor to place · Tab next recent decal',
   road: 'Click points · snaps onto roads to join them · Enter or double-click builds · Backspace removes a point',
-  ground: 'Drag on terrain to paint or sculpt · with terrain selected, only that changes',
   powerline: 'Click points along the route · Enter or double-click places poles and wires',
   sound: 'Click to place · turn on Audio in the top bar to hear the map',
   poi: 'Drag a rectangle (or click) to place · pick the type and settings in the POI tab',
@@ -59,7 +56,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement, browse: 
     // Generators have their own panel (generatePanel.ts).
     box.hidden = GENERATE_TOOLS.has(name);
     if (box.hidden) return;
-    const rows: (HTMLElement | string)[] = [h('b', {}, NAMES[name]), h('div.hint', {}, HINTS[name])];
+    const rows: (HTMLElement | string)[] = [h('b', {}, NAMES[name]), h('div.hint', {}, name === 'ground' ? groundHint(editor) : HINTS[name])];
     if (name === 'select') rows.push(...selectModeRows(editor, render));
     if (name === 'select' && (editor.tools.tools.select as SelectTool).mode === 'rotate') {
       const tool = editor.tools.tools.select as SelectTool;
@@ -98,46 +95,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement, browse: 
     }
     if (name === 'paint') rows.push(...recentMaterialRows(editor, browse));
     if (name === 'decal') rows.push(...decalToolOptions(editor, render));
-    if (name === 'ground') {
-      const tool = editor.tools.tools.ground as GroundTool;
-      const modes: [GroundMode, string][] = [['paint', 'Paint'], ['erase', 'Erase'], ['raise', 'Raise'], ['lower', 'Lower'], ['smooth', 'Smooth'], ['flatten', 'Flatten']];
-      const seg = h('div.seg', {}, ...modes.map(([m, l]) => {
-        const b = h('button', { onclick: () => { tool.mode = m; render(); } }, l);
-        b.classList.toggle('active', tool.mode === m);
-        return b;
-      }));
-      const blends = h('optgroup', { label: 'MultiBlend (up to 4 textures)' });
-      const set = h('select', { title: 'Paint shows the second texture (or the MultiBlend layer); Erase brings back the first' },
-        h('optgroup', { label: 'Two textures' }, ...GROUND_SETS.map((g) => h('option', { value: g.material }, g.label))), blends) as HTMLSelectElement;
-      void multiblendSets().then((sets) => {
-        blends.append(...sets.map((g) => h('option', { value: g.material }, g.label)));
-        set.value = tool.set;
-      });
-      set.value = tool.set;
-      set.addEventListener('change', () => {
-        tool.set = set.value;
-        set.blur();
-        // The layer controls depend on the material's VMT.
-        void editor.materials.ready(tool.set).then(render);
-      });
-      const radius = h('input', { type: 'range', min: 32, max: 512, step: 16, value: tool.radius }) as HTMLInputElement;
-      radius.addEventListener('input', () => (tool.radius = Number(radius.value)));
-      const strength = h('input', { type: 'range', min: 0.05, max: 1, step: 0.05, value: tool.strength }) as HTMLInputElement;
-      strength.addEventListener('input', () => (tool.strength = Number(strength.value)));
-      const floors = [...editor.selection.solids].filter((s) => !s.entity && !s.isDisplacement);
-      rows.push(seg,
-        h('div.row', {}, h('label', {}, 'Ground'), set, tool.multiblend
-          ? h('button', { title: 'Open this blend in the material blender', onclick: () => void openBlender(editor, { material: tool.set, layer: tool.layer, from: 'Ground › Blend › Edit' }) }, 'Edit…')
-          : null),
-        h('div.row', {}, h('label', {}, 'Radius'), radius),
-        h('div.row', {}, h('label', {}, 'Strength'), strength),
-        ...multiblendRows(editor, tool, render),
-        h('button', {
-          disabled: !floors.length,
-          title: 'Replace the selected floor brushes with displacement terrain in this ground set',
-          onclick: () => { const n = makeTerrain(editor, floors, tool.set); render(); toast(editor.container, `Made ${n} terrain patches`); },
-        }, floors.length ? `Turn ${floors.length} selected floor${floors.length > 1 ? 's' : ''} into terrain` : 'Select a floor brush to turn it into terrain'));
-    }
+    if (name === 'ground') rows.push(...groundRows(editor, editor.tools.tools.ground as GroundTool, render));
     if (name === 'sound') {
       const tool = editor.tools.tools.sound as SoundTool;
       const modes: [SoundToolMode, string][] = [['zone', 'Soundscape zone'], ['sound', 'Local sound']];
@@ -182,6 +140,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement, browse: 
     }
     if (name === 'entity') rows.push(...entityToolOptions(editor, render, () => toolModelField(editor)));
     box.classList.toggle('wide', name === 'entity' || name === 'decal');
+    box.classList.toggle('ground', name === 'ground');
     box.replaceChildren(...rows);
   };
   for (const ev of ['toolchange', 'material', 'entityclass', 'kit', 'decal', 'roadstyle', 'selection']) editor.on(ev, render);

@@ -1,0 +1,45 @@
+/* Ground tool options (groundPanel.ts): mode groups, blend card, layer tiles, brush, noise fill. */
+.tool-options.ground { width: 340px; max-width: 340px; }
+.gp-modes { display: flex; gap: 8px; margin-top: 4px; }
+.gp-grp { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.gp-grp:first-child { flex: 0 0 104px; }
+.gp-l { font-family: var(--font-cond); font-weight: 600; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+.gp-modes .seg { flex-wrap: nowrap; }
+.gp-modes .seg button { padding: 3px 2px; min-width: 0; }
+
+.gp-sh { display: flex; align-items: baseline; gap: 8px; padding: 10px 0 5px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.gp-sh h3 { margin: 0; font-family: var(--font-cond); font-weight: 600; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-text); }
+.gp-sh span { font-size: 11.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gp-card { display: flex; align-items: center; gap: 10px; padding: 7px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border); }
+.gp-swatch { display: grid; grid-template-columns: repeat(2, 20px); gap: 2px; flex: none; }
+.gp-swatch img { width: 20px; height: 20px; border-radius: 2px; object-fit: cover; background: var(--bg); }
+.gp-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gp-name b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp-name span { font-size: 11.5px; color: var(--faint); }
+
+.gp-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+button.gp-tile {
+  position: relative; display: flex; flex-direction: column; gap: 3px; padding: 4px; border-radius: 4px; text-align: left;
+  background: var(--panel-2); border: 1px solid var(--border); text-transform: none; letter-spacing: 0; font: inherit;
+}
+button.gp-tile:hover { border-color: var(--line-hover); }
+button.gp-tile.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+button.gp-tile.dim { opacity: 0.55; }
+.gp-tile img { display: block; width: 100%; height: 62px; object-fit: cover; border-radius: 3px; background: var(--bg); }
+.gp-k {
+  position: absolute; top: 8px; left: 8px; padding: 0 5px; border-radius: 2px; background: rgba(11, 12, 13, 0.8);
+  font-family: var(--font-cond); font-weight: 700; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-2);
+}
+.gp-tile.on .gp-k { color: var(--accent-text); }
+.gp-tex { font: 11px var(--font-mono); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tool-options.ground .row label { flex: 0 0 60px; }
+.tool-options.ground .row input[type=range] { accent-color: var(--accent); }
+.gp-val { width: 36px; text-align: right; font: 12px var(--font-mono); color: var(--text-2); }
+.gp-noise { display: grid; grid-template-columns: 32px minmax(0, 1fr) 64px; gap: 8px; align-items: center; min-height: 28px; }
+.gp-nsw img { display: block; width: 32px; height: 20px; border-radius: 2px; object-fit: cover; background: var(--bg); }
+.gp-noise input[type=range] { accent-color: var(--accent); min-width: 0; }
+button.gp-wide { width: 100%; margin-top: 8px; }
+.gp-note { margin-top: 10px; padding: 7px 9px; border-radius: 4px; border: 1px dashed var(--line); font-size: 12px; line-height: 1.45; color: var(--faint); }
+.gp-note b { color: var(--muted); font-weight: 500; }

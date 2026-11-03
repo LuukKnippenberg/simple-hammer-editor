@@ -58,8 +58,11 @@ await withEditor(async (d, page) => {
   // ---- New blend → Save writes the VMT ----
   await d.eval(async () => (await import('/src/ui/toolbar.ts')).setToolButtons(window.__editor.editor, 'ground'));
   await settle();
-  await page.click('.tool-options button:has-text("New blend…")');
-  await page.waitForSelector(`${blend} .bl-layer`);
+  // The Ground panel's blend card opens the blender; + New blend is in its library.
+  await page.click('.tool-options .gp-change');
+  await page.waitForSelector(`${blend} .bl-new`);
+  await page.click(`${blend} .bl-new`);
+  await page.waitForSelector(`${blend} .bl-name:not([disabled])`);
   await settle(1200);
   check('new blend opens with Base + Layer 1', await page.locator(`${blend} .bl-layer`).count(), 2);
   check('new blend shows the unsaved dot', await page.locator(`${blend} .bl-item.on .bl-dot`).count(), 1);

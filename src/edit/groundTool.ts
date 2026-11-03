@@ -42,13 +42,13 @@ export class GroundTool implements Tool {
   }
 
   /**
-   * Switches terrain to the current MultiBlend set and fills its layers from noise: the selected terrain,
-   * or every patch when none is selected. One undo step. Returns the number of patches changed.
+   * Switches the selected terrain to the current MultiBlend set and fills its layers from noise. Nothing changes
+   * without a selection (a click must not repaint the whole map). One undo step. Returns the number of patches changed.
    */
   noiseFill(layers: NoiseLayer[], keep = 0): number {
     const ed = this.editor;
     const sel = [...ed.selection.solids].filter((s) => s.isDisplacement);
-    const disps = this.displacements(sel.length ? sel : undefined);
+    const disps = sel.length ? this.displacements(sel) : [];
     if (!disps.length || !this.multiblend) return 0;
     const end = ed.history.begin('Ground: noise blend', disps.map((d) => d.solid));
     for (const d of disps) setGroundMaterial(d, this.set, true);

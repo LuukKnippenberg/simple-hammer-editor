@@ -127,24 +127,28 @@ The tool rail on the left; see the README for the keys.
 
 ### Ground
 
-The Ground tool works on displacement terrain (`src/edit/terrain.ts`):
+The Ground tool works on displacement terrain (`src/edit/terrain.ts`; panel `src/ui/groundPanel.ts`):
 
-- **Paint** brings in the second texture of the chosen ground set, **Erase** the first. The sets come from the
-  game's blend materials (grass to dirt, grass to mud, gravel to dirt, rubble to dirt, cobble to dirt, dirt to
-  concrete debris, rock to sand, snow to trodden snow); painting with another set switches the touched patches.
-- **Raise**, **Lower**, **Smooth** and **Flatten** (to the height where the stroke started), with radius and
-  strength. One undo step per stroke. Vertices are found by world position, so the shared edges of neighbouring
-  patches always move together.
-- With a flat floor brush selected, the tool options turn it into displacement patches in the chosen set.
-- `MultiBlend` terrain mixes up to four textures by per-vertex weights. The tool paints a layer and noise-fills all
-  layers so large areas stop tiling. Compile with final lighting: fast vrad leaves dark seams along patch edges.
-- The **material blender** (Ground › New blend… or Edit… next to a MultiBlend, or Edit its blend on selected
-  terrain; `src/ui/blender.ts`) makes and edits blend materials in `content/materials/she/blend/`, packed into the
-  BSP when compiling. It lists My blends and the game's own (read-only, Duplicate to change), previews a blend on a
-  scratch patch (Sample, Noise, Split or Paint, with the map's lighting, a 256-unit bar and a soldier), and sets each
-  layer's texture, size, rotation and edge (Crisp, Medium or Soft picks its softness map) plus detail sprites.
-  Saving updates the patches that use the blend; renaming re-points them and deleting asks for a replacement, each
-  one undo step.
+- **Texture** modes: **Paint** brings in the selected layer (or the second texture of a two-texture set), **Erase**
+  the base (or the first). The panel shows the blend's layers as texture tiles: a layer tile paints it, the Base tile
+  switches to Erase. Painting with another blend switches the touched patches.
+- **Shape** modes: **Raise**, **Lower**, **Smooth** and **Flatten** (to the height where the stroke started), with
+  radius and strength. One undo step per stroke. Vertices are found by world position, so the shared edges of
+  neighbouring patches always move together. With terrain selected, only those patches change.
+- The blend card shows the material in use; **Change…** opens the material blender on it, and its **Paint with it**
+  comes back with the chosen blend and layer. The game's two-texture sets (grass to dirt, grass to mud, gravel to
+  dirt, rubble to dirt, cobble to dirt, dirt to concrete debris, rock to sand, snow to trodden snow) are a pick-only
+  group there.
+- With a flat floor brush selected, the panel turns it into displacement patches in the current blend.
+- `MultiBlend` terrain mixes up to four textures by per-vertex weights. With patches selected, the panel noise-fills
+  their layers (coverage and patch size per layer, one undo step) so large areas stop tiling. Compile with final
+  lighting: fast vrad leaves dark seams along patch edges.
+- The **material blender** (`src/ui/blender.ts`; also Edit its blend on selected terrain) makes and edits blend
+  materials in `content/materials/she/blend/`, packed into the BSP when compiling. It lists My blends, the game's
+  own (read-only, Duplicate to change) and the two-texture sets, previews a blend on a scratch patch (Sample, Noise,
+  Split or Paint, with the map's lighting, a 256-unit bar and a soldier), and sets each layer's texture, size,
+  rotation and edge (Crisp, Medium or Soft picks its softness map) plus detail sprites. Saving updates the patches
+  that use the blend; renaming re-points them and deleting asks for a replacement, each one undo step.
 
 ## Panels
 
