@@ -20,9 +20,18 @@ export const WIRE = {
 /** Draw order in the 2D panes: grid, brushes, entities, then the selection over everything. */
 const ORDER = { grid: 0, brush: 1, detail: 1, entity: 2, selection: 3, overlay: 4 };
 
-/** A line material for the 2D panes: exact colours (no tone mapping, fog or depth test). */
+/**
+ * Materials are shared per colour and never freed: freeing the last user of a shader makes three.js delete it, and
+ * the overlays are rebuilt every frame, so that cost a shader compile per pane per frame.
+ */
+const materials = new Map<string, LineBasicMaterial>();
+let handleFill: MeshBasicMaterial | null = null;
+
+/** The shared line material for the 2D panes in a colour: exact colours (no tone mapping, fog or depth test). */
 export function wireMaterial(color: string): LineBasicMaterial {
-  return new LineBasicMaterial({ color: new Color(color), depthTest: false, depthWrite: false, fog: false, toneMapped: false });
+  let m = materials.get(color);
+  if (!m) materials.set(color, (m = new LineBasicMaterial({ color: new Color(color), depthTest: false, depthWrite: false, fog: false, toneMapped: false })));
+  return m;
 }
 
 /** Line segments from end point pairs; `order` places them in the pane's draw order. */
@@ -35,13 +44,9 @@ export function lineSegments(points: ArrayLike<number>, color: string, order: ke
   return line;
 }
 
-/** Frees the geometry and materials of everything in a group and empties it. */
+/** Frees the geometry of everything in a group and empties it (the shared materials stay). */
 export function clearGroup(g: Group): void {
-  for (const o of g.children) {
-    const m = o as Mesh;
-    m.geometry?.dispose();
-    (m.material as MeshBasicMaterial | undefined)?.dispose();
-  }
+  for (const o of g.children) (o as Mesh).geometry?.dispose();
   g.clear();
 }
 
@@ -151,7 +156,8 @@ export function buildHandles(ax: PaneAxes, points: [number, number][], half: num
   }
   const geo = new BufferGeometry();
   geo.setAttribute('position', new BufferAttribute(new Float32Array(tris), 3));
-  const fill = new Mesh(geo, new MeshBasicMaterial({ color: new Color(WIRE.handle), depthTest: false, depthWrite: false, toneMapped: false }));
+  handleFill ??= new MeshBasicMaterial({ color: new Color(WIRE.handle), depthTest: false, depthWrite: false, toneMapped: false });
+  const fill = new Mesh(geo, handleFill);
   fill.frustumCulled = false;
   fill.renderOrder = ORDER.overlay;
   const edge = lineSegments(rim, '#0b0c0d', 'overlay');
