@@ -49,7 +49,7 @@ export class SoundscapeController {
 
   listenerPoint(): Vector3 {
     const ed = this.editor;
-    const cam = ed.activeCamera;
+    const cam = ed.sceneCamera;
     const ray = new Raycaster();
     ray.setFromCamera(new Vector2(0, 0), cam);
     const hit = ed.world.raycast(ray);

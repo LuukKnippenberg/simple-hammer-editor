@@ -796,3 +796,34 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 #statusbar .save-pill:hover { background: rgba(233, 149, 42, 0.24); color: var(--accent-hover); }
 #statusbar .save-pill[hidden] { display: none; }
 .save-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+/* Quad view (View › Quad): pane frames and headers over the one canvas, and the dividers between them. */
+.quad { position: absolute; inset: 0; pointer-events: none; }
+.quad-pane { position: absolute; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, 0.06); pointer-events: none; }
+.quad-pane.on { border-color: var(--accent); }
+.quad-head {
+  position: absolute; left: 0; top: 0; right: 0; height: 24px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 8px;
+  background: linear-gradient(rgba(11, 12, 13, 0.85), rgba(11, 12, 13, 0));
+}
+.quad-head button {
+  pointer-events: auto; height: 20px; border: 0; border-radius: 2px; background: transparent; color: var(--text-2); padding: 0 6px;
+  font: 600 12px/20px var(--font-cond); letter-spacing: 0.12em; text-transform: uppercase;
+}
+.quad-head button:hover { background: rgba(255, 255, 255, 0.08); }
+.quad-axes, .quad-zoom { font: 10.5px var(--font-mono); color: #7c8285; }
+.quad-fill { flex: 1; }
+.quad-split { position: absolute; background: #1a1d20; pointer-events: auto; }
+.quad-split.v { cursor: ew-resize; }
+.quad-split.h { cursor: ns-resize; }
+.quad-split.c { cursor: move; border-radius: 2px; background: #2a2e32; z-index: 1; }
+.view-seg { display: flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 4px; }
+.view-seg-label { font: 600 11px var(--font-cond); letter-spacing: 0.12em; text-transform: uppercase; color: #7c8285; padding: 0 4px 0 2px; }
+.view-seg button { height: 24px; padding: 0 10px; border: 0; border-radius: 3px; font: 600 12px var(--font-cond); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.view-seg button.active { background: var(--accent-tint); color: var(--accent-text); }
+.grid-pick { display: inline-flex; align-items: center; gap: 1px; }
+.grid-pick button { height: 18px; min-width: 20px; padding: 0 4px; border: 0; border-radius: 2px; font: 11.5px var(--font-mono); color: var(--text-2); }
+.grid-pick button:hover { background: rgba(255, 255, 255, 0.08); }
+.grid-pick button.on { background: var(--accent-tint); color: var(--accent-text); }
+.grid-note { color: #7c8285; font-family: var(--font-mono); font-size: 11.5px; margin-left: 6px; }
+/* With the quad view on, the corner cards sit below the pane headers so pane names and zooms stay clickable. */
+#viewport.quad-on > .overlay.tl, #viewport.quad-on > .overlay.tr { top: 34px; }

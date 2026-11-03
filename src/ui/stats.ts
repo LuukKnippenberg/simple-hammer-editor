@@ -1,6 +1,27 @@
 import type { Editor } from '../editor.ts';
 import { h, toast } from './dom.ts';
 import { audio } from '../audio/engine.ts';
+import { GRIDS } from './toolbar.ts';
+
+/** Clickable grid sizes for the status bar, kept as one element so clicks land; the note says how lines thin out. */
+function gridPicker(editor: Editor): { root: HTMLElement; note: HTMLElement } {
+  const buttons = GRIDS.map((n) => {
+    const b = h('button', { title: `Grid ${n}` }, String(n));
+    b.addEventListener('click', () => editor.setGrid(n));
+    return b;
+  });
+  const step = (d: number) => editor.setGrid(GRIDS[Math.max(0, Math.min(GRIDS.length - 1, GRIDS.indexOf(editor.grid) + d))]);
+  const down = h('button', { title: 'Smaller grid ([)', onclick: () => step(-1) }, '[');
+  const up = h('button', { title: 'Larger grid (])', onclick: () => step(1) }, ']');
+  const note = h('span.grid-note');
+  const sync = () => {
+    buttons.forEach((b, i) => b.classList.toggle('on', GRIDS[i] === editor.grid));
+    note.textContent = editor.quad.gridNote();
+  };
+  editor.on('grid', sync);
+  sync();
+  return { root: h('span.grid-pick', {}, h('span', {}, 'grid '), down, ...buttons, up, note), note };
+}
 
 /**
  * The amber "unsaved for N min · Save" pill. It stays one element (the rest of the status bar is rebuilt every frame
@@ -37,7 +58,8 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
   const reminder = saveReminder(editor);
   const rest = h('span.status-rest');
   const right = h('span.status-right');
-  status.replaceChildren(h('span', {}, mapName), reminder.pill, rest, right);
+  const grid = gridPicker(editor);
+  status.replaceChildren(h('span', {}, mapName), reminder.pill, rest, grid.root, right);
   let last = 0;
   editor.on('frame', () => {
     const now = performance.now();
@@ -60,13 +82,15 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
     overlay.replaceChildren(...lines.flatMap((l, i) => (i ? [h('br'), ...l] : l)));
     const p = editor.camera.position;
     const hover = hoverLabel();
+    const quad = editor.quad.on ? editor.quad.status() : null;
+    grid.note.textContent = editor.quad.gridNote();
     mapName.textContent = editor.mapName;
     reminder.sync();
     rest.replaceChildren(...[
       h('span', {}, 'camera ', h('b', {}, `${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.z)}`)),
       h('span', {}, 'entities ', h('b', {}, String(editor.doc.entities.length))),
-      h('span', {}, editor.view === 'top' ? 'top view' : '3D view'),
-      h('span', {}, 'grid ', h('b', {}, String(editor.grid))),
+      quad ? h('span', {}, 'active ', h('b', { style: { color: 'var(--accent-text)' } }, quad.pane)) : h('span', {}, editor.view === 'top' ? 'top view' : '3D view'),
+      quad?.cursor && h('span', {}, 'cursor ', h('b', {}, quad.cursor)),
       editor.tools.current.name === 'select' && editor.selection.mode !== 'object' && h('span', {}, h('b', {}, editor.selection.mode), ' mode'),
       editor.hidden.size > 0 && h('span', {}, 'hidden ', h('b', {}, String(editor.hidden.size))),
       editor.lastAutosave && h('span', {}, 'autosaved ', h('b', {}, editor.lastAutosave.toLocaleTimeString())),

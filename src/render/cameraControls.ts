@@ -21,6 +21,8 @@ export class CameraControls {
   private orbitDist = 0;
   /** Returns the world point under a screen position, used for dolly and orbit targets. */
   pick: (ndc: Vector2) => Vector3 | null = () => null;
+  /** The page rectangle the camera draws into (a pane of the quad view, or the whole canvas). */
+  rect: () => DOMRect = () => this.dom.getBoundingClientRect();
   onChange: () => void = () => {};
 
   constructor(camera: PerspectiveCamera, dom: HTMLElement) {
@@ -81,7 +83,7 @@ export class CameraControls {
   }
 
   private ndc(e: PointerEvent | WheelEvent): Vector2 {
-    const r = this.dom.getBoundingClientRect();
+    const r = this.rect();
     return new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   }
 

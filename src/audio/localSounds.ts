@@ -105,7 +105,7 @@ export class LocalSoundPlayer {
     // The listener hears from the camera's direction, standing at the point it looks at.
     const l = ctx.listener;
     const fwd = new Vector3();
-    this.editor.activeCamera.getWorldDirection(fwd);
+    this.editor.sceneCamera.getWorldDirection(fwd);
     fwd.z = 0;
     if (fwd.lengthSq() < 1e-6) fwd.set(0, 1, 0);
     fwd.normalize();

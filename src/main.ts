@@ -194,7 +194,7 @@ window.__editor = {
   },
   project(p) {
     const v = new Vector3(...p).project(editor.activeCamera);
-    const r = editor.renderer.domElement.getBoundingClientRect();
+    const r = editor.viewRect();
     return [r.left + ((v.x + 1) / 2) * r.width, r.top + ((1 - v.y) / 2) * r.height];
   },
 };

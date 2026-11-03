@@ -411,7 +411,7 @@ export class StairsTool implements Tool {
     const ed = this.editor;
     const on = ed.tools.current === this;
     if (!on) { this.label.hidden = true; return; }
-    const cr = ed.container.getBoundingClientRect(), rr = ed.renderer.domElement.getBoundingClientRect();
+    const cr = ed.container.getBoundingClientRect(), rr = ed.viewRect();
     const place = (el: HTMLElement, v: Vector3) => {
       const p = v.project(ed.activeCamera);
       el.style.left = `${rr.left - cr.left + ((p.x + 1) / 2) * rr.width}px`;
