@@ -1,5 +1,5 @@
 import {
-  Box3, Color, DirectionalLight, Group, HemisphereLight, Mesh, PerspectiveCamera, Scene, Sphere, Vector3, WebGLRenderTarget,
+  Box3, Color, DirectionalLight, Group, HemisphereLight, Mesh, PerspectiveCamera, Scene, Sphere, Vector3, WebGLRenderTarget, type Camera,
 } from 'three';
 import type { Editor } from '../editor.ts';
 import { loadModel, type SourceModel } from '../assets/mdl.ts';
@@ -27,7 +27,8 @@ const SRGB = new Uint8ClampedArray(256).map((_, i) => {
   return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055));
 });
 
-function meshes(editor: Editor, model: SourceModel, skin: number): { group: Group; ready: () => boolean } {
+/** A model's meshes with the editor's model materials; `ready` once their textures loaded. */
+export function modelMeshes(editor: Editor, model: SourceModel, skin: number): { group: Group; ready: () => boolean } {
   const row = model.skins[skin] ?? model.skins[0] ?? [];
   const group = new Group();
   const infos = model.parts.map((part) => {
@@ -40,34 +41,45 @@ function meshes(editor: Editor, model: SourceModel, skin: number): { group: Grou
 
 /** Renders a model with the editor's own WebGL renderer into `out` (a 2D canvas), transparent around it. */
 function draw(editor: Editor, model: SourceModel, group: Group, view: ModelView, out: HTMLCanvasElement): void {
-  const w = out.width, h = out.height;
-  // Twice the size, scaled down: cheap antialiasing.
-  const W = w * 2, H = h * 2;
-  const r = editor.renderer;
-  const rt = new WebGLRenderTarget(W, H);
   const box = model.bounds.isEmpty() ? new Box3(new Vector3(-16, -16, 0), new Vector3(16, 16, 32)) : model.bounds;
   const sphere = box.getBoundingSphere(new Sphere());
   const y = (view.yaw * Math.PI) / 180, p = (view.pitch * Math.PI) / 180;
   const dist = (sphere.radius / Math.sin(((camera.fov / 2) * Math.PI) / 180)) * view.zoom * 1.05;
-  camera.aspect = W / H;
+  camera.aspect = out.width / out.height;
   camera.position.copy(sphere.center).add(new Vector3(Math.cos(p) * Math.cos(y), Math.cos(p) * Math.sin(y), Math.sin(p)).multiplyScalar(dist));
   camera.near = Math.max(0.5, dist - sphere.radius * 2);
   camera.far = dist + sphere.radius * 2;
   camera.lookAt(sphere.center);
   camera.updateProjectionMatrix();
   scene.add(group);
+  try {
+    // Twice the size, scaled down: cheap antialiasing.
+    renderToCanvas(editor, scene, camera, out, 2);
+  } finally {
+    scene.remove(group);
+  }
+}
+
+/**
+ * Draws `scene` with the editor's own WebGL renderer (no second context, textures shared) into `out`, a 2D canvas,
+ * at `scale` times its size scaled down. Clears to transparent.
+ */
+export function renderToCanvas(editor: Editor, scene: Scene, cam: Camera, out: HTMLCanvasElement, scale = 1): void {
+  const w = out.width, h = out.height;
+  const W = Math.round(w * scale), H = Math.round(h * scale);
+  const r = editor.renderer;
+  const rt = new WebGLRenderTarget(W, H);
   const prevTarget = r.getRenderTarget(), prevColor = r.getClearColor(new Color()), prevAlpha = r.getClearAlpha();
   const pixels = new Uint8Array(W * H * 4);
   try {
     r.setRenderTarget(rt);
     r.setClearColor(0x000000, 0);
     r.clear();
-    r.render(scene, camera);
+    r.render(scene, cam);
     r.readRenderTargetPixels(rt, 0, 0, W, H, pixels);
   } finally {
     r.setRenderTarget(prevTarget);
     r.setClearColor(prevColor, prevAlpha);
-    scene.remove(group);
     rt.dispose();
   }
   // Flip rows (GL reads bottom-up) and convert to sRGB.
@@ -81,16 +93,18 @@ function draw(editor: Editor, model: SourceModel, group: Group, view: ModelView,
       img.data[dst + i + 3] = pixels[src + i + 3];
     }
   }
+  const ctx = out.getContext('2d')!;
+  ctx.clearRect(0, 0, w, h);
+  if (W === w && H === h) return ctx.putImageData(img, 0, 0);
   const big = document.createElement('canvas');
   big.width = W;
   big.height = H;
   big.getContext('2d')!.putImageData(img, 0, 0);
-  const ctx = out.getContext('2d')!;
-  ctx.clearRect(0, 0, w, h);
   ctx.drawImage(big, 0, 0, w, h);
 }
 
-async function whenReady(ready: () => boolean, ms = 4000): Promise<void> {
+/** Waits until `ready()` (or `ms` passed). */
+export async function whenReady(ready: () => boolean, ms = 4000): Promise<void> {
   const until = performance.now() + ms;
   while (!ready() && performance.now() < until) await new Promise((r) => setTimeout(r, 40));
 }
@@ -119,7 +133,7 @@ export function modelThumbnail(editor: Editor, path: string, skin = 0, size = 11
     const loaded = await loads.run(async () => {
       const model = await loadModel(path);
       if (!model || !model.parts.length) return null;
-      const m = meshes(editor, model, skin);
+      const m = modelMeshes(editor, model, skin);
       await whenReady(m.ready);
       return { model, group: m.group };
     }, priority, signal);
@@ -144,10 +158,10 @@ export async function modelPreview(editor: Editor, canvas: HTMLCanvasElement, pa
   const model = await loadModel(path);
   if (!model || !model.parts.length) return null;
   const view = { ...DEFAULT_VIEW };
-  let m = meshes(editor, model, skin);
+  let m = modelMeshes(editor, model, skin);
   const redraw = () => draw(editor, model, m.group, view, canvas);
   const setSkin = async (s: number) => {
-    m = meshes(editor, model, s);
+    m = modelMeshes(editor, model, s);
     await whenReady(m.ready);
     redraw();
   };

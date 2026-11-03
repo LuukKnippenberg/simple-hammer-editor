@@ -164,6 +164,24 @@ export function dab(disps: Disp[], centre: Vector3, o: BrushOptions): Disp[] {
  * weight rows (all zero: the base layer); other materials lose them, since VBSP writes multiblend data for
  * any displacement that has the rows.
  */
+/** The displacements among `solids` whose ground material is `material` (any case). */
+export function patchesUsing(solids: MapSolid[], material: string): MapSolid[] {
+  const m = material.toUpperCase();
+  return solids.filter((s) => s.sides.some((side) => side.dispinfo && side.material.toUpperCase() === m));
+}
+
+/** Points displacements at another ground material, keeping their weights (record a history step around it). */
+export function repointPatches(solids: MapSolid[], material: string): void {
+  for (const s of solids) {
+    for (const side of s.sides) {
+      if (!side.dispinfo) continue;
+      side.material = material.toUpperCase();
+      side.node.set('material', side.material);
+    }
+    s.reload();
+  }
+}
+
 export function setGroundMaterial(d: Disp, material: string, multiblend = false): boolean {
   const side = d.solid.sides.find((s) => s.dispinfo);
   if (!side) return false;

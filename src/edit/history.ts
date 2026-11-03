@@ -177,6 +177,15 @@ export class History {
     this.onChange();
   }
 
+  /**
+   * Records a change outside the document (a blend file renamed or deleted) that has already been made, with how
+   * to take it back and make it again. Inside `group` it joins that step.
+   */
+  effect(label: string, undo: () => void, redo: () => void): void {
+    this.push({ label, undo, redo });
+    if (!this.collecting) this.onChange();
+  }
+
   undo(): string | null {
     const op = this.stepBack();
     if (op) this.onChange();

@@ -10,6 +10,7 @@ import { cinemaToolOptions } from './cinemaPanel.ts';
 import { GROUND_SETS, type GroundMode } from '../edit/terrain.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
 import { multiblendRows, multiblendSets } from './blendUi.ts';
+import { openBlender } from './blender.ts';
 import { h, toast } from './dom.ts';
 import { selectModeRows } from './partPanel.ts';
 import { entityToolOptions } from './entityToolOptions.ts';
@@ -125,7 +126,9 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement, browse: 
       strength.addEventListener('input', () => (tool.strength = Number(strength.value)));
       const floors = [...editor.selection.solids].filter((s) => !s.entity && !s.isDisplacement);
       rows.push(seg,
-        h('div.row', {}, h('label', {}, 'Ground'), set),
+        h('div.row', {}, h('label', {}, 'Ground'), set, tool.multiblend
+          ? h('button', { title: 'Open this blend in the material blender', onclick: () => void openBlender(editor, { material: tool.set, layer: tool.layer, from: 'Ground › Blend › Edit' }) }, 'Edit…')
+          : null),
         h('div.row', {}, h('label', {}, 'Radius'), radius),
         h('div.row', {}, h('label', {}, 'Strength'), strength),
         ...multiblendRows(editor, tool, render),

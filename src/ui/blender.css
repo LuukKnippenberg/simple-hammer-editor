@@ -1,0 +1,81 @@
+/* Material blender (blender.ts): library | preview | layers, footer with name and save. */
+.blender {
+  width: min(1528px, 96vw); height: min(844px, 94vh); display: flex; flex-direction: column; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65); position: relative;
+}
+.bl-head { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 18px; border-bottom: 1px solid var(--border); }
+.bl-head > b { font-family: var(--font-cond); font-weight: 600; font-size: 18px; letter-spacing: 0.14em; text-transform: uppercase; }
+.bl-muted, .bl-from { font-size: 13px; color: var(--muted); }
+.bl-from { font-size: 12px; color: var(--faint); }
+button.bl-close { width: 32px; height: 32px; padding: 0; border-color: transparent; }
+.bl-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 270px minmax(0, 1fr) 430px; }
+
+.bl-sh { display: flex; align-items: baseline; gap: 10px; padding: 12px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.bl-sh h3 { margin: 0; font-family: var(--font-cond); font-weight: 600; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-text); }
+.bl-sh span { font-size: 12px; color: var(--faint); }
+.bl-note { font-size: 12px; color: var(--faint); line-height: 1.45; margin: 10px 8px 0; }
+
+.bl-lib { border-right: 1px solid var(--border); padding: 4px 12px 12px; overflow-y: auto; }
+button.bl-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 4px 8px; border: 0; border-radius: 3px;
+  background: transparent; color: var(--text); text-align: left; font: 13px var(--font); text-transform: none; letter-spacing: 0;
+}
+button.bl-item:hover { background: rgba(255, 255, 255, 0.04); }
+button.bl-item.on { background: rgba(233, 149, 42, 0.12); box-shadow: inset 2px 0 0 var(--accent); }
+.bl-swatch { position: relative; width: 38px; height: 38px; flex: none; border-radius: 3px; overflow: hidden; border: 1px solid var(--line); background: var(--panel-2); }
+.bl-swatch img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.bl-swatch img.second { clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.bl-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bl-item-text b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bl-item-text span { font-size: 11.5px; color: var(--faint); }
+.bl-dot { color: var(--accent); font-size: 16px; }
+button.bl-new { margin: 6px 0 0 8px; }
+
+.bl-main { padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.bl-bar { display: flex; align-items: center; gap: 10px; }
+.bl-modes { flex: none; }
+.bl-modes button { flex: none; padding: 3px 12px; }
+.bl-hint { font-size: 12px; color: var(--muted); }
+.bl-view { position: relative; width: 100%; max-width: 760px; aspect-ratio: 760 / 560; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: #3c4238; }
+.bl-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.bl-tag { position: absolute; left: 12px; top: 10px; padding: 3px 8px; border-radius: 3px; background: rgba(11, 12, 13, 0.8); font-size: 12px; color: var(--text-2); pointer-events: none; }
+.bl-keys { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); }
+.bl-keys b { color: var(--text); font-weight: 500; }
+.bl-keys kbd { font-size: 11px; padding: 0 5px; }
+
+.bl-layers { border-left: 1px solid var(--border); padding: 4px 16px 12px; overflow-y: auto; }
+.bl-ro { margin-top: 10px; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 4px; background: rgba(143, 184, 216, 0.10); border: 1px solid rgba(143, 184, 216, 0.45); font-size: 13px; }
+.bl-ro span { flex: 1; }
+.bl-layer { border: 1px solid var(--hairline); border-radius: 4px; padding: 8px 10px; margin-bottom: 8px; background: var(--panel-2); cursor: pointer; }
+.bl-layer.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.bl-layer-head { display: flex; align-items: center; gap: 10px; }
+.bl-layer-head img { width: 36px; height: 36px; border-radius: 3px; flex: none; background: var(--bg); }
+.bl-layer-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bl-kind { font-family: var(--font-cond); font-weight: 600; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+.bl-layer.on .bl-kind { color: var(--accent-text); }
+.bl-tex { font: 12.5px var(--font-mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.bl-x { border-color: transparent; color: var(--muted); padding: 2px 8px; }
+.bl-row { display: flex; align-items: center; gap: 8px; min-height: 25px; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.bl-row > label { width: 62px; flex: none; }
+.bl-row input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.bl-row select { flex: 1; }
+.bl-val { width: 48px; text-align: right; font: 12px var(--font-mono); color: var(--text-2); }
+.bl-edges { flex: none; }
+.bl-edges button { flex: none; padding: 2px 12px; }
+.bl-edge-hint { font: 11px var(--font-mono); color: var(--faint); padding-left: 70px; }
+
+.bl-foot { height: 64px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 18px; border-top: 1px solid var(--border); position: relative; }
+input.bl-name { width: 200px; font-family: var(--font-mono); }
+.bl-path { font: 12px var(--font-mono); color: var(--faint); white-space: nowrap; }
+.bl-used { font-size: 12.5px; color: var(--faint); white-space: nowrap; }
+.bl-used.on { color: var(--accent-text); }
+.bl-msg { font-size: 12.5px; color: var(--ok); }
+button.bl-del { border-color: transparent; color: var(--muted); }
+.bl-delete {
+  position: absolute; right: 18px; bottom: 70px; width: 360px; padding: 12px 14px; border-radius: 5px; background: #15171a;
+  border: 1px solid rgba(232, 121, 106, 0.6); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; gap: 8px; font-size: 13px;
+}
+.bl-delete p { margin: 0; color: var(--muted); line-height: 1.45; }
+
+.blend-tex-picker .ptile .th img { width: 100%; height: 100%; object-fit: cover; }
+.bl-tex-big img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; }

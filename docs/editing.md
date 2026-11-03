@@ -136,9 +136,15 @@ The Ground tool works on displacement terrain (`src/edit/terrain.ts`):
   strength. One undo step per stroke. Vertices are found by world position, so the shared edges of neighbouring
   patches always move together.
 - With a flat floor brush selected, the tool options turn it into displacement patches in the chosen set.
-- `MultiBlend` terrain mixes up to four textures by per-vertex weights. The tool paints a layer, noise-fills all
-  layers so large areas stop tiling, and can make new blend materials (`content/materials/she/blend/`, packed into
-  the BSP when compiling). Compile with final lighting: fast vrad leaves dark seams along patch edges.
+- `MultiBlend` terrain mixes up to four textures by per-vertex weights. The tool paints a layer and noise-fills all
+  layers so large areas stop tiling. Compile with final lighting: fast vrad leaves dark seams along patch edges.
+- The **material blender** (Ground › New blend… or Edit… next to a MultiBlend, or Edit its blend on selected
+  terrain; `src/ui/blender.ts`) makes and edits blend materials in `content/materials/she/blend/`, packed into the
+  BSP when compiling. It lists My blends and the game's own (read-only, Duplicate to change), previews a blend on a
+  scratch patch (Sample, Noise, Split or Paint, with the map's lighting, a 256-unit bar and a soldier), and sets each
+  layer's texture, size, rotation and edge (Crisp, Medium or Soft picks its softness map) plus detail sprites.
+  Saving updates the patches that use the blend; renaming re-points them and deleting asks for a replacement, each
+  one undo step.
 
 ## Panels
 

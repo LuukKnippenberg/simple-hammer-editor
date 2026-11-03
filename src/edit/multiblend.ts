@@ -60,24 +60,38 @@ export function safeBlendName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'blend';
 }
 
+/** One of the shader's four texture slots. */
+export interface BlendSlot {
+  texture: string;
+  /** Softness map, or null (the engine binds black: a hard edge). */
+  spec: string | null;
+  scale: number;
+  rotation: number;
+}
+
+/**
+ * The shader slots of a blend, in VMT order: layers 1–3 in slots 1–3, the base in slot 4 with the Soft map (it
+ * only adds shine there). Unused slots repeat the base without a softness map and are never painted.
+ */
+export function blendSlots(def: BlendDef): BlendSlot[] {
+  const [base, ...top] = def.layers;
+  const slot = (l: BlendLayer, spec: string | null): BlendSlot => ({ texture: l.texture, spec, scale: l.scale, rotation: l.rotation });
+  return [...[0, 1, 2].map((i) => (top[i] ? slot(top[i], EDGE_SPECS[top[i].edge ?? 'soft']) : slot(base, null))), slot(base, DEFAULT_SPEC)];
+}
+
 /**
  * The VMT text for a blend definition: only the keys the MultiBlend shader reads ($basetextureN, $spectextureN,
  * $scaleN, $rotationN, $fow) plus the compile keys vbsp reads. The base is slot 4 and keeps the Soft map (it only
  * adds shine there); layers 1–3 are slots 1–3. Unused slots repeat the base without a softness map and are never painted.
  */
 export function blendVmt(def: BlendDef): string {
-  const [base, ...top] = def.layers;
-  const slots: { l: BlendLayer; spec: string | null }[] = [0, 1, 2].map((i) => top[i]
-    ? { l: top[i], spec: EDGE_SPECS[top[i].edge ?? 'soft'] }
-    : { l: base, spec: null });
-  slots.push({ l: base, spec: DEFAULT_SPEC });
   const q = (k: string, v: string | number) => `\t"${k}" "${v}"\n`;
   let out = '"MultiBlend"\n{\n' + q('%keywords', 'wars');
-  slots.forEach(({ l, spec }, i) => {
+  blendSlots(def).forEach((s, i) => {
     const n = i ? String(i + 1) : '';
-    out += q(`$basetexture${n}`, l.texture) + (spec ? q(`$spectexture${n}`, spec) : '') + q(`$scale${n}`, l.scale.toFixed(2)) + q(`$rotation${n}`, l.rotation.toFixed(1));
+    out += q(`$basetexture${n}`, s.texture) + (s.spec ? q(`$spectexture${n}`, s.spec) : '') + q(`$scale${n}`, s.scale.toFixed(2)) + q(`$rotation${n}`, s.rotation.toFixed(1));
   });
-  out += q('%tooltexture', base.texture) + q('$fow', '_rt_fog_of_war');
+  out += q('%tooltexture', def.layers[0].texture) + q('$fow', '_rt_fog_of_war');
   if (def.detailtype) out += q('%detailtype', def.detailtype);
   return out + '}\n';
 }

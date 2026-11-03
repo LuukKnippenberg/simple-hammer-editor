@@ -1,7 +1,7 @@
 import { Color, DataTexture, DoubleSide, MeshLambertMaterial, Vector2, Vector4, type Texture } from 'three';
 import { forgetVmt, loadVmt, normalizeMaterialPath, type Vmt } from '../assets/vmt.ts';
 import { loadTexture } from '../assets/textures.ts';
-import { blendFromParams, type BlendDef } from '../edit/multiblend.ts';
+import { blendFromParams, blendSlots, type BlendDef } from '../edit/multiblend.ts';
 
 /** `handle`: editor-only boxes (POI and building handles), drawn faint and never compiled. */
 export type MaterialKind = 'opaque' | 'tool' | 'sky' | 'translucent' | 'blend' | 'handle';
@@ -130,6 +130,23 @@ float mbFactor( float bstart, float bend, float amount, inout float remaining ) 
       );
   };
   mat.customProgramCacheKey = () => 'multiblend';
+}
+
+/**
+ * A stand-alone material showing a blend definition (the material blender's preview, before it is saved): the
+ * same shader as the map's MultiBlend materials, built from the definition instead of a VMT. Expects UVs in texels.
+ */
+export async function blendPreviewMaterial(def: BlendDef): Promise<MeshLambertMaterial | null> {
+  const slots = blendSlots(def);
+  const base = await loadTexture(def.layers[0].texture);
+  if (!base) return null;
+  const maps = await Promise.all(slots.map(async (s) => (await loadTexture(s.texture))?.texture ?? base.texture));
+  const specs = await Promise.all(slots.map(async (s) => (s.spec ? (await loadTexture(s.spec))?.texture ?? null : null)));
+  const map = base.texture.clone();
+  map.repeat.set(1 / base.width, 1 / base.height);
+  const mat = new MeshLambertMaterial({ map });
+  makeMultiBlend(mat, maps, specs, slots.map((s) => s.rotation), slots.map((s) => s.scale));
+  return mat;
 }
 
 /**

@@ -33,6 +33,7 @@ import { roomsOf } from '../gen/rooms/store.ts';
 import { roomLayout } from '../gen/rooms/model.ts';
 import { roomType } from '../gen/rooms/types.ts';
 import { openRoomsDialog } from './roomsDialog.ts';
+import { openBlender } from './blender.ts';
 import { openGenerateMenu } from './generateMenu.ts';
 import { partInspector } from './partPanel.ts';
 import { deleteStairs, duplicateStairs, regenerateStairs, selectedStairs } from '../gen/stairsAction.ts';
@@ -157,6 +158,12 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (entities.length === 1) panel.append(entityEditor(editor, entities[0], effects));
     else if (entities.length > 1) panel.append(multiEntityEditor(editor, entities));
     if (solids.length) panel.append(brushEditor(editor));
+    const blend = groundBlend(editor);
+    if (blend) {
+      panel.append(h('div.section', {}, h('h3', {}, 'Ground blend'),
+        h('div.hint', {}, `${blend.toLowerCase()}: a MultiBlend painted with the Ground tool.`),
+        h('button', { onclick: () => void openBlender(editor, { material: blend, from: 'Selection › Edit its blend' }) }, 'Edit its blend')));
+    }
     if (looseWorld.length && !partOf.size) panel.append(newBuildingsPanel(editor));
     if (looseWorld.length === 1 && !partOf.size) {
       panel.append(h('div.section', {}, h('h3', {}, 'Interior building'),
@@ -171,6 +178,15 @@ export function mountInspector(editor: Editor): HTMLElement {
   editor.on('pathpins', render);
   render();
   return h('div', {}, snapMoveSection(editor), panel);
+}
+
+/** The MultiBlend material of the selected terrain (the first painted displacement's), or null. */
+function groundBlend(editor: Editor): string | null {
+  for (const solid of editor.selection.allSolids()) {
+    const side = solid.sides.find((s) => s.dispinfo);
+    if (side && editor.materials.get(side.material).multiblend) return side.material;
+  }
+  return null;
 }
 
 function brushEditor(editor: Editor): HTMLElement {

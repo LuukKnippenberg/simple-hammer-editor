@@ -28,11 +28,22 @@ export function materialPreview(name: string, size = 64, opts: ThumbOptions = {}
   return cachedThumb(`material|${key}|${size}`, (priority, signal) => decodes.run(() => decode(key, size), priority, signal), opts);
 }
 
+/** A small preview URL of a texture (`nature/mud01`, no extension), without its alpha. */
+export function textureThumbnail(texture: string, size = 64, opts: ThumbOptions = {}): Promise<string | null> {
+  const key = texture.toLowerCase().replace(/\\/g, '/');
+  return cachedThumb(`texture|${key}|${size}`, (priority, signal) => decodes.run(() => decodeVtf(key, size, false), priority, signal), opts).then((p) => p?.url ?? null);
+}
+
 async function decode(key: string, size: number): Promise<StoredThumb | null> {
   const vmt = await loadVmt(key);
   const base = vmt?.params.get('$basetexture');
   if (!base) return null;
-  const buf = await fetchGameFile(`materials/${base.toLowerCase().replace(/\\/g, '/')}.vtf`);
+  // Brush previews ignore alpha; decals keep it so their shape shows.
+  return decodeVtf(base.toLowerCase().replace(/\\/g, '/'), size, /^(decals|overlays)\//.test(key));
+}
+
+async function decodeVtf(texture: string, size: number, keepAlpha: boolean): Promise<StoredThumb | null> {
+  const buf = await fetchGameFile(`materials/${texture}.vtf`);
   const img = buf && parseVtf(buf);
   if (!img) return null;
   const mip = img.mips.find((m) => m.width <= size * 2 && m.height <= size * 2) ?? img.mips[img.mips.length - 1];
@@ -43,8 +54,7 @@ async function decode(key: string, size: number): Promise<StoredThumb | null> {
   const ctx = canvas.getContext('2d')!;
   const data = new Uint8ClampedArray(rgba.length);
   data.set(rgba);
-  // Brush previews ignore alpha; decals keep it so their shape shows.
-  if (!/^(decals|overlays)\//.test(key)) for (let i = 3; i < data.length; i += 4) data[i] = 255;
+  if (!keepAlpha) for (let i = 3; i < data.length; i += 4) data[i] = 255;
   ctx.putImageData(new ImageData(data, mip.width, mip.height), 0, 0);
   const blob = await canvasPng(canvas);
   return blob && { blob, width: img.width, height: img.height };
