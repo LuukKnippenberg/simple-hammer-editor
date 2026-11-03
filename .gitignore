@@ -9,8 +9,22 @@ editor.config.json
 # Compile workspace (VMF copies, logs, BSPs produced by the compile pipeline)
 .compile/
 *.log
-# Screenshots from the demo scripts, regenerated locally. The few the docs link are tracked with `git add -f`.
-docs/screenshots/
+# Screenshots from the demo scripts, regenerated locally. Only the images README.md and docs/ link are committed;
+# a page that links a new one adds it here.
+docs/screenshots/*
+!docs/screenshots/blend-game-park.jpg
+!docs/screenshots/civil-props-canteen.png
+!docs/screenshots/civil-props-platform.png
+!docs/screenshots/garden-polish-park.jpg
+!docs/screenshots/garden-polish-square.jpg
+!docs/screenshots/readme-editor.png
+!docs/screenshots/readme-sketch.png
+!docs/screenshots/rooms-game-close-customs.png
+!docs/screenshots/rooms-game-close-platform.png
+!docs/screenshots/rooms-game-close-waiting.png
+!docs/screenshots/shapes-game-square.jpg
+!docs/screenshots/surround-game-east.png
+!docs/screenshots/surround-game-north.png
 # Screenshots and copies kept while reviewing worktrees
 review-shots/
 # Maps are a whitelist: the editor saves into maps/, and only these are committed (with their .sketch.json and
