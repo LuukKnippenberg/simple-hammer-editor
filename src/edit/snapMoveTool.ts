@@ -277,7 +277,7 @@ export class SnapMoveTool {
 
   private view(): SnapView {
     const ed = this.editor;
-    const r = ed.renderer.domElement.getBoundingClientRect();
+    const r = ed.viewRect();
     const size = new Vector2(r.width, r.height), cam = ed.activeCamera;
     syncCamera(cam);
     this.cursor.set(this.client.x - r.left, this.client.y - r.top);
@@ -393,7 +393,10 @@ export class SnapMoveTool {
     const c = cv.getContext('2d')!;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, r.width, r.height);
-    const size = new Vector2(r.width, r.height), cam = ed.activeCamera;
+    // In the quad view, drawn in the pane under the mouse.
+    const v = ed.viewRect();
+    c.setTransform(dpr, 0, 0, dpr, (v.left - r.left) * dpr, (v.top - r.top) * dpr);
+    const size = new Vector2(v.width, v.height), cam = ed.activeCamera;
     const P = (p: Vector3) => toScreen(cam, size, p);
     const line = (a: Vector3, b: Vector3) => {
       const sa = P(a), sb = P(b);

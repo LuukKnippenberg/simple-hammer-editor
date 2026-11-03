@@ -211,7 +211,7 @@ export class LightingPreview {
     if (now - this.lastAssign < 250) return;
     this.lastAssign = now;
     const ed = this.editor;
-    const cam = ed.activeCamera.position;
+    const cam = ed.sceneCamera.position;
     const focus = ed.view === 'top' ? new Vector3(ed.topView.center.x, ed.topView.center.y, 0) : cam;
     const byDist = (a: LightSource, b: LightSource) => a.position.distanceToSquared(focus) - b.position.distanceToSquared(focus);
     const pts = this.sources.filter((s) => s.kind === 'point').sort(byDist);

@@ -7,6 +7,8 @@ import { WorldRenderer, type BrushHit } from './render/worldRenderer.ts';
 import { MaterialLibrary } from './render/materials.ts';
 import { CameraControls } from './render/cameraControls.ts';
 import { TopView } from './render/topView.ts';
+import { QuadView } from './render/quadView.ts';
+import { getPref } from './ui/prefs.ts';
 import { EntityRenderer } from './render/entityRenderer.ts';
 import { DecalRenderer } from './render/decalRenderer.ts';
 import { textureSupport } from './assets/textures.ts';
@@ -34,8 +36,12 @@ export class Editor {
   readonly camera: PerspectiveCamera;
   readonly controls: CameraControls;
   readonly topView: TopView;
-  /** '3d' perspective editing or the orthographic 'top' view. */
+  /** '3d' perspective editing or the orthographic 'top' view (stays '3d' while the quad view is on). */
   view: '3d' | 'top' = '3d';
+  /** The optional quad view: Camera, Top, Front and Side panes (View › Quad). */
+  readonly quad: QuadView;
+  /** Goes up on every document change (the quad view's wireframe rebuilds on it). */
+  contentRev = 0;
   /** Objects hidden in the editor (H). Hidden objects are still saved and compiled. */
   readonly hidden = new Set<object>();
   readonly materials = new MaterialLibrary();
@@ -98,6 +104,8 @@ export class Editor {
     this.controls = new CameraControls(this.camera, this.renderer.domElement);
     this.controls.pick = (ndc) => this.pickBrush(ndc)?.point ?? null;
     this.topView = new TopView(this.renderer.domElement);
+    this.quad = new QuadView(this);
+    this.controls.rect = () => this.viewRect();
 
     this.scene.background = new Color(0x2a3038);
     this.scene.add(this.hemi);
@@ -126,6 +134,7 @@ export class Editor {
 
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
+    if (getPref('quad')?.on) this.setLayout('quad');
     this.renderer.setAnimationLoop(this.tick);
   }
 
@@ -144,15 +153,62 @@ export class Editor {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.topView.setAspect(w / h);
+    this.quad.layout();
   }
 
+  /** The camera of the view taking pointer input: in the quad view, the pane under the mouse. */
   get activeCamera(): PerspectiveCamera | OrthographicCamera {
+    if (this.quad.on) return this.quad.camera();
     return this.view === 'top' ? this.topView.camera : this.camera;
   }
 
-  /** Switches between the 3D view and the orthographic top view, keeping the same spot in view. */
+  /** The camera the main scene is seen through (in the quad view, the Camera pane's), for what follows the view. */
+  get sceneCamera(): PerspectiveCamera | OrthographicCamera {
+    return this.quad.on ? this.camera : this.activeCamera;
+  }
+
+  /** Page rectangle of the view taking pointer input (the canvas, or the pane under the mouse in the quad view). */
+  viewRect(): DOMRect {
+    return this.quad.on ? this.quad.clientRect() : this.renderer.domElement.getBoundingClientRect();
+  }
+
+  /** Page rectangle the main scene is drawn in (the canvas, or the first Camera pane shown in the quad view). */
+  sceneRect(): DOMRect {
+    const i = this.quad.on ? this.quad.shown().find((k) => this.quad.kindOf(k) === 'camera') : undefined;
+    return i === undefined ? this.renderer.domElement.getBoundingClientRect() : this.quad.clientRect(i);
+  }
+
+  /** '3d', 'top' or 'quad': the View switch in the top bar. */
+  get layout(): '3d' | 'top' | 'quad' {
+    return this.quad.on ? 'quad' : this.view;
+  }
+
+  /** Picks the 3D, Top or Quad layout; quad is remembered in this browser. */
+  setLayout(mode: '3d' | 'top' | 'quad'): void {
+    if (mode === this.layout) return;
+    if (mode === 'quad') {
+      this.setView3dOrTop('3d');
+      this.quad.setOn(true);
+      this.topView.enabled = false;
+      this.tools.select.gizmo.camera = this.camera;
+    } else {
+      this.quad.setOn(false);
+      this.controls.enabled = this.view === '3d';
+      this.resize();
+      this.setView3dOrTop(mode);
+    }
+    this.emit('view');
+  }
+
+  /** Sets the grid size used for snapping by every tool and pane. */
+  setGrid(size: number): void {
+    this.grid = size;
+    this.emit('grid');
+  }
+
+  /** Switches between the 3D view and the orthographic top view, keeping the same spot in view (not in quad). */
   setView3dOrTop(mode: '3d' | 'top'): void {
-    if (mode === this.view) return;
+    if (mode === this.view || this.quad.on) return;
     this.view = mode;
     this.controls.enabled = mode === '3d';
     this.topView.enabled = mode === 'top';
@@ -176,6 +232,13 @@ export class Editor {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
+    if (this.quad.on) {
+      this.controls.update(dt);
+      this.emit('frame');
+      this.quad.render();
+      this.stats(now, dt);
+      return;
+    }
     if (this.view === 'top') this.topView.update(dt);
     else this.controls.update(dt);
     this.emit('frame');
@@ -184,7 +247,10 @@ export class Editor {
     if (this.view === 'top') this.scene.fog = null;
     this.renderer.render(this.scene, this.activeCamera);
     this.scene.fog = fog;
+    this.stats(now, dt);
+  };
 
+  private stats(now: number, dt: number): void {
     this.frameTimes.push(now);
     while (this.frameTimes.length && this.frameTimes[0] < now - 1000) this.frameTimes.shift();
     const info = this.renderer.info.render;
@@ -194,7 +260,7 @@ export class Editor {
       drawCalls: info.calls,
       triangles: info.triangles,
     };
-  };
+  }
 
   loadDocument(doc: VmfDocument, name: string, sourceText = ''): void {
     this.doc = doc;
@@ -206,6 +272,7 @@ export class Editor {
     this.sketch = null;
     this.mission = null;
     this.selection.clear();
+    this.contentRev++;
     const t0 = performance.now();
     this.world.sync(doc);
     this.entities.sync(doc);
@@ -255,6 +322,7 @@ export class Editor {
     this.entities.sync(this.doc);
     this.decals.sync(this.doc);
     this.selection.prune(this.doc);
+    this.contentRev++;
     this.dirty = true;
     if (!live) this.emit('change');
   }
@@ -266,6 +334,7 @@ export class Editor {
     for (const s of sel.solids) this.hidden.add(s);
     for (const e of sel.entities) this.hidden.add(e);
     sel.clear();
+    this.contentRev++;
     this.world.sync(this.doc);
     this.entities.sync(this.doc);
     this.emit('hidden');
@@ -274,6 +343,7 @@ export class Editor {
   unhideAll(): void {
     if (!this.hidden.size) return;
     this.hidden.clear();
+    this.contentRev++;
     this.world.sync(this.doc);
     this.entities.sync(this.doc);
     this.emit('hidden');
@@ -366,13 +436,17 @@ export class Editor {
     this.controls.lookAt(target);
   }
 
+  /** Frames a box; in the quad view the Camera pane frames it and the 2D panes centre on it at their own zoom (F). */
   frameBox(box: Box3): void {
-    if (this.view === 'top') this.topView.frame(box);
+    if (this.quad.on) {
+      this.controls.frame(box);
+      this.quad.centre(box);
+    } else if (this.view === 'top') this.topView.frame(box);
     else this.controls.frame(box);
   }
 
   ndcFromEvent(e: { clientX: number; clientY: number }): Vector2 {
-    const r = this.renderer.domElement.getBoundingClientRect();
+    const r = this.viewRect();
     return new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   }
 

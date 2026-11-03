@@ -452,7 +452,7 @@ export class GenerateTool implements Tool {
     this.ghost.visible = true;
     // The size and what it will become, over the middle of the footprint.
     const v = new Vector3((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, z).project(this.editor.activeCamera);
-    const cr = this.editor.container.getBoundingClientRect(), rr = this.editor.renderer.domElement.getBoundingClientRect();
+    const cr = this.editor.container.getBoundingClientRect(), rr = this.editor.viewRect();
     this.label.style.left = `${rr.left - cr.left + ((v.x + 1) / 2) * rr.width}px`;
     this.label.style.top = `${rr.top - cr.top + ((1 - v.y) / 2) * rr.height}px`;
     const what = lotPreview(this.kind, w, d, { courtyards: this.options[this.kind].courtyards });

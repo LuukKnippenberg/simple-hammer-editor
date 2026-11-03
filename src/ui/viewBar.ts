@@ -108,7 +108,7 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     h('button', { onclick: () => download(), title: 'Download the .vmf' }, 'Download'),
     mountChecklistChip(editor),
     h('div.spacer'),
-    toggle('Top view', 'Orthographic top-down view (T)', () => editor.view === 'top', (v) => editor.setView3dOrTop(v ? 'top' : '3d')),
+    viewSwitch(editor),
     toggle('Lighting', 'Preview in-game lighting: sun with shadows, ambient and light entities (L)', () => !!window.__editor?.lighting?.enabled, (v) => { window.__editor.lighting.setEnabled(v); editor.emit('lighting'); }),
     toggle('Tool brushes', 'Show clip, trigger, nodraw and other tool brushes', () => wr.visibleKinds.tool, (v) => { wr.visibleKinds.tool = v; wr.applyVisibility(); }),
     toggle('Handles', 'Generator handles: show the boxes that select, move and resize points of interest, blocks of buildings and stairs, and the pins on the points of selected stairs (hide them to pick single props and brushes)', () => wr.visibleKinds.handle, (v) => { wr.visibleKinds.handle = v; wr.applyVisibility(); }),
@@ -147,4 +147,20 @@ export function mountTopBar(editor: Editor, bar: HTMLElement, loading: HTMLEleme
     if (wanted) void openMap(wanted);
   });
   return { newMap, openFile: () => fileInput.click(), openMap, busy };
+}
+
+/** View: 3D · Top · Quad. T still switches between 3D and Top; Quad is remembered (prefs.ts). */
+function viewSwitch(editor: Editor): HTMLElement {
+  const modes = [['3d', '3D', 'Perspective 3D view (T switches to Top)'], ['top', 'Top', 'Orthographic top-down view (T)'],
+    ['quad', 'Quad', 'Camera, Top, Front and Side at once, as in Hammer (Shift+Z maximises the pane under the mouse)']] as const;
+  const buttons = modes.map(([mode, label, title]) => {
+    const b = h('button', { title }, label);
+    b.dataset.layout = mode;
+    b.addEventListener('click', () => editor.setLayout(mode));
+    return b;
+  });
+  const sync = () => buttons.forEach((b) => b.classList.toggle('active', b.dataset.layout === editor.layout));
+  editor.on('view', sync);
+  sync();
+  return h('div.view-seg', {}, h('span.view-seg-label', {}, 'View'), ...buttons);
 }

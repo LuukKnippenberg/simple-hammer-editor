@@ -19,6 +19,7 @@ export class Hover {
     this.helper.renderOrder = 8;
     (this.helper.material as { depthTest: boolean }).depthTest = false;
     editor.scene.add(this.helper);
+    editor.quad.helpers.push(this.helper);
     const dom = editor.renderer.domElement;
     dom.addEventListener('pointermove', (e) => {
       if (e.buttons) { this.clear(); return; }

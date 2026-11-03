@@ -16,6 +16,8 @@ export interface Prefs {
   assetDock?: { size: 'hidden' | 'strip' | 'open'; last?: 'strip' | 'open'; height?: number; tab?: string; sources?: Record<string, string> };
   /** The one-time "Try the asset finder (B)" hint was shown. */
   assetHint?: boolean;
+  /** View › Quad: whether it is on, what each pane shows (top left, top right, bottom left, bottom right) and the dividers. */
+  quad?: { on: boolean; views?: import('../render/quadView.ts').PaneKind[]; split?: [number, number] };
 }
 
 const PREFIX = 'she.pref.';

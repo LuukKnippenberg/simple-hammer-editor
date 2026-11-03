@@ -88,7 +88,7 @@ export class Extruder {
   pointer(at: Vector2, alt: boolean): void {
     if (!this.active) return;
     const ed = this.editor;
-    const r = ed.renderer.domElement.getBoundingClientRect();
+    const r = ed.viewRect();
     const size = new Vector2(r.width, r.height);
     const f = this.faces[0];
     const a = toScreen(ed.activeCamera, size, f.centre), b = toScreen(ed.activeCamera, size, f.centre.clone().addScaledVector(f.normal, PROBE));

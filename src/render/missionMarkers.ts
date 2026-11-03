@@ -124,9 +124,10 @@ export class MissionMarkers {
    */
   private layout(): void {
     if (!this.group.visible) return;
-    const cam = this.editor.activeCamera;
-    const dom = this.editor.renderer.domElement;
-    const W = dom.clientWidth, H = dom.clientHeight;
+    // The labels are sprites in the scene: laid out for the view the scene is drawn in (the Camera pane in quad).
+    const cam = this.editor.sceneCamera;
+    const rect = this.editor.sceneRect();
+    const W = rect.width, H = rect.height;
     cam.updateMatrixWorld();
     const m = new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
     const size = `${W}x${H}`;

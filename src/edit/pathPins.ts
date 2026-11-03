@@ -413,7 +413,7 @@ export class PathPins {
     this.lines.visible = on;
     if (!on) return;
     this.layer.classList.toggle('off', !this.enabled());
-    const cr = ed.container.getBoundingClientRect(), rr = ed.renderer.domElement.getBoundingClientRect();
+    const cr = ed.container.getBoundingClientRect(), rr = ed.viewRect();
     const v = new Vector3();
     const put = (el: HTMLElement) => {
       if (el.dataset.x === undefined) return;
