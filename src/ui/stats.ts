@@ -26,14 +26,18 @@ function saveReminder(editor: Editor): { pill: HTMLButtonElement; sync(): void }
   return { pill, sync };
 }
 
-/** Performance overlay in the viewport plus the status bar text. */
-export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLElement, hoverLabel: () => string = () => ''): void {
+/**
+ * Performance overlay in the viewport plus the status bar text. Returns the status bar's right end, a slot that is
+ * not rebuilt every tick (the asset finder's button goes there).
+ */
+export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLElement, hoverLabel: () => string = () => ''): { right: HTMLElement } {
   const overlay = h('div.overlay.tr');
   viewport.append(overlay);
   const mapName = h('b');
   const reminder = saveReminder(editor);
   const rest = h('span.status-rest');
-  status.replaceChildren(h('span', {}, mapName), reminder.pill, rest);
+  const right = h('span.status-right');
+  status.replaceChildren(h('span', {}, mapName), reminder.pill, rest, right);
   let last = 0;
   editor.on('frame', () => {
     const now = performance.now();
@@ -72,4 +76,5 @@ export function mountStats(editor: Editor, viewport: HTMLElement, status: HTMLEl
       h('span', { style: { marginLeft: 'auto' } }, 'Press ', h('b', {}, '?'), ' for shortcuts'),
     ].filter((n): n is HTMLSpanElement => !!n));
   });
+  return { right };
 }

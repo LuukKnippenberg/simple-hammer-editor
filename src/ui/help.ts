@@ -27,6 +27,8 @@ const SHORTCUTS: [string, string][] = [
   ['[ ]', 'Grid size'],
   [', .', 'Rotate entities (Shift: 90°); turn a selected POI or block of buildings a quarter turn'],
   ['F', 'Focus the selection'],
+  ['B · /', 'Show or hide the asset finder under the view · search it'],
+  ['← → ↑ ↓ · Enter · F', 'In the asset finder grid: browse · use the asset · favourite it (right-click for more)'],
   ['Ctrl+S', 'Save'],
   ['?', 'This overlay'],
 ];

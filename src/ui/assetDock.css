@@ -1,0 +1,80 @@
+/* The asset finder dock under the viewport (assetDock.ts). */
+#assetdock { position: relative; flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-top: 1px solid var(--border); }
+#assetdock[hidden] { display: none; }
+.ad-edge { position: absolute; left: 0; right: 0; top: -5px; height: 9px; cursor: ns-resize; z-index: 4; touch-action: none; }
+.ad-edge:hover { background: linear-gradient(transparent 3px, var(--accent) 3px 5px, transparent 5px); }
+.ad-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--hairline); flex: none; min-width: 0; }
+.ad-tabs { display: flex; gap: 2px; flex: none; }
+.ad-tabs button { border: none; background: transparent; color: var(--muted); padding: 3px 9px; font-family: var(--font-cond); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 12.5px; border-radius: 3px; }
+.ad-tabs button:hover { color: var(--text); }
+.ad-tabs button.on { color: var(--accent-text); background: var(--accent-tint); }
+.ad-search { width: 240px; min-width: 120px; flex: 0 1 auto; }
+.ad-others { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
+.ad-other { white-space: nowrap; font-size: 12px; padding: 1px 7px; color: var(--accent-2); border-color: transparent; background: rgba(143, 184, 216, 0.1); }
+.ad-size { display: flex; flex: none; }
+.ad-size button { padding: 2px 8px; font-size: 12px; }
+.ad-x { width: 26px; height: 24px; padding: 0; background: transparent; border-color: transparent; color: var(--muted); flex: none; }
+.ad-body { flex: 1; display: flex; min-height: 0; }
+.ad-nav { width: 184px; flex: none; overflow-y: auto; padding: 6px 4px; border-right: 1px solid var(--hairline); font-size: 12.5px; scrollbar-width: thin; }
+.ad-nav .src { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 3px; cursor: pointer; color: var(--text-2); white-space: nowrap; }
+.ad-nav .src:hover { background: rgba(255, 255, 255, 0.04); }
+.ad-nav .src.on { background: var(--accent-tint); color: var(--accent-text); }
+.ad-nav .src-icon { width: 12px; text-align: center; color: var(--muted); flex: none; }
+.ad-nav .src-label { overflow: hidden; text-overflow: ellipsis; }
+.ad-nav .src .n { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--faint); }
+.ad-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ad-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px 0; flex: none; min-width: 0; }
+.ad-chips { display: flex; gap: 6px; min-width: 0; overflow: hidden; }
+.ad-chips > * { white-space: nowrap; }
+.ad-count { font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-grid { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); grid-auto-rows: max-content; gap: 8px; scrollbar-width: thin; outline: none; }
+.ad-grid.rows { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 2px 12px; }
+.ad-grid .hint { grid-column: 1 / -1; margin: 4px 0; }
+.ad-keys { flex: none; display: flex; gap: 16px; padding: 4px 10px; font-size: 11.5px; color: var(--faint); border-top: 1px solid var(--hairline); white-space: nowrap; overflow: hidden; }
+.ad-keys b { color: var(--text-2); font-weight: 500; }
+.ad-keys kbd { font-size: 10.5px; padding: 0 4px; }
+.ad-tile { position: relative; border: 1px solid var(--border); border-radius: 5px; background: var(--chrome); overflow: hidden; cursor: grab; user-select: none; touch-action: none; }
+.ad-tile:hover { border-color: var(--line-hover); }
+.ad-tile.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.ad-tile:focus-visible, .ad-row:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 1px; }
+.ad-tile .th { height: 76px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 42%, #2a2d31, #16181a); }
+.ad-tile .th img { max-width: 100%; max-height: 100%; display: block; pointer-events: none; }
+.ad-tile .th img:not([src]) { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--muted); animation: spin 1s linear infinite; }
+.ad-tile .th img.missing { animation: none; border: none; width: 100%; height: 100%; border-radius: 0; background: repeating-conic-gradient(#3a3a3a 0 25%, #222 0 50%) 0 0 / 12px 12px; }
+.ad-tile .nm { font-size: 11px; padding: 3px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
+.ad-tile .bd, .ad-row .bd { font-family: var(--font-cond); font-weight: 600; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 0 4px; border-radius: 2px; background: rgba(11, 12, 13, 0.8); color: var(--muted); }
+.ad-tile .bd { position: absolute; top: 4px; left: 4px; }
+.bd-is-physics { color: var(--accent-text) !important; }
+.bd-is-tool { color: #c8b43a !important; }
+.bd-is-overlay, .bd-is-loop { color: var(--accent-2) !important; }
+.ad-tile .used { position: absolute; top: 4px; right: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--ok); background: rgba(11, 12, 13, 0.8); padding: 0 3px; border-radius: 2px; }
+.ad-tile .fav { position: absolute; bottom: 20px; right: 5px; color: var(--accent-text); font-size: 12px; }
+.ad-row { display: flex; gap: 6px; align-items: center; font-size: 12px; padding: 1px 4px; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; color: var(--text-2); user-select: none; }
+.ad-row:hover { background: rgba(255, 255, 255, 0.04); }
+.ad-row.on { background: var(--accent-tint); color: var(--accent-text); }
+.ad-row .ad-play { padding: 0 6px; font-size: 10px; flex: none; }
+.ad-row .ad-path { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ad-row .used { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ok); }
+.ad-row .fav { color: var(--accent-text); }
+/* Strip: one row of small tiles that scrolls sideways; no sources, chips or key line. */
+#assetdock.strip .ad-nav, #assetdock.strip .ad-keys, #assetdock.strip .ad-bar { display: none; }
+#assetdock.strip .ad-grid { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 84px; grid-template-rows: max-content; overflow-x: auto; overflow-y: hidden; align-content: start; }
+#assetdock.strip .ad-grid.rows { grid-auto-columns: 300px; grid-template-rows: repeat(3, max-content); }
+#assetdock.strip .ad-tile .th { height: 54px; }
+#assetdock.strip .ad-tile .fav { bottom: 18px; }
+/* The right-click menu. */
+.ad-menu { position: fixed; z-index: 40; min-width: 220px; max-width: 360px; padding: 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; }
+.ad-menu[hidden] { display: none; }
+.ad-menu-head { font: 11px var(--font-mono); color: var(--faint); padding: 3px 8px 5px; border-bottom: 1px solid var(--hairline); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-menu button { text-align: left; border: none; padding: 5px 8px; font-size: 12.5px; }
+.ad-menu button:hover { background: var(--accent-tint); color: var(--accent-text); }
+/* The status-bar button and the one-time hint above it. */
+.status-right { display: flex; flex: none; }
+.ad-toggle { padding: 0 8px; font-size: 12px; border-color: transparent; background: transparent; color: var(--muted); }
+.ad-toggle.active { color: var(--accent-text); }
+.ad-toggle kbd { font-size: 10px; padding: 0 4px; }
+.ad-bubble { position: fixed; z-index: 30; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; font-size: 13px; background: var(--panel-2); border: 1px solid var(--accent); border-radius: 5px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5); }
+.ad-bubble kbd { font-size: 11px; }
+.ad-bubble .primary { padding: 2px 10px; }
+/* Viewport panels stay inside the view as the dock grows (the Entity and Decal options are short, and scrolling them would clip the class picker's list). */
+#viewport > .tool-options:not(.wide) { max-height: calc(100% - 20px); overflow-y: auto; }
