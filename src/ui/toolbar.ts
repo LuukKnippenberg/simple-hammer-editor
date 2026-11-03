@@ -22,7 +22,8 @@ const TOOLS: { name: ToolName; icon: string; label: string; key: string }[] = [
   { name: 'sound', icon: '🔊', label: 'Sound: place soundscape zones and local sounds', key: '0' },
   { name: 'cinema', icon: '🎬', label: 'Cinema: paths, particles and screens (camera shots and atmosphere are in the Cinema tab)', key: 'c' },
 ];
-const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
+/** Grid sizes in Hammer units: [ and ] step through them, the status bar lists them. */
+export const GRIDS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
 /** Keys that fly the camera while the right mouse button is held (and are shortcuts otherwise). */
 const FLY_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Space']);
 
@@ -67,14 +68,11 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
   const syncGrid = () => (grid.textContent = String(editor.grid));
   const stepGrid = (d: number) => {
     const i = Math.max(0, Math.min(GRIDS.length - 1, GRIDS.indexOf(editor.grid) + d));
-    editor.grid = GRIDS[i];
-    syncGrid();
+    editor.setGrid(GRIDS[i]);
     toast(editor.container, `Grid ${editor.grid}`, 900);
   };
-  grid.addEventListener('click', () => {
-    editor.grid = GRIDS[(GRIDS.indexOf(editor.grid) + 1) % GRIDS.length];
-    syncGrid();
-  });
+  grid.addEventListener('click', () => editor.setGrid(GRIDS[(GRIDS.indexOf(editor.grid) + 1) % GRIDS.length]));
+  editor.on('grid', syncGrid);
   syncGrid();
 
   const undo = h('button', { ...tip('Undo', 'Ctrl+Z'), onclick: () => editor.undo() }, '↶');
@@ -104,6 +102,8 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     const ctrl = e.ctrlKey || e.metaKey;
     // While the right mouse button is held these keys fly the camera, as in Unity.
     if (!ctrl && FLY_KEYS.has(e.code) && (editor.controls.isLooking || editor.topView.panning)) return;
+    // Shift+Z maximises a quad pane (quadView.ts).
+    if (!ctrl && e.shiftKey && e.code === 'KeyZ') return;
     const k = e.key.toLowerCase();
     // Selected POI handles act for their whole POI.
     const pois = selectedPois(editor);
@@ -156,7 +156,7 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     else if (k === 'e') sel.setMode('rotate');
     else if (k === 'r') sel.setMode('scale');
     else if (k === 'f') focus();
-    else if (k === 't') editor.setView3dOrTop(editor.view === 'top' ? '3d' : 'top');
+    else if (k === 't' && editor.layout !== 'quad') editor.setView3dOrTop(editor.view === 'top' ? '3d' : 'top');
     else if (k === 'h') editor.hideSelection();
     else if (k === 'u') editor.unhideAll();
     else if (e.key === '?') hooks.help();
