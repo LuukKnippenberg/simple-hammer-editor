@@ -28,6 +28,8 @@ interface SolidGeom {
   version: number;
   chunks: Map<string, Chunk>;
   bounds: Box3;
+  /** Edges as line segment end points (x, y, z pairs), for the quad view's wireframe panes. */
+  edges: Float32Array;
 }
 
 interface Batch {
@@ -69,6 +71,7 @@ export function buildSolidChunks(solid: MapSolid): SolidGeom {
   const faces = buildBrushFaces(solid);
   const builders = new Map<string, ChunkBuilder>();
   const bounds = new Box3();
+  const edges: number[] = [];
   const isDisp = solid.isDisplacement;
   const get = (m: string) => {
     const k = m.toLowerCase();
@@ -97,6 +100,14 @@ export function buildSolidChunks(solid: MapSolid): SolidGeom {
         vn[ix[k]].add(fn); vn[ix[k + 1]].add(fn); vn[ix[k + 2]].add(fn);
       }
       for (const n of vn) n.normalize();
+      // The wireframe draws the grid's outline (every row would fill a zoomed-out pane).
+      const gp = grid.positions, sz = grid.size;
+      for (const r of [0, sz - 1]) {
+        for (let j = 0; j + 1 < sz; j++) {
+          const a = gp[r * sz + j], c = gp[r * sz + j + 1], d = gp[j * sz + r], e = gp[(j + 1) * sz + r];
+          edges.push(a.x, a.y, a.z, c.x, c.y, c.z, d.x, d.y, d.z, e.x, e.y, e.z);
+        }
+      }
       for (let k = 0; k < ix.length; k++) {
         const i = ix[k];
         const p = grid.positions[i];
@@ -112,6 +123,10 @@ export function buildSolidChunks(solid: MapSolid): SolidGeom {
     } else {
       const n = face.plane.normal;
       const vs = face.verts;
+      for (let k = 0; k < vs.length; k++) {
+        const a = vs[k], c = vs[(k + 1) % vs.length];
+        edges.push(a.x, a.y, a.z, c.x, c.y, c.z);
+      }
       const uvs = vs.map((v) => texelUV(face.side, v));
       for (let k = 1; k < vs.length - 1; k++) {
         for (const i of [0, k, k + 1]) {
@@ -128,7 +143,7 @@ export function buildSolidChunks(solid: MapSolid): SolidGeom {
   }
   const chunks = new Map<string, Chunk>();
   for (const [k, b] of builders) if (b.sides.length) chunks.set(k, b.build());
-  return { version: solid.version, chunks, bounds };
+  return { version: solid.version, chunks, bounds, edges: new Float32Array(edges) };
 }
 
 /**
@@ -144,6 +159,8 @@ export class WorldRenderer {
   hidden: Set<object> = new Set();
   visibleKinds: Record<MaterialKind, boolean> = { opaque: true, blend: true, translucent: true, tool: false, sky: false, handle: true };
   stats = { brushes: 0, faces: 0, triangles: 0, batches: 0, buildMs: 0 };
+  /** Goes up whenever a brush or what is shown changes (the quad view's wireframe rebuilds on it). */
+  revision = 0;
   private shadows = false;
 
   setShadows(on: boolean): void {
@@ -191,6 +208,7 @@ export class WorldRenderer {
       this.geoms.set(s, g);
     }
     if (!dirty.size) return;
+    this.revision++;
     for (const k of dirty) this.rebuildBatch(k);
     this.stats.brushes = solids.length;
     this.stats.faces = solids.reduce((n, s) => n + s.sides.length, 0);
@@ -247,6 +265,7 @@ export class WorldRenderer {
 
   /** Re-reads material kinds (they can change once a VMT is loaded) and applies visibility toggles. */
   applyVisibility(): void {
+    this.revision++;
     for (const [k, b] of this.batches) {
       const info = this.materials.get(k);
       b.kind = info.kind;
@@ -271,6 +290,22 @@ export class WorldRenderer {
       }
     }
     return out;
+  }
+
+  /** Edges of each brush that draws something, as in visibleSolids (line segment end points). */
+  visibleEdges(): [MapSolid, Float32Array][] {
+    const out: [MapSolid, Float32Array][] = [];
+    for (const [s, g] of this.geoms) {
+      for (const k of g.chunks.keys()) {
+        if (this.visibleKinds[this.materials.get(k).kind]) { out.push([s, g.edges]); break; }
+      }
+    }
+    return out;
+  }
+
+  /** A brush's edges (line segment end points), or null when it isn't drawn. */
+  solidEdges(s: MapSolid): Float32Array | null {
+    return this.geoms.get(s)?.edges ?? null;
   }
 
   solidBounds(s: MapSolid): Box3 | null {
