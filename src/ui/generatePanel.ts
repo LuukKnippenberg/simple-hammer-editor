@@ -15,6 +15,7 @@ import { buildingSheet, type BuildingRow } from './buildingOptions.ts';
 import { roadSheet } from './roadOptions.ts';
 import { powerlineSheet } from './powerlineOptions.ts';
 import { stairsSheet } from './stairsOptions.ts';
+import { pathPointsSection, pointAxis } from './pathPointsList.ts';
 import { buildStairs, type StairsFlight } from '../gen/stairs.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { h } from './dom.ts';
@@ -145,7 +146,10 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
       return stairsSheet({ spec, result: null, set, setFlight }).slice(0, 3);
     }
     const result = buildStairs(VmfDocument.empty(), spec);
-    return stairsSheet({ spec, result, set, setFlight, hot: hotFlight, onHot: (i) => { hotFlight = hotFlight === i ? -1 : i; render(); } });
+    // The points with their heights, typed or (picked pin) Page Up / Page Down; the pins' own key while placing.
+    const points = pathPointsSection(editor, stairs.pins.target?.key ?? '', [pointAxis('x', 'x', editor.grid), pointAxis('y', 'y', editor.grid), pointAxis('height', 'z', 8)],
+      'Typing a number moves the point. Height: the wheel while holding a pin, or Page Up / Page Down on a picked one.', stairs.pins);
+    return [points, ...stairsSheet({ spec, result, set, setFlight, hot: hotFlight, onHot: (i) => { hotFlight = hotFlight === i ? -1 : i; render(); } })];
   };
 
   /** POI type (while placing) and its settings; in Tune they rebuild the POI. */
@@ -193,6 +197,8 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
 
   editor.on('generate', render);
   editor.on('stairs', () => { if (tool.session?.id === 'stairs') render(); });
+  // The picked pin lights its row in the stairs' Points list.
+  editor.on('pathpins', () => { if (tool.session?.id === 'stairs' && tool.session.step === 'tune') render(); });
   editor.on('toolchange', render);
   // The block brush hint depends on the selection.
   editor.on('selection', () => { if (tool.session?.step === 'place' && selectedBlockBrushes(editor).length) render(); });

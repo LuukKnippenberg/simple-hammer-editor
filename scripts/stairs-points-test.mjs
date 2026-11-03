@@ -1,7 +1,8 @@
 // Stairs point pins (pathPins.ts): place A-B-C with a branch, drag a pin while placing, insert with +, Alt+click
 // to remove, finish; then on the placed stairs drag a pin (an outline while dragging, the map untouched; one rebuild
 // and one undo step on release), type in the Points list, Tab, Delete a point, refused and adjusted drags, Esc
-// during a drag, and Layers › Handles off. Exits non-zero when a check fails.
+// during a drag, and Layers › Handles off. Heights: the wheel while a pin is held (placing and placed), Page Up /
+// Page Down on a picked pin, and the Points list in the Tune step. Exits non-zero when a check fails.
 //   SHE_PORT=5200 node scripts/stairs-points-test.mjs [--shots <dir>]
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
@@ -72,6 +73,16 @@ await withEditor(async (d, page) => {
     await d.settle(200);
   };
   const typeKeys = async (text) => { for (const k of text) await d.key(k); };
+  /** Holds a pin down without moving and turns the wheel (`notches` up, negative: down); `hold` runs before letting go. */
+  const wheelPin = async (name, notches, hold) => {
+    const [x, y] = await pinBox(name);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let k = 0; k < Math.abs(notches); k++) { await page.mouse.wheel(0, notches > 0 ? -100 : 100); await page.waitForTimeout(60); }
+    if (hold) await hold();
+    await page.mouse.up();
+    await d.settle(200);
+  };
   // Clicked from the page: a Playwright click on the top bar (wider than the page) would scroll the page sideways.
   const toggleHandles = () => d.eval(() => [...document.querySelectorAll('#topbar button')].find((b) => b.textContent === 'Handles').click());
 
@@ -121,6 +132,30 @@ await withEditor(async (d, page) => {
   await d.settle(150);
   check('Alt+click removes it', await names(), ['A', 'B', 'C1', 'C2']);
   check('flights after removing', (await placing()).flights, 3);
+  // Heights while placing (the Tune step): the wheel on a held pin, Page Up / Page Down on the picked one, and the
+  // Points list in the Generate panel.
+  await wheelPin('C1', 2);
+  check('wheel raises C1 while placing', (await placing()).nodes[2], [384, 256, 208]);
+  await d.key('PageDown');
+  await d.key('PageDown');
+  check('Page Down lowers the picked pin', (await placing()).nodes[2], [384, 256, 192]);
+  check('Points list in the Tune step', await page.locator('.path-row:visible').count(), 4);
+  const tuneHeight = page.locator('.path-row:visible[data-point="C2"] input').nth(2);
+  await tuneHeight.click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('176');
+  await page.keyboard.press('Enter');
+  await d.settle(200);
+  check('typed height in the Tune step', (await placing()).nodes[3], [-256, 256, 176]);
+  await tuneHeight.click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('160');
+  await page.keyboard.press('Enter');
+  await d.settle(200);
+  check('and back', (await placing()).nodes[3], [-256, 256, 160]);
+  await d.eval(() => document.activeElement?.blur());
+  await tuneHeight.evaluate((el) => el.closest('.path-points').scrollIntoView());
+  await shot('stairs-points-tune-heights');
   await page.mouse.move(10, 10);
   await d.key('Enter');
   await d.settle(300);
@@ -151,6 +186,25 @@ await withEditor(async (d, page) => {
   check('undo puts C2 back', await placed(), before);
   await d.eval(() => window.__editor.editor.redo());
   await d.settle(200);
+
+  // Hold B and turn the wheel down: an outline while held (the map untouched), one rebuild and one undo step on release.
+  const mapWheel = await mapText();
+  const stepsWheel = await depth();
+  await wheelPin('B', -2, async () => {
+    check('wheel: map unchanged while held', (await mapText()) === mapWheel, true);
+    check('wheel: outline while held', (await outline()) > 0, true);
+    check('wheel: the note says the height', await page.$eval('.path-pins:not([hidden]) .path-tip', (e) => e.firstElementChild.textContent), 'B height 128 → 112');
+    await shot('stairs-points-wheel-height');
+  });
+  check('wheel lowered B on release', (await placed())[1], [0, 256, 112]);
+  check('one undo step for the wheel', (await depth()) - stepsWheel, 1);
+  await d.key('PageUp');
+  await d.key('PageUp');
+  check('Page Up on the picked pin', (await placed())[1], [0, 256, 128]);
+  check('one undo step per Page Up', (await depth()) - stepsWheel, 3);
+  for (let k = 0; k < 3; k++) await d.eval(() => window.__editor.editor.undo());
+  await d.settle(200);
+  check('undo puts B back', (await placed())[1], [0, 256, 128]);
 
   // Dropped on the ground without Shift: C2 takes the ground's height (amber).
   await dragTo(await pinBox('C2'), [-448, 256, 0], {

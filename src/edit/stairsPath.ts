@@ -89,7 +89,7 @@ export function stairsCheck(spec: StairsSpec, path: PointPath, i: number, before
     };
   }
   const from = before.points[i], to = path.points[i];
-  if (from && from.z !== to.z) return { level: 'adjusted', note: `dropped on a surface: height ${from.z} → ${to.z}`, numbers, hint: `keeps ${from.z}` };
+  if (from && from.z !== to.z) return { level: 'adjusted', note: `height ${from.z} → ${to.z}`, numbers, hint: `keeps ${from.z} · wheel: up or down` };
   return { level: 'fine', note: 'moved', numbers };
 }
 

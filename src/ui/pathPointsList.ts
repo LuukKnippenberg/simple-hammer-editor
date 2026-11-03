@@ -1,5 +1,6 @@
 import type { Editor } from '../editor.ts';
 import { pathLabels, type PathPoint } from '../edit/pathPoints.ts';
+import type { PathPins } from '../edit/pathPins.ts';
 import { h } from './dom.ts';
 
 /**
@@ -22,16 +23,16 @@ export const pointAxis = (title: string, axis: 'x' | 'y' | 'z', step = 1): Point
   ({ title, step, get: (point) => point[axis], set: (point, value) => ({ ...point, [axis]: value }) });
 
 /**
- * The Points section of a generated object's panel: a row per point of the path the Select tool's pins edit, when
- * that is the object with `key` (the pins' `PathTarget.key`); else only the heading and `hint`. Typed numbers move
- * points through the pins (checked like a drag, one undo step each); a picked point can be removed.
+ * The Points section of a generated object's panel: a row per point of the path `pins` edit (the Select tool's by
+ * default; a generator's tool passes its own in the Tune step), when that is the object with `key` (the pins'
+ * `PathTarget.key`); else only the heading and `hint`. Typed numbers move points through the pins (checked like a
+ * drag, one undo step each); a picked point can be removed.
  */
-export function pathPointsSection(editor: Editor, key: string, columns: PointColumn[], hint: string): HTMLElement {
-  const pins = editor.tools.select.pins;
+export function pathPointsSection(editor: Editor, key: string, columns: PointColumn[], hint: string, pins: PathPins = editor.tools.select.pins): HTMLElement {
   const section = h('div.section', {}, h('h3', {}, 'Points'), h('p.hint', {}, hint));
   // While a generator's tool is placing it, the pins in the viewport are that tool's own.
   const target = pins.target;
-  if (target?.key !== key || editor.tools.current !== editor.tools.select) return section;
+  if (target?.key !== key || (pins === editor.tools.select.pins && editor.tools.current !== editor.tools.select)) return section;
   const path = target.path();
   const names = pathLabels(path);
   section.append(pointsList({
