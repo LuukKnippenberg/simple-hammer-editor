@@ -1,8 +1,8 @@
 import type { Editor } from '../editor.ts';
-import { loadModelIndex, modelFolder, modelName, sizeClass, SIZE_CLASSES, type ModelEntry, type SizeClass } from '../assets/modelIndex.ts';
+import { modelEntry, modelFolder, sizeClass, SIZE_CLASSES, type ModelEntry, type SizeClass } from '../assets/modelIndex.ts';
+import { assetGroups, assetUses, favouriteAssets, loadAssets, recentAssets, usedInMap } from '../assets/assetCatalog.ts';
 import { modelPreview, modelThumbnail } from '../render/modelViews.ts';
 import { openPicker, kbd, type PickerSource } from './assetPicker.ts';
-import { favouriteModels, recentModels } from './recent.ts';
 import { h } from './dom.ts';
 
 interface ModelItem extends ModelEntry {
@@ -12,14 +12,7 @@ interface ModelItem extends ModelEntry {
 }
 
 /** How many entities use each model in the map. */
-export function modelsInMap(editor: Editor): Map<string, number> {
-  const used = new Map<string, number>();
-  for (const e of editor.doc.entities) {
-    const m = e.get('model')?.toLowerCase().replace(/\\/g, '/');
-    if (m?.endsWith('.mdl')) used.set(m, (used.get(m) ?? 0) + 1);
-  }
-  return used;
-}
+export const modelsInMap = (editor: Editor) => usedInMap(editor, 'model');
 
 /** What vbsp makes of a model as a prop_static, from the index. */
 export function staticNote(m: Pick<ModelEntry, 'static' | 'physics'>): { ok: boolean; text: string } {
@@ -40,11 +33,12 @@ export async function openModelPicker(editor: Editor, opts: {
   useLabel: string;
   onPick: (path: string, skin: number) => void;
 }): Promise<void> {
-  const index = await loadModelIndex();
-  const items: ModelItem[] = index.map((m) => ({ ...m, id: m.path, name: modelName(m.path), folder: modelFolder(m.path) }));
-  const used = modelsInMap(editor);
-  const folders = new Map<string, number>();
-  for (const i of items) if (i.folder) folders.set(i.folder, (folders.get(i.folder) ?? 0) + 1);
+  const assets = await loadAssets('model');
+  const items: ModelItem[] = assets.map((a) => ({ ...modelEntry(a.id)!, id: a.id, name: a.name, folder: a.group }));
+  const used = usedInMap(editor, 'model');
+  const folders = assetGroups(assets);
+  const favouriteModels = favouriteAssets('model');
+  const recentModels = recentAssets('model');
   const current = opts.current?.toLowerCase().replace(/\\/g, '/');
   const curFolder = current ? modelFolder(current) : '';
   let size: SizeClass | '' = '';
@@ -57,9 +51,9 @@ export async function openModelPicker(editor: Editor, opts: {
   ];
   const folderSources: PickerSource<ModelItem>[] = [
     { id: 'all', label: 'All models', icon: icon('var(--muted)', '▾'), test: () => true },
-    ...[...folders].sort((a, b) => b[1] - a[1]).map(([f]) => ({ id: `f:${f}`, label: f, indent: true, test: (i: ModelItem) => i.folder === f })),
+    ...folders.map(({ group: f }) => ({ id: `f:${f}`, label: f, indent: true, test: (i: ModelItem) => i.folder === f })),
   ];
-  const start = curFolder && folders.has(curFolder) ? `f:${curFolder}` : used.size ? 'used' : 'all';
+  const start = curFolder && folders.some((f) => f.group === curFolder) ? `f:${curFolder}` : used.size ? 'used' : 'all';
   const sizeChip = { id: 'size', label: 'Size', on: false, hidden: true, test: (i: ModelItem) => !size || sizeClass(i) === size };
 
   openPicker<ModelItem>({
@@ -119,7 +113,7 @@ export async function openModelPicker(editor: Editor, opts: {
           h('span', {}, 'In this map'), n ? h('span', {}, `${n} × · `, h('a', { href: '#', onclick: (e: Event) => {
             e.preventDefault();
             close();
-            editor.selection.set([], editor.doc.entities.filter((x) => x.get('model')?.toLowerCase().replace(/\\/g, '/') === i.path));
+            editor.selection.set([], assetUses(editor, 'model', i.path).entities);
           } }, 'select them')) : h('span', {}, 'not used'),
           h('span', {}, 'Materials'), h('span', {}, String(i.materials))),
         h('div', { style: { flex: '1' } }),

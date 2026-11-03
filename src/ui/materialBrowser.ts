@@ -1,11 +1,9 @@
 import type { Editor } from '../editor.ts';
 import { materialThumbnail } from '../assets/thumbnails.ts';
+import { loadAssets, usedInMap } from '../assets/assetCatalog.ts';
 import { h } from './dom.ts';
-import { loadDecals, openDecalPicker } from './decalPicker.ts';
+import { openDecalPicker } from './decalPicker.ts';
 import { recentDecals } from './recent.ts';
-
-/** Folders that hold model, UI or effect materials rather than brush textures. */
-const SKIP = /^(models|effects|vgui|sprites|particle|particles|console|debug|engine|editor|skybox|correction|perftest|voice|hud|cable|decals|overlays|fow|deferred|environment maps|shadertest|pg_tex)\//;
 
 /** Thumbnail grid of materials: the ones used in the map first, or a search over everything the game has. */
 export function mountMaterialBrowser(editor: Editor): HTMLElement {
@@ -51,14 +49,7 @@ export function mountMaterialBrowser(editor: Editor): HTMLElement {
     return el;
   };
 
-  const usedInMap = () => {
-    const counts = new Map<string, number>();
-    for (const s of editor.doc.allSolids()) for (const side of s.sides) {
-      const m = side.material.toLowerCase();
-      if (!m.startsWith('tools/')) counts.set(m, (counts.get(m) ?? 0) + 1);
-    }
-    return [...counts].sort((a, b) => b[1] - a[1]).map(([m]) => m);
-  };
+  const usedList = () => [...usedInMap(editor, 'material')].filter(([m]) => !m.startsWith('tools/')).sort((a, b) => b[1] - a[1]).map(([m]) => m);
 
   const render = () => {
     const q = search.value.trim().toLowerCase();
@@ -67,8 +58,8 @@ export function mountMaterialBrowser(editor: Editor): HTMLElement {
       if (!decalList) {
         grid.replaceChildren(h('p.hint', {}, 'Indexing decals…'));
         // The same list as the decal picker (no blood, impacts or engine decals).
-        void loadDecals().then((list) => {
-          decalList = list;
+        void loadAssets('decal').then((items) => {
+          decalList = items.map((i) => i.id);
           render();
         });
         return;
@@ -80,12 +71,12 @@ export function mountMaterialBrowser(editor: Editor): HTMLElement {
         ...list.map(tile));
       return;
     }
-    if (!q) list = usedInMap();
+    if (!q) list = usedList();
     else {
       if (!all) {
         grid.replaceChildren(h('p.hint', {}, 'Indexing game materials…'));
-        void fetch('/api/list?folder=materials&ext=.vmt').then((r) => r.json()).then((paths: string[]) => {
-          all = paths.map((p) => p.slice(10, -4)).filter((p) => !SKIP.test(p));
+        void loadAssets('material').then((items) => {
+          all = items.map((i) => i.id);
           render();
         });
         return;
