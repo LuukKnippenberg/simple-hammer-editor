@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
 import type { MapEntity, VmfDocument } from '../vmf/map.ts';
-import { ROAD_STYLES, buildRoads, centreline, offsetLine, roadEntityNode, roadOf, setRoadSolids, type RoadSpec } from './roads.ts';
+import { ROAD_STYLES, buildRoads, keepJoined, offsetLine, roadEntityNode, roadLine, roadOf, setRoadSolids, type RoadSpec } from './roads.ts';
 import { dab, readDisp, type Disp } from '../edit/terrain.ts';
 
 /**
@@ -11,7 +11,7 @@ import { dab, readDisp, type Disp } from '../edit/terrain.ts';
 export function blendRoadIntoGround(editor: Editor, road: RoadSpec): number {
   const disps = editor.doc.allSolids().filter((s) => s.isDisplacement).map(readDisp).filter((d): d is Disp => !!d);
   if (!disps.length) return 0;
-  const line = centreline(road.points, road.radius);
+  const line = roadLine(road);
   const st = ROAD_STYLES[road.style];
   const edge = road.width / 2 + ((road.kerbs ?? st.kerb) ? 8 : 0) + road.pavement;
   // Terrain vertices are 64 apart, so the dabs must be wide enough to catch two rows of them.
@@ -45,14 +45,18 @@ export function roadEntities(doc: VmfDocument): { entity: MapEntity; road: RoadS
 }
 
 /**
- * Rebuilds every road (crossings depend on all of them), optionally adding a new road or replacing one
- * road's definition. One undo step. Returns the new road's entity, if any.
+ * Rebuilds every road (crossings depend on all of them), optionally adding new roads or replacing one road's
+ * definition; roads that ended on the replaced road's centre line (T junctions) move with it. One undo step.
+ * Returns the first new road's entity, if any.
  */
-export function rebuildRoads(editor: Editor, label: string, change: { add?: RoadSpec; replace?: [MapEntity, RoadSpec] } = {}): MapEntity | null {
+export function rebuildRoads(editor: Editor, label: string, change: { add?: RoadSpec | RoadSpec[]; replace?: [MapEntity, RoadSpec] } = {}): MapEntity | null {
   const doc = editor.doc;
   const existing = roadEntities(doc);
-  const specs = existing.map((r) => (change.replace && r.entity === change.replace[0] ? change.replace[1] : r.road));
-  if (change.add) specs.push(change.add);
+  let specs = existing.map((r) => (change.replace && r.entity === change.replace[0] ? change.replace[1] : r.road));
+  const replaced = change.replace ? existing.findIndex((r) => r.entity === change.replace![0]) : -1;
+  if (replaced >= 0) specs = keepJoined(specs, replaced, existing[replaced].road);
+  const added = change.add ? (Array.isArray(change.add) ? change.add : [change.add]) : [];
+  specs.push(...added);
   let created: MapEntity | null = null;
   editor.history.group(label, () => {
     const solids = buildRoads(doc, specs);
@@ -62,10 +66,11 @@ export function rebuildRoads(editor: Editor, label: string, change: { add?: Road
       r.entity.reload();
     });
     end();
-    if (change.add) {
-      created = doc.addEntity(roadEntityNode(doc, change.add, solids[solids.length - 1]));
-      editor.history.added('Add road', [], [created]);
-    }
+    added.forEach((road, k) => {
+      const e = doc.addEntity(roadEntityNode(doc, road, solids[existing.length + k]));
+      editor.history.added('Add road', [], [e]);
+      created ??= e;
+    });
   });
   editor.changed();
   return created;
