@@ -386,6 +386,12 @@ export class QuadView {
     return ed.tools.current.name === 'select' && ed.selection.mode === 'object' && !this.selBox.isEmpty() && ed.selection.allSolids().length > 0;
   }
 
+  /** Handles only where the selection is at least 16 px wide and tall in the pane (else they would cover it). */
+  private handlesFit(ax: PaneAxes, ppu: number): boolean {
+    const [u0, v0, u1, v1] = this.selRect(ax);
+    return (u1 - u0) * ppu >= 16 && (v1 - v0) * ppu >= 16;
+  }
+
   /** The selection's rectangle in a 2D pane's axes. */
   private selRect(ax: PaneAxes): [number, number, number, number] {
     const b = this.selBox;
@@ -403,7 +409,7 @@ export class QuadView {
     if (this.selBox.isEmpty()) return -1;
     const [u, v] = this.toUV(this.input, x, y), ppu = this.view().ppu;
     const [u0, v0, u1, v1] = this.selRect(ax);
-    if (this.showsHandles()) {
+    if (this.showsHandles() && this.handlesFit(ax, ppu)) {
       const k = handlePoints(u0, v0, u1, v1).findIndex(([a, b]) => Math.abs(a - u) * ppu <= 6 && Math.abs(b - v) * ppu <= 6);
       if (k >= 0) return k;
     }
@@ -565,7 +571,7 @@ export class QuadView {
       r.render(this.blitScene, this.blitCam);
       const ax = this.axes(i)!, ppu = this.view(i).ppu;
       clearGroup(this.marks);
-      if (this.showsHandles()) {
+      if (this.showsHandles() && this.handlesFit(ax, ppu)) {
         const [u0, v0, u1, v1] = this.selRect(ax);
         buildHandles(ax, handlePoints(u0, v0, u1, v1), 3.5 / ppu, this.marks);
       }
