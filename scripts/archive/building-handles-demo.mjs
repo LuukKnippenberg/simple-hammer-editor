@@ -1,7 +1,7 @@
 // Building handles: generates two blocks of buildings from block brushes with the Building panel, selects one by
 // clicking a wall, moves and resizes it with the gizmo, changes its architecture and regenerates it, undoes,
 // duplicates and deletes it, and picks a single brush with the handles hidden. Screenshots building-handles-*.png.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:phase3_arena.vmf');

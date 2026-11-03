@@ -1,6 +1,6 @@
 // Unit kits: the searchable unit drop-down, the mixed start squad, and the new units in the viewport
 // (run scripts/unit-kits-map.mjs first). EDITOR_URL picks the dev server.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:sp_unit_kits_test.vmf');

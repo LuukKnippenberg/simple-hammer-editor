@@ -1,6 +1,6 @@
 // Captures editor screenshots for the docs with the system Edge/Chrome (no browser download needed).
 //
-//   node scripts/screenshot.mjs shots.json
+//   node scripts/screenshot.mjs scripts/archive/shots/phase0.json
 //
 // shots.json: [{ "name": "phase0-overview", "map": "repo:hlw_City16.vmf",
 //               "view": { "pos": [x,y,z], "target": [x,y,z] }, "eval": "optional JS run before capture",

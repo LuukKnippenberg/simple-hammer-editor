@@ -1,5 +1,5 @@
 // Mission flow → entities: draw a reach area in the viewport, build the flowchart into Sofia, inspect the logic.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:sp_sofia.vmf');

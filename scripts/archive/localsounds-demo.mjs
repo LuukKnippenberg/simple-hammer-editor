@@ -1,6 +1,6 @@
 // Local sounds: the sound browser, presets placed with the Sound tool, a broken lamp added to an existing
 // lamp post from the inspector, and the 3D audio preview.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:c17_district.vmf');

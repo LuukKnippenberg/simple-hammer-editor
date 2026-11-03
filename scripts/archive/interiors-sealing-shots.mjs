@@ -1,9 +1,9 @@
 // Editor screenshots of the interiors test map at the RTS camera angle with the lighting preview on, from the
 // same views as the map's scripted in-game screenshots (the views file interiors-demo.mjs writes with VIEWS_OUT),
 // to compare the light blockers and closed-off ground rooms before and after.
-//   node scripts/interiors-sealing-shots.mjs <map.vmf> <prefix> <views.json>
+//   node scripts/archive/interiors-sealing-shots.mjs <map.vmf> <prefix> <views.json>
 import { readFileSync } from 'node:fs';
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 const [map = 'interiors_test.vmf', prefix = 'interiors-sealing', viewsFile] = process.argv.slice(2);
 const views = viewsFile ? JSON.parse(readFileSync(viewsFile, 'utf8')) : [{ name: 'farmhouse-2f', x: -448, y: -1248, height: 700 }];

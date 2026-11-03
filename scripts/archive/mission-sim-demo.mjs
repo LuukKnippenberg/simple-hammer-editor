@@ -1,5 +1,5 @@
 // Mission flow checks, stage actions and the play-through, on Sofia's flowchart.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:sp_sofia.vmf');

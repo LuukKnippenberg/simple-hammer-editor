@@ -1,5 +1,5 @@
 // Map settings demo: the Settings tab on Sofia (with fog in the lighting preview) and on a new map.
-import { baseUrl, withEditor } from './browser.mjs';
+import { baseUrl, withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await page.goto(baseUrl + '?map=repo%3Asp_sofia.vmf');

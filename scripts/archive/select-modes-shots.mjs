@@ -1,6 +1,6 @@
 // Face / edge / vertex selection modes and face extrude, on a few boxes. Shots are named selmodes-*.
-//   node scripts/select-modes-shots.mjs
-import { withEditor } from './browser.mjs';
+//   node scripts/archive/select-modes-shots.mjs
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   const errors = [];

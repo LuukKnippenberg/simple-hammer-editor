@@ -1,8 +1,8 @@
 // Street-wall props of the City 17 district (cable brackets, dishes, gas meters, drainpipes) seen from the
 // street, so placements can be compared before and after a generator change. Requires the dev server and
 // maps/c17_district.vmf (scripts/build-district.mjs).
-// Usage: node scripts/wall-props-demo.mjs <name prefix>
-import { withEditor } from './browser.mjs';
+// Usage: node scripts/archive/wall-props-demo.mjs <name prefix>
+import { withEditor } from '../browser.mjs';
 
 const prefix = process.argv[2] ?? 'wall-props';
 

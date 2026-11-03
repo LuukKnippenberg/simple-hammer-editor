@@ -1,7 +1,7 @@
 // Screenshots of the New-map templates: the dialog, then a 4-player annihilation, an overrun and a
 // singleplayer map as loaded. Nothing is saved. Shots are named templates-*.
-//   node scripts/map-templates-shots.mjs
-import { withEditor } from './browser.mjs';
+//   node scripts/archive/map-templates-shots.mjs
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   const errors = [];

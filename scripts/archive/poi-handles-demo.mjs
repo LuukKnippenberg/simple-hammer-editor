@@ -1,6 +1,6 @@
 // POI handles: generates a playground on an empty map, selects it by clicking one of its props, then moves,
 // resizes and turns it with the mouse and keyboard, and undoes the move. Screenshots poi-handles-*.png.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:phase3_arena.vmf');

@@ -1,8 +1,8 @@
 // Editor screenshots of the street fixes in Garden District: pavement slabs and setts gutters along the street, the
 // round corners without bollards in the road, the car parks of their own asphalt up to the pavement, and the rail
 // line out of the station.
-//   node scripts/street-fixes-shots.mjs
-import { withEditor } from './browser.mjs';
+//   node scripts/archive/street-fixes-shots.mjs
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d) => {
   await d.open('repo:sp_garden_district.vmf');

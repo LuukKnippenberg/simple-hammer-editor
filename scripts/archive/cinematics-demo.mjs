@@ -1,5 +1,5 @@
 // Cinematics: camera shots, paths with a flyby, particles, a screen and atmosphere presets in sp_cine_test.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   page.on('console', (m) => { if (m.type() === 'error') console.log('  [console]', m.text()); });

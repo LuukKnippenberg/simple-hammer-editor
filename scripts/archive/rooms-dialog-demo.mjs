@@ -1,7 +1,7 @@
 // Interior building dialog: opens it on an empty map, selects a room, changes a link, builds the station preset in
 // front of the camera and shows the building's panel. Screenshots for the README.
-//   node scripts/rooms-dialog-demo.mjs [prefix]
-import { withEditor } from './browser.mjs';
+//   node scripts/archive/rooms-dialog-demo.mjs [prefix]
+import { withEditor } from '../browser.mjs';
 
 const prefix = process.argv[2] ?? 'rooms-dialog';
 

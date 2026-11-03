@@ -1,7 +1,7 @@
 // Objectives panel in the viewport (M): step through the tutorial mission, retarget an objective by clicking a
 // unit, quick-add a next objective by drawing an area, then open the flow designer on the new stage.
 // Nothing is saved: the map and its mission file stay as they are.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   const errors = [];

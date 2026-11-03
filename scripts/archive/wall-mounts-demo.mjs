@@ -1,5 +1,5 @@
 // Wall brackets turned out from their wall, with street cables and powerline feeds on the outer insulator.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d) => {
 

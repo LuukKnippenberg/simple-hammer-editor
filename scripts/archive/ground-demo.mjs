@@ -1,5 +1,5 @@
 // Ground painting: turn a floor into terrain, paint dirt paths, raise and smooth a hill, blend roads in.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:phase3_arena.vmf');

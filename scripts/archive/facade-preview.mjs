@@ -1,7 +1,7 @@
 // Editor screenshots of the interior buildings' outsides: Garden District's station and customs house on a plain
 // square, seen from the RTS camera's side (south-east), close up and from further off.
-//   node scripts/facade-preview.mjs [prefix]
-import { withEditor } from './browser.mjs';
+//   node scripts/archive/facade-preview.mjs [prefix]
+import { withEditor } from '../browser.mjs';
 
 const prefix = process.argv[2] ?? 'facade';
 

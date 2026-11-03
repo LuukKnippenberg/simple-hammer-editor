@@ -1,7 +1,7 @@
 // Mission flow with game-event conditions: the flowchart of sp_mission_events, the editors for an "all of"
 // transition, ability gates and message speakers, and a play-through counting events.
-//   node scripts/mission-conditions-demo.mjs
-import { withEditor } from './browser.mjs';
+//   node scripts/archive/mission-conditions-demo.mjs
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await page.setViewportSize({ width: 1600, height: 1000 });

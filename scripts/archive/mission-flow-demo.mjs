@@ -1,5 +1,5 @@
 // Mission flow editor: Sofia's mission as stages and transitions; a transition connected by dragging its handle.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:sp_sofia.vmf');

@@ -1,5 +1,5 @@
 // Powerlines: drawn along a street past houses (with house feeds) and across terrain over a hill.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d) => {
   await d.open('repo:phase3_arena.vmf');

@@ -1,6 +1,6 @@
 // Ambient sound: a map default soundscape, zones placed with the Sound tool, and the audio preview
 // switching soundscape as the camera moves.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:c17_district.vmf');

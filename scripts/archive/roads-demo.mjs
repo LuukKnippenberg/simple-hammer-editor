@@ -1,5 +1,5 @@
 // Phase "roads": the road tool used with the mouse, crossings, styles, and sketch roads.
-import { withEditor } from './browser.mjs';
+import { withEditor } from '../browser.mjs';
 
 await withEditor(async (d, page) => {
   await d.open('repo:phase3_arena.vmf');
