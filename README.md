@@ -75,8 +75,8 @@ saves the choice to `editor.config.json` and reloads, keeping unsaved work as an
 No license has been chosen yet, so the code is not yet open for reuse. The npm dependencies are MIT
 (three.js, three-mesh-bvh, Vite, Vitest) and Apache-2.0 (TypeScript, playwright-core). Lambda Wars, Half-Life 2
 and Alien Swarm content belongs to its owners; the editor reads textures, models and sounds from your own install and
-doesn't ship them. The repository does include the Lambda Wars wordmark (`public/lambdawars-wordmark.png`), the game's own map source
-`maps/hlw_City16.vmf` (a copy of `lambdawars/mapsrc/hlw_city16/hlw_City16.vmf`, used by the tests), unit and
+doesn't ship them. The repository does include the Lambda Wars wordmark (`public/lambdawars-wordmark.png`), the source of
+`maps/hlw_City16.vmf` (made by the editor's author for the game, which ships it; used by the tests), unit and
 ability tables generated from the game's Python (`src/lw/unitCatalog.ts`, `src/lw/gameAbilities.ts`), and
 screenshots of the game and the editor in `docs/screenshots/`.
 
