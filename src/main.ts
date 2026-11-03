@@ -45,6 +45,7 @@ import { CinematicsRenderer } from './render/cinematicsRenderer.ts';
 import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 import { apiPost } from './api.ts';
+import { mountAssetDock } from './ui/assetDock.ts';
 
 const viewport = document.getElementById('viewport')!;
 const loading = h('div.loading', { hidden: true });
@@ -57,7 +58,7 @@ const recover = mountRecover(editor, topBar);
 const startScreen = mountStartScreen(editor, topBar, recover);
 if (!skipsStartScreen(new URL(location.href))) startScreen.show();
 const hover = new Hover(editor);
-mountStats(editor, viewport, document.getElementById('statusbar')!, () => hover.label);
+const status = mountStats(editor, viewport, document.getElementById('statusbar')!, () => hover.label);
 const help = mountHelp();
 installTooltips();
 mountToolbar(editor, document.getElementById('toolbar')!, { hoverPoint: () => hover.point, help: () => help.toggle() });
@@ -132,6 +133,8 @@ new GameplayOverlay(editor);
 new CinematicsRenderer(editor);
 // Panels follow the tool and the selection; badges on the rail show selection, mission and logic state.
 mountPanelFollow(editor, tabs);
+// The asset finder under the view (B): models, materials, decals and sounds.
+const assetDock = mountAssetDock(editor, document.getElementById('assetdock')!, status.right);
 
 /** Hooks for scripted screenshots and debugging from the console. */
 declare global {
@@ -149,6 +152,7 @@ declare global {
       startScreen: typeof startScreen;
       missionFlow: typeof missionFlow;
       missionView: typeof missionView;
+      assetDock: typeof assetDock;
       setView(pos: [number, number, number], target: [number, number, number]): void;
       /** Page coordinates of a world point (for scripted mouse input). */
       project(p: [number, number, number]): [number, number];
@@ -170,6 +174,7 @@ window.__editor = {
   startScreen,
   missionFlow,
   missionView,
+  assetDock,
   setView(pos, target) {
     editor.camera.position.set(...pos);
     editor.controls.lookAt(new Vector3(...target));

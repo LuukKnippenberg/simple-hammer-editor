@@ -12,6 +12,10 @@ export interface Prefs {
   recoverDismissed?: Record<string, number>;
   /** Compile & test options per map name. */
   testOptions?: Record<string, Record<string, unknown>>;
+  /** The asset finder dock: its size, the last size it was shown at, a dragged height, the tab and each tab's source. */
+  assetDock?: { size: 'hidden' | 'strip' | 'open'; last?: 'strip' | 'open'; height?: number; tab?: string; sources?: Record<string, string> };
+  /** The one-time "Try the asset finder (B)" hint was shown. */
+  assetHint?: boolean;
 }
 
 const PREFIX = 'she.pref.';
