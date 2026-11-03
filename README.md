@@ -11,8 +11,8 @@ navmesh builder, and launches the game on the result. Maps stay plain VMF, so Ha
 
 - **Windows.** The compile tools, the navmesh builder and the game are Windows programs.
 - **[Lambda Wars](https://store.steampowered.com/app/270370/)** (free on Steam), or a clone of the game repo. The
-  editor reads the game's materials, models, entity definitions (FGD), sounds and unit data from it. Nothing from the
-  game is copied into this repository.
+  editor reads the game's textures, models, entity definitions (FGD), sounds and unit data from your install; the
+  repository doesn't ship them. The few game-derived files it does include are listed under [License](#license).
 - **Alien Swarm - SDK** (free on Steam: Library › Tools), for the map compilers (`vbsp.exe`, `vvis.exe`, `vrad.exe`,
   `bspzip.exe` in `steamapps/common/Alien Swarm/bin`). Only needed for **Compile & test**; you can build and save maps
   without it.
