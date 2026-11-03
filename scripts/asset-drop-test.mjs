@@ -263,6 +263,38 @@ await withEditor(async (d, page) => {
   check('Esc during the drag left the selection', await d.eval(() => window.__editor.editor.selection.entities.size), 1);
   check('drags never clicked a tile (still the Select tool)', (await state()).tool, 'select');
   check('no marquee left', await d.eval(() => !!document.querySelector('.marquee')), false);
+
+  // 9. The quad view: drops go into the Camera pane only, aimed through it though the quad view last saw the mouse
+  //    (no button held) over another pane. The 2D panes refuse them.
+  await d.eval(() => window.__editor.editor.setLayout('quad'));
+  await d.settle(400);
+  const paneAt = (i, p) => d.eval(([i, p]) => {
+    const ed = window.__editor.editor;
+    return ed.quad.project(i, new ed.camera.position.constructor(...p));
+  }, [i, p]);
+  const hoverPane = async (i) => {
+    const r = await d.eval((i) => { const q = window.__editor.editor.quad.clientRect(i); return [q.left + q.width / 2, q.top + q.height / 2]; }, i);
+    await page.mouse.move(r[0], r[1]);
+    await page.waitForTimeout(100);
+  };
+  // The wall right of the pane's centre, clear of the tool options in its top left corner.
+  await d.eval(() => window.__editor.setView([-40, -40, 140], [256, 140, 96]));
+  await hoverPane(1);
+  check('quad: the Top pane takes input before the drag', await d.eval(() => window.__editor.editor.quad.kindOf()), 'top');
+  before = await state();
+  seen = await drag('decal', DECAL, await paneAt(0, [256, -60, ground + 60]), { screen: true, hold: () => shot('14-quad-decal-camera-pane') });
+  check('quad Camera pane: decal card', seen?.text, 'decal_posters001a · infodecal on this face · Alt: info_overlay');
+  check('quad Camera pane: decal placed', [(await last()).cls, (await state()).steps - before.steps], ['infodecal', 1]);
+  await undo();
+  await hoverPane(0);
+  before = await state();
+  seen = await drag('decal', DECAL, await paneAt(1, [-205, 125, ground]), { screen: true, hold: () => shot('15-quad-top-pane-refused') });
+  check('quad Top pane: refused', [seen?.bad, seen?.text], [true, 'decal_posters001a · drop it in the Camera pane (3D)']);
+  seen = await drag('model', STATIC, await paneAt(2, [0, 0, ground + 64]), { screen: true });
+  check('quad Front pane: refused', [seen?.bad, seen?.text], [true, 'oildrum001_static · drop it in the Camera pane (3D)']);
+  const after2d = await state();
+  check('quad 2D panes: nothing placed', [after2d.ents - before.ents, after2d.steps - before.steps], [0, 0]);
+  await d.eval(() => window.__editor.editor.setLayout('3d'));
 });
 
 if (failed) {

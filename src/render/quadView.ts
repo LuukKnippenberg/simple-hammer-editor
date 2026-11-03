@@ -374,6 +374,13 @@ export class QuadView {
     this.syncControls();
   }
 
+  /** Makes pane `i` take pointer input (picks and rays go through its camera). */
+  setInput(i: number): void {
+    if (i === this.input) return;
+    this.input = i;
+    this.syncControls();
+  }
+
   /** The fly camera only takes the mouse in a Camera pane. */
   private syncControls(): void {
     this.editor.controls.enabled = this.kindOf() === 'camera';
@@ -459,7 +466,7 @@ export class QuadView {
       if (!this.on) return;
       if (!this.held && !this.pan && e.buttons === 0 && e.target === dom) {
         const i = this.paneAt(e.clientX, e.clientY);
-        if (i >= 0 && i !== this.input) { this.input = i; this.syncControls(); }
+        if (i >= 0) this.setInput(i);
       }
       const i = this.paneAt(e.clientX, e.clientY);
       const over = this.held ? this.input : i;
