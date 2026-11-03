@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "description": "A simple browser-based map editor for Lambda Wars (Source Engine, Alien Swarm branch)",
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
