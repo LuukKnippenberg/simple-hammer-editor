@@ -13,8 +13,30 @@ editor.config.json
 docs/screenshots/
 # Screenshots and copies kept while reviewing worktrees
 review-shots/
-# Written by scripts/civil-protection-test.mjs from sp_tutorial_combine.vmf
-maps/sp_tutorial_combine_test.vmf
+# Maps are a whitelist: the editor saves into maps/, and only these are committed (with their .sketch.json and
+# .mission.json files). They are the maps the tests, the start screen, the scripts and docs/example-maps.md use.
+maps/*
+!maps/blend_demo.*
+!maps/c17_district.*
+!maps/hlw_City16.*
+!maps/interiors_test.*
+!maps/multiblend_after.*
+!maps/multiblend_before.*
+!maps/phase3_arena.*
+!maps/poi_showcase.*
+!maps/poi_test.*
+!maps/rooms_demo.*
+!maps/rooms_station.*
+!maps/shapes_demo.*
+!maps/sp_cine_test.*
+!maps/sp_garden_district.*
+!maps/sp_mission_events.*
+!maps/sp_she_arena.*
+!maps/sp_sofia.*
+!maps/sp_tutorial_combine.*
+!maps/sp_unit_kits_test.*
+!maps/street_demo.*
+!maps/surround_demo.*
 Thumbs.db
 desktop.ini
 .DS_Store
