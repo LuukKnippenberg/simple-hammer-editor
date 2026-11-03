@@ -12,12 +12,16 @@ describe('decals and overlays', () => {
     expect(clipRect(face, 60, 60, 80, 80)).toHaveLength(0);
   });
 
-  it('orients wall decals upright and floor decals along world X', () => {
-    const wall = decalBasis(new Vector3(0, -1, 0));
-    expect(Math.abs(wall.t.z)).toBeCloseTo(1);
-    expect(wall.s.z).toBeCloseTo(0);
+  it('orients wall decals upright (t down, s to the right seen from in front) and floor decals along world X', () => {
+    for (const n of [new Vector3(1, 0, 0), new Vector3(-1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, -1, 0)]) {
+      const { s, t } = decalBasis(n);
+      // Texture v grows along t, so the texture's top row is at −t: up.
+      expect(t.z).toBeCloseTo(-1);
+      expect(s.dot(new Vector3().crossVectors(n.clone().negate(), new Vector3(0, 0, 1)))).toBeCloseTo(1);
+    }
     const floor = decalBasis(new Vector3(0, 0, 1));
-    expect(floor.s.x).toBeCloseTo(1);
-    expect(Math.abs(floor.t.y)).toBeCloseTo(1);
+    expect([floor.s.x, floor.t.y]).toEqual([1, -1]);
+    const ceiling = decalBasis(new Vector3(0, 0, -1));
+    expect([ceiling.s.x, ceiling.t.y]).toEqual([1, 1]);
   });
 });

@@ -1,6 +1,6 @@
 import {
   Box3, Box3Helper, BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Group, LineBasicMaterial, LineLoop, Mesh,
-  MeshBasicMaterial, Vector2, Vector3,
+  Matrix4, MeshBasicMaterial, Vector2, Vector3,
 } from 'three';
 import type { Editor } from '../editor.ts';
 import type { MapEntity, MapSide, MapSolid } from '../vmf/map.ts';
@@ -9,6 +9,7 @@ import { loadModel } from '../assets/mdl.ts';
 import { modelEntry, modelName } from '../assets/modelIndex.ts';
 import { placeEntity } from './actions.ts';
 import { placeDecalRay } from './decals.ts';
+import { decalBasis } from '../render/decalRenderer.ts';
 import { convertToDynamic, staticPropProblem } from './preflight.ts';
 import { pickObject, pickSurface, snap } from './tools.ts';
 import { recentDecals, recentMaterials, recentModels } from '../ui/recent.ts';
@@ -336,7 +337,11 @@ function refresh(): void {
     const aspect = (square.userData.aspect as number | undefined) ?? 1;
     square.scale.set(w, w * aspect, 1);
     g.position.copy(p.at).addScaledVector(p.normal, 1);
-    g.lookAt(g.position.clone().add(p.normal));
+    // Laid out as it will be placed: width along the surface's s axis, height along t (down on walls).
+    const n = p.normal.clone().normalize();
+    const { s, t } = decalBasis(n);
+    g.quaternion.setFromRotationMatrix(new Matrix4().makeBasis(s, t.negate(), n));
+    if (d.alt) g.rotateZ((ed.decal.rotation * Math.PI) / 180);
   }
   const key = p.faces && !p.bad ? `${p.faces.solid.id}:${p.faces.sides.map((s) => s.id).join(',')}` : '';
   if (key !== (d.lit?.key ?? '')) {
