@@ -1,10 +1,20 @@
 node_modules/
 dist/
+coverage/
 .claude/
 editor.config.json
+# Vite's local env files (.env.local, .env.*.local)
+*.local
 .autosave/
 # Compile workspace (VMF copies, logs, BSPs produced by the compile pipeline)
 .compile/
 *.log
-# Screenshots from the demo scripts (regenerated locally, referenced by the README)
+# Screenshots from the demo scripts, regenerated locally. The few the docs link are tracked with `git add -f`.
 docs/screenshots/
+# Screenshots and copies kept while reviewing worktrees
+review-shots/
+# Written by scripts/civil-protection-test.mjs from sp_tutorial_combine.vmf
+maps/sp_tutorial_combine_test.vmf
+Thumbs.db
+desktop.ini
+.DS_Store
