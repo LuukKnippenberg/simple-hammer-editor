@@ -1,6 +1,7 @@
 import type { Editor } from '../editor.ts';
 import type { PathTarget } from './pathPins.ts';
 import { selectedStairsTarget } from './stairsPath.ts';
+import { selectedPowerlineTarget } from './powerlinePath.ts';
 
 /**
  * Which object the Select tool's pins edit: one finder per generator, in its own file; the first that knows the
@@ -8,7 +9,7 @@ import { selectedStairsTarget } from './stairsPath.ts';
  */
 export type PathTargetFinder = (editor: Editor) => PathTarget | null;
 
-const FINDERS: PathTargetFinder[] = [selectedStairsTarget];
+const FINDERS: PathTargetFinder[] = [selectedStairsTarget, selectedPowerlineTarget];
 
 /** The path the selection stands for, if it is one object a generator drew from points. */
 export function selectedPathTarget(editor: Editor): PathTarget | null {

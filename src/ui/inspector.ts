@@ -17,6 +17,9 @@ import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, type StreetMaterial } from '..
 import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
 import { powerlineOf, type PowerlineSpec } from '../gen/powerlines.ts';
 import { editPowerline } from '../edit/powerlineTool.ts';
+import { powerlineKey, powerlinePath, powerlineSpans, teePoles } from '../edit/powerlinePath.ts';
+import { groundAt } from '../edit/pathPins.ts';
+import { pathLabels } from '../edit/pathPoints.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 import { soundBrowser } from './soundBrowser.ts';
 import { audio } from '../audio/engine.ts';
@@ -35,7 +38,7 @@ import { partInspector } from './partPanel.ts';
 import { deleteStairs, duplicateStairs, regenerateStairs, selectedStairs } from '../gen/stairsAction.ts';
 import { stairsOf } from '../gen/stairsStore.ts';
 import { buildStairs, stairsSummary, type StairsFlight } from '../gen/stairs.ts';
-import { pathPointsSection, pointAxis } from './pathPointsList.ts';
+import { pathPointsSection, pointAxis, type PointColumn } from './pathPointsList.ts';
 import { stairsKey } from '../edit/stairsPath.ts';
 import { stairsSheet } from './stairsOptions.ts';
 import type { GenerateTool } from '../edit/generateTool.ts';
@@ -264,12 +267,26 @@ function soundscapePanel(editor: Editor, entity: MapEntity): HTMLElement {
     h('div.row', {}, h('label', {}, 'Radius'), radius, h('span.unit', {}, '-1 = everywhere')));
 }
 
-/** A powerline's settings; changes rebuild its poles and wires. */
+/** A powerline's settings, points (the Select tool's pins) and spans; changes rebuild its poles and wires. */
 function powerlinePanel(editor: Editor, entity: MapEntity, spec: PowerlineSpec, count: number): HTMLElement {
-  return h('div.section', {}, h('h3', {}, 'Powerline'),
-    h('p.hint', {}, `${spec.points.length} route points, ${count} entities (poles and rope keyframes).`),
-    ...powerlineSheet(spec, (patch) => editPowerline(editor, entity, patch)),
-    h('button', { onclick: () => { const found = powerlineOf(editor.doc.entities, entity); if (found) { editor.history.remove('Delete powerline', [], found.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline'));
+  const name = powerlineOf(editor.doc.entities, entity)?.name ?? '';
+  const path = powerlinePath(spec);
+  const names = pathLabels(path);
+  const tees = teePoles(path).map((i) => names[i]);
+  // Points stand on the ground: a typed x or y takes the ground's height there.
+  const onGround = (axis: 'x' | 'y'): PointColumn => ({
+    ...pointAxis(axis, axis, editor.grid),
+    set: (point, value) => { const p = { ...point, [axis]: value }; return { ...p, z: groundAt(editor, p.x, p.y) ?? point.z }; },
+  });
+  return h('div', {},
+    h('div.section', {}, h('h3', {}, 'Powerline'),
+      h('p.hint', {}, `${spec.points.length} points, ${count} entities (poles and rope keyframes)${tees.length ? ` · tee pole${tees.length > 1 ? 's' : ''} at ${tees.join(', ')}` : ''}.`),
+      h('p.hint', {}, 'Drag a pin to move a point (the poles re-space), click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to branch from it (a tee pole) or carry on from an end.'),
+      ...powerlineSheet(spec, (patch) => editPowerline(editor, entity, patch)),
+      h('button', { onclick: () => { const found = powerlineOf(editor.doc.entities, entity); if (found) { editor.history.remove('Delete powerline', [], found.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline')),
+    pathPointsSection(editor, powerlineKey(name), [onGround('x'), onGround('y')], 'A is where the line starts; the points stand on the ground. Typing a number moves the point; Tab picks the next pin, Delete removes it.'),
+    h('div.section', {}, h('h3', {}, 'Spans'), h('p.hint', {}, 'Poles fill each stretch at the spacing.'),
+      ...powerlineSpans(spec, path).map((s) => h('div.row.power-span', {}, h('label', {}, s.name), h('span', {}, `${s.length} u · ${s.spans} span${s.spans === 1 ? '' : 's'}`)))));
 }
 
 /** An interior building's handle: its rooms, what is wrong with them, and the dialog to change them. */
