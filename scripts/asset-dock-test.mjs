@@ -3,7 +3,9 @@
 // it and focuses the search; the view shrinks with it and its overlays stay inside; a search counts hits in the other
 // tabs and a click there switches tab; paging adds 160 tiles at a time; clicking a model, material, decal or sound
 // sets that tool's asset and switches to the tool; arrows + Enter and F work in the grid; the right-click menu
-// selects every use; the one-time hint; size and tab survive a reload. Exits non-zero when a check fails.
+// selects every use; a real tile dragged into the view places it; the rail's Material item, Paint and Decal open the
+// dock on their tab (task E) and the Paint options list recent materials; the one-time hint; size and tab survive a
+// reload. Exits non-zero when a check fails.
 // Against a running dev server:
 //   SHE_PORT=5206 node scripts/asset-dock-test.mjs [--shots <folder>]
 import { mkdirSync } from 'node:fs';
@@ -236,21 +238,98 @@ await withEditor(async (d, page) => {
   }, id0), { n: used0, all: true });
   check('menu closes', await page.locator('.ad-menu').isHidden(), true);
 
-  // The one-time hint: the first Paint tool use with the dock hidden; never again.
-  await d.eval(() => { localStorage.removeItem('she.pref.assetHint'); window.__editor.assetDock.setSize('hidden'); });
+  // Every source row has a label (a group without a name would show only its count).
+  const unlabelled = [];
+  for (const k of ['model', 'material', 'decal', 'sound']) {
+    await d.eval((k) => window.__editor.assetDock.show(k), k);
+    await rendered();
+    for (const t of await page.locator('.ad-nav .src .src-label').allTextContents()) if (!t.trim()) unlabelled.push(k);
+  }
+  check('no source row without a label', unlabelled, []);
+
+  // A real tile dragged into the view places it (the drop rules are in asset-drop-test.mjs); undo takes it back.
+  await d.eval(() => window.__editor.assetDock.show('model'));
+  await page.locator('.ad-nav .src', { hasText: 'Used in this map' }).click();
+  await rendered();
+  await d.eval(() => { const e = window.__editor.editor; e.selection.clear(); e.tools.set('select'); e.emit('toolchange'); });
+  const dragTile = page.locator('.ad-grid .ad-tile').nth(4);
+  const dragId = await dragTile.getAttribute('data-id');
+  const ents0 = await d.eval(() => window.__editor.editor.doc.entities.length);
+  const tb = await dragTile.boundingBox();
+  const vb = await page.locator('#viewport').boundingBox();
+  await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 16; i++) {
+    await page.mouse.move(tb.x + tb.width / 2 + ((vb.x + vb.width / 2 - tb.x - tb.width / 2) * i) / 16, tb.y + tb.height / 2 + ((vb.y + vb.height * 0.6 - tb.y - tb.height / 2) * i) / 16);
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(300);
+  check('dragging a tile shows the drop card', await d.eval(() => !document.querySelector('.asset-drag-card')?.hidden), true);
+  await page.mouse.up();
+  await d.settle(300);
+  check('tile drag placed the model', await d.eval(() => { const e = window.__editor.editor; return [e.doc.entities.length, e.doc.entities.at(-1).get('model'), e.tools.current.name]; }), [ents0 + 1, dragId, 'select']);
+  await d.eval(() => window.__editor.editor.undo());
+  check('tile drag undone', await d.eval(() => window.__editor.editor.doc.entities.length), ents0);
+
+  // The rail's Material item opens the dock on Materials; there is no Materials panel in the sidebar any more.
+  const panelTitle = () => page.locator('#sidebar .panel-title').textContent();
+  await d.eval(() => window.__editor.assetDock.setSize('hidden'));
+  const title0 = await panelTitle();
+  await page.click('.rail-item[aria-label^="Materials"]');
+  await rendered();
+  check('rail Material item opens the dock on Materials', { size: (await dock()).size, kind: await d.eval(() => window.__editor.assetDock.kind) }, { size: 'open', kind: 'material' });
+  check('the sidebar keeps its panel', await panelTitle(), title0);
+
+  // Paint and Decal open the dock on their tab; hidden while one of them is in use, it stays hidden.
+  await d.eval(() => { window.__editor.assetDock.show('model'); window.__editor.assetDock.setSize('hidden'); });
   await d.eval(() => document.activeElement?.blur());
   await d.key('q');
   await d.key('3');
-  check('hint on the first Paint tool use', await page.locator('.ad-bubble').textContent(), 'Try the asset finder BOpen✕');
+  check('Paint opens the dock on Materials', { size: (await dock()).size, kind: await d.eval(() => window.__editor.assetDock.kind) }, { size: 'open', kind: 'material' });
+  await d.key('6');
+  check('Decal switches it to Decals', await d.eval(() => window.__editor.assetDock.kind), 'decal');
+  check('the sidebar stays put', await panelTitle(), title0);
+  await d.key('b');
+  await d.key('q');
+  await d.key('3');
+  check('hidden in Decal: Paint leaves it hidden', (await dock()).size, 'hidden');
+
+  // The one-time hint: that Paint pick, which left it hidden, showed it; it never comes again.
+  check('hint when Paint leaves the dock hidden', await page.locator('.ad-bubble').textContent(), 'Try the asset finder BOpen✕');
   await shot('09-hint');
   await page.locator('.ad-bubble button', { hasText: 'Open' }).click();
   check('hint Open shows the dock', (await dock()).size, 'open');
+
+  // The Paint tool options: the current material, recent ones (a click uses one) and Browse materials.
   await d.eval(() => window.__editor.assetDock.setSize('hidden'));
+  // A few more recent materials, as if they had been used, then the current one again.
+  await d.eval(async () => {
+    const { recentAssets, usedInMap } = await import('/src/assets/assetCatalog.ts');
+    const ed = window.__editor.editor;
+    const cur = ed.currentMaterial.toLowerCase();
+    for (const m of [...usedInMap(ed, 'material').keys()].filter((m) => !m.startsWith('tools/') && m !== cur).slice(0, 7)) recentAssets('material').push(m);
+    recentAssets('material').push(cur);
+    ed.emit('material');
+  });
+  const opts = page.locator('#viewport .tool-options');
+  const recents = await opts.locator('.mat-recent').evaluateAll((els) => els.map((e) => e.title));
+  check('Paint options list recent materials, the current one first', [recents.length > 0, recents[0]], [true, await d.eval(() => window.__editor.editor.currentMaterial.toLowerCase())]);
+  if (recents.length > 1) {
+    await opts.locator('.mat-recent').nth(1).click();
+    check('a recent swatch sets the material', await d.eval(() => window.__editor.editor.currentMaterial.toLowerCase()), recents[1]);
+  }
+  await shot('10-paint-options');
+  await opts.locator('button', { hasText: 'Browse materials' }).click();
+  await rendered();
+  check('Browse materials opens the dock', { size: (await dock()).size, kind: await d.eval(() => window.__editor.assetDock.kind) }, { size: 'open', kind: 'material' });
   await d.key('q');
+  await d.eval(() => window.__editor.assetDock.setSize('hidden'));
   await d.key('3');
   check('hint only once', await page.locator('.ad-bubble').count(), 0);
-  // …or on the first Change… click (the Entity tool's model, prop_static since the model tile above).
+
+  // …or on the first Change… click (the Entity tool's model).
   await d.eval(() => localStorage.removeItem('she.pref.assetHint'));
+  await d.eval(() => window.__editor.assetDock.setSize('hidden'));
   await d.key('4');
   await page.locator('#viewport .tool-options button', { hasText: 'Change…' }).click();
   check('hint on the first Change… click', await page.locator('.ad-bubble').count(), 1);

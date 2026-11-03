@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { DOCK_HEIGHT, snapDockHeight } from '../src/ui/assetDock.ts';
+import { describe, expect, it, vi } from 'vitest';
+
+// The drop module listens on window when it loads.
+vi.mock('../src/edit/assetDrop.ts', () => ({ startAssetDrag: () => {} }));
+const { DOCK_HEIGHT, snapDockHeight } = await import('../src/ui/assetDock.ts');
 
 describe('asset finder dock height', () => {
   it('hides below 64 px', () => {

@@ -1,10 +1,10 @@
-// Drag and drop from the asset dock (src/edit/assetDrop.ts), driven with real pointer events from a stand-in tile:
+// Drag and drop from the asset dock (src/edit/assetDrop.ts), driven with real pointer events from the dock's tiles:
 // a model onto the floor (prop_static, snapped), an unsafe model (→ prop_dynamic), Alt (prop_dynamic), a model onto a
 // selected prop (swap), a material onto a face (Shift: whole brush), a decal onto a wall (Alt: info_overlay), a model
 // onto the Model field and a decal onto the Texture field, a sound (refused), Esc and letting go off the view
 // (cancel). Every drop is one undo step and leaves the active tool, the gizmo and snap move alone.
 // Exits non-zero when a check fails. Against a running dev server:
-//   SHE_PORT=5207 node scripts/asset-drop-test.mjs [--shots <dir>]
+//   SHE_PORT=5206 node scripts/asset-drop-test.mjs [--shots <dir>]
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { withEditor } from './browser.mjs';
@@ -34,13 +34,10 @@ await withEditor(async (d, page) => {
   await d.settle();
   await d.eval(() => window.__editor.tabs.show('Selection'));
 
-  // The drop module, a wall to put decals on, and a stand-in for a dock tile (bottom left, off the view).
+  // A wall to put decals on, and the dock open.
   const ground = await d.eval(async () => {
     const ed = window.__editor.editor;
-    // The copy the app loaded: after an edit vite serves it as assetDrop.ts?t=…, and a plain import would be a second one.
-    const url = performance.getEntriesByType('resource').map((r) => r.name).find((n) => /\/src\/edit\/assetDrop\.ts(\?|$)/.test(n));
-    const m = await import(url ?? '/src/edit/assetDrop.ts');
-    m.mountAssetDrop(ed);
+    window.__editor.assetDock.setSize('open');
     const { boxSolid } = await import('/src/edit/brushes.ts');
     const Vector3 = ed.camera.position.constructor;
     const down = ed.raycaster(ed.ndcFromEvent({ clientX: 0, clientY: 0 }));
@@ -51,13 +48,6 @@ await withEditor(async (d, page) => {
     ed.history.added('Add wall', [wall]);
     ed.changed();
     window.__wall = wall;
-    window.__tileClicks = 0;
-    const tile = document.createElement('div');
-    tile.id = 'test-tile';
-    Object.assign(tile.style, { position: 'fixed', left: '8px', bottom: '40px', width: '48px', height: '48px', background: '#e9952a', zIndex: 999 });
-    tile.addEventListener('pointerdown', (e) => m.startAssetDrag(tile.dataset.kind, tile.dataset.id, e));
-    tile.addEventListener('click', () => window.__tileClicks++);
-    document.body.append(tile);
     return z;
   });
   console.log(`ground at z ${ground}`);
@@ -83,10 +73,23 @@ await withEditor(async (d, page) => {
     await page.screenshot({ path: join(shots, `${name}.png`) });
     console.log(`  saved ${name}.png`);
   };
-  /** Drags from the tile to a world point (or screen point); `hold` runs before letting go, keys are held throughout. */
+  /** The dock tile of an asset: its tab, searched by its path; chips that hide it (an unsafe model) are turned off. */
+  const showTile = async (kind, id) => {
+    const key = id.toLowerCase();
+    await d.eval(([k, q]) => { const a = window.__editor.assetDock; a.show(k); a.search(q); }, [kind, key]);
+    await d.eval(() => window.__editor.assetDock.rendered());
+    const tile = page.locator(`#assetdock [data-id="${key}"]`);
+    if (!(await tile.count())) {
+      for (const c of await page.locator('#assetdock .ad-chips .fchip.on').all()) {
+        await c.click();
+        await d.eval(() => window.__editor.assetDock.rendered());
+      }
+    }
+    return tile.first();
+  };
+  /** Drags the asset's dock tile to a world point (or screen point); `hold` runs before letting go, keys are held throughout. */
   const drag = async (kind, id, to, { screen = false, hold, keys = [] } = {}) => {
-    await d.eval(([k, i]) => Object.assign(document.getElementById('test-tile').dataset, { kind: k, id: i }), [kind, id]);
-    const box = await page.locator('#test-tile').boundingBox();
+    const box = await (await showTile(kind, id)).boundingBox();
     const [x0, y0] = [box.x + box.width / 2, box.y + box.height / 2];
     const [x1, y1] = screen ? to : await d.project(to);
     await page.mouse.move(x0, y0);
@@ -105,10 +108,12 @@ await withEditor(async (d, page) => {
     return seen;
   };
 
-  // A plain click on the tile is the dock's click, not a drag.
-  await page.click('#test-tile');
-  check('a click reaches the tile', await d.eval(() => window.__tileClicks), 1);
+  // A plain click on a tile is the dock's click (the Entity tool with that model), not a drag.
+  await (await showTile('model', STATIC)).click();
+  check('a click reaches the tile', await d.eval(() => [window.__editor.editor.tools.current.name, window.__editor.editor.entityModel]), ['entity', STATIC]);
   check('a click starts no drag', await card(), null);
+  // The click moved the sidebar to Entities; the field drops below need the Selection panel.
+  await d.eval(() => window.__editor.tabs.show('Selection'));
 
   // 1. Model onto the floor, with the Block tool active: prop_static on the grid, no block drawn.
   await d.eval(() => window.__editor.editor.tools.set('block'));
@@ -126,7 +131,7 @@ await withEditor(async (d, page) => {
   check('model: one entity, one step, no block', [after.ents - before.ents, after.steps - before.steps, after.solids - before.solids, after.tool], [1, 1, 0, 'block']);
   check('model placed', await last(), { cls: 'prop_static', model: STATIC, texture: undefined, origin: `32 64 ${ground}` });
   await shot('02-model-dropped');
-  check('the drag swallowed the click', await d.eval(() => window.__tileClicks), 1);
+  check('the drag swallowed the click (still the Block tool)', (await state()).tool, 'block');
   await undo();
   check('model undone', (await state()).ents, before.ents);
   await d.eval(() => window.__editor.editor.tools.set('select'));
@@ -237,12 +242,13 @@ await withEditor(async (d, page) => {
 
   // 8. Sound: refused with the reason. Esc and letting go off the view cancel.
   before = await state();
-  seen = await drag('sound', 'sound/ambient/water/drip1.wav', [0, 0, ground], { hold: () => shot('12-sound-refused') });
+  seen = await drag('sound', 'ambient/water/drip1.wav', [0, 0, ground], { hold: () => shot('12-sound-refused') });
   check('sound card is red', [seen?.bad, seen?.text], [true, 'drip1 · sounds can’t be dropped into the view yet: use the Sound tool']);
   seen = await drag('model', STATIC, [0, 0, ground], { hold: () => page.keyboard.press('Escape') });
   check('Esc: card gone', await card(), null);
   // Out over the view and back onto the tile (the dock).
-  const tile = await fieldAt('#test-tile');
+  const tileBox = await (await showTile('model', STATIC)).boundingBox();
+  const tile = [tileBox.x + tileBox.width / 2, tileBox.y + tileBox.height / 2];
   let back = null;
   await drag('model', STATIC, [0, 0, ground], { hold: async () => {
     await page.mouse.move(tile[0] + 30, tile[1] - 30, { steps: 8 });
@@ -255,7 +261,7 @@ await withEditor(async (d, page) => {
   const end = await state();
   check('sound, Esc, cancel: nothing changed', [end.ents - before.ents, end.steps - before.steps], [0, 0]);
   check('Esc during the drag left the selection', await d.eval(() => window.__editor.editor.selection.entities.size), 1);
-  check('drags never clicked the tile', await d.eval(() => window.__tileClicks), 1);
+  check('drags never clicked a tile (still the Select tool)', (await state()).tool, 'select');
   check('no marquee left', await d.eval(() => !!document.querySelector('.marquee')), false);
 });
 
