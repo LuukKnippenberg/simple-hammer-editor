@@ -9,22 +9,34 @@ navmesh builder, and launches the game on the result. Maps stay plain VMF, so Ha
 
 ## Requirements
 
-- Windows, with **Lambda Wars** installed through Steam (or a clone of the game repo). The editor reads the game's
-  materials, models, FGD, sounds and Python from it.
-- **Alien Swarm** from Steam, for the SDK compile tools (`vbsp.exe`, `vvis.exe`, `vrad.exe`, `bspzip.exe` in
-  `Alien Swarm/bin`). Only needed to compile.
-- **Node.js** 20.19 or 22.12 and newer.
-- Chrome or Edge (WebGL 2).
+- **Windows.** The compile tools, the navmesh builder and the game are Windows programs.
+- **[Lambda Wars](https://store.steampowered.com/app/270370/)** (free on Steam), or a clone of the game repo. The
+  editor reads the game's textures, models, entity definitions (FGD), sounds and unit data from your install; the
+  repository doesn't ship them. The few game-derived files it does include are listed under [License](#license).
+- **Alien Swarm - SDK** (free on Steam: Library › Tools), for the map compilers (`vbsp.exe`, `vvis.exe`, `vrad.exe`,
+  `bspzip.exe` in `steamapps/common/Alien Swarm/bin`). Only needed for **Compile & test**; you can build and save maps
+  without it.
+- **[Node.js](https://nodejs.org/)** 20.19 or 22.12 and newer (24 LTS is what the editor is developed on). The
+  command-line scripts under `scripts/` that import TypeScript need Node 22.7 or newer.
+- A desktop browser with WebGL 2: Chrome, Edge or Firefox, in a window at least about 1600 px wide (the top bar
+  doesn't wrap yet). The browser test scripts drive the installed Chrome or Edge.
 
 ## Setup
 
 ```bash
-npm install
-npm run dev        # http://localhost:5190
+git clone https://github.com/LuukKnippenberg/simple-hammer-editor.git
+cd simple-hammer-editor
+npm ci
+npm run dev        # then open http://localhost:5190
 ```
 
-The dev server serves the game's assets and runs the compilers. Installs are found automatically in every Steam
-library; to override, copy `editor.config.example.json` to `editor.config.json` (every field is optional):
+The editor opens on a start screen whose **Setup** box checks the game install, the map compiler and the navmesh
+builder. Each missing piece says how to get it; **Locate folder…** points the editor at the compilers and **Change
+game…** picks another install.
+
+The game and the SDK are found automatically in every Steam library (from Steam's own `libraryfolders.vdf`). If they
+live somewhere else, copy `editor.config.example.json` to `editor.config.json` and set what differs. Every field is
+optional, and the file is not tracked by git:
 
 | Setting | Default | Used for |
 |---|---|---|
@@ -32,9 +44,42 @@ library; to override, copy `editor.config.example.json` to `editor.config.json` 
 | `installs` | `lambdawars-game` and `Lambda Wars` in any Steam library | extra installs to choose from: paths, or `{ "name", "dir" }` |
 | `gameDirs` | the active install, then the others | where textures and models are looked up |
 | `sdkBinDir` | `Alien Swarm/bin` in any Steam library | the compile tools |
+| `mod`, `searchDirs` | `lambdawars`; `lambdawars`, `swarm`, `swarm_base`, `platform` | the mod folder and its search paths (`GameInfo.txt` order); only for another Alien Swarm mod |
 
 The **Game** picker in the top bar switches between installs (for example the Steam install and a dev clone). It
 saves the choice to `editor.config.json` and reloads, keeping unsaved work as an autosave.
+
+### Where the editor writes
+
+- `maps/` in this folder: saved maps and their `.sketch.json` and `.mission.json` files. The game's own `mapsrc/` is
+  read, never written.
+- `.autosave/` and `.compile/` in this folder: autosaves, and the compile's working copies and logs.
+- `content/materials/she/blend/`: blend materials made in the material blender.
+- The active game install, on **Compile & test**: the BSP, navmesh and mission list entry go into
+  `lambdawars/maps/`, and the navmesh build writes `lambdawars/cfg/she_navbuild.cfg`.
+
+## Known limits
+
+- **It is a local tool, not a website.** The editor needs its dev server (`npm run dev`): it serves the game's files
+  and runs the compilers. `npm run build` makes a bundle in `dist/`, but that bundle can't load maps, assets or
+  compile on its own, because the server routes (`/api/…`) only exist in the dev server.
+- The dev server listens on `localhost` only. Don't start it with `--host`: anyone who can reach it could write maps
+  and run the compilers.
+- Only one Lambda Wars can run at a time; close the game before **Compile & test** launches it again.
+- Lambda Wars maps are HDR only, and vbsp has map-wide limits (t-junctions, vertices) that big generated cities can
+  reach: see [compiling.md](docs/compiling.md#engine-limits-to-know).
+- The frame stats box shows "∞" for triangles in some views.
+
+## License
+
+The editor's code is under the [MIT License](LICENSE). It covers this repository's own work only, not the game
+content it reads or the files listed below. The npm dependencies are MIT
+(three.js, three-mesh-bvh, Vite, Vitest) and Apache-2.0 (TypeScript, playwright-core). Lambda Wars, Half-Life 2
+and Alien Swarm content belongs to its owners; the editor reads textures, models and sounds from your own install and
+doesn't ship them. The repository does include the Lambda Wars wordmark (`public/lambdawars-wordmark.png`), the source of
+`maps/hlw_City16.vmf` (made by the editor's author for the game, which ships it; used by the tests), unit and
+ability tables generated from the game's Python (`src/lw/unitCatalog.ts`, `src/lw/gameAbilities.ts`), and
+screenshots of the game and the editor in `docs/screenshots/`.
 
 ## Workflow
 

@@ -100,6 +100,6 @@ node --experimental-transform-types scripts/tjunc-budget.mjs sp_tutorial_combine
 
 ## Known issue
 
-On the development machine the game's in-game web UI (CEF) fails to start its helper process
+This was seen on one development machine and may not happen on yours: the game's in-game web UI (CEF) fails to start its helper process
 (`lambdawars_browser.exe`), also when launched by hand, so the HUD stays on "Loading CefViewPort" and the game ends
 the session after about a minute. Maps load and play until then; message boxes and objectives can't be seen.

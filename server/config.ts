@@ -1,5 +1,7 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
+import { parseKeyValues } from '../src/vmf/keyvalues.ts';
 
 /** A Lambda Wars game root (the folder with lambdawars.exe and lambdawars/). */
 export interface Install {
@@ -40,12 +42,49 @@ interface UserConfig {
   runGameDir?: string;
 }
 
-const STEAM_COMMON = [
+/** Library folders Steam usually makes, for when its own list (libraryfolders.vdf) can't be read. */
+const STEAM_COMMON_FALLBACK = [
   'C:/Program Files (x86)/Steam/steamapps/common',
   'D:/SteamLibrary/steamapps/common',
   'E:/SteamLibrary/steamapps/common',
   'G:/SteamLibrary/steamapps/common',
 ];
+
+/** Steam's install folder, from the registry (Steam writes it on every start). */
+function steamRoot(): string | null {
+  try {
+    const out = execFileSync('reg', ['query', 'HKCU\\Software\\Valve\\Steam', '/v', 'SteamPath'], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    return /SteamPath\s+REG_SZ\s+(.+)/.exec(out)?.[1].trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The library folders a libraryfolders.vdf lists: new format `"0" { "path" "…" }`, old one `"1" "…"`. */
+export function libraryFolders(vdf: string): string[] {
+  return parseKeyValues(vdf)
+    .flatMap((top) => [...top.children.map((c) => c.get('path')), ...top.props.filter(([k]) => /^\d+$/.test(k)).map(([, v]) => v)])
+    .filter((p): p is string => !!p)
+    .map((p) => p.replace(/\\\\/g, '\\'));
+}
+
+let steamCommon: string[] | null = null;
+
+/** Every Steam library's `steamapps/common`, then the usual folders. Read once: libraries rarely change while the editor runs. */
+function steamLibraries(): string[] {
+  if (steamCommon) return steamCommon;
+  const libs: string[] = [];
+  for (const root of [steamRoot(), 'C:/Program Files (x86)/Steam', 'C:/Program Files/Steam']) {
+    const vdf = root && join(root, 'steamapps', 'libraryfolders.vdf');
+    if (vdf && existsSync(vdf)) libs.push(...libraryFolders(readFileSync(vdf, 'utf8')).map((p) => join(p, 'steamapps', 'common')));
+  }
+  const seen = new Set<string>();
+  steamCommon = [...libs, ...STEAM_COMMON_FALLBACK].filter((d) => {
+    const k = resolve(d).toLowerCase();
+    return !seen.has(k) && (seen.add(k), true);
+  });
+  return steamCommon;
+}
 
 function firstExisting(paths: string[]): string | null {
   return paths.find((p) => existsSync(p)) ?? null;
@@ -55,7 +94,12 @@ const configFile = (rootDir: string) => join(rootDir, 'editor.config.json');
 
 function readUserConfig(rootDir: string): UserConfig {
   const file = configFile(rootDir);
-  return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
+  if (!existsSync(file)) return {};
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch (e) {
+    throw new Error(`${file} is not valid JSON (${(e as Error).message}). Fix it, or delete it to use the installs found automatically.`);
+  }
 }
 
 const samePath = (a: string, b: string) => resolve(a).toLowerCase() === resolve(b).toLowerCase();
@@ -76,7 +120,7 @@ export function loadConfig(rootDir: string): EditorConfig {
   for (const i of user.installs ?? []) typeof i === 'string' ? add(i) : add(i.dir, i.name);
   for (const d of user.gameDirs ?? []) add(d);
   // Found folders need the exe too: an uninstalled game leaves lambdawars/ (cfg, cache) behind.
-  for (const c of STEAM_COMMON) {
+  for (const c of steamLibraries()) {
     for (const n of ['lambdawars-game', 'Lambda Wars']) if (existsSync(join(c, n, 'lambdawars.exe'))) add(join(c, n));
   }
 
@@ -92,7 +136,7 @@ export function loadConfig(rootDir: string): EditorConfig {
   const dirs = user.gameDirs?.map((d) => resolve(d)) ?? installs.map((i) => i.dir);
   const gameDirs = install ? [install, ...dirs.filter((d) => !samePath(d, install))] : dirs;
   const sdkBinDir =
-    user.sdkBinDir ?? firstExisting(STEAM_COMMON.map((c) => join(c, 'Alien Swarm', 'bin')).filter((d) => existsSync(join(d, 'vbsp.exe'))));
+    user.sdkBinDir ?? firstExisting(steamLibraries().map((c) => join(c, 'Alien Swarm', 'bin')).filter((d) => existsSync(join(d, 'vbsp.exe'))));
 
   return {
     installs,

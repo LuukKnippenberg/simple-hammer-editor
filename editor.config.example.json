@@ -1,5 +1,5 @@
 {
-  "//": "Copy to editor.config.json to override. Every field is optional; missing ones fall back to auto-detection. The Game picker in the top bar writes `install`.",
+  "//": "Only needed when the editor doesn't find your installs by itself (it looks in every Steam library). Copy to editor.config.json and keep the fields you need: every field is optional, missing ones fall back to auto-detection. Use forward slashes. The Game picker in the top bar writes `install`; the start screen's Locate folder writes `sdkBinDir`. See the README's Setup section.",
   "install": "C:/Program Files (x86)/Steam/steamapps/common/Lambda Wars",
   "installs": [
     { "name": "Dev clone", "dir": "C:/Program Files (x86)/Steam/steamapps/common/lambdawars-game" }

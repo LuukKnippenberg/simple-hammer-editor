@@ -9,7 +9,7 @@ import type { ViteDevServer } from 'vite';
 import { blendFromBody, editorServer, readBody, safeTextureName } from '../server/plugin.ts';
 import { AssetFS } from '../server/assets.ts';
 import { editorContent } from '../server/compile.ts';
-import { loadConfig } from '../server/config.ts';
+import { libraryFolders, loadConfig } from '../server/config.ts';
 import { API_HEADER } from '../src/api.ts';
 
 // The compile tools aren't run here: the route is tested against a compile that fails half-way.
@@ -221,5 +221,22 @@ describe('dev server: compile errors', () => {
     const next = await call('POST', '/api/compile?name=broken', { headers: write, body: 'versioninfo {}' });
     expect(next.status).toBe(200);
     expect(next.text).toMatch('"kind":"result"');
+  });
+});
+
+describe('config: Steam libraries and editor.config.json', () => {
+  it('reads both libraryfolders.vdf formats', () => {
+    // Steam escapes the backslashes in paths.
+    const vdf = String.raw`"libraryfolders" { "0" { "path" "C:\\Program Files (x86)\\Steam" } "1" { "path" "E:\\Games\\Steam" } }`;
+    expect(libraryFolders(vdf)).toEqual([String.raw`C:\Program Files (x86)\Steam`, String.raw`E:\Games\Steam`]);
+    const old = String.raw`"LibraryFolders" { "TimeNextStatsReport" "1" "1" "D:\\SteamLibrary" }`;
+    expect(libraryFolders(old)).toEqual([String.raw`D:\SteamLibrary`]);
+  });
+
+  it('names editor.config.json when it is not valid JSON', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'she-config-'));
+    writeFileSync(join(dir, 'editor.config.json'), '{ "install": "C:/x", }');
+    expect(() => loadConfig(dir)).toThrow(/editor\.config\.json is not valid JSON/);
+    rmSync(dir, { recursive: true, force: true });
   });
 });
