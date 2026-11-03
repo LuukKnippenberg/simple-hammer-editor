@@ -46,6 +46,7 @@ import { h } from './ui/dom.ts';
 import { Vector3 } from 'three';
 import { apiPost } from './api.ts';
 import { mountAssetDock } from './ui/assetDock.ts';
+import { mountAssetDrop } from './edit/assetDrop.ts';
 
 const viewport = document.getElementById('viewport')!;
 const loading = h('div.loading', { hidden: true });
@@ -134,6 +135,7 @@ new CinematicsRenderer(editor);
 // Panels follow the tool and the selection; badges on the rail show selection, mission and logic state.
 mountPanelFollow(editor, tabs);
 // The asset finder under the view (B): models, materials, decals and sounds.
+mountAssetDrop(editor);
 const assetDock = mountAssetDock(editor, document.getElementById('assetdock')!, status.right);
 
 /** Hooks for scripted screenshots and debugging from the console. */

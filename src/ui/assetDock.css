@@ -44,7 +44,7 @@
 .ad-tile .nm { font-size: 11px; padding: 3px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
 .ad-tile .bd, .ad-row .bd { font-family: var(--font-cond); font-weight: 600; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 0 4px; border-radius: 2px; background: rgba(11, 12, 13, 0.8); color: var(--muted); }
 .ad-tile .bd { position: absolute; top: 4px; left: 4px; }
-.bd-is-physics { color: var(--accent-text) !important; }
+.bd-is-physics, .bd-is-not-static { color: var(--accent-text) !important; }
 .bd-is-tool { color: #c8b43a !important; }
 .bd-is-overlay, .bd-is-loop { color: var(--accent-2) !important; }
 .ad-tile .used { position: absolute; top: 4px; right: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--ok); background: rgba(11, 12, 13, 0.8); padding: 0 3px; border-radius: 2px; }

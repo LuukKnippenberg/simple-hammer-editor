@@ -11,7 +11,7 @@ import { placeEntity } from './actions.ts';
 import { placeDecalRay } from './decals.ts';
 import { convertToDynamic, staticPropProblem } from './preflight.ts';
 import { pickObject, pickSurface, snap } from './tools.ts';
-import { recentDecals, recentModels } from '../ui/recent.ts';
+import { recentDecals, recentMaterials, recentModels } from '../ui/recent.ts';
 import { h, toast } from '../ui/dom.ts';
 import './assetDrop.css';
 
@@ -228,6 +228,7 @@ function materialPlan(ed: Editor, d: Drag, ndc: Vector2): Plan {
       solid.commit();
       end();
       ed.changed();
+      recentMaterials.push(d.id);
     },
   };
 }

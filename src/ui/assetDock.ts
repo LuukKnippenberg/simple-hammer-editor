@@ -3,18 +3,20 @@ import type { EntityTool } from '../edit/entityTool.ts';
 import type { SoundTool } from '../edit/soundTool.ts';
 import { modelEntry, sizeClass, SIZE_CLASSES, type SizeClass } from '../assets/modelIndex.ts';
 import { modelThumbnail } from '../render/modelViews.ts';
-import { materialThumbnail } from '../assets/thumbnails.ts';
+import { materialPreview, materialThumbnail } from '../assets/thumbnails.ts';
+import type { ThumbOptions } from '../assets/thumbCache.ts';
 import { DECAL_KINDS } from '../edit/overlays.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { audio } from '../audio/engine.ts';
-import { decalThumb, openDecalPicker } from './decalPicker.ts';
+import { backdropClass, openDecalPicker } from './decalPicker.ts';
 import { openModelPicker } from './modelPicker.ts';
 import { setToolButtons } from './toolbar.ts';
 import { getPref, setPref } from './prefs.ts';
 import { h, toast } from './dom.ts';
 import {
-  assetGroups, favouriteAssets, loadAssets, recentAssets, searchAssets, startAssetDrag, usedInMap, type AssetItem, type AssetKind,
-} from './assetDockStub.ts';
+  assetGroups, assetUses, favouriteAssets, loadAssets, recentAssets, searchAssets, usedInMap, type AssetItem, type AssetKind,
+} from '../assets/assetCatalog.ts';
+import { startAssetDrag } from '../edit/assetDrop.ts';
 import './assetDock.css';
 
 export type DockSize = 'hidden' | 'strip' | 'open';
@@ -47,11 +49,13 @@ const PAGE = 160;
 
 interface Source { id: string; label: string; icon?: string; indent?: boolean; test: (i: AssetItem) => boolean }
 interface Chip { id: string; label: string; title: string; test: (i: AssetItem) => boolean; group?: string }
+/** A tile; `load` asks for its thumbnail and resolves false when the request was aborted (it is asked again later). */
+type Tile = HTMLElement & { load?: (opts: ThumbOptions & { signal: AbortSignal }) => Promise<boolean>; pending?: AbortController | null };
 
 /** Filter chips per tab; `group` chips exclude each other. */
 const CHIPS: Record<AssetKind, Chip[]> = {
   model: [
-    { id: 'static', label: 'Works as prop_static', title: 'Compiled with $staticprop and without physics data (others are placed as prop_dynamic)', test: (i) => !i.badges.includes('physics') },
+    { id: 'static', label: 'Works as prop_static', title: 'Compiled with $staticprop and without physics data (others are placed as prop_dynamic)', test: (i) => i.badges.includes('static') },
     { id: 'skins', label: 'Has skins', title: 'Models with more than one skin', test: (i) => i.badges.includes('skins') },
   ],
   material: [
@@ -74,6 +78,12 @@ export function snapDockHeight(px: number): { size: DockSize; height: number } {
   return { size: 'open', height: Math.round(px) };
 }
 
+/** The mark on a tile: a model vbsp would delete as prop_static, else the item's first badge (tool, blend, overlay, loop). */
+function tileMark(item: AssetItem): string | null {
+  if (item.kind === 'model') return item.badges.includes('static') ? null : item.badges.includes('physics') ? 'physics' : 'not static';
+  return item.badges[0] ?? null;
+}
+
 /** The asset path as the map stores it (the model key, the material name, the sound path under sound/). */
 const keyOf = (s: string) => s.toLowerCase().replace(/\\/g, '/');
 
@@ -94,7 +104,7 @@ export function useAsset(editor: Editor, item: AssetItem): void {
   recentAssets(item.kind).push(item.id);
   if (item.kind === 'model') {
     editor.entityModel = item.id;
-    const dynamic = item.badges.includes('physics');
+    const dynamic = !item.badges.includes('static');
     (editor.tools.tools.entity as EntityTool).setClass(dynamic ? 'prop_dynamic' : 'prop_static');
     setToolButtons(editor, 'entity');
     if (dynamic) toast(editor.container, `${item.name}: placed as prop_dynamic (vbsp deletes it as a prop_static)`, 3500);
@@ -116,19 +126,9 @@ export function useAsset(editor: Editor, item: AssetItem): void {
 
 /** Selects every brush or entity in the map that uses the asset; returns how many. */
 export function selectUses(editor: Editor, item: AssetItem): number {
-  const id = item.id;
-  if (item.kind === 'material') {
-    const solids = editor.doc.allSolids().filter((s) => s.sides.some((side) => side.material.toLowerCase() === id));
-    editor.selection.set(solids, []);
-    return solids.length;
-  }
-  const value = (e: (typeof editor.doc.entities)[number]) =>
-    item.kind === 'model' ? e.get('model')
-      : item.kind === 'decal' ? (e.classname === 'infodecal' ? e.get('texture') : e.classname === 'info_overlay' ? e.get('material') : undefined)
-        : e.classname === 'ambient_generic' ? e.get('message') : undefined;
-  const ents = editor.doc.entities.filter((e) => keyOf(value(e) ?? '') === id);
-  editor.selection.set([], ents);
-  return ents.length;
+  const uses = assetUses(editor, item.kind, item.id);
+  editor.selection.set(uses.solids, uses.entities);
+  return uses.solids.length + uses.entities.length;
 }
 
 const plural = (n: number, word: string) => `${n.toLocaleString('en')} ${n === 1 ? word.replace(/s$/, '') : word}`;
@@ -240,23 +240,43 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
   }
 
   // ---- tiles ----
+  // Thumbnails are asked for as tiles come near the view: the ones in sight first, the 200 px margin after. A tile
+  // that scrolls away, or a redraw, aborts its request.
   const observer = new IntersectionObserver((entries) => {
+    const g = grid.getBoundingClientRect();
     for (const en of entries) {
-      if (!en.isIntersecting) continue;
-      observer.unobserve(en.target);
-      (en.target as HTMLElement & { load?: () => void }).load?.();
+      const t = en.target as Tile;
+      if (!en.isIntersecting) {
+        t.pending?.abort();
+        t.pending = null;
+        continue;
+      }
+      if (t.pending || !t.load) continue;
+      const r = en.boundingClientRect;
+      const inSight = r.bottom > g.top && r.top < g.bottom && r.right > g.left && r.left < g.right;
+      const c = new AbortController();
+      t.pending = c;
+      void t.load({ priority: inSight ? 2 : 1, signal: c.signal }).then((done) => {
+        if (t.pending === c) t.pending = null;
+        if (done) observer.unobserve(t);
+      });
     }
   }, { root: grid, rootMargin: '200px' });
+
+  function cancelThumbs(): void {
+    for (const t of grid.children as HTMLCollectionOf<Tile>) t.pending?.abort();
+    observer.disconnect();
+  }
 
   function tile(item: AssetItem, index: number): HTMLElement {
     const n = usedOf(item.kind).get(item.id);
     const marks = [
-      ...item.badges.filter((b) => b !== 'skins').slice(0, 1).map((b) => h(`span.bd.bd-is-${b}` as 'span', {}, b)),
+      tileMark(item) && h(`span.bd.bd-is-${tileMark(item)!.replace(' ', '-')}` as 'span', {}, tileMark(item)!),
       n ? h('span.used', { title: `${n} in this map` }, `×${n}`) : null,
       favouriteAssets(item.kind).has(item.id) ? h('span.fav', { title: 'Favourite' }, '★') : null,
     ];
     const on = item.id === currentAsset(editor, item.kind);
-    let el: HTMLElement & { load?: () => void };
+    let el: Tile;
     if (item.kind === 'sound') {
       el = h(on ? 'div.ad-row.on' : 'div.ad-row', { title: item.id },
         h('button.ad-play', { title: 'Play', 'aria-label': `Play ${item.name}`, onclick: (e: Event) => { e.stopPropagation(); void audio.preview(`sound/${item.id}`); } }, '▶'),
@@ -265,11 +285,15 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
       const img = h('img', { alt: '', draggable: false }) as HTMLImageElement;
       const th = h('div.th', {}, img);
       el = h(on ? 'div.ad-tile.on' : 'div.ad-tile', { title: item.id }, th, h('div.nm', {}, item.name), ...marks);
-      el.load = () => {
-        const show = (u: string | null) => (u ? (img.src = u) : img.classList.add('missing'));
-        if (item.kind === 'model') void modelThumbnail(editor, item.id, 0, 96).then(show);
-        else if (item.kind === 'material') void materialThumbnail(item.id).then(show);
-        else th.replaceWith(decalThumb(item.id, 'div.th', 64));
+      if (item.kind === 'decal') th.classList.add(backdropClass());
+      el.load = async (opts) => {
+        const url = item.kind === 'model' ? await modelThumbnail(editor, item.id, 0, 96, opts)
+          : item.kind === 'material' ? await materialThumbnail(item.id, 64, opts)
+          : (await materialPreview(item.id, 64, opts))?.url ?? null;
+        if (url) img.src = url;
+        else if (opts.signal.aborted) return false;
+        else img.classList.add('missing');
+        return true;
       };
       observer.observe(el);
     }
@@ -349,6 +373,7 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
     cursor = 0;
     grid.classList.toggle('rows', k === 'sound');
     grid.scrollTop = grid.scrollLeft = 0;
+    cancelThumbs();
     grid.replaceChildren(...shown.slice(0, paged).map(tile));
     if (!shown.length) grid.append(h('p.hint', {}, query ? `No ${KINDS.find((x) => x.kind === k)!.plural} match “${query}”.` : 'Nothing here yet.'));
     await others$;
@@ -377,26 +402,16 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
   // ---- tile input: click uses, drag places, right-click menu ----
   const tileOf = (t: EventTarget | null) => (t as HTMLElement | null)?.closest?.<HTMLElement>('.ad-tile, .ad-row') ?? null;
   const itemOf = (el: HTMLElement) => shown[Number(el.dataset.index)];
-  let dragged = false;
+  // assetDrop.ts waits for a 5 px move before it drags, and swallows the click that ends a drag.
   grid.addEventListener('pointerdown', (e) => {
     const el = tileOf(e.target);
-    dragged = false;
-    if (!el || e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
+    if (!el || (e.target as HTMLElement).closest('button')) return;
     const item = itemOf(el);
-    const x0 = e.clientX, y0 = e.clientY;
-    const move = (ev: PointerEvent) => {
-      if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
-      stop();
-      dragged = true;
-      startAssetDrag(item.kind, item.id, ev);
-    };
-    const stop = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', stop);
+    startAssetDrag(item.kind, item.id, e);
   });
   grid.addEventListener('click', (e) => {
     const el = tileOf(e.target);
-    if (!el || dragged || (e.target as HTMLElement).closest('button')) return;
+    if (!el || (e.target as HTMLElement).closest('button')) return;
     pick(Number(el.dataset.index));
   });
 
@@ -463,9 +478,9 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
     const done = () => { void render(); };
     if (item.kind === 'model') {
       void openModelPicker(editor, {
-        current: item.id, subtitle: 'for the Entity tool', staticOnly: !item.badges.includes('physics'), useLabel: 'Use model',
+        current: item.id, subtitle: 'for the Entity tool', staticOnly: item.badges.includes('static'), useLabel: 'Use model',
         onPick: (path, skin) => {
-          useAsset(editor, { ...item, id: path, name: path.split('/').pop()!, badges: modelEntry(path)?.static === false ? ['physics'] : [] });
+          useAsset(editor, { ...item, id: path, name: path.split('/').pop()!, badges: modelEntry(path)?.static ? ['static'] : [] });
           const keys = (editor.tools.tools.entity as EntityTool).optionsFor(editor.entityClass).keys;
           if (skin) keys.skin = String(skin);
           else delete keys.skin;

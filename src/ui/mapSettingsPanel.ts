@@ -5,7 +5,8 @@ import {
   SETTING_GROUPS, createGroupEntity, detachGroup, groupState, readField, setSwitchedOff, settingsEntity, writeField,
   type Field, type SettingGroup,
 } from '../lw/mapSettings.ts';
-import { h } from './dom.ts';
+import { clearThumbCache } from '../assets/thumbCache.ts';
+import { h, toast } from './dom.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 
 const hex = (rgb: string) => '#' + rgb.trim().split(/\s+/).slice(0, 3).map((x) => Math.max(0, Math.min(255, Number(x) || 0)).toString(16).padStart(2, '0')).join('');
@@ -195,5 +196,12 @@ export function mountMapSettingsPanel(editor: Editor, preview: LightingPreview):
   };
   for (const ev of ['document', 'change']) editor.on(ev, render);
   render();
-  return h('div.section', {}, h('h3', {}, 'Map settings'), body);
+  // Thumbnails are kept in this browser across reloads; after a game update they can be out of date.
+  const clearThumbs = h('button', { title: 'Model, material and decal thumbnails are kept in this browser; they are drawn again as they are needed' }, 'Clear thumbnail cache');
+  clearThumbs.addEventListener('click', async () => {
+    await clearThumbCache();
+    toast(editor.container, 'Thumbnail cache cleared');
+  });
+  return h('div', {}, h('div.section', {}, h('h3', {}, 'Map settings'), body),
+    h('div.section', {}, h('h3', {}, 'Editor'), h('div.row', {}, clearThumbs)));
 }

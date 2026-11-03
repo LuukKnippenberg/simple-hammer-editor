@@ -134,7 +134,7 @@ await withEditor(async (d, page) => {
   await d.eval(() => window.__editor.assetDock.search('crate'));
   await rendered();
   const expected = await d.eval(async () => {
-    const { loadAssets, searchAssets } = await import('/src/ui/assetDockStub.ts');
+    const { loadAssets, searchAssets } = await import('/src/assets/assetCatalog.ts');
     const out = {};
     for (const k of ['model', 'material', 'decal', 'sound']) out[k] = searchAssets(await loadAssets(k), 'crate').length;
     return out;
@@ -217,7 +217,7 @@ await withEditor(async (d, page) => {
   await page.waitForTimeout(300);
   check('arrows in the grid do not fly the camera', await d.eval(() => window.__editor.editor.camera.position.toArray()), camBefore);
   await page.keyboard.press('f');
-  check('F favourites it', await d.eval(async (id) => (await import('/src/ui/assetDockStub.ts')).favouriteAssets('model').has(id), third), true);
+  check('F favourites it', await d.eval(async (id) => (await import('/src/assets/assetCatalog.ts')).favouriteAssets('model').has(id), third), true);
   await page.keyboard.press('ArrowDown');
   const cols = await d.eval(() => { const t = [...document.querySelectorAll('.ad-grid .ad-tile')]; return t.filter((x) => x.offsetTop === t[0].offsetTop).length; });
   check('ArrowDown moves a row', await d.eval(() => document.activeElement?.dataset.index), String(Math.min(2 + cols, usedTiles - 1)));
