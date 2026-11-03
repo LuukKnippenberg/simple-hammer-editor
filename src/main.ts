@@ -7,7 +7,6 @@ import { installTooltips } from './ui/tooltip.ts';
 import { mountSidebar } from './ui/sidebar.ts';
 import { mountPanelFollow } from './ui/panelFollow.ts';
 import { mountInspector } from './ui/inspector.ts';
-import { mountMaterialBrowser } from './ui/materialBrowser.ts';
 import { mountEntityPalette } from './ui/entityPalette.ts';
 import { mountToolOptions } from './ui/toolOptions.ts';
 import { mountGeneratePanel } from './ui/generatePanel.ts';
@@ -63,7 +62,7 @@ const status = mountStats(editor, viewport, document.getElementById('statusbar')
 const help = mountHelp();
 installTooltips();
 mountToolbar(editor, document.getElementById('toolbar')!, { hoverPoint: () => hover.point, help: () => help.toggle() });
-mountToolOptions(editor, viewport);
+mountToolOptions(editor, viewport, () => assetDock.show('material'));
 mountGeneratePanel(editor, viewport);
 const compileDialog = mountCompileDialog(editor);
 const generatorDialog = mountGeneratorDialog(editor);
@@ -85,7 +84,8 @@ document.addEventListener('she-audio', syncAudio);
 document.getElementById('topbar')!.querySelector('.spacer')!.after(audioBtn);
 const tabs = mountSidebar(document.getElementById('sidebar')!);
 tabs.add('Selection', mountInspector(editor));
-tabs.add('Materials', mountMaterialBrowser(editor));
+// Materials and decals are browsed in the asset finder (below the view); the rail's Material item opens it.
+tabs.link('Materials', () => assetDock.show('material'));
 const missionFlow = mountMissionFlow(editor, {
   pickArea: async () => {
     // Hide the flowchart while the area is drawn in the viewport.
@@ -132,11 +132,12 @@ sounds.update();
 editor.on('soundscape', () => sounds.update(soundscapes.active?.entity ?? null));
 new GameplayOverlay(editor);
 new CinematicsRenderer(editor);
-// Panels follow the tool and the selection; badges on the rail show selection, mission and logic state.
-mountPanelFollow(editor, tabs);
 // The asset finder under the view (B): models, materials, decals and sounds.
 mountAssetDrop(editor);
 const assetDock = mountAssetDock(editor, document.getElementById('assetdock')!, status.right);
+// Panels follow the tool and the selection (Paint and Decal: the asset finder's tab); badges on the rail show
+// selection, mission and logic state.
+mountPanelFollow(editor, tabs, (kind) => assetDock.follow(kind));
 
 /** Hooks for scripted screenshots and debugging from the console. */
 declare global {

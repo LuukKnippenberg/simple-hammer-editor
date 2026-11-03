@@ -148,7 +148,7 @@ open them in rail order and Alt+P toggles the pin.
 | Panel | Contents |
 |---|---|
 | Selection | The inspector: FGD-typed entity fields, brush sizes, the outputs editor and *Fired by* list, and the settings of whatever generator made the selection (buildings, POI, road, powerline, stairs, interior building). |
-| Materials | Material browser with thumbnails from the VTFs; a *Decals* mode for the Decal tool. |
+| Material | Not a panel: opens the asset finder (below) on Materials. |
 | Entities | The entity class palette for the Entity tool. |
 | POI | Point-of-interest types and their settings (see [generators/points-of-interest.md](generators/points-of-interest.md)). |
 | Mission | Lambda Wars kits, mission title and description, relations, and the mission flowchart (see [mission.md](mission.md)). |
@@ -156,6 +156,17 @@ open them in rail order and Alt+P toggles the pin.
 | Logic | Every entity connection as a graph, and the list of broken ones. |
 | Map | Document info, round-trip check, lighting preview controls and the outliner (entities by class, searchable). |
 | Settings | Map-wide settings (below). |
+
+### Asset finder
+
+The dock under the 3D view (B, or **▤ Assets** in the status bar) lists the game's models, brush materials, decals
+and sounds: favourites, recent, used in this map and folders on the left, filter chips, and a search that also counts
+the hits in the other tabs. Strip (one row) or Open; drag its top edge to resize, double-click it to switch, `/`
+searches. Click a tile to make it its tool's asset (a model goes to the Entity tool, as prop_dynamic when vbsp would
+delete it as prop_static); drag it into the view to place it, onto a face to paint it, or onto a Model or Texture field.
+Right-click for Favourite, Select every use, Copy path and the model or decal picker. The Paint and Decal tools open it
+on their tab (unless it was hidden while one of them was in use); the Paint options keep the current and recent
+materials. Settings › Editor › *Clear thumbnail cache* drops the thumbnails kept in this browser.
 
 ### Entity I/O
 

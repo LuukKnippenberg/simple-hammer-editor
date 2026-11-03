@@ -129,16 +129,12 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .muted { color: var(--muted); }
 button:disabled { opacity: 0.35; cursor: default; }
 
-.mat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
-.mat-grid > p { grid-column: 1 / -1; }
-.mat-tile {
-  cursor: pointer; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--panel-2);
-  font-size: 10px; color: var(--muted);
-}
-.mat-tile img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #111; }
-.mat-tile img.missing { background: repeating-conic-gradient(#3a3a3a 0 25%, #222 0 50%) 0 0 / 16px 16px; }
-.mat-tile span { display: block; padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mat-tile.active { border-color: var(--accent); color: var(--text); }
+/* The Paint tool's recent materials (toolOptions.ts). */
+.mat-recents { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin: 6px 0; }
+.mat-recent { padding: 0; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; aspect-ratio: 1; background: #111; }
+.mat-recent img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.mat-recent img.missing { background: repeating-conic-gradient(#3a3a3a 0 25%, #222 0 50%) 0 0 / 8px 8px; }
+.mat-recent.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .current-mat { display: flex; align-items: center; gap: 8px; }
 .current-mat img { width: 48px; height: 48px; border-radius: 4px; background: #111; object-fit: cover; }
 .mat-name { flex: 1; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

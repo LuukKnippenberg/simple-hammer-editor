@@ -5,6 +5,8 @@ export type BadgeTone = 'accent' | 'danger';
 
 export interface SidebarTabs {
   add(name: string, panel: HTMLElement): void;
+  /** A rail item that runs `run` instead of opening a panel (Material opens the asset finder). */
+  link(name: string, run: () => void): void;
   /** Opens a panel when code asks for it, whatever is pinned. */
   show(name: string): void;
   /** Opens a panel because of what the user does with a tool, unless a pin holds the current one. */
@@ -43,7 +45,7 @@ const icon = (d: string, size: number) => {
   return el;
 };
 
-interface Tab { name: string; button: HTMLButtonElement; badge: HTMLElement; panel: HTMLElement; order: number; group: number; scroll: number; key: string; detail: string }
+interface Tab { name: string; button: HTMLButtonElement; badge: HTMLElement; panel: HTMLElement | null; order: number; group: number; scroll: number; key: string; detail: string; run?: () => void }
 
 /**
  * The panel column with a labelled rail of panels on its right. Panels follow the tool in use (`follow`) unless
@@ -86,19 +88,21 @@ export function mountSidebar(sidebar: HTMLElement): SidebarTabs {
   };
   const show = (name: string) => {
     const next = tabs.get(name);
-    if (!next) return;
+    if (!next?.panel) return;
     const prev = current ? tabs.get(current) : undefined;
     if (prev && prev !== next) prev.scroll = body.scrollTop;
     for (const t of tabs.values()) {
       t.button.classList.toggle('active', t === next);
       t.button.setAttribute('aria-current', String(t === next));
-      t.panel.hidden = t !== next;
+      if (t.panel) t.panel.hidden = t !== next;
     }
     title.textContent = next.name;
     if (prev !== next) body.scrollTop = next.scroll;
     current = name;
   };
   const open = (name: string) => {
+    const t = tabs.get(name);
+    if (t?.run) return t.run();
     show(name);
     held = true;
   };
@@ -121,25 +125,32 @@ export function mountSidebar(sidebar: HTMLElement): SidebarTabs {
   }, true);
   syncPin();
 
+  const addItem = (name: string, panel: HTMLElement | null, run?: () => void) => {
+    const r = RAIL.findIndex((x) => x.name === name);
+    const def = RAIL[r] ?? { name, short: name, group: RAIL[RAIL.length - 1].group + 1, icon: OTHER };
+    const badge = h('span.rail-badge', { hidden: true, 'aria-hidden': 'true' });
+    const button = h('button.rail-item', { onclick: () => open(name) }, icon(def.icon, 18), h('span.rail-label', {}, def.short), badge);
+    if (panel) body.append(panel);
+    tabs.set(name, { name, button, badge, panel, order: r >= 0 ? r : RAIL.length + tabs.size, group: def.group, scroll: 0, key: '', detail: '', run });
+    layout();
+  };
+
   return {
     add(name, panel) {
-      const r = RAIL.findIndex((x) => x.name === name);
-      const def = RAIL[r] ?? { name, short: name, group: RAIL[RAIL.length - 1].group + 1, icon: OTHER };
-      const badge = h('span.rail-badge', { hidden: true, 'aria-hidden': 'true' });
-      const button = h('button.rail-item', { onclick: () => open(name) }, icon(def.icon, 18), h('span.rail-label', {}, def.short), badge);
-      body.append(panel);
-      tabs.set(name, { name, button, badge, panel, order: r >= 0 ? r : RAIL.length + tabs.size, group: def.group, scroll: 0, key: '', detail: '' });
-      layout();
-      if (tabs.size === 1) show(name);
+      addItem(name, panel);
+      if (current === null) show(name);
       else panel.hidden = true;
+    },
+    link(name, run) {
+      addItem(name, null, run);
     },
     show,
     follow(name, focus) {
-      if (pinned || held || !tabs.has(name)) return false;
+      if (pinned || held || !tabs.get(name)?.panel) return false;
       const switched = current !== name;
       show(name);
       // Scroll to the part the tool needs, only when the panel was not open already (so a click inside it stays put).
-      const el = switched && focus ? focus(tabs.get(name)!.panel) : null;
+      const el = switched && focus ? focus(tabs.get(name)!.panel!) : null;
       if (el) body.scrollTop += el.getBoundingClientRect().top - body.getBoundingClientRect().top - 4;
       return true;
     },

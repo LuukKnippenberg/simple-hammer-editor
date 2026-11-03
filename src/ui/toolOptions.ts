@@ -15,6 +15,7 @@ import { selectModeRows } from './partPanel.ts';
 import { entityToolOptions } from './entityToolOptions.ts';
 import { toolModelField } from './modelField.ts';
 import { decalToolOptions } from './decalField.ts';
+import { recentMaterials } from './recent.ts';
 
 const NAMES = { select: 'Select', block: 'Block', paint: 'Paint', entity: 'Entity', kit: 'Lambda Wars kit', decal: 'Decal', road: 'Road', ground: 'Ground', powerline: 'Powerline', sound: 'Sound', poi: 'Point of interest', cinema: 'Cinema', stairs: 'Stairs', generate: 'Generate' } as const;
 const HINTS = {
@@ -34,8 +35,22 @@ const HINTS = {
   generate: 'Drag a rectangle on the ground',
 } as const;
 
-/** Small panel in the viewport corner with the active tool's settings. */
-export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
+/** The Paint tool's recent materials as swatches (a click uses one), and a button that browses them all in the asset finder. */
+function recentMaterialRows(editor: Editor, browse: () => void): HTMLElement[] {
+  const current = editor.currentMaterial.toLowerCase();
+  const swatches = recentMaterials.items.slice(0, 12).map((m) => {
+    const img = h('img', { alt: '' }) as HTMLImageElement;
+    void materialThumbnail(m).then((u) => (u ? (img.src = u) : img.classList.add('missing')));
+    return h(m.toLowerCase() === current ? 'button.mat-recent.on' : 'button.mat-recent', { title: m, 'aria-label': `Use ${m}`, onclick: () => { recentMaterials.push(m); editor.setMaterial(m); } }, img);
+  });
+  return [
+    swatches.length ? h('div.mat-recents', { 'aria-label': 'Recent materials' }, ...swatches) : h('div.hint', {}, 'Materials you use show up here.'),
+    h('button', { title: 'Open the asset finder on Materials (B)', onclick: browse }, '▤ Browse materials'),
+  ];
+}
+
+/** Small panel in the viewport corner with the active tool's settings; `browse` opens the asset finder on Materials. */
+export function mountToolOptions(editor: Editor, viewport: HTMLElement, browse: () => void): void {
   const box = h('div.overlay.tl.tool-options');
   viewport.append(box);
   const render = () => {
@@ -80,6 +95,7 @@ export function mountToolOptions(editor: Editor, viewport: HTMLElement): void {
       void materialThumbnail(editor.currentMaterial).then((u) => u && (img.src = u));
       rows.push(h('div.current-mat.small', {}, img, h('span', {}, editor.currentMaterial.toLowerCase())));
     }
+    if (name === 'paint') rows.push(...recentMaterialRows(editor, browse));
     if (name === 'decal') rows.push(...decalToolOptions(editor, render));
     if (name === 'ground') {
       const tool = editor.tools.tools.ground as GroundTool;

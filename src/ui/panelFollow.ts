@@ -4,11 +4,15 @@ import { checkMission } from '../lw/missionCheck.ts';
 import { validateConnections } from '../vmf/io.ts';
 import type { SidebarTabs } from './sidebar.ts';
 
-/** Where the sidebar goes when a tool is picked; null leaves it where it is. */
-export function panelForTool(tool: ToolName, hasSelection: boolean): { panel: string; focus?: 'kits' } | null {
+/**
+ * Where the sidebar goes when a tool is picked, or the asset finder tab the tool uses (`dock`); null leaves both
+ * where they are.
+ */
+export function panelForTool(tool: ToolName, hasSelection: boolean): { panel: string; focus?: 'kits' } | { dock: 'material' | 'decal' } | null {
   switch (tool) {
     case 'select': return hasSelection ? { panel: 'Selection' } : null;
-    case 'paint': case 'decal': return { panel: 'Materials' };
+    case 'paint': return { dock: 'material' };
+    case 'decal': return { dock: 'decal' };
     case 'entity': return { panel: 'Entities' };
     case 'kit': return { panel: 'Mission', focus: 'kits' };
     case 'poi': return { panel: 'POI' };
@@ -19,15 +23,19 @@ export function panelForTool(tool: ToolName, hasSelection: boolean): { panel: st
 
 const plural = (n: number, word: string) => `${n} ${n === 1 ? word : word === 'vertex' ? 'vertices' : `${word}s`}`;
 
-/** Makes the sidebar follow the tool and selection, and keeps the rail badges (selection, mission, logic) current. */
-export function mountPanelFollow(editor: Editor, tabs: SidebarTabs): void {
+/**
+ * Makes the sidebar (and, for Paint and Decal, the asset finder through `followAssets`) follow the tool and
+ * selection, and keeps the rail badges (selection, mission, logic) current.
+ */
+export function mountPanelFollow(editor: Editor, tabs: SidebarTabs, followAssets: (kind: 'material' | 'decal') => void): void {
   const selectionSize = () => {
     const s = editor.selection;
     return s.mode === 'object' ? s.solids.size + s.entities.size : s.parts.length;
   };
   const followTool = () => {
     const to = panelForTool(editor.tools.current.name, !editor.selection.isEmpty);
-    if (to) tabs.follow(to.panel, to.focus === 'kits' ? (p) => p.querySelector<HTMLElement>('.kits')?.closest<HTMLElement>('.section') ?? null : undefined);
+    if (to && 'dock' in to) followAssets(to.dock);
+    else if (to) tabs.follow(to.panel, to.focus === 'kits' ? (p) => p.querySelector<HTMLElement>('.kits')?.closest<HTMLElement>('.section') ?? null : undefined);
   };
   let tool = editor.tools.current.name;
   editor.on('toolchange', () => {

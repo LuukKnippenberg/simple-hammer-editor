@@ -30,6 +30,11 @@ export interface AssetDock {
   show(kind?: AssetKind): void;
   /** Hidden ↔ the last size it was shown at. */
   toggle(): void;
+  /**
+   * The Paint or Decal tool was picked: show its tab, opening the dock at its last size unless it was hidden
+   * while one of those tools was in use (then it stays hidden until B or the button).
+   */
+  follow(kind: AssetKind): void;
   /** Types into the search (and shows the dock). */
   search(query: string): void;
   /** Settles once the current tab's grid is drawn. */
@@ -155,6 +160,8 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
     if (!u) used.set(k, (u = usedInMap(editor, k)));
     return u;
   };
+  /** Hidden by the user with the Paint or Decal tool in use: picking those tools no longer opens it. */
+  let keptHidden = false;
   const save = () => setPref('assetDock', { size, last, height: height > DOCK_HEIGHT.open ? height : undefined, tab: kind, sources });
 
   // ---- layout ----
@@ -194,6 +201,7 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
     applySize();
     save();
     if (s !== 'hidden' && was !== s) void render();
+    if (s === 'hidden' && was !== 'hidden') keptHidden = ['paint', 'decal'].includes(editor.tools.current.name);
     if (s === 'hidden') { hideMenu(); if (dock.contains(document.activeElement)) (document.activeElement as HTMLElement).blur(); }
   }
   const toggle = () => setSize(size === 'hidden' ? last : 'hidden');
@@ -590,10 +598,11 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
   edge.addEventListener('dblclick', () => setSize(size === 'strip' ? 'open' : 'strip'));
   window.addEventListener('resize', () => { if (size === 'open') applySize(); });
 
-  // The one-time hint: on the first Change… click or the first use of the Paint or Decal tool.
+  // The one-time hint: on the first Change… click, or a Paint or Decal tool pick that leaves the dock hidden (follow).
   function hint(): void {
     if (getPref('assetHint') || size !== 'hidden') return;
     setPref('assetHint', true);
+    document.querySelector('.ad-bubble')?.remove();
     const bubble = h('div.ad-bubble', { role: 'status' },
       h('span', {}, 'Try the asset finder ', h('kbd', {}, 'B')),
       h('button.primary', { onclick: () => { bubble.remove(); setSize(last); } }, 'Open'),
@@ -608,11 +617,7 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
     const b = (e.target as HTMLElement | null)?.closest?.('button');
     if (b && /^(Change…|Set for all)/.test(b.textContent ?? '')) hint();
   }, true);
-  editor.on('toolchange', () => {
-    const t = editor.tools.current.name;
-    if (t === 'paint' || t === 'decal') hint();
-    if (size !== 'hidden') markCurrent();
-  });
+  editor.on('toolchange', () => { if (size !== 'hidden') markCurrent(); });
   for (const ev of ['material', 'decal', 'entityclass']) editor.on(ev, () => { if (size !== 'hidden') markCurrent(); });
 
   // "Used in this map" belongs to the map that is open; edits change the counts for the next draw.
@@ -633,6 +638,12 @@ export function mountAssetDock(editor: Editor, dock: HTMLElement, statusSlot: HT
       else void render();
     },
     toggle,
+    follow(k) {
+      if (k !== kind) { kind = k; save(); }
+      if (size !== 'hidden') void render();
+      else if (!keptHidden) setSize(last);
+      else hint();
+    },
     search(q) {
       search.value = q;
       if (size === 'hidden') setSize(last);
