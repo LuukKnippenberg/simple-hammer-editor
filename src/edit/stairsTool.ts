@@ -298,7 +298,7 @@ export class StairsTool implements Tool {
 
   /** The stairs being placed, for the pins: changes rebuild them as part of the generate. */
   private readonly pathTarget: PathTarget = {
-    key: '', name: 'Stairs', min: 1,
+    key: '', name: 'Stairs', min: 1, ownHeight: true,
     path: () => normalizePath(this.path),
     shown: (path) => stairsShown(this.spec(), path),
     snap: (path, i, hit, keep) => stairsSnap(this.spec(), path, i, hit, keep, this.editor.grid),

@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, LineBasicMaterial, LineSegments, Plane, Vector3 } from 'three';
+import { BufferAttribute, BufferGeometry, LineBasicMaterial, LineSegments, Plane, Raycaster, Vector3 } from 'three';
 import type { Editor } from '../editor.ts';
 import type { MapSolid } from '../vmf/map.ts';
 import { h, toast } from '../ui/dom.ts';
@@ -45,13 +45,25 @@ export interface PathTarget {
   name: string;
   /** Fewest points it can have: Delete and Alt+click stop there. */
   min: number;
+  /**
+   * Points keep their own height (stairs): Shift while dragging keeps it, an inserted point gets the height halfway.
+   * Without (streets, powerlines) points follow the ground: `keep` is always false and an inserted point sits on
+   * the ground under it.
+   */
+  ownHeight: boolean;
   /** Its points now. */
   path(): PointPath;
   /** Where its pins are drawn: where the generator puts the points (blocky stairs square them to the grid). */
   shown(path: PointPath): PathPoint[];
-  /** Where point i goes for the surface point under the cursor; `keep` (Shift, or no surface) keeps its height. */
+  /**
+   * Where point i goes for the surface point under the cursor (its own brushes looked through); `keep` (Shift, or no
+   * surface under the cursor; only with `ownHeight`) keeps its height. `groundAt` finds the ground elsewhere.
+   */
   snap(path: PointPath, i: number, hit: PathPoint, keep: boolean): PathPoint;
-  /** How a changed path would build: the note by a dragged pin (`i`: the point moved). */
+  /**
+   * How a changed path would build: the note by a dragged pin (`i`: the point moved). 'joins' rings the pin blue
+   * (a street landing on another one's centre line).
+   */
   check(path: PointPath, i: number, before: PointPath): PathCheck;
   /** Starts a change: a drag, an insert, a removal, a typed number. */
   edit(label: string): PathEdit;
@@ -76,6 +88,13 @@ export function historyEdit(editor: Editor, label: string, apply: (path: PointPa
       editor.changed();
     },
   };
+}
+
+/** Height of the highest surface at a plan point (looking down, through `skip`), or null over nothing. */
+export function groundAt(editor: Editor, x: number, y: number, skip?: (solid: MapSolid) => boolean): number | null {
+  const ray = new Raycaster(new Vector3(x, y, 1e5), new Vector3(0, 0, -1));
+  const hit = editor.world.raycast(ray, { skip });
+  return hit ? Math.round(hit.point.z) : null;
 }
 
 /** A pin pressed: a click, or a drag once the pointer moves. */
@@ -251,8 +270,11 @@ export class PathPins {
   };
 
   private middle(path: PointPath, link: number): PathPoint {
-    const m = linkMiddle(this.target!.shown(path), path.links[link]);
-    return { x: Math.round(m.x), y: Math.round(m.y), z: Math.round(m.z / 8) * 8 };
+    const t = this.target!;
+    const m = linkMiddle(t.shown(path), path.links[link]);
+    const x = Math.round(m.x), y = Math.round(m.y);
+    if (!t.ownHeight) return { x, y, z: groundAt(this.editor, x, y, (s) => t.own(s)) ?? Math.round(m.z) };
+    return { x, y, z: Math.round(m.z / 8) * 8 };
   }
 
   /** A drag of a pin, or of a + (which inserts its point first, in the same undo step). */
@@ -278,7 +300,7 @@ export class PathPins {
     const hit = ed.world.raycast(ray, { skip: (s) => t.own(s) });
     const at = hit?.point ?? ray.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), -d.was.z), new Vector3());
     if (!at) return;
-    const p = t.snap(d.start, d.i, { x: at.x, y: at.y, z: Math.round(at.z) }, e.shiftKey || !hit);
+    const p = t.snap(d.start, d.i, { x: at.x, y: at.y, z: Math.round(at.z) }, t.ownHeight && (e.shiftKey || !hit));
     const key = `${p.x},${p.y},${p.z}`;
     if (key === d.key) return;
     d.key = key;
@@ -286,7 +308,7 @@ export class PathPins {
     d.check = t.check(d.path, d.i, d.start);
     if (d.check.level !== 'refused') d.edit.set(d.path);
     const name = pathLabels(d.path)[d.i];
-    ed.status = `Dragging ${name} of ${t.name} · let go to ${d.check.level === 'refused' ? 'put it back' : 'rebuild'} · Shift keeps its height · Esc cancels`;
+    ed.status = `Dragging ${name} of ${t.name} · let go to ${d.check.level === 'refused' ? 'put it back' : 'rebuild'}${t.ownHeight ? ' · Shift keeps its height' : ''} · Esc cancels`;
     this.draw();
   }
 

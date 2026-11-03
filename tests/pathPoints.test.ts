@@ -108,6 +108,9 @@ describe('path edits', () => {
   it('move a point and find the one Backspace takes back', () => {
     const path = tee();
     expect(movePoint(path, 2, pt(9, 9, 9)).points[2]).toEqual(pt(9, 9, 9));
+    // A generator's own data on a point (a street corner's radius) stays when it moves.
+    const corner = { points: [pt(0), { ...pt(1), radius: 64 }], links: [{ from: 0, to: 1 }] };
+    expect(movePoint(corner, 1, pt(5, 5, 0)).points[1]).toEqual({ ...pt(5, 5, 0), radius: 64 });
     expect(lastPoint(path, 4)).toBe(4);
     expect(lastPoint(path, 1)).toBe(4);
     expect(lastPoint(path, 3)).toBe(3);

@@ -4,8 +4,8 @@ import { snap } from './tools.ts';
 import { historyEdit, type PathCheck, type PathTarget } from './pathPins.ts';
 import { isTree, normalizePath, parentOf, pathLabels, type PathPoint, type PointPath } from './pathPoints.ts';
 import { buildStairs, plannedNodes, squareTo, type StairsFlight, type StairsSpec } from '../gen/stairs.ts';
-import { stairsMembers, stairsOf } from '../gen/stairsStore.ts';
-import { regenerateStairs } from '../gen/stairsAction.ts';
+import { STAIRS_ID_KEY, stairsMembers, stairsOf } from '../gen/stairsStore.ts';
+import { regenerateStairs, selectedStairs } from '../gen/stairsAction.ts';
 import type { GenerateTool } from './generateTool.ts';
 
 /**
@@ -64,6 +64,9 @@ export function stairsCheck(spec: StairsSpec, path: PointPath, i: number, before
   return { level: 'fine', note: 'moved', numbers };
 }
 
+/** The pins' key for placed stairs. */
+export const stairsKey = (uid: string): string => `stairs:${uid}`;
+
 /** Placed stairs (by their id) for the pins: every change rebuilds them in place, one undo step per drag or click. */
 export function placedStairsTarget(editor: Editor, uid: string): PathTarget | null {
   const detail = () => stairsMembers(editor.doc, uid).detail;
@@ -73,7 +76,7 @@ export function placedStairsTarget(editor: Editor, uid: string): PathTarget | nu
   // The stairs' own brushes, found again when a rebuild replaced them.
   let own: { detail: MapEntity | null; world: Set<MapSolid> } = { detail: null, world: new Set() };
   return {
-    key: `stairs:${uid}`, name: 'Stairs', min: 2,
+    key: stairsKey(uid), name: 'Stairs', min: 2, ownHeight: true,
     path: () => normalizePath(stairsPath(spec() ?? first)),
     shown: (path) => stairsShown(spec() ?? first, path),
     snap: (path, i, hit, keep) => stairsSnap(spec() ?? first, path, i, hit, keep, editor.grid),
@@ -89,4 +92,10 @@ export function placedStairsTarget(editor: Editor, uid: string): PathTarget | nu
     },
     branch: (i) => { const d = detail(); if (d) (editor.tools.tools.generate as GenerateTool).continueStairs(d, i); },
   };
+}
+
+/** The stairs the selection stands for (their handle, alone), for the pins (`pathTargets.ts`). */
+export function selectedStairsTarget(editor: Editor): PathTarget | null {
+  const stairs = selectedStairs(editor);
+  return stairs.length === 1 ? placedStairsTarget(editor, stairs[0].get(STAIRS_ID_KEY) ?? '') : null;
 }

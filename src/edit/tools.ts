@@ -26,10 +26,10 @@ import { POI_ID_KEY } from '../gen/poi/spec.ts';
 import { blockHandleDragged } from '../gen/buildingAction.ts';
 import { blockOfSolid, blockOwner } from '../gen/buildingStore.ts';
 import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE, ROOMS_HANDLE, STAIRS_HANDLE } from '../gen/handle.ts';
-import { selectedStairs, stairsHandleDragged } from '../gen/stairsAction.ts';
-import { STAIRS_ID_KEY, stairsOwner } from '../gen/stairsStore.ts';
+import { stairsHandleDragged } from '../gen/stairsAction.ts';
+import { stairsOwner } from '../gen/stairsStore.ts';
 import { PathPins } from './pathPins.ts';
-import { placedStairsTarget } from './stairsPath.ts';
+import { selectedPathTarget } from './pathTargets.ts';
 import { roomsHandleDragged } from '../gen/rooms/action.ts';
 import { roomsOwner } from '../gen/rooms/store.ts';
 import type { KVNode } from '../vmf/keyvalues.ts';
@@ -88,7 +88,8 @@ export type GizmoMode = 'translate' | 'scale' | 'rotate';
 /**
  * Click to select (Shift adds), then drag the gizmo to move (W) or resize (R) on the grid, or rotate (E) in steps.
  * In the face, edge and vertex modes (Shift+2/3/4) the same works on parts of brushes; X extrudes faces.
- * Selected stairs show their points' pins (`pathPins.ts`) while generator handles are shown.
+ * An object drawn from points (stairs) shows its points' pins (`pathPins.ts`, `pathTargets.ts`) while generator
+ * handles are shown.
  */
 export class SelectTool implements Tool {
   name: ToolName = 'select';
@@ -115,7 +116,7 @@ export class SelectTool implements Tool {
   private snapD: Vector3 | null = null;
   /** Snap move (hold V): grab a corner, edge or face of the selection and drop it onto another. */
   readonly snapMove: SnapMoveTool;
-  /** Pins on the points of selected stairs: drag, insert, remove, Tab, Delete. */
+  /** Pins on the points of the selected path (stairs): drag, insert, remove, Tab, Delete. */
   readonly pins: PathPins;
 
   constructor(editor: Editor) {
@@ -165,10 +166,7 @@ export class SelectTool implements Tool {
       editor.emit('selection');
     };
     this.pins = new PathPins(editor, () => editor.tools?.current === this && editor.selection.mode === 'object' && editor.world.visibleKinds.handle);
-    const syncPins = () => {
-      const stairs = selectedStairs(editor);
-      this.pins.show(stairs.length === 1 ? placedStairsTarget(editor, stairs[0].get(STAIRS_ID_KEY) ?? '') : null);
-    };
+    const syncPins = () => this.pins.show(selectedPathTarget(editor));
     editor.on('selection', syncPins);
     editor.on('change', syncPins);
     editor.on('document', syncPins);

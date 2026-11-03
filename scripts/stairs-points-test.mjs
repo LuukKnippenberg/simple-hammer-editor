@@ -200,6 +200,18 @@ await withEditor(async (d, page) => {
   await d.settle(150);
   check('handles on shows them again', await names(), ['A', 'B', 'C']);
 
+  // A 'joins' check (streets landing on another street) rings the pin blue, also when it is the picked one.
+  check('joins ring is drawn', await d.eval(() => {
+    const layer = document.querySelector('.path-pins:not([hidden])');
+    const pin = Object.assign(document.createElement('div'), { className: 'path-pin sel join', textContent: 'X' });
+    const tip = Object.assign(document.createElement('div'), { className: 'path-tip joins' });
+    layer.append(pin, tip);
+    const out = [getComputedStyle(pin).boxShadow, getComputedStyle(tip).borderTopColor];
+    pin.remove();
+    tip.remove();
+    return out;
+  }), ['rgb(143, 184, 216) 0px 0px 0px 4px', 'rgba(143, 184, 216, 0.7)']);
+
   // Pins in the 3D view too.
   await d.eval(() => window.__editor.editor.setView3dOrTop('3d'));
   await d.view([600, -500, 700], [0, 200, 64]);

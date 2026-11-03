@@ -8,6 +8,7 @@
  * every change says where the old points went (`moved`) for whoever keeps an index (the selected pin, the point
  * placing carries on from).
  */
+/** A point; generators may keep their own data on it (a street corner's radius), which moves keep. */
 export interface PathPoint { x: number; y: number; z: number }
 /** A stretch from one point to the next; generators keep their own data on it (a flight's steps, a width). */
 export interface PathLink { from: number; to: number }
@@ -118,9 +119,9 @@ export function insertPoint<L extends PathLink>(path: PointPath<L>, link: number
   return { path: r.path, moved: r.moved.slice(0, n), added: r.moved[n] };
 }
 
-/** Moves one point. */
+/** Moves one point (data a generator keeps on it, like a corner radius, stays). */
 export function movePoint<L extends PathLink>(path: PointPath<L>, i: number, at: PathPoint): PointPath<L> {
-  return { points: path.points.map((p, k) => (k === i ? { ...at } : p)), links: path.links };
+  return { points: path.points.map((p, k) => (k === i ? { ...p, ...at } : p)), links: path.links };
 }
 
 /**
