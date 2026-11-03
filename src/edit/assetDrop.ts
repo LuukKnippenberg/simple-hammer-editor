@@ -174,6 +174,14 @@ function plan(ed: Editor, d: Drag): Plan & { field?: HTMLElement } {
     return { field: node, text: typeof t.label === 'string' ? t.label : t.label(info), run: () => t.drop(d.id) };
   }
   if (el !== ed.renderer.domElement) return { cancel: true, text: 'let go to cancel' };
+  // In the quad view only a Camera pane takes drops. Aim through it: the quad view only follows the mouse with no
+  // button held, so during a drag its input pane would still be the one the pointer left.
+  if (ed.quad.on) {
+    const pane = ed.quad.paneAt(d.x, d.y);
+    if (pane < 0) return { cancel: true, text: 'let go to cancel' };
+    if (ed.quad.kindOf(pane) !== 'camera') return { bad: true, text: 'drop it in the Camera pane (3D)' };
+    ed.quad.setInput(pane);
+  }
   const ndc = ed.ndcFromEvent({ clientX: d.x, clientY: d.y });
   if (d.kind === 'model') return modelPlan(ed, d, ndc);
   if (d.kind === 'material') return materialPlan(ed, d, ndc);
@@ -312,9 +320,21 @@ function faceGhost(faces: Plan['faces']): Group {
   return g;
 }
 
+/** Adds a ghost to the scene, and to the quad view's 2D panes. */
+function show(ed: Editor, o: Group): void {
+  ed.scene.add(o);
+  ed.quad.helpers.push(o);
+}
+
+function hide(ed: Editor, o: Group): void {
+  ed.scene.remove(o);
+  const i = ed.quad.helpers.indexOf(o);
+  if (i >= 0) ed.quad.helpers.splice(i, 1);
+}
+
 function unlight(ed: Editor, d: Drag): void {
   if (!d.lit) return;
-  ed.scene.remove(d.lit.group);
+  hide(ed, d.lit.group);
   d.lit.group.traverse((o) => { if (o instanceof Mesh || o instanceof LineLoop) { o.geometry.dispose(); (o.material as MeshBasicMaterial).dispose(); } });
   d.lit = null;
 }
@@ -348,7 +368,7 @@ function refresh(): void {
     unlight(ed, d);
     if (key) {
       d.lit = { key, group: faceGhost(p.faces) };
-      ed.scene.add(d.lit.group);
+      show(ed, d.lit.group);
     }
   }
 
@@ -376,7 +396,7 @@ function begin(ed: Editor, d: Drag): void {
   if (d.kind === 'model') modelGhost(ed, d);
   else if (d.kind === 'decal') decalGhost(ed, d);
   d.ghost.visible = false;
-  ed.scene.add(d.ghost);
+  show(ed, d.ghost);
   refresh();
 }
 
@@ -389,7 +409,7 @@ function end(): void {
   d.hot?.classList.remove('drop-hot', 'drop-bad');
   delete document.body.dataset.assetDrag;
   if (ed) {
-    ed.scene.remove(d.ghost);
+    hide(ed, d.ghost);
     unlight(ed, d);
   }
 }
