@@ -3,7 +3,7 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { groundAt, historyEdit, type PathCheck, type PathTarget } from './pathPins.ts';
 import { childrenOf, pathLabels, type PathPoint, type PointPath } from './pathPoints.ts';
-import { nearestOnLine, roadCorners, roadLine, roadOf, snapToRoads, type RoadSpec } from '../gen/roads.ts';
+import { ROAD_STYLES, nearestOnLine, offsetLine, roadCorners, roadLine, roadOf, snapToRoads, type RoadSpec } from '../gen/roads.ts';
 import { rebuildRoads, roadEntities } from '../gen/roadAction.ts';
 import type { RoadTool } from './roadTool.ts';
 
@@ -74,6 +74,28 @@ export function roadSpecs(path: PointPath, base: RoadBase, chains = roadChains(p
     for (const k of chain) if (!roadOfPoint.has(k)) roadOfPoint.set(k, c);
   });
   return specs;
+}
+
+/**
+ * Lines along roads (segments, flat x, y, z pairs): the rounded centre line, the carriageway's edges and the outer
+ * edges of the pavements, a little over the surface. The Road tool's preview, and a placed road's while its pin is
+ * dragged. `length` is how long their centre lines are.
+ */
+export function roadOutline(roads: RoadSpec[]): { lines: number[]; length: number } {
+  const lines: number[] = [];
+  let length = 0;
+  const strip = (line: { x: number; y: number }[], z: (i: number) => number) => {
+    for (let i = 0; i + 1 < line.length; i++) lines.push(line[i].x, line[i].y, z(i), line[i + 1].x, line[i + 1].y, z(i + 1));
+  };
+  for (const road of roads) {
+    const c = roadLine(road);
+    const lift = (i: number) => c[i].z + 4;
+    strip(c, lift);
+    const edge = road.width / 2 + ((road.kerbs ?? ROAD_STYLES[road.style].kerb) ? 8 : 0) + road.pavement;
+    for (const d of [-edge, edge, -road.width / 2, road.width / 2]) strip(offsetLine(c, d), lift);
+    length += c.reduce((s, p, i) => s + (i ? p.distanceTo(c[i - 1]) : 0), 0);
+  }
+  return { lines, length };
 }
 
 /** The settings of a road without its points. */
@@ -156,8 +178,9 @@ function placeFrom(editor: Editor, entity: MapEntity, i: number): void {
 }
 
 /**
- * A placed road for the pins: every change rebuilds all roads (crossings depend on all of them), one undo step per
- * drag or click. Shift+click on an end places on from it; on a corner it starts a second road from there (a T).
+ * A placed road for the pins: a drag shows the road's outline and rebuilds all roads (crossings depend on all of
+ * them) once when the pin is let go; every change is one undo step. Shift+click on an end places on from it; on a
+ * corner it starts a second road from there (a T).
  */
 export function placedRoadTarget(editor: Editor, entity: MapEntity): PathTarget | null {
   const first = roadOf(entity);
@@ -170,6 +193,7 @@ export function placedRoadTarget(editor: Editor, entity: MapEntity): PathTarget 
     shown: (path) => path.points,
     snap: (_path, _i, hit) => roadSnap(editor, hit, road().width, (e) => e === entity),
     check: (path, i) => roadCheck(roadBase(road()), path, i, others()),
+    preview: (path) => roadOutline(roadSpecs(path, roadBase(road())).slice(0, 1)).lines,
     edit: (label) => historyEdit(editor, label, (path) => {
       rebuildRoads(editor, label, { replace: [entity, roadSpecs(path, roadBase(road()))[0]] });
     }),

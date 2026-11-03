@@ -3,11 +3,11 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import type { Tool, ToolName } from './tools.ts';
 import { pickSurface } from './tools.ts';
-import { ROAD_STYLES, defaultRoad, offsetLine, roadLine, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
+import { ROAD_STYLES, defaultRoad, roadOf, type RoadSpec, type RoadStyle } from '../gen/roads.ts';
 import { rebuildRoads, roadEntities } from '../gen/roadAction.ts';
 import { PathPins, type PathTarget } from './pathPins.ts';
 import { addPoint, lastPoint, parentOf, pathLabels, removePoint, type PathPoint, type PointPath } from './pathPoints.ts';
-import { roadBase, roadCheck, roadPath, roadSnap, roadSpecs, type RoadBase } from './roadPath.ts';
+import { roadBase, roadCheck, roadOutline, roadPath, roadSnap, roadSpecs, type RoadBase } from './roadPath.ts';
 
 /**
  * Click to add road points A, B, C… (they snap to the grid, and onto existing roads to join them); the preview
@@ -41,6 +41,8 @@ export class RoadTool implements Tool {
   radius = 256;
   /** Called with each road it builds (the Generate flow's Tune step). */
   onBuilt?: (road: MapEntity) => void;
+  /** The pins shown while no points are being placed: the road just built, in the Generate flow's Tune step. */
+  tuned?: () => PathTarget | null;
   /** The points' pins: dragged, inserted, removed and branched from while placing. */
   readonly pins: PathPins;
 
@@ -53,6 +55,8 @@ export class RoadTool implements Tool {
     for (const l of [this.preview, this.markers]) { l.renderOrder = 12; l.frustumCulled = false; g.add(l); }
     editor.scene.add(g);
     this.pins = new PathPins(editor, () => editor.tools?.current === this);
+    // The Tune step's road comes and goes with the Generate flow (and undo).
+    for (const event of ['generate', 'change']) editor.on(event, () => { if (editor.tools?.current === this && !this.path.points.length) this.redraw(); });
   }
 
   setStyle(style: RoadStyle): void {
@@ -155,8 +159,8 @@ export class RoadTool implements Tool {
   }
 
   key(e: KeyboardEvent): boolean {
-    if (!this.path.points.length) return false;
     if (this.pins.key(e)) return true;
+    if (!this.path.points.length) return false;
     if (e.key === 'Enter') this.finish();
     else if (e.key === 'Escape') this.reset();
     else if (e.key === 'Backspace' || e.key === 'Delete') this.removeLast();
@@ -227,19 +231,7 @@ export class RoadTool implements Tool {
     // The roads as they would be with the hovered point added.
     const next = this.hover && points[this.from] ? addPoint(this.path, this.from, this.hover) : null;
     const roads = roadSpecs(next?.path ?? this.path, this.base);
-    const lines: number[] = [];
-    const strip = (line: { x: number; y: number }[], z: (i: number) => number) => {
-      for (let i = 0; i + 1 < line.length; i++) lines.push(line[i].x, line[i].y, z(i), line[i + 1].x, line[i + 1].y, z(i + 1));
-    };
-    let length = 0;
-    for (const road of roads) {
-      const c = roadLine(road);
-      const lift = (i: number) => c[i].z + 4;
-      strip(c, lift);
-      const edge = road.width / 2 + ((road.kerbs ?? ROAD_STYLES[road.style].kerb) ? 8 : 0) + road.pavement;
-      for (const d of [-edge, edge, -road.width / 2, road.width / 2]) strip(offsetLine(c, d), lift);
-      length += c.reduce((s, p, i) => s + (i ? p.distanceTo(c[i - 1]) : 0), 0);
-    }
+    const { lines, length } = roadOutline(roads);
     const marks: number[] = [];
     if (this.hover && !points.length) {
       const p = this.hover;
@@ -255,7 +247,8 @@ export class RoadTool implements Tool {
     const names = pathLabels(this.path);
     this.pathTarget.key = `placing:road:${this.placed}`;
     this.pins.ghost = next ? { at: next.path.points[next.added], name: pathLabels(next.path)[next.added] } : null;
-    this.pins.show(points.length ? this.pathTarget : null);
+    // Nothing being placed: the road just built keeps its pins in the Tune step.
+    this.pins.show(points.length ? this.pathTarget : this.tuned?.() ?? null);
     const last = names[lastPoint(this.path, this.from)];
     const branches = roads.length > 1 ? ` (${roads.length} roads)` : '';
     this.editor.status = !points.length || this.editor.tools?.current !== this ? ''

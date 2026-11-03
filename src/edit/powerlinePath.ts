@@ -4,7 +4,7 @@ import type { MapEntity } from '../vmf/map.ts';
 import { snap } from './tools.ts';
 import { groundAt, historyEdit, type PathCheck, type PathTarget } from './pathPins.ts';
 import { isTree, normalizePath, pathLabels, type PathPoint, type PointPath } from './pathPoints.ts';
-import { pavementSnap, powerlineLinks, powerlineOf, powerlinePlan, wirePoint, type PowerlineSpec } from '../gen/powerlines.ts';
+import { POLE_TYPES, pavementSnap, powerlineLinks, powerlineOf, powerlinePlan, wirePoint, type PoleType, type PowerlinePlan, type PowerlineSpec } from '../gen/powerlines.ts';
 import { ROAD_STYLES, type RoadSpec } from '../gen/roads.ts';
 import { roadEntities } from '../gen/roadAction.ts';
 import { editPowerline, type PowerlineTool } from './powerlineTool.ts';
@@ -113,6 +113,23 @@ export function powerlineCheck(spec: PowerlineSpec, path: PointPath, i: number, 
   return notes.length ? { level: 'adjusted', note: notes.join(' · '), numbers } : { level: 'fine', note: 'moved', numbers };
 }
 
+/** Lines for a planned powerline (segments, flat x, y, z pairs): each pole, and each wire from pole to pole. */
+export function powerlineOutline(pole: PoleType, plan: PowerlinePlan): number[] {
+  const out: number[] = [];
+  const wires = POLE_TYPES[pole].wires;
+  for (const p of plan.poles) out.push(p.at.x, p.at.y, p.at.z, p.at.x, p.at.y, p.at.z + wires[0][2]);
+  for (let w = 0; w < wires.length; w++) {
+    for (const row of plan.runs) {
+      for (let j = 0; j + 1 < row.length; j++) {
+        const a = plan.poles[row[j]], b = plan.poles[row[j + 1]];
+        const pa = wirePoint(pole, a.at, a.yaw, w), pb = wirePoint(pole, b.at, b.yaw, w);
+        out.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
+      }
+    }
+  }
+  return out;
+}
+
 /** The pins' key for a placed powerline. */
 export const powerlineKey = (name: string): string => `powerline:${name}`;
 
@@ -123,9 +140,9 @@ export function continuePowerline(editor: Editor, pole: MapEntity, from: number)
 }
 
 /**
- * A placed powerline (by its name) for the pins: every change rebuilds it with `editPowerline` (poles re-spaced,
- * house feeds rebuilt), one undo step per drag or click. The rebuild replaces its entities, so it is found again
- * by name each time.
+ * A placed powerline (by its name) for the pins: a drag shows its poles and wires and rebuilds it with
+ * `editPowerline` (poles re-spaced, house feeds rebuilt) once the pin is let go; every change is one undo step.
+ * The rebuild replaces its entities, so it is found again by name each time.
  */
 export function placedPowerlineTarget(editor: Editor, name: string): PathTarget | null {
   const first = () => editor.doc.entities.find((e) => e.get('targetname') === `${name}_pole` && powerlineOf(editor.doc.entities, e)?.name === name);
@@ -138,6 +155,10 @@ export function placedPowerlineTarget(editor: Editor, name: string): PathTarget 
     shown: (path) => path.points,
     snap: (_path, _i, hit) => powerlineSnap(powerlineWorld(editor), hit, editor.grid),
     check: (path, i, before) => powerlineCheck(spec() ?? start, path, i, before, powerlineWorld(editor)),
+    preview: (path) => {
+      const s = { ...(spec() ?? start), ...routeOf(path) };
+      return powerlineOutline(s.pole, powerlinePlan(s, (x, y) => groundAt(editor, x, y)));
+    },
     edit: (label) => historyEdit(editor, label, (path) => { const f = first(); if (f) editPowerline(editor, f, routeOf(path)); }),
     own: () => false,
     branch: (i) => { const f = first(); if (f) continuePowerline(editor, f, i); },

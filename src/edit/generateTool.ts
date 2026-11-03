@@ -21,6 +21,9 @@ import { handleOf } from '../gen/poi/handle.ts';
 import type { PoiSpec } from '../gen/poi/types.ts';
 import { ROAD_STYLES, roadOf } from '../gen/roads.ts';
 import { powerlineOf } from '../gen/powerlines.ts';
+import type { PathTarget } from './pathPins.ts';
+import { placedRoadTarget } from './roadPath.ts';
+import { placedPowerlineTarget } from './powerlinePath.ts';
 import { openRoomsDialog } from '../ui/roomsDialog.ts';
 import {
   BUILDING_LAYOUTS, DEFAULT_SIZE, dragRect, generator, isBuildingGenerator, lotPreview, tuneSummary, type DragRect, type GeneratorId,
@@ -249,6 +252,25 @@ export class GenerateTool implements Tool {
     this.editor.emit('generate');
   }
 
+  /**
+   * The pins of what a road or powerline generate made, in its Tune step (the tool has no points of its own then):
+   * every change to them joins the generate's undo step.
+   */
+  private tunedPath(id: GeneratorId, find: (made: MapEntity) => PathTarget | null): PathTarget | null {
+    const s = this.session;
+    const made = s?.id === id && s.step === 'tune' ? s.made[0] : null;
+    const target = made && this.editor.doc.entities.includes(made) ? find(made) : null;
+    if (!target) return null;
+    return {
+      ...target,
+      edit: (label) => {
+        const edit = target.edit(label);
+        // A powerline's rebuild makes new entities and selects its first pole: that is what the generate made now.
+        return { ...edit, done: () => { edit.done(); this.squashed(id === 'powerline' ? [...this.editor.selection.entities].slice(0, 1) : [made!]); } };
+      },
+    };
+  }
+
   /** New seed, rebuilt in place. */
   reroll(): void {
     const s = this.session;
@@ -368,6 +390,11 @@ export class GenerateTool implements Tool {
       const l = powerlineOf(this.editor.doc.entities, e);
       this.built('powerline', e, l ? `${l.spec.points.length} route points · ${l.members.filter((m) => m.classname === 'prop_static').length} poles and mounts` : 'Powerline built');
     };
+    (t.road as RoadTool).tuned = () => this.tunedPath('road', (e) => placedRoadTarget(this.editor, e));
+    (t.powerline as PowerlineTool).tuned = () => this.tunedPath('powerline', (e) => {
+      const line = powerlineOf(this.editor.doc.entities, e);
+      return line ? placedPowerlineTarget(this.editor, line.name) : null;
+    });
     (t.poi as PoiTool).onBuilt = (e) => this.built('poi', e, poiSummary(e));
     const stairs = t.stairs as StairsTool;
     stairs.onBuilt = (e, summary) => this.built('stairs', e, summary);
