@@ -3,6 +3,7 @@ import type { KVNode } from '../vmf/keyvalues.ts';
 import type { VmfDocument } from '../vmf/map.ts';
 import { solidNode, type FaceSpec } from '../edit/brushes.ts';
 import { hideCoveredFaces, NODRAW } from '../geom/hidden.ts';
+import { pathLabels } from '../edit/pathPoints.ts';
 
 /**
  * Generated stairs: points A, B, C… each with its own height, joined by flights. Every point after A that another
@@ -536,24 +537,8 @@ export function stairsSummary(result: StairsResult): string {
 
 const fmt1 = (v: number) => String(Math.round(v * 10) / 10);
 
-/** Points named the way the boards do: A, B, C…, and a branch's points C1, C2. */
-export function pointNames(spec: StairsSpec): string[] {
-  const names: string[] = spec.nodes.map(() => '');
-  if (!spec.nodes.length) return names;
-  names[0] = 'A';
-  const depth = spec.nodes.map(() => 0);
-  const children = new Map<number, number[]>();
-  for (const flight of spec.flights) {
-    depth[flight.to] = depth[flight.from] + 1;
-    children.set(flight.from, [...(children.get(flight.from) ?? []), flight.to]);
-  }
-  const letter = (level: number) => String.fromCharCode(65 + Math.min(25, level));
-  for (const flight of spec.flights) {
-    const siblings = children.get(flight.from)!;
-    names[flight.to] = letter(depth[flight.to]) + (siblings.length > 1 ? String(siblings.indexOf(flight.to) + 1) : '');
-  }
-  return names;
-}
+/** Points named the way the boards do: A, B, C…, and a branch's points C1, C2, then D2 (see `pathLabels`). */
+export const pointNames = (spec: StairsSpec): string[] => pathLabels({ points: spec.nodes, links: spec.flights });
 
 // --- Storing ----------------------------------------------------------------------------------------------
 

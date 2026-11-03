@@ -473,14 +473,45 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .gen-ghost b { display: block; color: var(--accent-text); font-size: 13px; }
 .gen-ghost span { color: var(--text); }
 .gen-ghost[hidden] { display: none; }
-.stairs-pins { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
-.stairs-pins[hidden] { display: none; }
-.stairs-pin {
-  position: absolute; transform: translate(-50%, -50%); min-width: 20px; height: 20px; padding: 0 4px; box-sizing: border-box; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; color: #15110b; background: var(--accent);
-  border: 2px solid #0b0c0d; box-shadow: 0 0 0 1px var(--accent);
+/* Path pins (pathPins.ts): A, B, C… over the viewport, + handles between them, the note by a dragged pin. */
+.path-pins { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.path-pins[hidden] { display: none; }
+.path-pin, .path-add {
+  position: absolute; transform: translate(-50%, -50%); box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-cond); font-weight: 700; pointer-events: auto; cursor: grab; user-select: none;
 }
-.stairs-pin.from { box-shadow: 0 0 0 3px #fff; }
+.path-pins.off .path-pin, .path-pins.off .path-add { pointer-events: none; }
+.path-pin { min-width: 22px; height: 22px; padding: 0 4px; border-radius: 11px; font-size: 13px; color: #15110b; background: var(--accent); border: 2px solid var(--bg); }
+.path-pin:hover { box-shadow: 0 0 0 3px #fff; }
+.path-pin.sel { background: #fff; box-shadow: 0 0 0 3px var(--accent); }
+.path-pin.branch { background: var(--accent-2); color: var(--bg); }
+.path-pin.bad { background: var(--danger); box-shadow: 0 0 0 3px rgba(232, 121, 106, 0.45); }
+.path-pin.join { box-shadow: 0 0 0 4px var(--accent-2); }
+.path-pin.old, .path-pin.next { background: transparent; pointer-events: none; box-shadow: none; }
+.path-pin.old { color: var(--text); border: 1.5px dashed var(--text); }
+.path-pin.next { color: var(--accent-text); border: 1.5px dashed var(--accent-text); }
+.path-add { min-width: 18px; height: 18px; border-radius: 9px; font-size: 14px; line-height: 1; color: var(--accent-text); background: var(--panel); border: 1.5px solid var(--accent-text); }
+.path-add:hover { background: var(--accent-tint); }
+.path-tip {
+  position: absolute; z-index: 5; transform: translate(22px, 14px); pointer-events: none; white-space: nowrap; font-size: 12px; line-height: 1.45;
+  background: rgba(11, 12, 13, 0.92); border: 1px solid rgba(143, 207, 152, 0.55); border-radius: 4px; padding: 6px 10px;
+}
+.path-tip[hidden] { display: none; }
+.path-tip b { font-family: var(--font-cond); letter-spacing: 0.12em; color: var(--accent-text); }
+.path-tip .n { font-family: var(--font-mono); color: var(--ok); }
+.path-tip .k { color: var(--muted); margin-top: 2px; }
+.path-tip .k kbd { font-size: 11px; padding: 0 5px; background: transparent; }
+.path-tip.adjusted { border-color: rgba(233, 149, 42, 0.6); }
+.path-tip.adjusted .n { color: var(--accent-text); }
+.path-tip.refused { border-color: rgba(232, 121, 106, 0.7); }
+.path-tip.refused .n, .path-tip.refused > div:first-child { color: var(--danger); }
+.path-tip.joins { border-color: rgba(143, 184, 216, 0.7); }
+/* The Points list (pathPointsList.ts): a row per point. */
+.path-points .path-row { display: grid; grid-template-columns: 34px repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; align-items: center; min-height: 30px; padding: 0 4px; border-bottom: 1px solid var(--hairline); cursor: pointer; }
+.path-points .path-row.on { background: var(--accent-tint); box-shadow: inset 2px 0 0 var(--accent); }
+.path-points .path-row .k { font-family: var(--font-cond); font-weight: 700; font-size: 13px; color: var(--accent-text); }
+.path-points .path-row input { width: 100%; min-width: 0; box-sizing: border-box; }
+.path-points .path-cols { display: grid; grid-template-columns: 34px repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; padding: 0 4px; color: var(--faint); font-size: 11px; }
 .stairs-label { transform: translate(24px, -50%); text-align: left; white-space: nowrap; }
 .stairs-head { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
 .stairs-head b { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent-text); }

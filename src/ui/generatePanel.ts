@@ -114,7 +114,7 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   const stairsHint = (tune: boolean) => stairs.phase === 'height'
     ? 'Move the mouse up or down, scroll, or type a number. Click or Enter confirms, Esc goes back.'
     : stairs.phase === 'a' ? 'Click A, the foot of the stairs · Esc: back to the menu'
-      : tune ? 'Every change rebuilds them · click the next point to chain · Shift+click branches from the landing just left · Enter: done · Backspace: take back a point'
+      : tune ? 'Every change rebuilds them · click the next point to chain · drag a pin to move it, click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to branch from it · Enter: done · Backspace: take back a point'
         : 'Click B, the top end; its height starts at the surface you click · Esc: back to A';
   /** Stairs: the height read-out while setting one, the option sheet in Tune (every change rebuilds them). */
   const stairsRows = (tune: boolean): HTMLElement[] => {
@@ -211,8 +211,8 @@ const TUNE_ROWS: Record<BuildingGenerator, { rows: BuildingRow[]; more: Building
 
 function hintFor(id: string, tune: boolean): string {
   if (tune) return `Every change rebuilds it · ${id === 'road' || id === 'powerline' ? 'click points' : 'drag again'} for another · Enter: done · Esc: back`;
-  if (id === 'road') return 'Click points · snaps onto roads to join them · Enter or double-click builds · Backspace removes a point · Esc: back to the menu';
-  if (id === 'powerline') return 'Click points along the route · Enter or double-click places poles and wires · Esc: back to the menu';
+  if (id === 'road') return 'Click to add A, B, C… · snaps onto roads to join them · drag a pin to move it, click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to branch (a second road, T junction) · Enter or double-click builds · Backspace removes a point · Esc: back to the menu';
+  if (id === 'powerline') return 'Click points along the route (they snap to the pavement of streets) · drag a pin to move it · + inserts · Alt+click removes · Shift+click a pin branches (a tee pole) · Enter or double-click places poles and wires · Esc: back to the menu';
   if (id === 'poi') return 'Drag a rectangle on the ground (a click: its default size) · Esc: back to the menu';
   return 'Drag a rectangle on the ground · Shift: square · Esc: back to the menu';
 }

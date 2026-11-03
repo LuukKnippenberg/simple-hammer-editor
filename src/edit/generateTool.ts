@@ -229,13 +229,13 @@ export class GenerateTool implements Tool {
     ed.emit('generate');
   }
 
-  /** Carries on placing points on stairs already built (their Selection panel): a Tune session for them. */
-  continueStairs(detail: MapEntity): void {
+  /** Carries on placing points on stairs already built (their Selection panel, a Shift+click on a pin): a Tune session for them. */
+  continueStairs(detail: MapEntity, from = -1): void {
     const ed = this.editor, s = stairsOf(detail);
     if (!s) return;
     this.session = { id: 'stairs', step: 'tune', made: [detail], mark: ed.history.depth, summary: '' };
     this.setTool('stairs');
-    (ed.tools.tools.stairs as StairsTool).continueStairs(detail);
+    (ed.tools.tools.stairs as StairsTool).continueStairs(detail, from);
     this.selectMade();
     ed.emit('generate');
   }

@@ -28,6 +28,8 @@ import { blockOfSolid, blockOwner } from '../gen/buildingStore.ts';
 import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE, ROOMS_HANDLE, STAIRS_HANDLE } from '../gen/handle.ts';
 import { stairsHandleDragged } from '../gen/stairsAction.ts';
 import { stairsOwner } from '../gen/stairsStore.ts';
+import { PathPins } from './pathPins.ts';
+import { selectedPathTarget } from './pathTargets.ts';
 import { roomsHandleDragged } from '../gen/rooms/action.ts';
 import { roomsOwner } from '../gen/rooms/store.ts';
 import type { KVNode } from '../vmf/keyvalues.ts';
@@ -86,6 +88,8 @@ export type GizmoMode = 'translate' | 'scale' | 'rotate';
 /**
  * Click to select (Shift adds), then drag the gizmo to move (W) or resize (R) on the grid, or rotate (E) in steps.
  * In the face, edge and vertex modes (Shift+2/3/4) the same works on parts of brushes; X extrudes faces.
+ * An object drawn from points (stairs) shows its points' pins (`pathPins.ts`, `pathTargets.ts`) while generator
+ * handles are shown.
  */
 export class SelectTool implements Tool {
   name: ToolName = 'select';
@@ -112,6 +116,8 @@ export class SelectTool implements Tool {
   private snapD: Vector3 | null = null;
   /** Snap move (hold V): grab a corner, edge or face of the selection and drop it onto another. */
   readonly snapMove: SnapMoveTool;
+  /** Pins on the points of the selected path (stairs): drag, insert, remove, Tab, Delete. */
+  readonly pins: PathPins;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -159,6 +165,11 @@ export class SelectTool implements Tool {
       this.drawParts();
       editor.emit('selection');
     };
+    this.pins = new PathPins(editor, () => editor.tools?.current === this && editor.selection.mode === 'object' && editor.world.visibleKinds.handle);
+    const syncPins = () => this.pins.show(selectedPathTarget(editor));
+    editor.on('selection', syncPins);
+    editor.on('change', syncPins);
+    editor.on('document', syncPins);
     editor.on('frame', () => this.hoverFrame());
     this.snapMove = new SnapMoveTool(editor, this);
   }
@@ -226,6 +237,7 @@ export class SelectTool implements Tool {
   }
 
   key(e: KeyboardEvent): boolean {
+    if (this.pins.key(e)) return true;
     if (this.extruder.active) {
       if (e.key === 'Escape') this.extruder.cancel();
       else if (e.key === 'Enter') this.extruder.confirm();

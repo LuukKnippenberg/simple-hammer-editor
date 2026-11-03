@@ -8,15 +8,18 @@ import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, s
 import { blockFinder, blockOf } from '../gen/buildingStore.ts';
 import type { BuildingOptions } from '../gen/buildings.ts';
 import { buildingSheet, type BuildingRow } from './buildingOptions.ts';
-import { roadSheet } from './roadOptions.ts';
+import { roadPointsSection, roadSheet } from './roadOptions.ts';
 import { powerlineSheet } from './powerlineOptions.ts';
 import { num, refill, row, select } from './form.ts';
 import { entityEditor, multiEntityEditor } from './entityEditor.ts';
-import { centreline, roadOf, type RoadSpec } from '../gen/roads.ts';
+import { roadLine, roadOf, type RoadSpec } from '../gen/roads.ts';
 import { CARRIAGEWAYS, GUTTERS, KERBS, PAVEMENTS, type StreetMaterial } from '../gen/streetMaterials.ts';
 import { blendRoadIntoGround, rebuildRoads } from '../gen/roadAction.ts';
 import { powerlineOf, type PowerlineSpec } from '../gen/powerlines.ts';
 import { editPowerline } from '../edit/powerlineTool.ts';
+import { powerlineKey, powerlinePath, powerlineSpans, teePoles } from '../edit/powerlinePath.ts';
+import { groundAt } from '../edit/pathPins.ts';
+import { pathLabels } from '../edit/pathPoints.ts';
 import { auditionSoundscape, soundscapeSelect } from './soundUi.ts';
 import { soundBrowser } from './soundBrowser.ts';
 import { audio } from '../audio/engine.ts';
@@ -34,7 +37,9 @@ import { openGenerateMenu } from './generateMenu.ts';
 import { partInspector } from './partPanel.ts';
 import { deleteStairs, duplicateStairs, regenerateStairs, selectedStairs } from '../gen/stairsAction.ts';
 import { stairsOf } from '../gen/stairsStore.ts';
-import { buildStairs, pointNames, stairsSummary, type StairsFlight } from '../gen/stairs.ts';
+import { buildStairs, stairsSummary, type StairsFlight } from '../gen/stairs.ts';
+import { pathPointsSection, pointAxis, type PointColumn } from './pathPointsList.ts';
+import { stairsKey } from '../edit/stairsPath.ts';
 import { stairsSheet } from './stairsOptions.ts';
 import type { GenerateTool } from '../edit/generateTool.ts';
 import { VmfDocument } from '../vmf/map.ts';
@@ -135,7 +140,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     // A road, or a brush picked out of one: the road's settings.
     const roadEntity = entities.length === 1 ? entities[0] : !entities.length && owners.size === 1 ? [...owners][0] : null;
     const road = roadEntity ? roadOf(roadEntity) : null;
-    if (roadEntity && road) panel.append(roadPanel(editor, roadEntity, road));
+    if (roadEntity && road) panel.append(roadPanel(editor, roadEntity, road), roadPointsSection(editor, roadEntity, road));
     const poi = selectedPoi(editor);
     const poiPanel = poi && poiEditor(editor, poi);
     if (poiPanel) panel.append(poiPanel);
@@ -162,6 +167,8 @@ export function mountInspector(editor: Editor): HTMLElement {
   editor.on('selection', render);
   editor.on('change', render);
   editor.on('fgd', render);
+  // The picked pin of selected stairs lights its row in the Points list.
+  editor.on('pathpins', render);
   render();
   return h('div', {}, snapMoveSection(editor), panel);
 }
@@ -201,7 +208,7 @@ function brushEditor(editor: Editor): HTMLElement {
 /** A road's style, sizes and materials; changes rebuild all roads, so crossings stay open. */
 function roadPanel(editor: Editor, entity: MapEntity, road: RoadSpec): HTMLElement {
   const apply = (patch: Partial<RoadSpec>) => rebuildRoads(editor, 'Edit road', { replace: [entity, { ...road, ...patch }] });
-  const length = centreline(road.points, road.radius).reduce((sum, point, i, points) => sum + (i ? point.distanceTo(points[i - 1]) : 0), 0);
+  const length = roadLine(road).reduce((sum, point, i, points) => sum + (i ? point.distanceTo(points[i - 1]) : 0), 0);
   const materialRow = (label: string, list: StreetMaterial[], key: 'carriageway' | 'pavement' | 'kerb' | 'gutter') =>
     row(label, select([['', 'From style'], ...list.map((material) => [material.id, material.label] as [string, string])], road.materials?.[key] ?? '',
       (v) => apply({ materials: { ...road.materials, [key]: v || undefined } })));
@@ -260,12 +267,26 @@ function soundscapePanel(editor: Editor, entity: MapEntity): HTMLElement {
     h('div.row', {}, h('label', {}, 'Radius'), radius, h('span.unit', {}, '-1 = everywhere')));
 }
 
-/** A powerline's settings; changes rebuild its poles and wires. */
+/** A powerline's settings, points (the Select tool's pins) and spans; changes rebuild its poles and wires. */
 function powerlinePanel(editor: Editor, entity: MapEntity, spec: PowerlineSpec, count: number): HTMLElement {
-  return h('div.section', {}, h('h3', {}, 'Powerline'),
-    h('p.hint', {}, `${spec.points.length} route points, ${count} entities (poles and rope keyframes).`),
-    ...powerlineSheet(spec, (patch) => editPowerline(editor, entity, patch)),
-    h('button', { onclick: () => { const found = powerlineOf(editor.doc.entities, entity); if (found) { editor.history.remove('Delete powerline', [], found.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline'));
+  const name = powerlineOf(editor.doc.entities, entity)?.name ?? '';
+  const path = powerlinePath(spec);
+  const names = pathLabels(path);
+  const tees = teePoles(path).map((i) => names[i]);
+  // Points stand on the ground: a typed x or y takes the ground's height there.
+  const onGround = (axis: 'x' | 'y'): PointColumn => ({
+    ...pointAxis(axis, axis, editor.grid),
+    set: (point, value) => { const p = { ...point, [axis]: value }; return { ...p, z: groundAt(editor, p.x, p.y) ?? point.z }; },
+  });
+  return h('div', {},
+    h('div.section', {}, h('h3', {}, 'Powerline'),
+      h('p.hint', {}, `${spec.points.length} points, ${count} entities (poles and rope keyframes)${tees.length ? ` · tee pole${tees.length > 1 ? 's' : ''} at ${tees.join(', ')}` : ''}.`),
+      h('p.hint', {}, 'Drag a pin to move a point (the poles re-space), click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to branch from it (a tee pole) or carry on from an end.'),
+      ...powerlineSheet(spec, (patch) => editPowerline(editor, entity, patch)),
+      h('button', { onclick: () => { const found = powerlineOf(editor.doc.entities, entity); if (found) { editor.history.remove('Delete powerline', [], found.members); editor.selection.clear(); editor.changed(); } } }, 'Delete powerline')),
+    pathPointsSection(editor, powerlineKey(name), [onGround('x'), onGround('y')], 'A is where the line starts; the points stand on the ground. Typing a number moves the point; Tab picks the next pin, Delete removes it.'),
+    h('div.section', {}, h('h3', {}, 'Spans'), h('p.hint', {}, 'Poles fill each stretch at the spacing.'),
+      ...powerlineSpans(spec, path).map((s) => h('div.row.power-span', {}, h('label', {}, s.name), h('span', {}, `${s.length} u · ${s.spans} span${s.spans === 1 ? '' : 's'}`)))));
 }
 
 /** An interior building's handle: its rooms, what is wrong with them, and the dialog to change them. */
@@ -289,15 +310,16 @@ function roomsPanel(editor: Editor, details: MapEntity[]): HTMLElement {
 }
 
 /**
- * Selected stairs: what they are, their points' heights, and the same option sheet as the Tune step (every change
- * rebuilds them). Add flights carries on placing points on them with the Stairs tool.
+ * Selected stairs: what they are, their points (the pins' Points list: typing a number moves a point), and the same
+ * option sheet as the Tune step (every change rebuilds them). Add flights carries on placing points on them with
+ * the Stairs tool.
  */
 function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
   const one = details.length === 1 ? details[0] : null;
   const spec = one ? stairsOf(one) : null;
   const head = h('div.section', {}, h('h3', {}, 'Selection'),
     h('div', {}, details.length > 1 ? `${details.length} stairs` : '🪜 Stairs'),
-    h('p.hint', {}, 'Drag the gizmo to move them (W), up or down too; they are rebuilt where they land. Ctrl+D duplicates, Delete removes them. Hide the handles (Handles in the view bar) to pick single brushes.'));
+    h('p.hint', {}, 'Drag a pin to move a point, click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to place more from it. The gizmo moves the whole stairs (W). Ctrl+D duplicates, Delete removes them (or the picked point). Hide the handles (Handles in the view bar) to pick single brushes.'));
   if (!one || !spec) return [head];
   const result = buildStairs(VmfDocument.empty(), spec);
   const edit = (patch: Parameters<typeof regenerateStairs>[2]) => regenerateStairs(editor, one, patch);
@@ -306,13 +328,10 @@ function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
       h('button.primary', { title: 'Click more points: each one adds a flight; Shift+click a landing to branch from it', onclick: () => (editor.tools.tools.generate as GenerateTool).continueStairs(one) }, 'Add flights…'),
       h('button', { onclick: () => duplicateStairs(editor, one) }, 'Duplicate'),
       h('button', { onclick: () => deleteStairs(editor, one) }, 'Delete')));
-  const names = pointNames(spec);
-  const points = h('div.section', {}, h('h3', {}, 'Points'), h('p.hint', {}, 'Height of each point; A is the foot.'),
-    ...spec.nodes.map((node, i) => {
-      const zInput = h('input.num', { type: 'number', value: String(node.z), step: '8' }) as HTMLInputElement;
-      zInput.addEventListener('change', () => { zInput.blur(); edit({ nodes: spec.nodes.map((other, k) => (k === i ? { ...other, z: Number(zInput.value) || 0 } : other)) }); });
-      return h('div.row', {}, h('label', {}, names[i]), zInput, h('span.unit', {}, `at ${Math.round(node.x)} ${Math.round(node.y)}`));
-    }));
+  // One row per point, the same points (and order) as the pins; Tab or a click on a row picks one.
+  const points = pathPointsSection(editor, stairsKey(spec.uid),
+    [pointAxis('x', 'x', editor.grid), pointAxis('y', 'y', editor.grid), pointAxis('height', 'z', 8)],
+    'A is the foot. Typing a number moves the point; Tab picks the next pin.');
   const setFlight = (i: number, patch: Partial<StairsFlight>) => edit({
     flights: spec.flights.map((flight, k) => {
       if (k !== i) return flight;

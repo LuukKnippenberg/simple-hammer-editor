@@ -5,18 +5,23 @@ import type { Tool, ToolName } from './tools.ts';
 import { pickSurface, snap } from './tools.ts';
 import { buildBrushFaces } from '../geom/brush.ts';
 import {
-  DEFAULT_STAIRS, autoSteps, buildStairs, newStairsUid, plannedNodes, pointNames, squareTo, stairsSummary,
+  DEFAULT_STAIRS, autoSteps, buildStairs, newStairsUid, squareTo, stairsSummary,
   type StairsFlight, type StairsNode, type StairsOptions, type StairsResult, type StairsSpec,
 } from '../gen/stairs.ts';
 import { applyStairs, deleteStairs, regenerateStairs } from '../gen/stairsAction.ts';
-import { stairsOf } from '../gen/stairsStore.ts';
+import { stairsMembers, stairsOf } from '../gen/stairsStore.ts';
+import { PathPins, type PathTarget } from './pathPins.ts';
+import { addPoint, lastPoint, normalizePath, parentOf, pathLabels, removePoint, type PointPath } from './pathPoints.ts';
+import { stairsCheck, stairsPath, stairsShown, stairsSnap } from './stairsPath.ts';
 
 /**
  * Places stairs: click A (the foot), click B (the top end), set B's height (move the mouse up or down, scroll, or
  * type a number; click or Enter confirms). The stairs are built then, and every further click adds a point and a
  * flight from the last one, each with its own height; Shift+click starts the next flight from the landing just
- * left (A, B, C1, Shift+C2 is a T), or from any point of these stairs when clicked on. Backspace takes the last
- * point back, Esc steps back, Enter or a double click finishes. All of it is one undo step (the Generate flow).
+ * left (A, B, C1, Shift+C2 is a T), or from a pin when clicked on. Every point has a pin (`pathPins.ts`): drag it to
+ * move the point (placing carries on from the last one), click a + to insert one, Alt+click a pin to remove it.
+ * Backspace takes the last point back, Esc steps back, Enter or a double click finishes. All of it is one undo step
+ * (the Generate flow).
  */
 export type StairsPhase = 'a' | 'b' | 'height';
 
@@ -51,7 +56,8 @@ export class StairsTool implements Tool {
   private pendingT = 0;
   private lines: LineSegments;
   private marks: LineSegments;
-  private pins: HTMLDivElement;
+  /** The points' pins: dragged, inserted and removed while placing. */
+  readonly pins: PathPins;
   private label: HTMLDivElement;
 
   constructor(editor: Editor) {
@@ -62,12 +68,11 @@ export class StairsTool implements Tool {
     const g = new Group();
     for (const l of [this.lines, this.marks]) { l.renderOrder = 12; l.frustumCulled = false; g.add(l); }
     editor.scene.add(g);
-    this.pins = document.createElement('div');
-    this.pins.className = 'stairs-pins';
+    this.pins = new PathPins(editor, () => editor.tools?.current === this, () => this.phase === 'b');
     this.label = document.createElement('div');
     this.label.className = 'gen-ghost stairs-label';
     this.label.hidden = true;
-    editor.container.append(this.pins, this.label);
+    editor.container.append(this.label);
     editor.on('frame', () => this.placeOverlays());
     // Scrolling sets the height (ahead of the camera's zoom).
     editor.renderer.domElement.addEventListener('wheel', (e) => {
@@ -94,16 +99,17 @@ export class StairsTool implements Tool {
     return Math.max(autoSteps(this.height), this.steps ?? 0);
   }
 
-  /** Carries on placing points on stairs already built (their Selection panel's Add flights). */
-  continueStairs(detail: MapEntity): void {
+  /** Carries on placing points on stairs already built (Add flights, or Shift+click on a pin): from `from`, else the last point. */
+  continueStairs(detail: MapEntity, from = -1): void {
     const s = stairsOf(detail);
     if (!s) return;
     this.reset();
     this.uid = s.uid;
-    this.nodes = s.nodes.map((n) => ({ ...n }));
-    this.flights = s.flights.map((f) => ({ ...f }));
+    const path = normalizePath(stairsPath(s));
+    this.nodes = path.points.map((n) => ({ ...n }));
+    this.flights = path.links.map((f) => ({ ...f }));
     this.options = { ...s.options };
-    this.from = this.nodes.length - 1;
+    this.from = from >= 0 && from < this.nodes.length ? from : this.nodes.length - 1;
     this.editing = detail;
     this.phase = 'b';
     this.redraw();
@@ -130,7 +136,7 @@ export class StairsTool implements Tool {
     this.redraw();
     // Still the current tool while it is switched off.
     this.editor.status = '';
-    this.pins.hidden = this.label.hidden = true;
+    this.label.hidden = true;
   }
 
   /** The grid point on the surface under the cursor. */
@@ -208,8 +214,8 @@ export class StairsTool implements Tool {
       // On a point of these stairs: the next flight leaves from there. Elsewhere: from the landing just left.
       const near = this.nodes.findIndex((n) => Math.hypot(n.x - p.x, n.y - p.y) <= this.options.width / 2 && Math.abs(n.z - p.z) <= 24);
       if (near >= 0) { this.from = near; this.redraw(); this.editor.emit('stairs'); return; }
-      const last = this.flights[this.flights.length - 1];
-      if (last) this.from = last.from;
+      const before = parentOf(this.path, this.from);
+      if (before >= 0) this.from = before;
     }
     const t = this.target(p);
     const f = this.nodes[this.from];
@@ -225,13 +231,19 @@ export class StairsTool implements Tool {
     this.editor.emit('stairs');
   }
 
+  /** The points placed so far as a path (the pins' model). */
+  get path(): PointPath<StairsFlight> {
+    return { points: this.nodes, links: this.flights };
+  }
+
   /** Confirms the pending point's height: the stairs are built (or rebuilt) with it. */
   confirm(): void {
     if (this.phase !== 'height' || !this.pending) return;
-    const s = this.spec(true);
-    this.nodes = s.nodes;
-    this.flights = s.flights;
-    this.from = this.nodes.length - 1;
+    const at = { x: this.pending.x, y: this.pending.y, z: this.nodes[this.from].z + this.height };
+    const r = addPoint(this.path, this.from, at, this.steps ? { steps: this.steps } : {});
+    this.nodes = r.path.points;
+    this.flights = r.path.links;
+    this.from = r.added;
     this.pending = null;
     this.typed = '';
     this.steps = undefined;
@@ -263,23 +275,54 @@ export class StairsTool implements Tool {
 
   /** Takes the last point back. */
   private removeLast(): void {
-    const last = this.flights.pop();
-    if (!last) { this.reset(); return; }
-    this.nodes.splice(last.to, 1);
-    this.from = this.flights.length ? this.flights[this.flights.length - 1].to : 0;
-    if (this.flights.length) this.build();
-    else {
-      // Nothing left but A: the stairs go (as part of the same generate).
-      if (this.editing && this.editor.doc.entities.includes(this.editing)) deleteStairs(this.editor, this.editing);
-      this.editing = null;
-      this.onChanged?.(null, '');
-      this.redraw();
-      this.editor.emit('stairs');
-    }
+    if (!this.flights.length) { this.reset(); return; }
+    const path = this.path;
+    const i = lastPoint(path, this.from);
+    const before = parentOf(path, i);
+    const r = removePoint(path, i)!;
+    this.nodes = r.path.points;
+    this.flights = r.path.links;
+    this.from = Math.max(0, r.moved[before] ?? 0);
+    this.applyPath();
   }
+
+  /** Builds the points as they are now; with nothing left but A the stairs go (as part of the same generate). */
+  private applyPath(): void {
+    if (this.flights.length) { this.build(); return; }
+    if (this.editing && this.editor.doc.entities.includes(this.editing)) deleteStairs(this.editor, this.editing);
+    this.editing = null;
+    this.onChanged?.(null, '');
+    this.redraw();
+    this.editor.emit('stairs');
+  }
+
+  /** The stairs being placed, for the pins: changes rebuild them as part of the generate. */
+  private readonly pathTarget: PathTarget = {
+    key: '', name: 'Stairs', min: 1, ownHeight: true,
+    path: () => normalizePath(this.path),
+    shown: (path) => stairsShown(this.spec(), path),
+    snap: (path, i, hit, keep) => stairsSnap(this.spec(), path, i, hit, keep, this.editor.grid),
+    check: (path, i, before) => stairsCheck(this.spec(), path, i, before),
+    edit: () => {
+      const start = { nodes: this.nodes.map((n) => ({ ...n })), flights: this.flights.map((f) => ({ ...f })), from: this.from };
+      return {
+        set: (path, moved) => {
+          if (moved) this.from = moved[this.from] >= 0 ? moved[this.from] : path.points.length - 1;
+          this.nodes = path.points.map((n) => ({ ...n }));
+          this.flights = path.links.map((f) => ({ ...f }));
+          this.applyPath();
+        },
+        done: () => {},
+        cancel: () => { Object.assign(this, start); this.applyPath(); },
+      };
+    },
+    own: (solid) => !!this.editing && (solid.entity === this.editing || stairsMembers(this.editor.doc, this.uid).world.includes(solid)),
+    branch: (i) => { this.from = i; this.redraw(); this.editor.emit('stairs'); },
+  };
 
   key(e: KeyboardEvent): boolean {
     const k = e.key;
+    if (this.phase === 'b' && this.pins.key(e)) return true;
     if (this.phase === 'height') {
       if (k === 'Enter') this.confirm();
       else if (k === 'Escape') { this.pending = null; this.typed = ''; this.phase = 'b'; this.redraw(); this.editor.emit('stairs'); }
@@ -339,17 +382,13 @@ export class StairsTool implements Tool {
       obj.geometry.dispose();
       obj.geometry = g;
     }
-    // Pins for the points, and the height read-out by the pending one.
-    const spec = this.spec(!!showPending);
-    const names = pointNames(spec);
-    const planned = plannedNodes(spec);
-    this.pins.replaceChildren(...planned.map((p, i) => {
-      const d = document.createElement('div');
-      d.className = `stairs-pin${i === this.from && this.phase === 'b' ? ' from' : ''}`;
-      d.textContent = names[i];
-      d.dataset.x = String(p.x); d.dataset.y = String(p.y); d.dataset.z = String(p.z);
-      return d;
-    }));
+    // Pins for the points, a dashed one for the next (or pending) point, and the height read-out by the pending one.
+    this.pathTarget.key = `placing:${this.uid}`;
+    const next = showPending ? { x: this.pending!.x, y: this.pending!.y, z: this.nodes[this.from].z + this.height }
+      : this.phase === 'b' && this.hover && this.nodes[this.from] ? { ...this.target(this.hover), z: this.hover.z } : null;
+    const added = next && this.nodes.length ? addPoint(this.path, this.from, next) : null;
+    this.pins.ghost = added ? { at: stairsShown(this.spec(), added.path)[added.added], name: pathLabels(added.path)[added.added] } : null;
+    this.pins.show(this.nodes.length ? this.pathTarget : null);
     if (showPending && preview) {
       const fi = preview.flights[0];
       this.label.replaceChildren(
@@ -364,11 +403,10 @@ export class StairsTool implements Tool {
     if (this.editor.tools.current !== this) this.editor.status = '';
   }
 
-  /** Keeps the pins and the label over their points as the camera moves. */
+  /** Keeps the label over the pending point as the camera moves (the pins place themselves). */
   private placeOverlays(): void {
     const ed = this.editor;
     const on = ed.tools.current === this;
-    this.pins.hidden = !on;
     if (!on) { this.label.hidden = true; return; }
     const cr = ed.container.getBoundingClientRect(), rr = ed.renderer.domElement.getBoundingClientRect();
     const place = (el: HTMLElement, v: Vector3) => {
@@ -377,7 +415,6 @@ export class StairsTool implements Tool {
       el.style.top = `${rr.top - cr.top + ((1 - p.y) / 2) * rr.height}px`;
       el.style.visibility = p.z > 1 ? 'hidden' : '';
     };
-    for (const el of this.pins.children as HTMLCollectionOf<HTMLElement>) place(el, new Vector3(Number(el.dataset.x), Number(el.dataset.y), Number(el.dataset.z) + 8));
     if (!this.label.hidden && this.pending) place(this.label, new Vector3(this.pending.x, this.pending.y, this.nodes[this.from].z + this.height / 2));
   }
 }
