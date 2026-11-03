@@ -2,18 +2,22 @@ import { BufferAttribute, BufferGeometry, LineBasicMaterial, LineSegments, Rayca
 import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import type { Tool, ToolName } from './tools.ts';
-import { pickSurface, snap } from './tools.ts';
+import { pickSurface } from './tools.ts';
 import { entityNode } from './actions.ts';
-import { POLE_TYPES, WALL_MOUNT, nextPowerlineName, polePlacements, powerlineEntities, powerlineOf, wallMount, wirePoint, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
+import { POLE_TYPES, WALL_MOUNT, nextPowerlineName, powerlineEntities, powerlineOf, powerlinePlan, wallMount, wirePoint, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
+import { PathPins, groundAt, type PathTarget } from './pathPins.ts';
+import { addPoint, lastPoint, parentOf, pathLabels, removePoint, type PathPoint, type PointPath } from './pathPoints.ts';
+import { powerlineCheck, powerlinePath, powerlineSnap, powerlineWorld, routeOf } from './powerlinePath.ts';
 
 /**
  * House feeds: from each pole, a sagging wire across to the nearest wall within `reach` on either side of
  * the line (found by casting rays from the first wire point), ending on the outer insulator of a wall
- * bracket that sticks out from the wall it hit.
+ * bracket that sticks out from the wall it hit. A tee pole's second crossarm has none.
  */
 function feedEntities(editor: Editor, spec: PowerlineSpec, name: string, reach = 480): { classname: string; origin: Vector3; keys: Record<string, string> }[] {
   const out: { classname: string; origin: Vector3; keys: Record<string, string> }[] = [];
-  polePlacements(spec).forEach((p, i) => {
+  powerlinePlan(spec, ground(editor)).poles.forEach((p, i) => {
+    if (p.arm) return;
     const from = wirePoint(spec.pole, p.at, p.yaw, 0);
     const r = (p.yaw * Math.PI) / 180;
     for (const side of [1, -1]) {
@@ -35,44 +39,70 @@ function feedEntities(editor: Editor, spec: PowerlineSpec, name: string, reach =
   return out;
 }
 
+/** The ground under a plan point, for the poles between a line's points. */
+const ground = (editor: Editor) => (x: number, y: number) => groundAt(editor, x, y);
+
 /** Adds a powerline's entities (one undo step) and selects its first pole. */
 export function addPowerline(editor: Editor, spec: PowerlineSpec, label = 'Draw powerline'): MapEntity[] {
   const doc = editor.doc;
   const name = nextPowerlineName(doc.entities);
-  const defs = [...powerlineEntities(spec, name), ...(spec.feeds ? feedEntities(editor, spec, name) : [])];
+  const defs = [...powerlineEntities(spec, name, ground(editor)), ...(spec.feeds ? feedEntities(editor, spec, name) : [])];
   const created = defs.map((e) => doc.addEntity(entityNode(editor, e.classname, e.origin, e.keys)));
   editor.history.added(label, [], created);
   editor.changed();
   return created;
 }
 
-/** Rebuilds the powerline that `e` belongs to with new settings (one undo step). */
+/**
+ * Rebuilds the powerline that `e` belongs to with new settings or a new route (one undo step) and selects its
+ * first pole. That pole stays the same entity (rebuilt in place), so a selection of it lives through undo and redo.
+ */
 export function editPowerline(editor: Editor, e: MapEntity, patch: Partial<PowerlineSpec>): void {
   const line = powerlineOf(editor.doc.entities, e);
   if (!line) return;
+  const keep = line.first;
   editor.history.group('Edit powerline', () => {
-    editor.history.remove('Remove powerline', [], line.members);
+    editor.history.remove('Remove powerline', [], line.members.filter((m) => m !== keep));
     const doc = editor.doc;
     const spec = { ...line.spec, ...patch };
-    const defs = [...powerlineEntities(spec, line.name), ...(spec.feeds ? feedEntities(editor, spec, line.name) : [])];
+    const [first, ...defs] = [...powerlineEntities(spec, line.name, ground(editor)), ...(spec.feeds ? feedEntities(editor, spec, line.name) : [])];
+    const end = editor.history.begin('Rebuild first pole', [], [keep]);
+    const node = entityNode(editor, first.classname, first.origin, first.keys);
+    node.set('id', String(keep.id));
+    keep.node.items = node.items;
+    keep.reload();
+    end();
     const created = defs.map((x) => doc.addEntity(entityNode(editor, x.classname, x.origin, x.keys)));
     editor.history.added('Add powerline', [], created);
-    editor.selection.set([], created.slice(0, 1));
+    editor.selection.set([], [keep]);
   });
   editor.changed();
 }
 
 /**
- * Click points along the route (the ground height is taken from what's under the cursor); Enter or a
- * double click places the poles and strings the wires. The preview shows where poles will stand.
+ * Click points along the route, A, B, C… (each on the ground under the cursor, on the grid, or on a street's
+ * pavement when near one); Enter or a double click places the poles and strings the wires. Every point has a
+ * pin (`pathPins.ts`): drag it to move the point, click a + to insert one, Alt+click a pin to remove it,
+ * Shift+click a pin to branch from it (that point becomes a tee pole). Shift+click elsewhere branches from the
+ * point before the last one. Backspace takes the last point back, Esc starts over. The preview shows where
+ * poles will stand.
  */
 export class PowerlineTool implements Tool {
   name: ToolName = 'powerline';
   private editor: Editor;
-  private points: Vector3[] = [];
-  private hover: Vector3 | null = null;
+  /** The route placed so far (nothing is built until Enter). */
+  path: PointPath = { points: [], links: [] };
+  /** The point the next click carries on from. */
+  from = 0;
+  /** A placed powerline being carried on (a Shift+click on its pin): Enter rebuilds it instead of adding one. */
+  editing: MapEntity | null = null;
+  private hover: PathPoint | null = null;
   private lines: LineSegments;
   private lastClick = { t: 0, x: 0, y: 0 };
+  /** Counts routes, so a new one drops the picked pin. */
+  private routes = 0;
+  /** The points' pins: dragged, inserted and removed while placing. */
+  readonly pins: PathPins;
   pole: PoleType = 'wooden';
   spacing = 640;
   slack = 0.04;
@@ -86,20 +116,48 @@ export class PowerlineTool implements Tool {
     this.lines.renderOrder = 12;
     this.lines.frustumCulled = false;
     editor.scene.add(this.lines);
+    this.pins = new PathPins(editor, () => editor.tools?.current === this);
   }
 
   activate(): void {}
   deactivate(): void {
-    this.points = [];
+    this.reset();
     this.hover = null;
+    this.redraw();
+    // Still the current tool while it is switched off.
+    this.editor.status = '';
+  }
+
+  /** Forgets the route being placed: the next click starts a new one. */
+  reset(): void {
+    this.path = { points: [], links: [] };
+    this.from = 0;
+    this.editing = null;
+    this.routes++;
     this.redraw();
   }
 
-  private pointAt(ndc: Vector2): Vector3 | null {
+  /** Carries on placing points on a placed powerline (a Shift+click on its pin): from point `from`, else its last point. */
+  continueLine(pole: MapEntity, from = -1): void {
+    const line = powerlineOf(this.editor.doc.entities, pole);
+    if (!line) return;
+    this.reset();
+    Object.assign(this, { pole: line.spec.pole, spacing: line.spec.spacing, slack: line.spec.slack, feeds: !!line.spec.feeds });
+    this.path = powerlinePath(line.spec);
+    this.from = from >= 0 && from < this.path.points.length ? from : this.path.points.length - 1;
+    this.editing = pole;
+    this.redraw();
+  }
+
+  /** The settings and route of the line being placed. */
+  spec(path = this.path): PowerlineSpec {
+    return { ...routeOf(path), pole: this.pole, spacing: this.spacing, slack: this.slack, feeds: this.feeds };
+  }
+
+  private pointAt(ndc: Vector2): PathPoint | null {
     const hit = pickSurface(this.editor, ndc);
     if (!hit) return null;
-    const g = this.editor.grid;
-    return new Vector3(snap(hit.point.x, g), snap(hit.point.y, g), Math.round(hit.point.z));
+    return powerlineSnap(powerlineWorld(this.editor), { x: hit.point.x, y: hit.point.y, z: hit.point.z }, this.editor.grid);
   }
 
   hoverAt(ndc: Vector2): void {
@@ -117,49 +175,119 @@ export class PowerlineTool implements Tool {
     this.lastClick = { t: now, x: e.clientX, y: e.clientY };
     if (double) { this.finish(); return; }
     const p = this.pointAt(ndc);
-    if (p && (!this.points.length || this.points[this.points.length - 1].distanceTo(p) > 16)) this.points.push(p);
+    if (!p) return;
+    if (!this.path.points.length) {
+      this.path = { points: [p], links: [] };
+      this.from = 0;
+      this.redraw();
+      return;
+    }
+    // Shift+click away from the pins: the next span leaves from the point before the last one (a tee there).
+    if (e.shiftKey) {
+      const before = parentOf(this.path, this.from);
+      if (before >= 0) this.from = before;
+    }
+    const f = this.path.points[this.from];
+    if (Math.hypot(p.x - f.x, p.y - f.y) < 16) return;
+    const r = addPoint(this.path, this.from, p);
+    this.path = r.path;
+    this.from = r.added;
     this.redraw();
   }
 
   key(e: KeyboardEvent): boolean {
-    if (!this.points.length) return false;
+    if (!this.path.points.length) return false;
+    if (this.pins.key(e)) return true;
     if (e.key === 'Enter') this.finish();
-    else if (e.key === 'Escape') { this.points = []; this.redraw(); }
-    else if (e.key === 'Backspace' || e.key === 'Delete') { this.points.pop(); this.redraw(); }
+    else if (e.key === 'Escape') this.reset();
+    else if (e.key === 'Backspace' || e.key === 'Delete') this.removeLast();
     else return false;
     return true;
   }
 
-  finish(): void {
-    const pts = this.points;
-    this.points = [];
+  /** Takes the last point back. */
+  private removeLast(): void {
+    if (this.path.points.length < 2) { this.reset(); return; }
+    const i = lastPoint(this.path, this.from);
+    const before = parentOf(this.path, i);
+    const r = removePoint(this.path, i);
+    if (!r) return;
+    this.path = r.path;
+    this.from = Math.max(0, r.moved[before] ?? r.path.points.length - 1);
     this.redraw();
-    if (pts.length < 2) return;
-    const created = addPowerline(this.editor, { points: pts, pole: this.pole, spacing: this.spacing, slack: this.slack, feeds: this.feeds });
-    this.editor.selection.set([], created.slice(0, 1));
-    if (created[0]) this.onBuilt?.(created[0]);
   }
 
+  /** Builds the route placed so far (or rebuilds the placed line being carried on). */
+  finish(): void {
+    const path = this.path, editing = this.editing;
+    this.reset();
+    if (path.points.length < 2) return;
+    const spec = this.spec(path);
+    let first: MapEntity | undefined;
+    if (editing && this.editor.doc.entities.includes(editing)) {
+      editPowerline(this.editor, editing, spec);
+      first = [...this.editor.selection.entities][0];
+    } else {
+      first = addPowerline(this.editor, spec)[0];
+      this.editor.selection.set([], first ? [first] : []);
+    }
+    if (first) this.onBuilt?.(first);
+  }
+
+  /** The route being placed, for the pins: changes only redraw the preview (it is built on Enter). */
+  private readonly pathTarget: PathTarget = {
+    key: '', name: 'Powerline', min: 1, ownHeight: false,
+    path: () => this.path,
+    shown: (path) => path.points,
+    snap: (_path, _i, hit) => powerlineSnap(powerlineWorld(this.editor), hit, this.editor.grid),
+    check: (path, i, before) => powerlineCheck(this.spec(), path, i, before, powerlineWorld(this.editor)),
+    edit: () => {
+      const start = { path: this.path, from: this.from };
+      return {
+        set: (path, moved) => {
+          if (moved) this.from = moved[this.from] >= 0 ? moved[this.from] : path.points.length - 1;
+          this.path = path;
+          this.redraw();
+        },
+        done: () => {},
+        cancel: () => { Object.assign(this, start); this.redraw(); },
+      };
+    },
+    own: () => false,
+    branch: (i) => { this.from = i; this.redraw(); },
+  };
+
   private redraw(): void {
-    const pts = [...this.points, ...(this.hover && this.points.length ? [this.hover] : [])];
+    const path = this.path;
+    const next = this.hover && path.points.length ? addPoint(path, this.from, this.hover) : null;
+    const shown = next?.path ?? path;
     const arr: number[] = [];
-    if (pts.length >= 2) {
-      const spec: PowerlineSpec = { points: pts, pole: this.pole, spacing: this.spacing, slack: this.slack };
-      const poles = polePlacements(spec);
-      for (const p of poles) arr.push(p.at.x, p.at.y, p.at.z, p.at.x, p.at.y, p.at.z + POLE_TYPES[this.pole].wires[0][2]);
-      for (let w = 0; w < POLE_TYPES[this.pole].wires.length; w++) {
-        for (let i = 0; i + 1 < poles.length; i++) {
-          const a = wirePoint(this.pole, poles[i].at, poles[i].yaw, w), b = wirePoint(this.pole, poles[i + 1].at, poles[i + 1].yaw, w);
-          arr.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    const plan = shown.points.length >= 2 ? powerlinePlan(this.spec(shown), ground(this.editor)) : null;
+    if (plan) {
+      const wires = POLE_TYPES[this.pole].wires;
+      for (const p of plan.poles) arr.push(p.at.x, p.at.y, p.at.z, p.at.x, p.at.y, p.at.z + wires[0][2]);
+      for (let w = 0; w < wires.length; w++) {
+        for (const row of plan.runs) {
+          for (let j = 0; j + 1 < row.length; j++) {
+            const a = plan.poles[row[j]], b = plan.poles[row[j + 1]];
+            const pa = wirePoint(this.pole, a.at, a.yaw, w), pb = wirePoint(this.pole, b.at, b.yaw, w);
+            arr.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
+          }
         }
       }
     }
-    for (const p of [...this.points, ...(this.hover ? [this.hover] : [])]) arr.push(p.x - 12, p.y, p.z + 4, p.x + 12, p.y, p.z + 4, p.x, p.y - 12, p.z + 4, p.x, p.y + 12, p.z + 4);
+    for (const p of [...path.points, ...(this.hover ? [this.hover] : [])]) arr.push(p.x - 12, p.y, p.z + 4, p.x + 12, p.y, p.z + 4, p.x, p.y - 12, p.z + 4, p.x, p.y + 12, p.z + 4);
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(arr), 3));
     this.lines.geometry.dispose();
     this.lines.geometry = g;
-    const poles = pts.length >= 2 ? polePlacements({ points: pts, pole: this.pole, spacing: this.spacing, slack: this.slack }).length : 0;
-    this.editor.status = this.points.length ? `Powerline: ${poles} poles · Enter or double-click to build · Backspace undo point · Esc cancel` : '';
+    // Pins for the points, and a dashed one for the next.
+    this.pathTarget.key = `placing-powerline:${this.routes}`;
+    this.pins.ghost = next ? { at: next.path.points[next.added], name: pathLabels(next.path)[next.added] } : null;
+    this.pins.show(path.points.length ? this.pathTarget : null);
+    const poles = plan ? plan.poles.filter((p) => !p.arm).length : 0;
+    this.editor.status = !path.points.length ? 'Powerline · click A, where the line starts'
+      : `Powerline · ${poles} poles · click the next point · Shift+click a pin: branch (tee pole) · ${path.points.length > 1 ? 'Enter or double-click: build · ' : ''}Backspace: take back a point · Esc: start over`;
+    if (this.editor.tools?.current !== this) this.editor.status = '';
   }
 }
