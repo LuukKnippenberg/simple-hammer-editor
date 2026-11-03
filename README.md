@@ -72,7 +72,8 @@ saves the choice to `editor.config.json` and reloads, keeping unsaved work as an
 
 ## License
 
-No license has been chosen yet, so the code is not yet open for reuse. The npm dependencies are MIT
+The editor's code is under the [MIT License](LICENSE). It covers this repository's own work only, not the game
+content it reads or the files listed below. The npm dependencies are MIT
 (three.js, three-mesh-bvh, Vite, Vitest) and Apache-2.0 (TypeScript, playwright-core). Lambda Wars, Half-Life 2
 and Alien Swarm content belongs to its owners; the editor reads textures, models and sounds from your own install and
 doesn't ship them. The repository does include the Lambda Wars wordmark (`public/lambdawars-wordmark.png`), the source of
