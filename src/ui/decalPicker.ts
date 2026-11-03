@@ -1,21 +1,12 @@
 import type { Editor } from '../editor.ts';
-import type { MapEntity } from '../vmf/map.ts';
 import { materialPreview } from '../assets/thumbnails.ts';
-import { DECAL_KINDS, MAX_OVERLAYS, decalKind, placeableDecals } from '../edit/overlays.ts';
+import { assetUses, loadAssets, recentAssets, usedInMap } from '../assets/assetCatalog.ts';
+import { DECAL_KINDS, MAX_OVERLAYS } from '../edit/overlays.ts';
 import { openPicker, kbd, type PickerSource } from './assetPicker.ts';
-import { recentDecals } from './recent.ts';
 import { h } from './dom.ts';
 import './pickers.css';
 
-let decals: Promise<string[]> | null = null;
-
-/** Decal and overlay materials the game has, without blood, impacts and engine helpers. */
-export function loadDecals(): Promise<string[]> {
-  decals ??= Promise.all(['materials/decals', 'materials/overlays'].map((f) =>
-    fetch(`/api/list?folder=${f}&ext=.vmt`).then((r) => (r.ok ? r.json() : [])).catch(() => [])))
-    .then(([a, b]: string[][]) => placeableDecals([...a, ...b]));
-  return decals;
-}
+export { decalTexture } from '../assets/assetCatalog.ts';
 
 /** Backgrounds a decal is previewed on; B in the picker cycles them. */
 export const BACKDROPS = [
@@ -26,20 +17,6 @@ export const backdropClass = () => `bd-${backdrop}`;
 function setBackdrop(id: string): void {
   backdrop = id;
   try { localStorage.setItem('she.decal.backdrop', id); } catch { /* no storage */ }
-}
-
-/** The texture an infodecal or info_overlay shows. */
-export const decalTexture = (e: MapEntity) => (e.get(e.classname === 'info_overlay' ? 'material' : 'texture') ?? '').toLowerCase();
-
-/** How many decals and overlays use each texture in the map. */
-export function decalsInMap(editor: Editor): Map<string, MapEntity[]> {
-  const used = new Map<string, MapEntity[]>();
-  for (const e of editor.doc.entities) {
-    if (e.classname !== 'infodecal' && e.classname !== 'info_overlay') continue;
-    const t = decalTexture(e);
-    if (t) used.set(t, [...used.get(t) ?? [], e]);
-  }
-  return used;
 }
 
 export const overlayCount = (editor: Editor) => editor.doc.entities.filter((e) => e.classname === 'info_overlay').length;
@@ -80,9 +57,9 @@ export async function openDecalPicker(editor: Editor, opts: {
   useLabel: string;
   onPick: (material: string, mode: 'decal' | 'overlay') => void;
 }): Promise<void> {
-  const names = await loadDecals();
-  const items: DecalItem[] = names.map((n) => ({ id: n, name: n.split('/').pop()!, folder: n.startsWith('overlays/') ? 'overlays' : 'decals', kind: decalKind(n) }));
-  const used = decalsInMap(editor);
+  const items: DecalItem[] = (await loadAssets('decal')).map((a) => ({ id: a.id, name: a.name, folder: a.badges.includes('overlay') ? 'overlays' : 'decals', kind: a.group }));
+  const used = usedInMap(editor, 'decal');
+  const recentDecals = recentAssets('decal');
   let mode = opts.mode ?? 'decal';
   let placeAs: '' | 'decals' | 'overlays' = '';
   const placeChip = { id: 'place', label: '', on: false, hidden: true, test: (i: DecalItem) => !placeAs || i.folder === placeAs };
@@ -120,7 +97,7 @@ export async function openDecalPicker(editor: Editor, opts: {
       const sz = h('div.sz', {}, ' ');
       const th = h(`div.th.${backdropClass()}` as 'div');
       el.append(th, h('div.nm', {}, i.name), sz);
-      const n = used.get(i.id)?.length;
+      const n = used.get(i.id);
       if (n) el.append(h('span.badge', {}, `in map ×${n}`));
       if (i.folder === 'overlays') el.append(h('span.ov', {}, 'overlay'));
       whenVisible(() => th.replaceWith(decalThumb(i.id, 'div.th', 64, (w, hh) => (sz.textContent = `${w} × ${hh} px`))));
@@ -143,8 +120,8 @@ export async function openDecalPicker(editor: Editor, opts: {
         });
       });
       big.append(bar);
-      const n = used.get(i.id)?.length ?? 0;
-      const inMap = [h('span', {}, 'In this map'), n ? h('span', {}, `${n} × · `, h('a', { href: '#', onclick: (e: Event) => { e.preventDefault(); close(); editor.selection.set([], used.get(i.id)!); } }, 'select them')) : h('span', {}, 'not used')];
+      const n = used.get(i.id) ?? 0;
+      const inMap = [h('span', {}, 'In this map'), n ? h('span', {}, `${n} × · `, h('a', { href: '#', onclick: (e: Event) => { e.preventDefault(); close(); editor.selection.set([], assetUses(editor, 'decal', i.id).entities); } }, 'select them')) : h('span', {}, 'not used')];
       kv.append(...inMap);
       return h('div.pd', {},
         big,

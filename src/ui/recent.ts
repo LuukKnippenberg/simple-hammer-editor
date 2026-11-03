@@ -1,4 +1,4 @@
-/** Most-recently-used and favourite lists (entity classes, models, decals), kept in this browser. */
+/** Most-recently-used and favourite lists (entity classes, models, materials, decals, sounds), kept in this browser. */
 
 /** `item` moved to the front of `list`, without duplicates, at most `max` long. */
 export function pushRecent(list: string[], item: string, max = 12): string[] {
@@ -50,3 +50,8 @@ export const recentClasses = new StoredList('recent.classes', 8);
 export const recentModels = new StoredList('recent.models', 24);
 export const favouriteModels = new StoredList('fav.models', 200);
 export const recentDecals = new StoredList('recent.decals', 24);
+export const favouriteDecals = new StoredList('fav.decals', 200);
+export const recentMaterials = new StoredList('recent.materials', 24);
+export const favouriteMaterials = new StoredList('fav.materials', 200);
+export const recentSounds = new StoredList('recent.sounds', 24);
+export const favouriteSounds = new StoredList('fav.sounds', 200);
