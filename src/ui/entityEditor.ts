@@ -4,6 +4,7 @@ import { fgdClass, fgdClasses, type FgdClass } from '../assets/fgd.ts';
 import { classChoices, classGroup, classHint } from '../edit/entityClasses.ts';
 import { KEY_GROUPS, classChangePlan, differsFromDefault, effectiveKeys, keyGroup, mergeSelection, type KeyDef, type MergedKey } from '../edit/entityKeys.ts';
 import { deleteSelection, duplicateSelection } from '../edit/actions.ts';
+import { dropTarget, type AssetKind } from '../edit/assetDrop.ts';
 import { ioSection } from './ioEditor.ts';
 import { modelGroups } from './modelField.ts';
 import { decalGroups } from './decalField.ts';
@@ -17,6 +18,8 @@ const OPEN_BY_DEFAULT = new Set<string>(['Model', 'Transform', 'Lambda Wars', 'P
 const isOpen = (label: string, byDefault = OPEN_BY_DEFAULT.has(label)) => groupOpen.get(label) ?? byDefault;
 /** Short labels for keys whose FGD label is long. */
 const LABELS: Record<string, string> = { origin: 'Origin', angles: 'Angles', model: 'Model' };
+/** FGD key types that take an asset dragged from the asset dock. */
+const DROP_KINDS: Record<string, AssetKind> = { material: 'material', decal: 'decal', studio: 'model' };
 
 /** Groups with their own editors at the top of the editor (the model field, a decal's texture). */
 export interface SpecialGroup {
@@ -160,6 +163,8 @@ export function keyRow(editor: Editor, ents: MapEntity[], mk: MergedKey): HTMLEl
     changed ? h('span.chg', { title: 'Differs from the default · right-click to reset' }) : null,
     h('label', {}, label), input,
     mixed ? h('button.ne', { title: 'Mixed values: see them', onclick: (e: MouseEvent) => mixedPopover(e.currentTarget as HTMLElement, label, mk.values, (v) => applyValue(editor, ents, mk.name, v)) }, '≠') : null);
+  const kind = DROP_KINDS[def?.type ?? ''];
+  if (kind) dropTarget(row, kind, `set ${label}${ents.length > 1 ? ` of ${ents.length}` : ''}`, (id) => setKey(editor, ents, mk.name, id));
   row.addEventListener('contextmenu', (e) => {
     if (!def) return;
     e.preventDefault();
