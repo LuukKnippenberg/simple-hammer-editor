@@ -12,7 +12,7 @@ import { applyStairs, deleteStairs, regenerateStairs } from '../gen/stairsAction
 import { stairsMembers, stairsOf } from '../gen/stairsStore.ts';
 import { PathPins, type PathTarget } from './pathPins.ts';
 import { addPoint, lastPoint, normalizePath, parentOf, pathLabels, removePoint, type PointPath } from './pathPoints.ts';
-import { stairsCheck, stairsPath, stairsShown, stairsSnap } from './stairsPath.ts';
+import { stairsCheck, stairsOutline, stairsPath, stairsShown, stairsSnap } from './stairsPath.ts';
 
 /**
  * Places stairs: click A (the foot), click B (the top end), set B's height (move the mouse up or down, scroll, or
@@ -303,17 +303,20 @@ export class StairsTool implements Tool {
     shown: (path) => stairsShown(this.spec(), path),
     snap: (path, i, hit, keep) => stairsSnap(this.spec(), path, i, hit, keep, this.editor.grid),
     check: (path, i, before) => stairsCheck(this.spec(), path, i, before),
+    preview: (path) => stairsOutline(this.spec(), path),
     edit: () => {
       const start = { nodes: this.nodes.map((n) => ({ ...n })), flights: this.flights.map((f) => ({ ...f })), from: this.from };
+      let changed = false;
       return {
         set: (path, moved) => {
+          changed = true;
           if (moved) this.from = moved[this.from] >= 0 ? moved[this.from] : path.points.length - 1;
           this.nodes = path.points.map((n) => ({ ...n }));
           this.flights = path.links.map((f) => ({ ...f }));
           this.applyPath();
         },
         done: () => {},
-        cancel: () => { Object.assign(this, start); this.applyPath(); },
+        cancel: () => { if (changed) { Object.assign(this, start); this.applyPath(); } },
       };
     },
     own: (solid) => !!this.editing && (solid.entity === this.editing || stairsMembers(this.editor.doc, this.uid).world.includes(solid)),

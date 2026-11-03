@@ -1,9 +1,10 @@
 import type { Editor } from '../editor.ts';
-import { VmfDocument, type MapEntity, type MapSolid } from '../vmf/map.ts';
+import { MapSolid, VmfDocument, type MapEntity } from '../vmf/map.ts';
+import { buildBrushFaces } from '../geom/brush.ts';
 import { snap } from './tools.ts';
 import { historyEdit, type PathCheck, type PathTarget } from './pathPins.ts';
 import { isTree, normalizePath, parentOf, pathLabels, type PathPoint, type PointPath } from './pathPoints.ts';
-import { buildStairs, plannedNodes, squareTo, type StairsFlight, type StairsSpec } from '../gen/stairs.ts';
+import { buildStairs, plannedNodes, squareTo, type StairsFlight, type StairsResult, type StairsSpec } from '../gen/stairs.ts';
 import { STAIRS_ID_KEY, stairsMembers, stairsOf } from '../gen/stairsStore.ts';
 import { regenerateStairs, selectedStairs } from '../gen/stairsAction.ts';
 import type { GenerateTool } from './generateTool.ts';
@@ -15,6 +16,34 @@ import type { GenerateTool } from './generateTool.ts';
 
 export const stairsPath = (spec: StairsSpec): PointPath<StairsFlight> => ({ points: spec.nodes, links: spec.flights });
 const withPath = (spec: StairsSpec, path: PointPath): StairsSpec => ({ ...spec, nodes: path.points, flights: path.links as StairsFlight[] });
+
+/**
+ * The stairs a path would build, for checks and previews (no nodraw pass), kept per path: a drag checks and
+ * outlines the same path, and checks every move against the path it started from.
+ */
+const scratch = new WeakMap<object, { options: string; result: StairsResult }>();
+function scratchStairs(spec: StairsSpec, path: PointPath): StairsResult {
+  const options = JSON.stringify(spec.options);
+  const known = scratch.get(path);
+  if (known?.options === options) return known.result;
+  const result = buildStairs(VmfDocument.empty(), withPath(spec, path), false);
+  scratch.set(path, { options, result });
+  return result;
+}
+
+/** What a dragged point's stairs would look like: the edges of every step, landing and rail brush. */
+export function stairsOutline(spec: StairsSpec, path: PointPath): number[] {
+  const out: number[] = [];
+  for (const node of scratchStairs(spec, path).detail) {
+    for (const face of buildBrushFaces(new MapSolid(node, null))) {
+      for (let k = 0; k < face.verts.length; k++) {
+        const a = face.verts[k], b = face.verts[(k + 1) % face.verts.length];
+        out.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      }
+    }
+  }
+  return out;
+}
 
 /** Where the pins sit: where the stairs put the points (the blocky plan squares each flight). */
 export const stairsShown = (spec: StairsSpec, path: PointPath): PathPoint[] => plannedNodes(withPath(spec, path));
@@ -37,8 +66,8 @@ const fmt = (v: number) => String(Math.round(v * 10) / 10);
  * too steep for units, or no room for steps), amber when the point took a surface's height.
  */
 export function stairsCheck(spec: StairsSpec, path: PointPath, i: number, before: PointPath): PathCheck {
-  const now = buildStairs(VmfDocument.empty(), withPath(spec, path));
-  const was = buildStairs(VmfDocument.empty(), withPath(spec, before));
+  const now = scratchStairs(spec, path);
+  const was = scratchStairs(spec, before);
   const names = pathLabels(path);
   const touching = path.links.map((link, k) => ({ link, k })).filter(({ link }) => link.from === i || link.to === i);
   const numbers = touching.map(({ link, k }) => {
@@ -81,6 +110,7 @@ export function placedStairsTarget(editor: Editor, uid: string): PathTarget | nu
     shown: (path) => stairsShown(spec() ?? first, path),
     snap: (path, i, hit, keep) => stairsSnap(spec() ?? first, path, i, hit, keep, editor.grid),
     check: (path, i, before) => stairsCheck(spec() ?? first, path, i, before),
+    preview: (path) => stairsOutline(spec() ?? first, path),
     edit: (label) => historyEdit(editor, label, (path) => {
       const d = detail();
       if (d) regenerateStairs(editor, d, { nodes: path.points, flights: path.links as StairsFlight[] }, label);
