@@ -8,7 +8,8 @@ import {
 
 /**
  * Pins for a path's points (A, B, C…) and a + handle in the middle of every stretch, over the viewport in the 3D and
- * the Top view. Drag a pin to move its point (the object rebuilds live, letting go keeps it as one undo step), click
+ * the Top view. Drag a pin to move its point (an outline shows what it would build and letting go rebuilds it once,
+ * as one undo step; a target without an outline rebuilds live on every move instead), click
  * a + to insert a point, Alt+click a pin to remove it, Shift+click a pin to place more points from it, Tab to pick
  * the next pin, Delete to remove the picked one, Esc to cancel a drag.
  *
@@ -67,6 +68,11 @@ export interface PathTarget {
   check(path: PointPath, i: number, before: PointPath): PathCheck;
   /** Starts a change: a drag, an insert, a removal, a typed number. */
   edit(label: string): PathEdit;
+  /**
+   * What `path` would build, as line segments (x, y, z of both ends, flat), drawn while a pin is dragged; the object
+   * itself stays as it is until the pin is let go. Without it the object rebuilds on every move of the drag.
+   */
+  preview?(path: PointPath): number[];
   /** The object's own brushes: a dragged pin looks through them for the surface under it. */
   own(solid: MapSolid): boolean;
   /** Shift+click on a pin: place more points from it. */
@@ -108,6 +114,9 @@ interface Drag {
   path: PointPath;
   check: PathCheck | null;
   key: string;
+  /** With a preview: nothing is built until the drag ends; `moved` is the + drag's insert, set then. */
+  preview: boolean;
+  moved?: number[];
 }
 
 const PIN_LIFT = 8;
@@ -129,6 +138,8 @@ export class PathPins {
   private tip: HTMLDivElement;
   /** The stretches of a refused point, in red. */
   private lines: LineSegments;
+  /** What a dragged pin would build (the target's preview), in amber. */
+  private outline: LineSegments;
   private press: Press | null = null;
   private drag: Drag | null = null;
 
@@ -148,6 +159,10 @@ export class PathPins {
     this.lines.renderOrder = 13;
     this.lines.frustumCulled = false;
     editor.scene.add(this.lines);
+    this.outline = new LineSegments(new BufferGeometry(), new LineBasicMaterial({ color: 0xffc04a, depthTest: false, transparent: true, opacity: 0.9 }));
+    this.outline.renderOrder = 12;
+    this.outline.frustumCulled = false;
+    editor.scene.add(this.outline);
     this.layer.addEventListener('pointerdown', (e) => this.down(e));
     editor.on('frame', () => this.place());
   }
@@ -282,16 +297,20 @@ export class PathPins {
     const t = this.target!;
     let path = t.path();
     let i = p.pin;
+    let moved: number[] | undefined;
     const names = pathLabels(path);
     const edit = t.edit(p.link >= 0 ? 'Insert point' : `Move point ${names[i]}`);
+    const preview = !!t.preview;
     if (p.link >= 0) {
       const r = insertPoint(path, p.link, this.middle(path, p.link));
-      edit.set(r.path, r.moved);
+      // Without a preview the insert is built now; with one, when the drag ends.
+      if (preview) moved = r.moved;
+      else edit.set(r.path, r.moved);
       path = r.path;
       i = r.added;
     }
     this.selected = i;
-    this.drag = { i, edit, start: path, was: t.shown(path)[i], path, check: null, key: '' };
+    this.drag = { i, edit, start: path, was: t.shown(path)[i], path, check: null, key: '', preview, moved };
   }
 
   private dragTo(e: PointerEvent): void {
@@ -306,7 +325,10 @@ export class PathPins {
     d.key = key;
     d.path = movePoint(d.start, d.i, p);
     d.check = t.check(d.path, d.i, d.start);
-    if (d.check.level !== 'refused') d.edit.set(d.path);
+    if (d.check.level !== 'refused') {
+      if (d.preview) this.setOutline(t.preview!(d.path));
+      else d.edit.set(d.path);
+    } else this.setOutline([]);
     const name = pathLabels(d.path)[d.i];
     ed.status = `Dragging ${name} of ${t.name} · let go to ${d.check.level === 'refused' ? 'put it back' : 'rebuild'}${t.ownHeight ? ' · Shift keeps its height' : ''} · Esc cancels`;
     this.draw();
@@ -318,7 +340,13 @@ export class PathPins {
     if (d.check?.level === 'refused') {
       d.edit.cancel();
       toast(this.editor.container, `Put back: ${d.check.note}`, 3000);
-    } else d.edit.done();
+    } else {
+      // A previewed drag is built now, once (not at all when the point is back where it was and nothing was inserted).
+      const same = JSON.stringify(d.path.points[d.i]) === JSON.stringify(d.start.points[d.i]);
+      if (d.preview && (d.moved || !same)) d.edit.set(d.path, d.moved);
+      d.edit.done();
+    }
+    this.setOutline([]);
     this.editor.status = '';
     this.draw();
     this.editor.emit('pathpins');
@@ -332,11 +360,20 @@ export class PathPins {
     window.removeEventListener('pointerup', this.onUp, true);
     this.press = null;
     d.edit.cancel();
+    this.setOutline([]);
     this.editor.status = '';
     this.draw();
   }
 
   // --- Drawing --------------------------------------------------------------------------------------------
+
+  /** Shows a preview outline (segments, flat x, y, z pairs); [] hides it. */
+  private setOutline(segments: number[]): void {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array(segments), 3));
+    this.outline.geometry.dispose();
+    this.outline.geometry = g;
+  }
 
   /** Keeps a list of elements at `n`, made by `make`. */
   private sized(box: HTMLElement, n: number, make: () => HTMLElement): HTMLElement[] {
@@ -410,7 +447,7 @@ export class PathPins {
     const ed = this.editor;
     const on = !!this.target && this.visible();
     this.layer.hidden = !on;
-    this.lines.visible = on;
+    this.lines.visible = this.outline.visible = on;
     if (!on) return;
     this.layer.classList.toggle('off', !this.enabled());
     const cr = ed.container.getBoundingClientRect(), rr = ed.viewRect();

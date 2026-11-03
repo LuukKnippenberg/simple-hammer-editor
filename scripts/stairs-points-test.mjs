@@ -1,6 +1,7 @@
 // Stairs point pins (pathPins.ts): place A-B-C with a branch, drag a pin while placing, insert with +, Alt+click
-// to remove, finish; then on the placed stairs drag a pin (one undo step), type in the Points list, Tab, Delete a
-// point, refused and adjusted drags, and Layers › Handles off. Exits non-zero when a check fails.
+// to remove, finish; then on the placed stairs drag a pin (an outline while dragging, the map untouched; one rebuild
+// and one undo step on release), type in the Points list, Tab, Delete a point, refused and adjusted drags, Esc
+// during a drag, and Layers › Handles off. Exits non-zero when a check fails.
 //   SHE_PORT=5200 node scripts/stairs-points-test.mjs [--shots <dir>]
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
@@ -58,6 +59,10 @@ await withEditor(async (d, page) => {
     return spec ? spec.nodes.map((n) => [n.x, n.y, n.z]) : null;
   });
   const depth = () => d.eval(() => window.__editor.editor.history.depth);
+  /** The whole map as saved: unchanged while a pin is only being dragged. */
+  const mapText = () => d.eval(() => window.__editor.editor.doc.serialize());
+  /** Vertices of the drag preview outline of the Select tool's pins. */
+  const outline = () => d.eval(() => window.__editor.editor.tools.select.pins.outline.geometry.getAttribute('position').count);
   /** Drags from a screen point to a world point; `hold` runs before letting go. */
   const dragTo = async (from, to, { shift = false, hold } = {}) => {
     const target = await d.project(to);
@@ -125,15 +130,20 @@ await withEditor(async (d, page) => {
   check('placed stairs show their pins', await names(), ['A', 'B', 'C1', 'C2']);
   const before = await placed();
   const steps = await depth();
-  // Drag C2 out along its flight: live rebuild, one undo step, undo puts it back.
+  // Drag C2 out along its flight: an outline while dragging and the map untouched; one rebuild and one undo step on
+  // release; undo puts it back.
+  const mapBefore = await mapText();
   await dragTo(await pinBox('C2'), [-384, 256, 0], {
     shift: true,
     hold: async () => {
-      check('live rebuild while dragging', (await placed())[3], [-384, 256, 160]);
+      check('map unchanged while dragging', (await mapText()) === mapBefore, true);
+      check('no history step while dragging', (await depth()) - steps, 0);
+      check('preview outline while dragging', (await outline()) > 0, true);
       check('green note', await page.$eval('.path-pins:not([hidden]) .path-tip', (e) => e.className), 'path-tip fine');
       await shot('stairs-points-drag-green');
     },
   });
+  check('outline gone after release', await outline(), 0);
   check('C2 moved', (await placed())[3], [-384, 256, 160]);
   check('one undo step for the drag', (await depth()) - steps, 1);
   await d.eval(() => window.__editor.editor.undo());
@@ -153,6 +163,7 @@ await withEditor(async (d, page) => {
 
   // Too steep: C1 (192 over B at 128) next to B is refused (red) and snaps back.
   const beforeRed = await placed();
+  const mapBeforeRed = await mapText();
   const stepsRed = await depth();
   await dragTo(await pinBox('C1'), [96, 256, 0], {
     shift: true,
@@ -163,6 +174,7 @@ await withEditor(async (d, page) => {
     },
   });
   check('refused drag snaps back', await placed(), beforeRed);
+  check('refused drag changes nothing in the map', (await mapText()) === mapBeforeRed, true);
   check('refused drag leaves no undo step', (await depth()) - stepsRed, 0);
 
   // Points list: type C1's x; Tab picks pins; Delete removes the picked point.
@@ -218,6 +230,17 @@ await withEditor(async (d, page) => {
   await d.settle(200);
   check('pins in 3D', await names(), ['A', 'B', 'C']);
   await shot('stairs-points-3d');
+  // Esc during a drag puts the pin back with nothing rebuilt.
+  const mapBeforeEsc = await mapText();
+  const stepsEsc = await depth();
+  await dragTo(await pinBox('C'), [448, 448, 192], {
+    shift: true,
+    hold: async () => {
+      await shot('stairs-points-drag-3d');
+      await d.key('Escape');
+    },
+  });
+  check('Esc during a drag changes nothing', [(await mapText()) === mapBeforeEsc, (await depth()) - stepsEsc, await outline()], [true, 0, 0]);
 
   // Delete with no pin picked removes the whole stairs.
   await d.eval(() => window.__editor.editor.tools.select.pins.select(-1));

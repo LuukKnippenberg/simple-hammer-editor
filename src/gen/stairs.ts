@@ -301,8 +301,11 @@ const flightsAt = (layout: StairsLayout, i: number) => layout.touch[i].map((k) =
 /** A point where two or more flights meet. */
 const isLanding = (layout: StairsLayout, i: number) => flightsAt(layout, i).length >= 2;
 
-/** Builds stairs from a spec. Brushes are numbered in `doc` (not added to it). */
-export function buildStairs(doc: VmfDocument, spec: StairsSpec): StairsResult {
+/**
+ * Builds stairs from a spec. Brushes are numbered in `doc` (not added to it). `hideFaces` false leaves out the
+ * nodraw pass over covered faces (the shapes are the same): for previews and checks that never reach the map.
+ */
+export function buildStairs(doc: VmfDocument, spec: StairsSpec, hideFaces = true): StairsResult {
   const options = { ...DEFAULT_STAIRS, ...spec.options };
   const nodes = plannedNodes({ ...spec, options });
   const base = Math.min(...nodes.map((node) => node.z));
@@ -316,7 +319,7 @@ export function buildStairs(doc: VmfDocument, spec: StairsSpec): StairsResult {
   for (const landing of landings) buildLanding(build, layout, landing);
 
   // Faces against each other and the bottoms on the ground are never seen.
-  hideCoveredFaces(build.detail, { groundAt: () => base });
+  if (hideFaces) hideCoveredFaces(build.detail, { groundAt: () => base });
   return { detail: build.detail, clip: build.clip, flights, landings: landings.map(landingInfo), bounds: stairsBounds(spec, nodes, options), base };
 }
 

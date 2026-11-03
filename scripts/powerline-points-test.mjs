@@ -72,6 +72,13 @@ await withEditor(async (d, page) => {
     };
   });
   const depth = () => d.eval(() => window.__editor.editor.history.depth);
+  /** The whole map as saved: unchanged while a pin is only being dragged. */
+  const mapText = () => d.eval(() => window.__editor.editor.doc.serialize());
+  /** Vertices of the drag preview outline of the shown pins (the Select tool's, else the Powerline tool's). */
+  const outline = () => d.eval(() => {
+    const t = window.__editor.editor.tools;
+    return (t.current === t.select ? t.select : t.tools.powerline).pins.outline.geometry.getAttribute('position').count;
+  });
   const tool = () => d.eval(() => window.__editor.editor.tools.current.name);
   /** Drags from a screen point to a world point; `hold` runs before letting go. */
   const dragTo = async (from, to, { hold } = {}) => {
@@ -117,6 +124,22 @@ await withEditor(async (d, page) => {
   const built = await placed();
   // A–B 2 spans, B–C1 (1305 long) 2, B–C2 2: 7 poles, and the tee's crossarm.
   check('built with a tee pole', built && { links: built.links, poles: built.poles }, { links: [[0, 1], [1, 2], [1, 3]], poles: 8 });
+  // Tune step: the line just built keeps its pins; a drag previews, then rebuilds into the generate's one undo step.
+  check('Tune step keeps the pins', await names(), ['A', 'B', 'C1', 'C2']);
+  const stepsTune = await depth();
+  const mapTune = await mapText();
+  const c2 = built.points[3];
+  await dragTo(await pinBox('C2'), [c2[0], c2[1] + 128, 0], {
+    hold: async () => {
+      check('Tune drag: map unchanged while dragging', (await mapText()) === mapTune, true);
+      check('Tune drag: outline while dragging', (await outline()) > 0, true);
+      await shot('powerline-points-tune-drag');
+    },
+  });
+  check('Tune drag moved C2', (await placed()).points[3], [c2[0], c2[1] + 128]);
+  check('Tune drag joins the generate\'s undo step', (await depth()) - stepsTune, 0);
+  check('still in the Tune step with its pins', [await d.eval(() => window.__editor.editor.tools.tools.generate.session?.step), await names()], ['tune', ['A', 'B', 'C1', 'C2']]);
+  await page.mouse.move(10, 300);
   await d.key('Enter');
   await d.settle(300);
   check('done: Select tool', await tool(), 'select');
@@ -126,23 +149,30 @@ await withEditor(async (d, page) => {
   await shot('powerline-points-placed');
   const before = await placed();
   const steps = await depth();
-  // Drag C1 a little: the poles move with it (green).
+  // Drag C1 a little: an outline of the poles and wires while dragging (the map untouched), green; one rebuild on
+  // release.
+  const mapBefore = await mapText();
   await dragTo(await pinBox('C1'), [2688, 256, 0], {
     hold: async () => {
-      check('live rebuild while dragging', (await placed()).points[2], [2688, 256]);
+      check('map unchanged while dragging', (await mapText()) === mapBefore, true);
+      check('no history step while dragging', (await depth()) - steps, 0);
+      check('outline while dragging', (await outline()) > 0, true);
       check('green note', await page.$eval(tip, (e) => e.className), 'path-tip fine');
+      await shot('powerline-points-drag-preview');
     },
   });
+  check('C1 moved on release', (await placed()).points[2], [2688, 256]);
   // Drag the corner further out: B → C1 needs another pole (amber).
   await dragTo(await pinBox('C1'), [3328, 256, 0], {
     hold: async () => {
       check('amber note', await page.$eval(tip, (e) => e.className), 'path-tip adjusted');
       check('amber says what changed', await page.$eval(tip, (e) => e.firstElementChild.textContent), 'C1 1 pole added');
-      check('poles re-spaced live', (await placed()).poles, 9);
+      check('poles not rebuilt while dragging', (await placed()).poles, 8);
       await shot('powerline-points-drag-amber');
     },
   });
   check('C1 moved', (await placed()).points[2], [3328, 256]);
+  check('poles re-spaced on release', (await placed()).poles, 9);
   check('one undo step per drag', (await depth()) - steps, 2);
   await d.eval(() => window.__editor.editor.undo());
   await d.settle(200);

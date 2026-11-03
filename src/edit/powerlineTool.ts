@@ -4,10 +4,10 @@ import type { MapEntity } from '../vmf/map.ts';
 import type { Tool, ToolName } from './tools.ts';
 import { pickSurface } from './tools.ts';
 import { entityNode } from './actions.ts';
-import { POLE_TYPES, WALL_MOUNT, nextPowerlineName, powerlineEntities, powerlineOf, powerlinePlan, wallMount, wirePoint, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
+import { WALL_MOUNT, nextPowerlineName, powerlineEntities, powerlineOf, powerlinePlan, wallMount, wirePoint, type PoleType, type PowerlineSpec } from '../gen/powerlines.ts';
 import { PathPins, groundAt, type PathTarget } from './pathPins.ts';
 import { addPoint, lastPoint, parentOf, pathLabels, removePoint, type PathPoint, type PointPath } from './pathPoints.ts';
-import { powerlineCheck, powerlinePath, powerlineSnap, powerlineWorld, routeOf } from './powerlinePath.ts';
+import { powerlineCheck, powerlineOutline, powerlinePath, powerlineSnap, powerlineWorld, routeOf } from './powerlinePath.ts';
 
 /**
  * House feeds: from each pole, a sagging wire across to the nearest wall within `reach` on either side of
@@ -109,6 +109,8 @@ export class PowerlineTool implements Tool {
   feeds = true;
   /** Called with the first pole of each powerline it builds (the Generate flow's Tune step). */
   onBuilt?: (pole: MapEntity) => void;
+  /** The pins shown while no points are being placed: the powerline just built, in the Generate flow's Tune step. */
+  tuned?: () => PathTarget | null;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -117,6 +119,8 @@ export class PowerlineTool implements Tool {
     this.lines.frustumCulled = false;
     editor.scene.add(this.lines);
     this.pins = new PathPins(editor, () => editor.tools?.current === this);
+    // The Tune step's powerline comes and goes with the Generate flow (and undo).
+    for (const event of ['generate', 'change']) editor.on(event, () => { if (editor.tools?.current === this && !this.path.points.length) this.redraw(); });
   }
 
   activate(): void {}
@@ -196,8 +200,8 @@ export class PowerlineTool implements Tool {
   }
 
   key(e: KeyboardEvent): boolean {
-    if (!this.path.points.length) return false;
     if (this.pins.key(e)) return true;
+    if (!this.path.points.length) return false;
     if (e.key === 'Enter') this.finish();
     else if (e.key === 'Escape') this.reset();
     else if (e.key === 'Backspace' || e.key === 'Delete') this.removeLast();
@@ -263,19 +267,7 @@ export class PowerlineTool implements Tool {
     const shown = next?.path ?? path;
     const arr: number[] = [];
     const plan = shown.points.length >= 2 ? powerlinePlan(this.spec(shown), ground(this.editor)) : null;
-    if (plan) {
-      const wires = POLE_TYPES[this.pole].wires;
-      for (const p of plan.poles) arr.push(p.at.x, p.at.y, p.at.z, p.at.x, p.at.y, p.at.z + wires[0][2]);
-      for (let w = 0; w < wires.length; w++) {
-        for (const row of plan.runs) {
-          for (let j = 0; j + 1 < row.length; j++) {
-            const a = plan.poles[row[j]], b = plan.poles[row[j + 1]];
-            const pa = wirePoint(this.pole, a.at, a.yaw, w), pb = wirePoint(this.pole, b.at, b.yaw, w);
-            arr.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
-          }
-        }
-      }
-    }
+    if (plan) arr.push(...powerlineOutline(this.pole, plan));
     for (const p of [...path.points, ...(this.hover ? [this.hover] : [])]) arr.push(p.x - 12, p.y, p.z + 4, p.x + 12, p.y, p.z + 4, p.x, p.y - 12, p.z + 4, p.x, p.y + 12, p.z + 4);
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(arr), 3));
@@ -284,7 +276,8 @@ export class PowerlineTool implements Tool {
     // Pins for the points, and a dashed one for the next.
     this.pathTarget.key = `placing-powerline:${this.routes}`;
     this.pins.ghost = next ? { at: next.path.points[next.added], name: pathLabels(next.path)[next.added] } : null;
-    this.pins.show(path.points.length ? this.pathTarget : null);
+    // Nothing being placed: the powerline just built keeps its pins in the Tune step.
+    this.pins.show(path.points.length ? this.pathTarget : this.tuned?.() ?? null);
     const poles = plan ? plan.poles.filter((p) => !p.arm).length : 0;
     this.editor.status = !path.points.length ? 'Powerline · click A, where the line starts'
       : `Powerline · ${poles} poles · click the next point · Shift+click a pin: branch (tee pole) · ${path.points.length > 1 ? 'Enter or double-click: build · ' : ''}Backspace: take back a point · Esc: start over`;
