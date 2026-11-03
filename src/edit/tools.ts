@@ -72,8 +72,10 @@ export function pickSurface(editor: Editor, ndc: Vector2): { point: Vector3; nor
   const ray = editor.raycaster(ndc);
   const b = editor.world.raycast(ray);
   if (b) return { point: b.point, normal: b.normal };
-  const p = ray.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), 0), new Vector3());
-  return p ? { point: p, normal: new Vector3(0, 0, 1) } : null;
+  // Front and Side panes look along the ground: fall back to the plane through 0 facing the pane instead.
+  const n = editor.quad.axes() ? ray.ray.direction.clone().negate() : new Vector3(0, 0, 1);
+  const p = ray.ray.intersectPlane(new Plane(n, 0), new Vector3());
+  return p ? { point: p, normal: n } : null;
 }
 
 interface SideState { plane: Vector3[]; u: TexAxis; v: TexAxis }
@@ -118,6 +120,15 @@ export class SelectTool implements Tool {
   readonly snapMove: SnapMoveTool;
   /** Pins on the points of the selected path (stairs): drag, insert, remove, Tab, Delete. */
   readonly pins: PathPins;
+  /**
+   * A press on the selection or one of its handles in a 2D quad pane: becomes a move or resize along the pane's
+   * two axes once the mouse moves (QuadSpec D).
+   */
+  private paneGrab: { grab: number; at: Vector2; box: Box3; started: boolean } | null = null;
+  /** The box a 2D-pane resize fills (dragUpdate's scale branch then uses it instead of the gizmo). */
+  private resizeTo: Box3 | null = null;
+  /** The undo step's name for a drag that isn't the gizmo's own. */
+  private dragLabel = '';
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -125,6 +136,13 @@ export class SelectTool implements Tool {
     this.gizmo = new TransformControls(editor.camera, editor.renderer.domElement);
     this.gizmo.setSpace('world');
     this.gizmo.setSize(0.9);
+    // The gizmo reads the pointer in the view's own rectangle; in the quad view only a Camera pane reaches it.
+    (this.gizmo as unknown as { _getPointer: (e: PointerEvent) => { x: number; y: number; button: number } })._getPointer = (e) => {
+      if (document.pointerLockElement === editor.renderer.domElement) return { x: 0, y: 0, button: e.button };
+      if (editor.quad.on && editor.quad.kindOf() !== 'camera') return { x: 9, y: 9, button: e.button };
+      const n = editor.ndcFromEvent(e);
+      return { x: n.x, y: n.y, button: e.button };
+    };
     this.gizmo.attach(this.proxy);
     this.gizmo.enabled = false;
     this.gizmo.getHelper().visible = false;
@@ -212,7 +230,7 @@ export class SelectTool implements Tool {
     const solid = hit && !hit.solid.isDisplacement ? hit.solid : null;
     const side = solid ? solid.sides.indexOf(hit!.side) : -1;
     if (mode === 'face') return { part: solid && side >= 0 ? { solid, kind: 'face', side, verts: [] } : null, solid };
-    const r = ed.renderer.domElement.getBoundingClientRect();
+    const r = ed.viewRect();
     const size = new Vector2(r.width, r.height);
     const cursor = new Vector2(((ndc.x + 1) / 2) * size.x, ((1 - ndc.y) / 2) * size.y);
     const part = nearestPart(mode, cursor, ed.activeCamera, size, solid && side >= 0 ? { solid, side } : null, [...ed.selection.editing]);
@@ -307,10 +325,17 @@ export class SelectTool implements Tool {
 
   down(e: PointerEvent): void {
     this.downAt.set(e.clientX, e.clientY);
+    this.paneGrab = null;
+    const sel = this.editor.selection;
+    if (this.editor.quad.axes() && sel.mode === 'object' && !sel.isEmpty) {
+      const grab = this.editor.quad.grabAt(e.clientX, e.clientY);
+      if (grab >= 0) this.paneGrab = { grab, at: new Vector2(e.clientX, e.clientY), box: sel.bounds(), started: false };
+    }
   }
 
   /** Dragging on empty space draws a selection rectangle. */
   move(e: PointerEvent): void {
+    if (this.paneGrab) return this.paneGrabMove(e);
     if (this.gizmo.dragging || this.downAt.distanceTo(new Vector2(e.clientX, e.clientY)) < 6) return;
     if (!this.marquee) {
       this.marquee = document.createElement('div');
@@ -354,7 +379,58 @@ export class SelectTool implements Tool {
     }
   }
 
+  /**
+   * Moves the selection along a 2D pane's axes (drag inside it) or resizes it (drag a handle): snapped to the grid,
+   * one undo step per drag. In Front and Side this is how heights change without the gizmo.
+   */
+  private paneGrabMove(e: PointerEvent): void {
+    const g = this.paneGrab!, ed = this.editor, quad = ed.quad, ax = quad.axes();
+    if (!ax) return;
+    if (!g.started) {
+      if (g.at.distanceTo(new Vector2(e.clientX, e.clientY)) < 4) return;
+      const ok = g.grab === 8 ? this.snapBegin('Move') : this.resizeBegin();
+      if (!ok) { this.paneGrab = null; return; }
+      g.started = true;
+    }
+    const gs = ed.grid, ppu = quad.view().ppu;
+    const du = (e.clientX - g.at.x) / ppu, dv = -(e.clientY - g.at.y) / ppu;
+    if (g.grab === 8) {
+      const d = new Vector3().setComponent(ax.u, snap(du, gs)).setComponent(ax.v, snap(dv, gs));
+      this.snapStep(d);
+      ed.status = `Move ${d.x} ${d.y} ${d.z}`;
+      return;
+    }
+    // Which sides of the rectangle this handle moves (handles run TL, T, TR, R, BR, B, BL, L).
+    const b = g.box, k = g.grab;
+    const lo = b.min.clone(), hi = b.max.clone();
+    const moveU = [0, 6, 7].includes(k) ? -1 : [2, 3, 4].includes(k) ? 1 : 0;
+    const moveV = [0, 1, 2].includes(k) ? 1 : [4, 5, 6].includes(k) ? -1 : 0;
+    if (moveU < 0) lo.setComponent(ax.u, Math.min(snap(b.min.getComponent(ax.u) + du, gs), hi.getComponent(ax.u) - gs));
+    if (moveU > 0) hi.setComponent(ax.u, Math.max(snap(b.max.getComponent(ax.u) + du, gs), lo.getComponent(ax.u) + gs));
+    if (moveV < 0) lo.setComponent(ax.v, Math.min(snap(b.min.getComponent(ax.v) + dv, gs), hi.getComponent(ax.v) - gs));
+    if (moveV > 0) hi.setComponent(ax.v, Math.max(snap(b.max.getComponent(ax.v) + dv, gs), lo.getComponent(ax.v) + gs));
+    this.resizeTo = new Box3(lo, hi);
+    this.dragUpdate();
+    const s = this.resizeTo.getSize(new Vector3());
+    ed.status = `Resize ${Math.round(s.x)} × ${Math.round(s.y)} × ${Math.round(s.z)}`;
+  }
+
+  /** Starts a resize to `resizeTo` (2D panes); false when nothing can be resized. */
+  private resizeBegin(): boolean {
+    if (!this.editor.selection.allSolids().length) return false;
+    this.resizeTo = this.editor.selection.bounds();
+    this.dragLabel = 'Resize';
+    this.dragStart();
+    if (this.start) return true;
+    this.resizeTo = null;
+    this.dragLabel = '';
+    return false;
+  }
+
   up(e: PointerEvent, ndc: Vector2): void {
+    const grab = this.paneGrab;
+    this.paneGrab = null;
+    if (grab?.started) return this.snapEnd();
     if (this.marquee) return this.finishMarquee(e);
     if (this.downAt.distanceTo(new Vector2(e.clientX, e.clientY)) > 4 || this.gizmo.dragging) return;
     const sel = this.editor.selection;
@@ -397,15 +473,17 @@ export class SelectTool implements Tool {
 
   /** Snap move drags translate by `snapD`, whatever the gizmo mode. */
   private get dragMode(): GizmoMode {
-    return this.snapD ? 'translate' : this.mode;
+    return this.snapD ? 'translate' : this.resizeTo ? 'scale' : this.mode;
   }
 
-  /** Starts a move driven by snap move (V) instead of the gizmo; false when nothing can move. */
-  snapBegin(): boolean {
+  /** Starts a move driven by snap move (V) or a 2D pane instead of the gizmo; false when nothing can move. */
+  snapBegin(label = ''): boolean {
     this.snapD = new Vector3();
+    this.dragLabel = label;
     this.dragStart();
     if (this.start || this.sub) return true;
     this.snapD = null;
+    this.dragLabel = '';
     return false;
   }
 
@@ -416,17 +494,19 @@ export class SelectTool implements Tool {
     this.dragUpdate();
   }
 
-  /** Drops it: one undo step, like a gizmo drag. Not moved at all: no step. */
+  /** Drops it: one undo step, like a gizmo drag. Not moved or resized at all: no step. */
   snapEnd(): void {
-    if (!this.snapD) return;
-    if (this.snapD.lengthSq() === 0) return this.snapCancel();
+    if (!this.snapD && !this.resizeTo) return;
+    if (this.snapD ? this.snapD.lengthSq() === 0 : !this.lastKey) return this.snapCancel();
     this.dragEnd();
     this.snapD = null;
+    this.resizeTo = null;
+    this.dragLabel = '';
   }
 
   /** Puts it back where it was, without an undo step. */
   snapCancel(): void {
-    if (!this.snapD) return;
+    if (!this.snapD && !this.resizeTo) return;
     if (this.sub) {
       this.restoreParts();
       this.editor.selection.parts = this.sub.parts;
@@ -443,6 +523,8 @@ export class SelectTool implements Tool {
       this.start = null;
     }
     this.snapD = null;
+    this.resizeTo = null;
+    this.dragLabel = '';
     this.endHistory = null;
     this.lastKey = '';
     this.editor.status = '';
@@ -475,7 +557,7 @@ export class SelectTool implements Tool {
       keys: ents.map((e) => [e, TURNED_KEYS.map((k) => e.get(k))]),
     };
     this.lastKey = '';
-    this.endHistory = this.editor.history.begin(this.snapD ? 'Snap move' : MODE_LABELS[this.dragMode], solids, [...ents, ...brushEnts]);
+    this.endHistory = this.editor.history.begin(this.dragLabel || (this.snapD ? 'Snap move' : MODE_LABELS[this.dragMode]), solids, [...ents, ...brushEnts]);
   }
 
   private restore(): void {
@@ -525,6 +607,15 @@ export class SelectTool implements Tool {
     } else {
       const from = this.start.bounds;
       if (!this.start.solids.length || from.isEmpty()) return;
+      if (this.resizeTo) {
+        const to = this.resizeTo, key = `${to.min.toArray()}|${to.max.toArray()}`;
+        if (key === this.lastKey) return;
+        this.lastKey = key;
+        this.restore();
+        for (const [s] of this.start.solids) remapSolid(s, from, to);
+        this.editor.changed(true);
+        return;
+      }
       const size = from.getSize(new Vector3());
       const sc = this.proxy.scale;
       const ns = new Vector3(Math.max(g, snap(size.x * sc.x, g)), Math.max(g, snap(size.y * sc.y, g)), Math.max(g, snap(size.z * sc.z, g)));
@@ -656,7 +747,10 @@ export class SelectTool implements Tool {
   }
 }
 
-/** Drag a rectangle on any surface to create a block brush on the grid. */
+/**
+ * Drag a rectangle on any surface to create a block brush on the grid. In a 2D quad pane the drag sets the pane's two
+ * axes; the third comes from the last block made, or the surface and Height (Top) or 0 to Height (Front, Side).
+ */
 export class BlockTool implements Tool {
   name: ToolName = 'block';
   private editor: Editor;
@@ -666,6 +760,10 @@ export class BlockTool implements Tool {
   private start: Vector3 | null = null;
   private current = new Vector3();
   private baseZ = 0;
+  /** A drag in a 2D pane: its axes and the range along the hidden one. */
+  private flat: { u: number; v: number; w: number; lo: number; hi: number } | null = null;
+  /** The last block made, for the third dimension of blocks drawn in 2D panes. */
+  private last: Box3 | null = null;
   height = 128;
   shape: ShapeKind = 'box';
   sides = 12;
@@ -680,6 +778,7 @@ export class BlockTool implements Tool {
     this.preview.add(this.box, this.edges);
     this.preview.visible = false;
     editor.scene.add(this.preview);
+    editor.quad.helpers.push(this.preview);
   }
 
   activate(): void {}
@@ -691,6 +790,17 @@ export class BlockTool implements Tool {
   private bounds(): Box3 {
     const g = this.editor.grid;
     const a = this.start!, b = this.current;
+    const f = this.flat;
+    if (f) {
+      const min = new Vector3(), max = new Vector3();
+      for (const k of [f.u, f.v]) {
+        min.setComponent(k, Math.min(a.getComponent(k), b.getComponent(k)));
+        max.setComponent(k, Math.max(a.getComponent(k), b.getComponent(k), min.getComponent(k) + g));
+      }
+      min.setComponent(f.w, f.lo);
+      max.setComponent(f.w, f.hi);
+      return new Box3(min, max);
+    }
     const min = new Vector3(Math.min(a.x, b.x), Math.min(a.y, b.y), this.baseZ);
     const max = new Vector3(Math.max(a.x, b.x), Math.max(a.y, b.y), this.baseZ + this.height);
     if (max.x - min.x < g) max.x = min.x + g;
@@ -707,18 +817,43 @@ export class BlockTool implements Tool {
     this.editor.status = `Block ${s.x} × ${s.y} × ${s.z}`;
   }
 
-  down(_e: PointerEvent, ndc: Vector2): void {
+  down(e: PointerEvent, ndc: Vector2): void {
+    const ax = this.editor.quad.axes();
+    const g = this.editor.grid;
+    this.flat = null;
+    if (ax) {
+      const p = this.editor.quad.worldAt(e.clientX, e.clientY);
+      p.set(snap(p.x, g), snap(p.y, g), snap(p.z, g));
+      let lo = 0, hi = this.height;
+      if (this.last) {
+        lo = this.last.min.getComponent(ax.w);
+        hi = this.last.max.getComponent(ax.w);
+      } else if (ax.w === 2) {
+        lo = snap(pickSurface(this.editor, ndc)?.point.z ?? 0, g);
+        hi = lo + this.height;
+      }
+      this.flat = { ...ax, lo, hi };
+      this.start = p;
+      this.current.copy(p);
+      this.updatePreview();
+      return;
+    }
     const hit = pickSurface(this.editor, ndc);
     if (!hit) return;
-    const g = this.editor.grid;
     this.baseZ = snap(hit.point.z, g);
     this.start = new Vector3(snap(hit.point.x, g), snap(hit.point.y, g), this.baseZ);
     this.current.copy(this.start);
     this.updatePreview();
   }
 
-  move(_e: PointerEvent, ndc: Vector2): void {
+  move(e: PointerEvent, ndc: Vector2): void {
     if (!this.start) return;
+    if (this.flat) {
+      const g = this.editor.grid, p = this.editor.quad.worldAt(e.clientX, e.clientY);
+      this.current.set(snap(p.x, g), snap(p.y, g), snap(p.z, g));
+      this.updatePreview();
+      return;
+    }
     const ray = this.editor.raycaster(ndc);
     const p = ray.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), -this.baseZ), new Vector3());
     if (!p) return;
@@ -731,6 +866,8 @@ export class BlockTool implements Tool {
     if (!this.start) return;
     const b = this.bounds();
     this.start = null;
+    this.flat = null;
+    this.last = b.clone();
     this.preview.visible = false;
     this.editor.status = '';
     const doc = this.editor.doc;
@@ -821,12 +958,16 @@ export class ToolManager {
     const dom = editor.renderer.domElement;
     dom.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || e.altKey || this.select.busy) return;
+      if (!editor.quad.allows(this.current.name)) {
+        toast(editor.container, 'This tool works in the Camera and Top panes', 1800);
+        return;
+      }
       this.active = true;
       this.current.down(e, editor.ndcFromEvent(e));
     });
     window.addEventListener('pointermove', (e) => {
       if (this.active) this.current.move(e, editor.ndcFromEvent(e));
-      else if (e.target === dom && e.buttons === 0) this.current.hoverAt?.(editor.ndcFromEvent(e));
+      else if (e.target === dom && e.buttons === 0 && editor.quad.allows(this.current.name)) this.current.hoverAt?.(editor.ndcFromEvent(e));
     });
     // Before the global shortcuts, so a tool can take Enter, Escape or Backspace.
     window.addEventListener('keydown', (e) => {

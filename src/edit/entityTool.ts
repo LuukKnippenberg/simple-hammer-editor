@@ -36,6 +36,7 @@ export class EntityTool implements Tool {
     this.editor = editor;
     (this.ghost.material as LineBasicMaterial).depthTest = false;
     this.ghost.renderOrder = this.ring.renderOrder = 14;
+    editor.quad.helpers.push(this.ghost, this.ring);
     const dom = editor.renderer.domElement;
     dom.addEventListener('pointerdown', (e) => {
       this.altDown = editor.tools.current === this && e.button === 0 && e.altKey ? { x: e.clientX, y: e.clientY } : null;
@@ -76,7 +77,9 @@ export class EntityTool implements Tool {
     const hit = pickSurface(this.editor, ndc);
     if (!hit) return null;
     const g = this.editor.grid;
-    return new Vector3(snap(hit.point.x, g), snap(hit.point.y, g), Math.round(hit.point.z));
+    // In the Front and Side panes the cursor sets the height too, so it snaps like the other two axes.
+    const k = this.editor.quad.axes()?.w;
+    return new Vector3(snap(hit.point.x, g), snap(hit.point.y, g), k !== undefined && k !== 2 ? snap(hit.point.z, g) : Math.round(hit.point.z));
   }
 
   private hide(): void {
@@ -99,10 +102,10 @@ export class EntityTool implements Tool {
     } else this.editor.scene.remove(this.ring);
     // A label beside the ghost: class and what a click does.
     const v = p.clone().setZ(p.z + s * 2).project(this.editor.activeCamera);
-    const r = this.editor.renderer.domElement;
+    const r = this.editor.viewRect(), c = this.editor.container.getBoundingClientRect();
     this.label.hidden = v.z > 1;
-    this.label.style.left = `${((v.x + 1) / 2) * r.clientWidth + 14}px`;
-    this.label.style.top = `${((1 - v.y) / 2) * r.clientHeight - 10}px`;
+    this.label.style.left = `${r.left - c.left + ((v.x + 1) / 2) * r.width + 14}px`;
+    this.label.style.top = `${r.top - c.top + ((1 - v.y) / 2) * r.height - 10}px`;
     this.label.replaceChildren(h('b', {}, cls), h('span.muted', {}, ` · click to place${cap ? ' · capture area 192' : ''}`));
   }
 
