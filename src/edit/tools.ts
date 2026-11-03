@@ -39,6 +39,7 @@ import { PartOverlay } from './partOverlay.ts';
 import { Extruder } from './extrude.ts';
 import { DecalTool, EntityTool } from './entityTool.ts';
 import { SnapMoveTool } from './snapMoveTool.ts';
+import type { PaneGrab } from '../render/quadView.ts';
 
 export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema' | 'stairs' | 'generate';
 
@@ -124,11 +125,15 @@ export class SelectTool implements Tool {
    * A press on the selection or one of its handles in a 2D quad pane: becomes a move or resize along the pane's
    * two axes once the mouse moves (QuadSpec D).
    */
-  private paneGrab: { grab: number; at: Vector2; box: Box3; started: boolean } | null = null;
+  private paneGrab: { grab: PaneGrab; at: Vector2; box: Box3; started: boolean; angle: number; turned: number } | null = null;
   /** The box a 2D-pane resize fills (dragUpdate's scale branch then uses it instead of the gizmo). */
   private resizeTo: Box3 | null = null;
+  /** A turn from a 2D pane's ring: about which world axis and how far (degrees). */
+  private paneRotate: { axis: Vector3; deg: number } | null = null;
   /** The undo step's name for a drag that isn't the gizmo's own. */
   private dragLabel = '';
+  /** While a 2D pane's rotate ring is dragged: the turn so far in degrees, counter-clockwise on screen (else null). */
+  paneTurn: number | null = null;
 
   constructor(editor: Editor) {
     this.editor = editor;
@@ -326,10 +331,13 @@ export class SelectTool implements Tool {
   down(e: PointerEvent): void {
     this.downAt.set(e.clientX, e.clientY);
     this.paneGrab = null;
-    const sel = this.editor.selection;
-    if (this.editor.quad.axes() && sel.mode === 'object' && !sel.isEmpty) {
-      const grab = this.editor.quad.grabAt(e.clientX, e.clientY);
-      if (grab >= 0) this.paneGrab = { grab, at: new Vector2(e.clientX, e.clientY), box: sel.bounds(), started: false };
+    const sel = this.editor.selection, quad = this.editor.quad, ax = quad.axes();
+    if (ax && sel.mode === 'object' && !sel.isEmpty) {
+      const grab = quad.grabAt(e.clientX, e.clientY);
+      if (grab) {
+        const [u, v] = quad.toUV(quad.input, e.clientX, e.clientY), [cu, cv] = quad.selCentre(ax);
+        this.paneGrab = { grab, at: new Vector2(e.clientX, e.clientY), box: sel.bounds(), started: false, angle: Math.atan2(v - cv, u - cu), turned: 0 };
+      }
     }
   }
 
@@ -380,39 +388,79 @@ export class SelectTool implements Tool {
   }
 
   /**
-   * Moves the selection along a 2D pane's axes (drag inside it) or resizes it (drag a handle): snapped to the grid,
-   * one undo step per drag. In Front and Side this is how heights change without the gizmo.
+   * A drag on the selection or its 2D gizmo in a quad pane (QuadSpec D): moves along the pane's two axes or one
+   * arrow's, turns about the axis the pane looks along, or resizes from a handle. Snapped to the grid (moves and
+   * resizes) or 15° (turns); Shift drags freely, Alt resizes from the centre. One undo step per drag.
    */
   private paneGrabMove(e: PointerEvent): void {
     const g = this.paneGrab!, ed = this.editor, quad = ed.quad, ax = quad.axes();
     if (!ax) return;
+    const grab = g.grab;
     if (!g.started) {
       if (g.at.distanceTo(new Vector2(e.clientX, e.clientY)) < 4) return;
-      const ok = g.grab === 8 ? this.snapBegin('Move') : this.resizeBegin();
+      const ok = grab.kind === 'move' ? this.snapBegin('Move') : grab.kind === 'rotate' ? this.rotateBegin(ax) : this.resizeBegin();
       if (!ok) { this.paneGrab = null; return; }
       g.started = true;
     }
-    const gs = ed.grid, ppu = quad.view().ppu;
+    const gs = e.shiftKey ? 1 : ed.grid, ppu = quad.view().ppu;
     const du = (e.clientX - g.at.x) / ppu, dv = -(e.clientY - g.at.y) / ppu;
-    if (g.grab === 8) {
-      const d = new Vector3().setComponent(ax.u, snap(du, gs)).setComponent(ax.v, snap(dv, gs));
+    if (grab.kind === 'move') {
+      const d = new Vector3();
+      if (grab.axes !== 'v') d.setComponent(ax.u, snap(du, gs));
+      if (grab.axes !== 'u') d.setComponent(ax.v, snap(dv, gs));
       this.snapStep(d);
-      ed.status = `Move ${d.x} ${d.y} ${d.z}`;
+      ed.status = `Move ${d.x} ${d.y} ${d.z}${e.shiftKey ? ' · free' : ''}`;
+      return;
+    }
+    if (grab.kind === 'rotate') {
+      const [u, v] = quad.toUV(quad.input, e.clientX, e.clientY), [cu, cv] = quad.selCentre(ax);
+      // Unwrapped, so turns past half a circle keep going.
+      const a = Math.atan2(v - cv, u - cu);
+      let step = a - g.angle;
+      if (step > Math.PI) step -= Math.PI * 2;
+      if (step < -Math.PI) step += Math.PI * 2;
+      g.angle = a;
+      g.turned += step;
+      const turn = snapAngle((g.turned * 180) / Math.PI, this.rotateSnap && !e.shiftKey ? this.rotateStep : 0);
+      this.paneTurn = turn;
+      // Counter-clockwise on screen turns about u × v, which points against the world axis in the Side pane.
+      const sign = new Vector3().setComponent(ax.u, 1).cross(new Vector3().setComponent(ax.v, 1)).getComponent(ax.w);
+      this.paneRotate!.deg = turn * sign;
+      this.dragUpdate();
       return;
     }
     // Which sides of the rectangle this handle moves (handles run TL, T, TR, R, BR, B, BL, L).
-    const b = g.box, k = g.grab;
+    const b = g.box, k = grab.handle;
     const lo = b.min.clone(), hi = b.max.clone();
     const moveU = [0, 6, 7].includes(k) ? -1 : [2, 3, 4].includes(k) ? 1 : 0;
     const moveV = [0, 1, 2].includes(k) ? 1 : [4, 5, 6].includes(k) ? -1 : 0;
-    if (moveU < 0) lo.setComponent(ax.u, Math.min(snap(b.min.getComponent(ax.u) + du, gs), hi.getComponent(ax.u) - gs));
-    if (moveU > 0) hi.setComponent(ax.u, Math.max(snap(b.max.getComponent(ax.u) + du, gs), lo.getComponent(ax.u) + gs));
-    if (moveV < 0) lo.setComponent(ax.v, Math.min(snap(b.min.getComponent(ax.v) + dv, gs), hi.getComponent(ax.v) - gs));
-    if (moveV > 0) hi.setComponent(ax.v, Math.max(snap(b.max.getComponent(ax.v) + dv, gs), lo.getComponent(ax.v) + gs));
+    const side = (axis: number, dir: number, d: number) => {
+      if (!dir) return;
+      const from = (dir < 0 ? b.min : b.max).getComponent(axis), to = snap(from + d, gs), moved = to - from;
+      (dir < 0 ? lo : hi).setComponent(axis, to);
+      // Alt: the opposite side moves the other way, so the centre stays.
+      if (e.altKey) (dir < 0 ? hi : lo).setComponent(axis, (dir < 0 ? b.max : b.min).getComponent(axis) - moved);
+    };
+    side(ax.u, moveU, du);
+    side(ax.v, moveV, dv);
+    for (const axis of [ax.u, ax.v]) if (hi.getComponent(axis) - lo.getComponent(axis) < ed.grid) return;
     this.resizeTo = new Box3(lo, hi);
     this.dragUpdate();
     const s = this.resizeTo.getSize(new Vector3());
-    ed.status = `Resize ${Math.round(s.x)} × ${Math.round(s.y)} × ${Math.round(s.z)}`;
+    ed.status = `Resize ${Math.round(s.x)} × ${Math.round(s.y)} × ${Math.round(s.z)}${e.altKey ? ' · from the centre' : ''}`;
+  }
+
+  /** Starts a turn from a 2D pane's ring about the axis the pane looks along; false when nothing can turn. */
+  private rotateBegin(ax: { w: number }): boolean {
+    this.paneRotate = { axis: new Vector3().setComponent(ax.w, 1), deg: 0 };
+    this.paneTurn = 0;
+    this.dragLabel = 'Rotate';
+    this.dragStart();
+    if (this.start) return true;
+    this.paneRotate = null;
+    this.paneTurn = null;
+    this.dragLabel = '';
+    return false;
   }
 
   /** Starts a resize to `resizeTo` (2D panes); false when nothing can be resized. */
@@ -473,7 +521,7 @@ export class SelectTool implements Tool {
 
   /** Snap move drags translate by `snapD`, whatever the gizmo mode. */
   private get dragMode(): GizmoMode {
-    return this.snapD ? 'translate' : this.resizeTo ? 'scale' : this.mode;
+    return this.snapD ? 'translate' : this.resizeTo ? 'scale' : this.paneRotate ? 'rotate' : this.mode;
   }
 
   /** Starts a move driven by snap move (V) or a 2D pane instead of the gizmo; false when nothing can move. */
@@ -496,17 +544,20 @@ export class SelectTool implements Tool {
 
   /** Drops it: one undo step, like a gizmo drag. Not moved or resized at all: no step. */
   snapEnd(): void {
-    if (!this.snapD && !this.resizeTo) return;
-    if (this.snapD ? this.snapD.lengthSq() === 0 : !this.lastKey) return this.snapCancel();
+    if (!this.snapD && !this.resizeTo && !this.paneRotate) return;
+    const unchanged = this.snapD ? this.snapD.lengthSq() === 0 : this.paneRotate ? !this.paneRotate.deg : !this.lastKey;
+    if (unchanged) return this.snapCancel();
     this.dragEnd();
     this.snapD = null;
     this.resizeTo = null;
+    this.paneRotate = null;
+    this.paneTurn = null;
     this.dragLabel = '';
   }
 
   /** Puts it back where it was, without an undo step. */
   snapCancel(): void {
-    if (!this.snapD && !this.resizeTo) return;
+    if (!this.snapD && !this.resizeTo && !this.paneRotate) return;
     if (this.sub) {
       this.restoreParts();
       this.editor.selection.parts = this.sub.parts;
@@ -524,6 +575,8 @@ export class SelectTool implements Tool {
     }
     this.snapD = null;
     this.resizeTo = null;
+    this.paneRotate = null;
+    this.paneTurn = null;
     this.dragLabel = '';
     this.endHistory = null;
     this.lastKey = '';
@@ -546,14 +599,14 @@ export class SelectTool implements Tool {
         return;
       }
       // Only the three axis rings; the view ring and the free trackball are not used.
-      if (!GIZMO_AXES[this.gizmo.axis ?? '']) return;
+      if (!this.paneRotate && !GIZMO_AXES[this.gizmo.axis ?? '']) return;
     }
     this.start = {
       pivot: this.proxy.position.clone(),
       bounds: sel.bounds(),
       solids: solids.map((s) => [s, s.sides.map((side) => ({ plane: side.plane.map((p) => p.clone()), u: { ...side.uaxis, axis: side.uaxis.axis.clone() }, v: { ...side.vaxis, axis: side.vaxis.axis.clone() } }))]),
       ents: ents.map((e) => [e, e.origin ?? new Vector3()]),
-      axis: GIZMO_AXES[this.gizmo.axis ?? ''] ?? null,
+      axis: this.paneRotate?.axis ?? GIZMO_AXES[this.gizmo.axis ?? ''] ?? null,
       keys: ents.map((e) => [e, TURNED_KEYS.map((k) => e.get(k))]),
     };
     this.lastKey = '';
@@ -595,7 +648,7 @@ export class SelectTool implements Tool {
     } else if (this.dragMode === 'rotate') {
       const axis = this.start.axis;
       if (!axis) return;
-      const deg = snapAngle(angleAbout(this.proxy.quaternion, axis), this.rotateSnap && !this.shift ? this.rotateStep : 0);
+      const deg = this.paneRotate ? this.paneRotate.deg : snapAngle(angleAbout(this.proxy.quaternion, axis), this.rotateSnap && !this.shift ? this.rotateStep : 0);
       const key = deg.toFixed(2);
       if (key === this.lastKey) return;
       this.lastKey = key;
@@ -957,7 +1010,8 @@ export class ToolManager {
     this.current = this.select;
     const dom = editor.renderer.domElement;
     dom.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.altKey || this.select.busy) return;
+      // Alt+left orbits the camera; in a 2D quad pane it resizes from the centre instead.
+      if (e.button !== 0 || (e.altKey && !(editor.quad.axes() && this.current === this.select)) || this.select.busy) return;
       if (!editor.quad.allows(this.current.name)) {
         toast(editor.container, 'This tool works in the Camera and Top panes', 1800);
         return;
