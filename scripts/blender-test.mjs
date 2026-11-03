@@ -181,6 +181,8 @@ await withEditor(async (d, page) => {
   check('Edit its blend opens on the patch’s blend', await page.inputValue(`${blend} .bl-name`), 'bt_canal');
   await page.click(`${layerCard(1)} button:has-text("Change…")`);
   await page.waitForSelector('.blend-tex-picker .ptile');
+  // The asset finder's one-time hint counts Change… clicks, but not ones inside a dialog: its bubble would cover the browser.
+  check('no asset finder bubble over the texture browser', await page.locator('.ad-bubble').count(), 0);
   const textures = await d.eval(async () => (await (await fetch('/api/groundtextures')).json()));
   check('ground textures leave out alpha (leaves01, treeline001a)', ['nature/leaves01', 'nature/treeline001a'].filter((t) => textures.includes(t)), []);
   check('… but keep ordinary ground', ['nature/mud01', 'nature/forest_grass_01'].every((t) => textures.includes(t)), true);
