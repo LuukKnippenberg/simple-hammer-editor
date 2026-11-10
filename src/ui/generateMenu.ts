@@ -9,7 +9,7 @@ import '../gen/poi/catalogue.ts';
 
 /**
  * The Generate button at the bottom of the tool rail and its menu: everything the editor builds, grouped, each
- * with how it is placed. G opens and closes it, 1–8 pick, Enter repeats the last generator, Esc closes. The keys
+ * with how it is placed. G opens and closes it, 1–9 pick, Enter repeats the last generator, Esc closes. The keys
  * of the Generate flow (Enter: done, Esc: a step back) are handled here too.
  */
 
@@ -34,7 +34,7 @@ function describe(g: GeneratorDef): string {
 
 /** The rail's Generate button (mounts the menu). */
 export function mountGenerateButton(editor: Editor): HTMLButtonElement {
-  const btn = h('button.gen-btn', { ...tip('Generate: buildings, blocks, interiors, roads, powerlines, stairs and points of interest', 'G'), 'aria-haspopup': 'menu' });
+  const btn = h('button.gen-btn', { ...tip('Generate: buildings, blocks, interiors, roads, powerlines, fences, stairs and points of interest', 'G'), 'aria-haspopup': 'menu' });
   const menu = h('div.gen-menu', { role: 'menu', hidden: true });
   document.body.append(menu);
   let open = false;

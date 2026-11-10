@@ -157,7 +157,7 @@ open them in rail order and Alt+P toggles the pin.
 
 | Panel | Contents |
 |---|---|
-| Selection | The inspector: FGD-typed entity fields, brush sizes, the outputs editor and *Fired by* list, and the settings of whatever generator made the selection (buildings, POI, road, powerline, stairs, interior building). |
+| Selection | The inspector: FGD-typed entity fields, brush sizes, the outputs editor and *Fired by* list, and the settings of whatever generator made the selection (buildings, POI, road, powerline, fence, stairs, interior building). |
 | Material | Not a panel: opens the asset finder (below) on Materials. |
 | Entities | The entity class palette for the Entity tool. |
 | POI | Point-of-interest types and their settings (see [generators/points-of-interest.md](generators/points-of-interest.md)). |
@@ -230,6 +230,7 @@ fill that brush instead. The whole generate is one undo step.
 | 6 (or 9 anywhere) | Powerline | click points | [generators/roads-powerlines.md](generators/roads-powerlines.md) |
 | 7 (or P anywhere) | Point of interest | drag | [generators/points-of-interest.md](generators/points-of-interest.md) |
 | 8 | Stairs | click A, B and the height | below |
+| 9 | Fence | click points | [generators/fences.md](generators/fences.md) |
 
 Shift while dragging a footprint makes it square.
 

@@ -33,7 +33,7 @@ port. Copy `editor.config.json` into the worktree if the main checkout has one; 
 | `src/assets/` | VMT, VTF, MDL/VVD/VTX and PCF readers, FGD access, thumbnails |
 | `src/render/` | world, entity, decal and rope renderers, camera controls, top view, lighting preview, overlays |
 | `src/edit/` | tools, selection, history (undo), brush editing, terrain, decals, generators' tool flows |
-| `src/gen/` | generators: buildings, interiors, rooms, roads, powerlines, POIs, stairs, sketch and layout |
+| `src/gen/` | generators: buildings, interiors, rooms, roads, powerlines, fences, POIs, stairs, sketch and layout |
 | `src/lw/` | Lambda Wars specifics: kits, unit catalogue, mission flowchart, map settings, map templates, cinematics |
 | `src/audio/` | soundscape parsing and the audio preview |
 | `src/ui/` | panels, dialogs, toolbar, sidebar |

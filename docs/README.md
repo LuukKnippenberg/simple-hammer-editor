@@ -23,6 +23,7 @@ Start with the [project README](../README.md) for setup, the main workflow and t
 - [generators/rooms.md](generators/rooms.md): interior buildings made of typed rooms, and the room designer.
 - [generators/roads-powerlines.md](generators/roads-powerlines.md): roads, crossings, street materials, powerlines
   and house feeds.
+- [generators/fences.md](generators/fences.md): fences along points, models or brushes, doorways and gates.
 - [generators/points-of-interest.md](generators/points-of-interest.md): the POI toolkit, water, the catalogue of 35
   types, map integration and the route check.
 

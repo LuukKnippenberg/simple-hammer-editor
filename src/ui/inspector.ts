@@ -45,6 +45,13 @@ import { stairsSheet } from './stairsOptions.ts';
 import type { GenerateTool } from '../edit/generateTool.ts';
 import { VmfDocument } from '../vmf/map.ts';
 import { snapMoveSection } from './snapMovePanel.ts';
+import { deleteFence, duplicateFence, regenerateFence, selectedFences } from '../gen/fenceAction.ts';
+import { fenceOf } from '../gen/fenceStore.ts';
+import { fencePatch } from '../gen/fences.ts';
+import { fenceKey, continueFence } from '../edit/fencePath.ts';
+import type { FenceTool } from '../edit/fenceTool.ts';
+import { fenceDoorwaysSection, fencePointsSection, fenceSheet } from './fenceOptions.ts';
+import { fenceTuneSummary } from '../edit/generateTool.ts';
 
 /** Properties of the selection: entity keyvalues (typed from the FGD) or brush size and materials. */
 export function mountInspector(editor: Editor): HTMLElement {
@@ -92,6 +99,12 @@ export function mountInspector(editor: Editor): HTMLElement {
     const stairs = selectedStairs(editor);
     if (stairs.length) {
       panel.append(...stairsPanel(editor, stairs));
+      return;
+    }
+    // Fence handles stand for their fences.
+    const fences = selectedFences(editor);
+    if (fences.length) {
+      panel.append(...fencePanel(editor, fences));
       return;
     }
     // Interior building handles stand for their buildings.
@@ -358,6 +371,28 @@ function stairsPanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
   });
   const sheet = h('div.section.stairs-sheet', {}, h('h3', {}, 'Stairs'), ...stairsSheet({ spec, result, set: (options) => edit({ options }), setFlight }));
   return [head, points, sheet];
+}
+
+/**
+ * A selected fence: what it is, the same option sheet as the Tune step (every change rebuilds it), its points (the
+ * pins' Points list) and its doorways. Add points carries on placing points on it with the Fence tool.
+ */
+function fencePanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
+  const one = details.length === 1 ? details[0] : null;
+  const spec = one ? fenceOf(one) : null;
+  const head = h('div.section', {}, h('h3', {}, 'Selection'),
+    h('div', {}, details.length > 1 ? `${details.length} fences` : '🚧 Fence'),
+    h('p.hint', {}, 'Drag a pin to move a point, click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to place more from it. Drag a doorway chip along the fence. The gizmo moves the whole fence (W). Ctrl+D duplicates, Delete removes it (or the picked point). Hide the handles (Handles in the view bar) to pick single props and brushes.'));
+  if (!one || !spec) return [head];
+  head.append(h('div.gen-summary', {}, fenceTuneSummary(one)),
+    h('div.row', {},
+      h('button.primary', { title: 'Click more points from the last one; Shift+click a pin to branch from it', onclick: () => continueFence(editor, one, -1) }, 'Add points…'),
+      h('button', { onclick: () => duplicateFence(editor, one) }, 'Duplicate'),
+      h('button', { onclick: () => deleteFence(editor, one) }, 'Delete')));
+  const sheet = h('div.section', {}, h('h3', {}, 'Fence'), ...fenceSheet(spec, (patch) => regenerateFence(editor, one, fencePatch(spec, patch))));
+  const pins = editor.tools.select.pins;
+  const target = pins.target?.key === fenceKey(spec.uid) && editor.tools.current === editor.tools.select ? pins.target : null;
+  return [head, sheet, fencePointsSection(editor, fenceKey(spec.uid)), fenceDoorwaysSection(target, (editor.tools.tools.fence as FenceTool).placedDoors)];
 }
 
 const LAYOUT_LABEL = { block: 'Block of buildings', single: 'Building', house: 'Simple interior building' } as const;
