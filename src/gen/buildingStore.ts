@@ -1,4 +1,4 @@
-import { Box3, Vector3 } from 'three';
+import { Box3, Vector2, Vector3 } from 'three';
 import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import { MapSolid, VmfDocument, type MapEntity } from '../vmf/map.ts';
 import { solidBounds } from '../edit/brushes.ts';
@@ -8,7 +8,8 @@ import { streetDressing, type BlockDressing } from './streets.ts';
 import type { FeatureEntity } from './facadeFeatures.ts';
 import { Rng } from './rng.ts';
 import { BUILDING_HANDLE, findHandle, isGeneratorHandle, newHandle, type HandleRect } from './handle.ts';
-import { shiftCuts } from './sketchShapes.ts';
+import { decodeCuts, encodeCuts, shiftCuts } from './sketchShapes.ts';
+import { fineTurn, normAngle, turnEntity, turnPoint, turnSolidNode, unturn, type Turn } from './turn.ts';
 import { resolveExtras } from './extras.ts';
 
 /**
@@ -34,9 +35,18 @@ export interface BlockSpec {
   street: StreetMode;
   /** Seed of the group's street dressing (the same on every block of the group). */
   groupSeed: number;
+  /**
+   * The footprint. With an angle that isn't a quarter turn it is the block's footprint at the nearest quarter turn,
+   * and the generated block is turned the rest of the way about its centre (see `src/gen/turn.ts`).
+   */
   rect: HandleRect;
   z: number;
   options: BuildingOptions;
+  /**
+   * Degrees counter-clockwise, within 45° of 0 (a quarter turn swaps the footprint's sides instead, see
+   * `turnBlockBy`); older blocks have none (0).
+   */
+  angle?: number;
 }
 
 const clean = (s: string) => s.replace(/[|;="]/g, ' ').trim();
@@ -60,18 +70,21 @@ export function decodeOptions(s: string): BuildingOptions {
 
 export function encodeBlock(b: BlockSpec): string {
   const r = b.rect;
-  return [b.uid, b.group, b.street, b.groupSeed, `${Math.round(r.x0)} ${Math.round(r.y0)} ${Math.round(r.x1)} ${Math.round(r.y1)}`, Math.round(b.z), encodeOptions(b.options)].join('|');
+  const angle = normAngle(b.angle ?? 0);
+  // The angle is only written when there is one, so blocks without keep their stored text.
+  return [b.uid, b.group, b.street, b.groupSeed, `${Math.round(r.x0)} ${Math.round(r.y0)} ${Math.round(r.x1)} ${Math.round(r.y1)}`, Math.round(b.z), encodeOptions(b.options), ...(angle ? [angle] : [])].join('|');
 }
 
 export function decodeBlock(s: string): BlockSpec | null {
   const parts = s.split('|');
   if (parts.length < 7) return null;
-  const [uid, group, street, gseed, rs, z, opts] = parts;
+  const [uid, group, street, gseed, rs, z, opts, ang] = parts;
   const [x0, y0, x1, y1] = rs.split(' ').map(Number);
   if (![x0, y0, x1, y1].every(Number.isFinite) || !uid) return null;
   return {
     uid, group: group || uid, street: (['flat', 'ground', 'none'].includes(street) ? street : 'flat') as StreetMode,
     groupSeed: Number(gseed) || 1, rect: { x0, y0, x1, y1 }, z: Number(z) || 0, options: decodeOptions(opts),
+    ...(normAngle(Number(ang) || 0) ? { angle: normAngle(Number(ang)) } : {}),
   };
 }
 
@@ -89,6 +102,35 @@ export function blockOf(e: MapEntity | null | undefined): BlockSpec | null {
 
 /** The footprint generateBuildings takes. */
 export const footprintOf = (b: BlockSpec): Box3 => new Box3(new Vector3(b.rect.x0, b.rect.y0, b.z), new Vector3(b.rect.x1, b.rect.y1, b.z));
+
+/** How a block at an angle is turned after it is generated (about its footprint's centre, less `shift`), or null. */
+export function blockTurn(b: BlockSpec, shift = new Vector3()): Turn | null {
+  const r = b.rect;
+  return fineTurn({ x0: r.x0 - shift.x, y0: r.y0 - shift.y, x1: r.x1 - shift.x, y1: r.y1 - shift.y }, b.angle ?? 0);
+}
+
+/** Cut polygons (an option string) turned. */
+function turnCuts(s: string | undefined, t: Turn): string | undefined {
+  if (!s) return s;
+  return encodeCuts(decodeCuts(s).map((p) => p.map((q) => new Vector2(...turnPoint(t, q.x, q.y)))));
+}
+
+/**
+ * Generates a block: buildings in its footprint, turned with the block when it stands at an angle (brushes with
+ * their texture axes, entities). Cuts are world shapes, so they are turned back into the block's frame first.
+ * `shift` as in `storeBlock`; the street dressing input stays in the block's own (unturned) frame.
+ */
+export function generateBlock(doc: VmfDocument, spec: BlockSpec, shift?: Vector3): GeneratedBuildings {
+  const turn = blockTurn(spec, shift);
+  const fp = shift ? footprintOf(spec).translate(new Vector3(-shift.x, -shift.y, 0)) : footprintOf(spec);
+  let cut = shift ? shiftCuts(spec.options.cut, -shift.x, -shift.y) : spec.options.cut;
+  if (turn) cut = turnCuts(cut, unturn(turn));
+  const out = generateBuildings(doc, fp, shift || turn ? { ...spec.options, cut } : spec.options);
+  if (!turn) return out;
+  for (const n of [...out.solids, ...out.detail]) turnSolidNode(n, turn);
+  out.entities = out.entities.map((e) => turnEntity(e, turn));
+  return out;
+}
 
 // --- World brush ids ---------------------------------------------------------------------------------------
 
@@ -211,7 +253,7 @@ export function storeBlock(doc: VmfDocument, spec: BlockSpec, out: GeneratedBuil
 /** A block's handle node; `shift` as in `storeBlock` (the handle is built where the document still is). */
 export function blockHandleNode(doc: VmfDocument, spec: BlockSpec, shift = new Vector3()): KVNode {
   const r = spec.rect;
-  return newHandle(doc, BUILDING_HANDLE, spec.uid, { x0: r.x0 - shift.x, y0: r.y0 - shift.y, x1: r.x1 - shift.x, y1: r.y1 - shift.y }, spec.z);
+  return newHandle(doc, BUILDING_HANDLE, spec.uid, { x0: r.x0 - shift.x, y0: r.y0 - shift.y, x1: r.x1 - shift.x, y1: r.y1 - shift.y }, spec.z, spec.angle ?? 0);
 }
 
 type EntityMaker = (classname: string, origin: Vector3, keys: Record<string, string>) => KVNode;
@@ -221,9 +263,8 @@ type EntityMaker = (classname: string, origin: Vector3, keys: Record<string, str
  * entities and its handle. The block's footprint is `spec`'s rectangle less `shift`.
  */
 export function blockIntoDoc(doc: VmfDocument, spec: BlockSpec, entity: EntityMaker, shift = new Vector3()): { world: KVNode[]; entities: KVNode[]; out: GeneratedBuildings } {
-  const fp = footprintOf(spec).translate(new Vector3(-shift.x, -shift.y, 0));
   // Built where the document still is: cuts (stored in world units, like the footprint) move with it.
-  const out = generateBuildings(doc, fp, { ...spec.options, cut: shiftCuts(spec.options.cut, -shift.x, -shift.y) });
+  const out = generateBlock(doc, spec, shift);
   const detail = storeBlock(doc, spec, out, null, shift);
   const ents = out.entities.map((e) => entity(e.classname, e.origin, { ...e.keys, [BLOCK_ID_KEY]: spec.uid }));
   return { world: out.solids, entities: [detail, ...ents, blockHandleNode(doc, spec, shift)], out };
@@ -246,7 +287,7 @@ export function rememberDressing(b: BlockSpec, d: BlockDressing): void {
 export function dressingOf(b: BlockSpec): BlockDressing {
   const known = dressings.get(dressingKey(b));
   if (known) return known;
-  const d = generateBuildings(VmfDocument.empty(), footprintOf(b), b.options).dressing;
+  const d = generateBlock(VmfDocument.empty(), b).dressing;
   rememberDressing(b, d);
   return d;
 }
@@ -261,8 +302,22 @@ export function groupStreet(blocks: BlockSpec[], groundAt?: (x: number, y: numbe
   const lead = blocks[0];
   if (!lead || lead.street === 'none') return [];
   const ds = blocks.map((b, i) => known[i] ?? dressingOf(b));
-  return streetDressing(ds, rng ?? new Rng(lead.groupSeed * 3 + 1), { groundAt: lead.street === 'ground' ? groundAt : undefined, extras: blocks.map((b) => resolveExtras(b.options)) })
-    .map((e) => ({ ...e, keys: { ...ropeNames(e.keys, lead.group), [GROUP_KEY]: lead.group } }));
+  const ground = lead.street === 'ground' ? groundAt : undefined;
+  const tag = (e: FeatureEntity, ropes = lead.group): FeatureEntity => ({ ...e, keys: { ...ropeNames(e.keys, ropes), [GROUP_KEY]: lead.group } });
+  // The street pass works on axis-aligned blocks: blocks at an angle are left out of it and dressed on their own.
+  const straight = blocks.map((_, i) => i).filter((i) => !blockTurn(blocks[i]));
+  const out = streetDressing(straight.map((i) => ds[i]), rng ?? new Rng(lead.groupSeed * 3 + 1), { groundAt: ground, extras: straight.map((i) => resolveExtras(blocks[i].options)) })
+    .map((e) => tag(e));
+  // A block at an angle: its own lamps and trees, dressed in its own frame and turned with it (no cables across to the
+  // others, whose walls don't face it squarely).
+  blocks.forEach((b, i) => {
+    const turn = blockTurn(b);
+    if (!turn) return;
+    const at = ground && ((x: number, y: number) => ground(...turnPoint(turn, x, y)));
+    out.push(...streetDressing([ds[i]], new Rng(lead.groupSeed * 3 + 1 + 7919 * (i + 1)), { groundAt: at, extras: [resolveExtras(b.options)] })
+      .map((e) => tag(turnEntity(e, turn), `${lead.group}t${i}`)));
+  });
+  return out;
 }
 
 /** Cable keyframes named after the group, so two groups built with the same seed never link each other's. */

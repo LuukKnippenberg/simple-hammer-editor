@@ -8,6 +8,7 @@ import { POI_TYPES, defaultParams, fitRect, poiType } from '../gen/poi/registry.
 import { generatePoi } from '../gen/poi/action.ts';
 import type { Landscape, PoiType, Rect, Rotation } from '../gen/poi/types.ts';
 import '../gen/poi/catalogue.ts';
+import { fineTurn, swapsSides, turnedCorners } from '../gen/turn.ts';
 
 /**
  * Drag a rectangle on the ground to fill it with the point of interest chosen in the POI tab; a click
@@ -57,7 +58,7 @@ export class PoiTool implements Tool {
     const t = this.type;
     if (!t || !this.start) return null;
     const dragged = Math.abs(this.current.x - this.start.x) >= 64 || Math.abs(this.current.y - this.start.y) >= 64;
-    const turned = this.rotation === 90 || this.rotation === 270;
+    const turned = swapsSides(this.rotation);
     const [w, d] = turned ? [t.defaultSize[1], t.defaultSize[0]] : t.defaultSize;
     const r = dragged ? { x0: this.start.x, y0: this.start.y, x1: this.current.x, y1: this.current.y }
       : { x0: this.start.x - w / 2, y0: this.start.y - d / 2, x1: this.start.x + w / 2, y1: this.start.y + d / 2 };
@@ -109,7 +110,8 @@ export class PoiTool implements Tool {
     const z = this.start.z + 4;
     const L: number[] = [];
     const seg = (a: number[], b: number[]) => L.push(a[0], a[1], z, b[0], b[1], z);
-    const c = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];
+    // The rectangle as the POI will stand: turned about its centre when the angle isn't a quarter turn.
+    const c = turnedCorners(r, fineTurn(r, this.rotation)).map((p) => [p.x, p.y]);
     for (let i = 0; i < 4; i++) seg(c[i], c[(i + 1) % 4]);
     // An arrow along the POI's local +y (its "front" faces local -y).
     const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;

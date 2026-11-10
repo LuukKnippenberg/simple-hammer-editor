@@ -130,7 +130,8 @@ export class PoiKit {
     const a = (spec.rotation * Math.PI) / 180;
     this.u = new Vector2(Math.round(Math.cos(a)), Math.round(Math.sin(a)));
     this.v = new Vector2(-this.u.y, this.u.x);
-    this.origin = { 0: new Vector2(r.x0, r.y0), 90: new Vector2(r.x1, r.y0), 180: new Vector2(r.x1, r.y1), 270: new Vector2(r.x0, r.y1) }[spec.rotation];
+    // The kit lays out at quarter turns only; buildPoi turns the result the rest of the way (src/gen/turn.ts).
+    this.origin = { 0: new Vector2(r.x0, r.y0), 90: new Vector2(r.x1, r.y0), 180: new Vector2(r.x1, r.y1), 270: new Vector2(r.x0, r.y1) }[spec.rotation as 0 | 90 | 180 | 270];
   }
 
   // --- Frame -------------------------------------------------------------------------------------------

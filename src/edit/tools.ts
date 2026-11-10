@@ -20,10 +20,10 @@ import { GenerateTool } from './generateTool.ts';
 import { StairsTool } from './stairsTool.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { toast } from '../ui/dom.ts';
-import { handleDragged } from '../gen/poi/action.ts';
+import { handleDragged, poiOwner, turnPoiBy } from '../gen/poi/action.ts';
 import { handleOf } from '../gen/poi/handle.ts';
 import { POI_ID_KEY } from '../gen/poi/spec.ts';
-import { blockHandleDragged } from '../gen/buildingAction.ts';
+import { blockHandleDragged, turnBlockBy } from '../gen/buildingAction.ts';
 import { blockOfSolid, blockOwner } from '../gen/buildingStore.ts';
 import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE, ROOMS_HANDLE, STAIRS_HANDLE } from '../gen/handle.ts';
 import { stairsHandleDragged } from '../gen/stairsAction.ts';
@@ -130,6 +130,8 @@ export class SelectTool implements Tool {
   private resizeTo: Box3 | null = null;
   /** A turn from a 2D pane's ring: about which world axis and how far (degrees). */
   private paneRotate: { axis: Vector3; deg: number } | null = null;
+  /** How far the current rotate drag has turned (degrees about its axis). */
+  private turnDeg = 0;
   /** The undo step's name for a drag that isn't the gizmo's own. */
   private dragLabel = '';
   /** While a 2D pane's rotate ring is dragged: the turn so far in degrees, counter-clockwise on screen (else null). */
@@ -593,10 +595,17 @@ export class SelectTool implements Tool {
     const ents = sel.pointEntities();
     const brushEnts = [...sel.entities].filter((e) => e.solids.length);
     if (this.dragMode === 'rotate') {
-      // Generated things are rebuilt from their handles, which only move and resize.
+      // Generated things are rebuilt from their handles. A POI or a block of buildings turns about the vertical
+      // axis (rebuilt at its new angle when the drag ends); interiors and stairs don't turn with the gizmo.
       if ([...sel.entities].some((e) => isGeneratorHandle(e))) {
-        toast(this.editor.container, 'POIs, buildings and interiors turn with , and . (rotate works on brushes and entities)', 2500);
-        return;
+        const axis = this.paneRotate?.axis ?? GIZMO_AXES[this.gizmo.axis ?? ''];
+        const only = sel.entities.size === 1 && !sel.solids.size ? kindOf([...sel.entities][0]) : null;
+        if (!(only === POI_HANDLE || only === BUILDING_HANDLE) || axis?.z !== 1) {
+          toast(this.editor.container, only === POI_HANDLE || only === BUILDING_HANDLE
+            ? 'POIs and buildings turn about the vertical axis only (the Z ring, or the Top pane)'
+            : 'Turn one POI or block of buildings at a time with the Z ring; interiors turn with , and .', 2500);
+          return;
+        }
       }
       // Only the three axis rings; the view ring and the free trackball are not used.
       if (!this.paneRotate && !GIZMO_AXES[this.gizmo.axis ?? '']) return;
@@ -610,6 +619,7 @@ export class SelectTool implements Tool {
       keys: ents.map((e) => [e, TURNED_KEYS.map((k) => e.get(k))]),
     };
     this.lastKey = '';
+    this.turnDeg = 0;
     this.endHistory = this.editor.history.begin(this.dragLabel || (this.snapD ? 'Snap move' : MODE_LABELS[this.dragMode]), solids, [...ents, ...brushEnts]);
   }
 
@@ -656,6 +666,7 @@ export class SelectTool implements Tool {
       const q = new Quaternion().setFromAxisAngle(axis, (deg * Math.PI) / 180);
       for (const [s] of this.start.solids) rotateSolid(s, this.start.pivot, q);
       for (const [e] of this.start.ents) rotateEntity(e, this.start.pivot, axis, deg);
+      this.turnDeg = deg;
       this.editor.status = `Rotate ${Math.round(deg * 100) / 100}° about ${axis.x ? 'X' : axis.y ? 'Y' : 'Z'}`;
     } else {
       const from = this.start.bounds;
@@ -707,6 +718,16 @@ export class SelectTool implements Tool {
         else if (kind === ROOMS_HANDLE) roomsHandleDragged(this.editor, handle, mode);
         else if (kind === STAIRS_HANDLE) stairsHandleDragged(this.editor, handle, mode);
         else blockHandleDragged(this.editor, handle, mode);
+      });
+    } else if (handle && (kind === POI_HANDLE || kind === BUILDING_HANDLE) && this.turnDeg) {
+      // A turned POI or block of buildings: rebuilt at its new angle, in the same undo step as the drag.
+      const deg = this.turnDeg;
+      this.editor.history.group(kind === POI_HANDLE ? 'Turn POI' : 'Turn buildings', () => {
+        this.endHistory?.();
+        const owner = kind === POI_HANDLE ? poiOwner(this.editor, handle) : blockOwner(this.editor.doc, handle);
+        if (!owner) return;
+        if (kind === POI_HANDLE) turnPoiBy(this.editor, owner, deg);
+        else turnBlockBy(this.editor, owner, deg);
       });
     } else {
       this.endHistory?.();

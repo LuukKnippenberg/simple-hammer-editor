@@ -2,6 +2,7 @@ import type { Vector3 } from 'three';
 import type { KVNode } from '../../vmf/keyvalues.ts';
 import type { KitParam, ParamValue } from '../../lw/kits.ts';
 import type { PoiKit } from './kit.ts';
+import type { Turn } from '../turn.ts';
 
 /**
  * Points of interest: one tool fills a rectangle with a finished area (a square, a parking lot, a
@@ -9,7 +10,11 @@ import type { PoiKit } from './kit.ts';
  */
 
 export type Landscape = 'city' | 'forest' | 'beach' | 'rocky';
-export type Rotation = 0 | 90 | 180 | 270;
+/**
+ * Degrees counter-clockwise, 0 to 360 (to a tenth of a degree). The nearest quarter turn picks which way the
+ * layout runs in its rectangle; the rest turns the finished POI about the rectangle's centre (see `src/gen/turn.ts`).
+ */
+export type Rotation = number;
 
 export const LANDSCAPES: { id: Landscape; label: string }[] = [
   { id: 'city', label: 'City' }, { id: 'forest', label: 'Forest and rural' }, { id: 'beach', label: 'Beach and coast' }, { id: 'rocky', label: 'Rocky' },
@@ -27,7 +32,8 @@ export interface PoiSpec {
   rect: Rect;
   /**
    * Turns the layout: 0 puts the POI's local x along world +x. At 90 and 270 the local width runs along
-   * world y, so the long side of a checkpoint can span a street either way.
+   * world y, so the long side of a checkpoint can span a street either way. Any other angle: `rect` is the
+   * rectangle at the nearest quarter turn, and the finished POI is turned the rest of the way about its centre.
    */
   rotation: Rotation;
   /** Ground height the POI stands on. */
@@ -57,9 +63,10 @@ export interface PoiOutput {
   waterLevel?: number;
   /**
    * Displacement terrain under the POI is flattened to this rectangle and height; `cuts` (sea, quarry pits)
-   * are lowered further, to their own heights.
+   * are lowered further, to their own heights. With `turn`, the rectangles turn about its pivot (a POI at an
+   * angle that isn't a quarter turn).
    */
-  terrain?: { rect: Rect; z: number; paint: boolean; cuts?: { rect: Rect; z: number }[] };
+  terrain?: { rect: Rect; z: number; paint: boolean; cuts?: { rect: Rect; z: number }[]; turn?: Turn };
 }
 
 /** What a POI offers for the game; the framework adds the matching parameters. */

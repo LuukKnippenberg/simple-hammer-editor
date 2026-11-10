@@ -123,7 +123,7 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
       if (k === 'delete' || k === 'backspace') editor.history.group(`Delete ${many}`, () => blocks.forEach((b) => deleteBlock(editor, b)));
       else if (k === 'd' && blocks.length === 1) duplicateBlock(editor, blocks[0]);
       else if (k === 'c') toast(editor.container, 'Blocks of buildings are copied with Ctrl+D (duplicate)', 1800);
-      else if (k === ',' || k === '.') editor.history.group(`Turn ${many}`, () => blocks.forEach((b) => turnBlock(editor, b)));
+      else if (k === ',' || k === '.') editor.history.group(`Turn ${many}`, () => blocks.forEach((b) => turnBlock(editor, b, k === ',' ? 1 : -1)));
       e.preventDefault();
       return;
     }

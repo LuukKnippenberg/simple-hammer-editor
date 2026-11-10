@@ -5,6 +5,7 @@ import { EXTRA_UNITS, PoiKit } from './kit.ts';
 import { decodePoi, newPoiUid, poiKeyOf } from './spec.ts';
 import { drawnEntitySolids, hideCoveredFaces, overlaySides } from '../../geom/hidden.ts';
 import type { Landscape, PoiOutput, PoiSpec, PoiType, Rect, Rotation } from './types.ts';
+import { fineTurn, normAngle, splitAngle, swapsSides, turnedBounds, turnEntity, turnPoint, turnSolidNode, type Turn } from '../turn.ts';
 
 /** Every POI type. Each POI phase adds its types by registering them here (see ./catalogue.ts). */
 export const POI_TYPES: PoiType[] = [];
@@ -49,7 +50,7 @@ export function defaultParams(t: PoiType): Record<string, ParamValue> {
 
 /** Snaps a dragged rectangle to 64 and clamps it to a type's sizes (local width and depth after rotation). */
 export function fitRect(t: PoiType, r: Rect, rotation: Rotation, grid = 64): Rect {
-  const turned = rotation === 90 || rotation === 270;
+  const turned = swapsSides(rotation);
   const snap = (v: number) => Math.round(v / grid) * grid || 0;
   const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -62,7 +63,7 @@ export function fitRect(t: PoiType, r: Rect, rotation: Rotation, grid = 64): Rec
 
 /** A new spec for a type, filling a rectangle at ground height `z`. */
 export function newSpec(t: PoiType, r: Rect, z: number, o: { rotation?: Rotation; seed?: number; landscape?: Landscape; params?: Record<string, ParamValue> } = {}): PoiSpec {
-  const rotation = o.rotation ?? 0;
+  const rotation = normAngle(o.rotation ?? 0);
   return {
     type: t.id, uid: newPoiUid(), seed: o.seed ?? Math.floor(Math.random() * 100000), rect: fitRect(t, r, rotation), rotation, z: Math.round(z),
     landscape: o.landscape ?? t.landscapes[0], params: { ...defaultParams(t), ...o.params },
@@ -76,12 +77,17 @@ export function newSpec(t: PoiType, r: Rect, z: number, o: { rotation?: Rotation
 export function buildPoi(doc: VmfDocument, spec: PoiSpec, ground: (x: number, y: number) => number = () => spec.z): PoiOutput {
   const t = poiType(spec.type);
   if (!t) throw new Error(`Unknown POI type ${spec.type}`);
-  const k = new PoiKit(doc, { ...spec, params: { ...defaultParams(t), ...spec.params } }, t, ground);
+  // The layout is built at the nearest quarter turn, then turned the rest of the way about the rectangle's centre;
+  // it samples the ground where its points will stand once turned.
+  const turn = fineTurn(spec.rect, spec.rotation);
+  const groundAt = turn ? (x: number, y: number) => ground(...turnPoint(turn, x, y)) : ground;
+  const k = new PoiKit(doc, { ...spec, rotation: splitAngle(spec.rotation).quarter, params: { ...defaultParams(t), ...spec.params } }, t, groundAt);
   t.build(k);
   // Never-visible faces to nodraw. Bottoms only where there is no water, which would reflect them.
   const o = k.out;
-  hideCoveredFaces([...o.world, ...o.detail, ...drawnEntitySolids(o.entities)], { keep: overlaySides(o.entities), groundAt: o.waterLevel === undefined ? ground : undefined });
-  if (k.flag('level') || k.cuts.length) k.out.terrain = { rect: k.worldRect(k.bounds), z: spec.z, paint: k.flag('level'), cuts: k.cuts };
+  hideCoveredFaces([...o.world, ...o.detail, ...drawnEntitySolids(o.entities)], { keep: overlaySides(o.entities), groundAt: o.waterLevel === undefined ? groundAt : undefined });
+  if (k.flag('level') || k.cuts.length) k.out.terrain = { rect: k.worldRect(k.bounds), z: spec.z, paint: k.flag('level'), cuts: k.cuts, ...(turn ? { turn } : {}) };
+  if (turn) turnPoiOutput(o, turn);
   return k.out;
 }
 
@@ -94,4 +100,11 @@ export function poiOf(e: MapEntity): { spec: PoiSpec; type: PoiType } | null {
   if (!type) return null;
   const spec = decodePoi(raw, type, sharedParams(type));
   return spec ? { spec, type } : null;
+}
+
+/** Turns a built POI (its brushes, entities and routes) about the vertical axis; the terrain plan keeps its own turn. */
+function turnPoiOutput(o: PoiOutput, t: Turn): void {
+  for (const n of [...o.world, ...o.detail]) turnSolidNode(n, t);
+  o.entities = o.entities.map((e) => turnEntity(e, t));
+  o.routes = o.routes.map((r) => turnedBounds(r, t));
 }

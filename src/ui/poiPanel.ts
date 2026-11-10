@@ -6,6 +6,7 @@ import { POI_TYPES, poiOf, poiParams } from '../gen/poi/registry.ts';
 import { deletePoi, poiOwner, poisFromBlocks, regeneratePoi } from '../gen/poi/action.ts';
 import { LANDSCAPES, type Landscape, type PoiType, type Rotation } from '../gen/poi/types.ts';
 import { h, toast } from './dom.ts';
+import { normAngle } from '../gen/turn.ts';
 
 const ROTATIONS: Rotation[] = [0, 90, 180, 270];
 
@@ -25,13 +26,23 @@ export function paramRow(p: KitParam, value: ParamValue, set: (v: ParamValue) =>
   return h('div.row', { title: p.hint ?? '' }, h('label', {}, p.label), input);
 }
 
-export function rotationRow(value: Rotation, set: (r: Rotation) => void): HTMLElement {
-  return h('div.row', { title: 'Turns the layout; the arrow in the preview points to the POI\'s back' }, h('label', {}, 'Rotation'),
-    h('div.seg', {}, ...ROTATIONS.map((r) => {
+/**
+ * The angle of a POI or a block of buildings: a quarter turn with a click, or any angle typed in degrees
+ * (counter-clockwise). The rotate gizmo (E) also turns a selected one, in 15° steps (Shift: free).
+ */
+export function rotationRow(value: Rotation, set: (r: Rotation) => void, title = 'Turns the layout; the arrow in the preview points to the POI\'s back. Type any angle, or turn the selected POI with the rotate gizmo (E: 15° steps, Shift: free)', quarters: 'absolute' | 'relative' = 'absolute'): HTMLElement {
+  const angle = normAngle(value);
+  const input = h('input.num', { type: 'number', value: String(angle), step: '15', title: 'Degrees, counter-clockwise', 'aria-label': 'Rotation in degrees' }) as HTMLInputElement;
+  input.addEventListener('change', () => { input.blur(); set(normAngle(parseFloat(input.value) || 0)); });
+  // Absolute: a button per quarter turn. Relative (blocks of buildings, which have no front): a quarter turn either way.
+  const buttons = quarters === 'absolute'
+    ? ROTATIONS.map((r) => {
       const b = h('button', { onclick: () => set(r) }, `${r}°`);
-      b.classList.toggle('active', r === value);
+      b.classList.toggle('active', r === angle);
       return b;
-    })));
+    })
+    : [h('button', { title: 'A quarter turn counter-clockwise', onclick: () => set(angle + 90) }, '⟲ 90°'), h('button', { title: 'A quarter turn clockwise', onclick: () => set(angle - 90) }, '⟳ 90°')];
+  return h('div.row', { title }, h('label', {}, 'Rotation'), h('div.seg', {}, ...buttons), input, h('span.unit', {}, '°'));
 }
 
 /** The settings of an existing POI: changes rebuild it in place (one undo step each). */

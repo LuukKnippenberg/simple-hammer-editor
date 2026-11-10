@@ -2,6 +2,7 @@ import type { KitParam, ParamValue } from '../../lw/kits.ts';
 import type { MapEntity } from '../../vmf/map.ts';
 import type { Landscape, PoiSpec, PoiType, Rotation } from './types.ts';
 import { LANDSCAPES } from './types.ts';
+import { normAngle } from '../turn.ts';
 
 /**
  * A POI's definition lives on its func_detail in the `she_poi` key, like roads keep theirs in `she_road`;
@@ -17,7 +18,7 @@ const clean = (s: string) => s.replace(/[|;="]/g, ' ').trim();
 export function encodePoi(p: PoiSpec): string {
   const params = Object.entries(p.params).map(([k, v]) => `${clean(k)}=${typeof v === 'boolean' ? (v ? '1' : '0') : clean(String(v))}`).join(';');
   const r = p.rect;
-  return [p.type, p.uid, p.seed, `${Math.round(r.x0)} ${Math.round(r.y0)} ${Math.round(r.x1)} ${Math.round(r.y1)}`, p.rotation, Math.round(p.z), p.landscape, params].join('|');
+  return [p.type, p.uid, p.seed, `${Math.round(r.x0)} ${Math.round(r.y0)} ${Math.round(r.x1)} ${Math.round(r.y1)}`, normAngle(p.rotation), Math.round(p.z), p.landscape, params].join('|');
 }
 
 /** Reads a stored POI. Parameters are typed from the POI type's parameter list when it is given. */
@@ -28,7 +29,8 @@ export function decodePoi(s: string, type?: PoiType | null, extra: KitParam[] = 
   const [x0, y0, x1, y1] = rs.split(' ').map(Number);
   if (![x0, y0, x1, y1].every(Number.isFinite)) return null;
   const rotation = Number(rot);
-  if (![0, 90, 180, 270].includes(rotation)) return null;
+  // Any angle (older maps only have quarter turns).
+  if (!rot.trim() || !Number.isFinite(rotation)) return null;
   const defs = new Map([...(type?.params ?? []), ...extra].map((p) => [p.key, p]));
   const out: Record<string, ParamValue> = {};
   for (const kv of params.split(';')) {
@@ -39,7 +41,7 @@ export function decodePoi(s: string, type?: PoiType | null, extra: KitParam[] = 
     out[k] = def?.type === 'check' ? v === '1' || v === 'true' : def?.type === 'number' ? Number(v) : v;
   }
   return {
-    type: t, uid, seed: Number(seed) || 1, rect: { x0, y0, x1, y1 }, rotation: rotation as Rotation, z: Number(z) || 0,
+    type: t, uid, seed: Number(seed) || 1, rect: { x0, y0, x1, y1 }, rotation: normAngle(rotation) as Rotation, z: Number(z) || 0,
     landscape: (LANDSCAPES.some((l) => l.id === landscape) ? landscape : 'city') as Landscape, params: out,
   };
 }

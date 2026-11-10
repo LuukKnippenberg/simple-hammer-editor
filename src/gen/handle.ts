@@ -1,8 +1,9 @@
 import { Box3, Vector3 } from 'three';
 import { KVNode, KVPair } from '../vmf/keyvalues.ts';
 import type { MapEntity, VmfDocument } from '../vmf/map.ts';
-import { boxSolid, solidBounds } from '../edit/brushes.ts';
+import { boxSolid, solidBounds, solidNode } from '../edit/brushes.ts';
 import { editorBlock } from '../edit/actions.ts';
+import { fineTurn, rectCentre, turnedBoxFaces, turnedBounds } from './turn.ts';
 
 /**
  * Generator handles: one translucent box over what a generator made (a POI, a block of buildings). Clicking it
@@ -52,25 +53,31 @@ export function findHandle(doc: VmfDocument, kind: HandleKind, uid: string): Map
   return doc.entities.find((e) => e.classname === kind.classname && e.get(kind.idKey) === uid) ?? null;
 }
 
-function solidFor(doc: VmfDocument, kind: HandleKind, r: HandleRect, z: number): KVNode {
+/**
+ * The handle's brush: a box round the rectangle, turned with its owner when the owner stands at an angle that isn't
+ * a quarter turn (`angle`, degrees: the rectangle is the owner's at the nearest quarter turn, see `src/gen/turn.ts`).
+ */
+function solidFor(doc: VmfDocument, kind: HandleKind, r: HandleRect, z: number, angle = 0): KVNode {
   const p = kind.pad;
+  const turn = fineTurn(r, angle);
+  if (turn) return solidNode(doc, turnedBoxFaces(r, turn, z, z + HANDLE_HEIGHT, kind.material, p));
   return boxSolid(doc, new Vector3(r.x0 - p, r.y0 - p, z), new Vector3(r.x1 + p, r.y1 + p, z + HANDLE_HEIGHT), kind.material);
 }
 
-export function newHandle(doc: VmfDocument, kind: HandleKind, uid: string, r: HandleRect, z: number): KVNode {
+export function newHandle(doc: VmfDocument, kind: HandleKind, uid: string, r: HandleRect, z: number, angle = 0): KVNode {
   const e = new KVNode('entity');
   e.items.push(new KVPair('id', String(doc.nextId())), new KVPair('classname', kind.classname), new KVPair(kind.idKey, uid),
-    solidFor(doc, kind, r, z), editorBlock(kind.color));
+    solidFor(doc, kind, r, z, angle), editorBlock(kind.color));
   return e;
 }
 
 /** Fits an existing handle's box to a rectangle (call inside a history step for undo). */
-export function fitHandleTo(doc: VmfDocument, handle: MapEntity, r: HandleRect, z: number): void {
+export function fitHandleTo(doc: VmfDocument, handle: MapEntity, r: HandleRect, z: number, angle = 0): void {
   const kind = kindOf(handle);
   if (!kind) return;
   handle.node.items = handle.node.items.filter((it) => !(it instanceof KVNode && it.name.toLowerCase() === 'solid'));
   const ed = handle.node.items.findIndex((it) => it instanceof KVNode && it.name.toLowerCase() === 'editor');
-  handle.node.items.splice(ed >= 0 ? ed : handle.node.items.length, 0, solidFor(doc, kind, r, z));
+  handle.node.items.splice(ed >= 0 ? ed : handle.node.items.length, 0, solidFor(doc, kind, r, z, angle));
   handle.reload();
 }
 
@@ -81,6 +88,31 @@ export function handleBox(handle: MapEntity): Box3 | null {
   const b = solidBounds(handle.solids[0]);
   b.min.x += kind.pad; b.min.y += kind.pad; b.max.x -= kind.pad; b.max.y -= kind.pad;
   return b;
+}
+
+/**
+ * Where a handle of an owner standing at `angle` was dragged to (a move or a resize with the gizmo, whose box is
+ * the axis-aligned box round the turned handle): the owner's new centre and its rectangle's new width and depth
+ * (along the rectangle's own sides). Null when the angle is a quarter turn (`handleBox` serves those).
+ */
+export function turnedHandleDrag(handle: MapEntity, r: HandleRect, angle: number): { cx: number; cy: number; w: number; h: number; z: number } | null {
+  const kind = kindOf(handle);
+  const turn = fineTurn(r, angle);
+  if (!kind || !turn || !handle.solids[0]) return null;
+  const b = solidBounds(handle.solids[0]);
+  const was = turnedBounds(r, turn, kind.pad);
+  // The gizmo scales the box along the world axes; each side of the rectangle grows by how its direction stretches.
+  const sx = (b.max.x - b.min.x) / Math.max(1, was.x1 - was.x0), sy = (b.max.y - b.min.y) / Math.max(1, was.y1 - was.y0);
+  const a = (turn.deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  const w = (r.x1 - r.x0 + 2 * kind.pad) * Math.hypot(c * sx, s * sy) - 2 * kind.pad;
+  const h = (r.y1 - r.y0 + 2 * kind.pad) * Math.hypot(s * sx, c * sy) - 2 * kind.pad;
+  return { cx: (b.min.x + b.max.x) / 2, cy: (b.min.y + b.max.y) / 2, w, h, z: b.min.z };
+}
+
+/** True when a turned handle still stands where its owner is (nothing to rebuild). */
+export function turnedHandleUnmoved(drag: { cx: number; cy: number; w: number; h: number; z: number }, r: HandleRect, z: number): boolean {
+  const [cx, cy] = rectCentre(r);
+  return Math.abs(drag.cx - cx) < 0.5 && Math.abs(drag.cy - cy) < 0.5 && Math.abs(drag.w - (r.x1 - r.x0)) < 1 && Math.abs(drag.h - (r.y1 - r.y0)) < 1 && Math.abs(drag.z - z) < 1;
 }
 
 /** Owners with nothing left to compile (a func_detail that only holds a generator's settings). */

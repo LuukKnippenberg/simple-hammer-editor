@@ -7,7 +7,8 @@ import { solidBounds } from '../../edit/brushes.ts';
 import { readDisp, vertexPos, type Disp } from '../../edit/terrain.ts';
 import { buildPoi, newSpec, poiOf } from './registry.ts';
 import { encodePoi, POI_ID_KEY, POI_KEY, POI_WORLD_KEY } from './spec.ts';
-import { fitHandle, handleNode, handleOf, isHandle, placeFromHandle, turned } from './handle.ts';
+import { fitHandle, handleNode, handleOf, isHandle, placeFromHandle, placeFromTurnedHandle, rectForRotation, turned, turnedBy } from './handle.ts';
+import { fineTurn, insideTurned, normAngle, outsideTurned, turnedBounds, type Turn } from '../turn.ts';
 import type { PoiEntity, PoiSpec, PoiType, Rect } from './types.ts';
 import type { ParamValue } from '../../lw/kits.ts';
 import type { Landscape, Rotation } from './types.ts';
@@ -48,13 +49,13 @@ const SKIP = /^(trigger_|fow_blocker|func_nav_blocker|func_clip|func_areaportal)
 
 /**
  * Terrain height under a world point, ignoring the POI's own brushes (and triggers and blockers). Inside the
- * levelled rectangle it is the level height, inside a cut the cut's height.
+ * levelled rectangle it is the level height, inside a cut the cut's height (both turned by `turn` when given).
  */
-export function groundSampler(editor: Editor, uid: string | null, fallback: number, levelled: Rect | null, levelZ: number, cuts: { rect: Rect; z: number }[] = []): (x: number, y: number) => number {
+export function groundSampler(editor: Editor, uid: string | null, fallback: number, levelled: Rect | null, levelZ: number, cuts: { rect: Rect; z: number }[] = [], turn: Turn | null = null): (x: number, y: number) => number {
   const own = uid ? poiMembers(editor, uid) : null;
   const ownWorld = new Set(own?.world ?? []);
   const ray = new Raycaster();
-  const inRect = (r: Rect, x: number, y: number) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
+  const inRect = (r: Rect, x: number, y: number) => insideTurned(r, turn, x, y);
   return (x, y) => {
     for (const c of cuts) if (inRect(c.rect, x, y)) return c.z;
     if (levelled && inRect(levelled, x, y)) return levelZ;
@@ -88,17 +89,19 @@ function writeRows(disp: KVNode, name: string, size: number, stride: number, dat
 
 /**
  * Levels displacement terrain under a rectangle to `z`, blending back to the old height over `margin`, and
- * paints the terrain's second texture there. Returns the patches it changed (already recorded for undo).
+ * paints the terrain's second texture there. With `turn`, the rectangle is turned about the turn's pivot.
+ * Returns the patches it changed (already recorded for undo).
  */
-export function levelTerrain(editor: Editor, r: Rect, z: number, paint: boolean, margin = 192, mode: 'level' | 'lower' = 'level'): Disp[] {
+export function levelTerrain(editor: Editor, r: Rect, z: number, paint: boolean, margin = 192, mode: 'level' | 'lower' = 'level', turn: Turn | null = null): Disp[] {
+  const bb = turnedBounds(r, turn);
   const disps = editor.doc.allSolids().filter((s) => s.isDisplacement).map(readDisp).filter((d): d is Disp => !!d)
-    .filter((d) => d.bounds.max.x >= r.x0 - margin && d.bounds.min.x <= r.x1 + margin && d.bounds.max.y >= r.y0 - margin && d.bounds.min.y <= r.y1 + margin);
+    .filter((d) => d.bounds.max.x >= bb.x0 - margin && d.bounds.min.x <= bb.x1 + margin && d.bounds.max.y >= bb.y0 - margin && d.bounds.min.y <= bb.y1 + margin);
   if (!disps.length) return [];
   const end = editor.history.begin(mode === 'level' ? 'Level terrain' : 'Lower terrain', disps.map((d) => d.solid));
   for (const d of disps) {
     for (let i = 0; i < d.size * d.size; i++) {
       const p = vertexPos(d, i);
-      const out = Math.max(r.x0 - p.x, p.x - r.x1, r.y0 - p.y, p.y - r.y1, 0);
+      const out = outsideTurned(r, turn, p.x, p.y);
       const t = out <= 0 ? 1 : Math.max(0, 1 - out / margin);
       if (t <= 0) continue;
       const w = t * t * (3 - 2 * t);
@@ -147,9 +150,10 @@ export function applyPoi(editor: Editor, spec: PoiSpec, label: string, existing:
     // A first build tells which terrain the POI wants levelled and cut (it doesn't depend on the ground).
     const plan = buildPoi(VmfDocument.empty(), spec).terrain;
     const level = !!plan?.paint;
-    const levelled = level ? levelTerrain(editor, spec.rect, spec.z, true).length > 0 : false;
-    const cuts = (plan?.cuts ?? []).filter((c) => levelTerrain(editor, c.rect, c.z, false, 96, 'lower').length > 0);
-    const ground = groundSampler(editor, existing ? spec.uid : null, spec.z, levelled ? spec.rect : null, spec.z, cuts);
+    const turn = plan?.turn ?? null;
+    const levelled = level ? levelTerrain(editor, spec.rect, spec.z, true, 192, 'level', turn).length > 0 : false;
+    const cuts = (plan?.cuts ?? []).filter((c) => levelTerrain(editor, c.rect, c.z, false, 96, 'lower', turn).length > 0);
+    const ground = groundSampler(editor, existing ? spec.uid : null, spec.z, levelled ? spec.rect : null, spec.z, cuts, turn);
     const out = buildPoi(doc, spec, ground);
     if (old.entities.length || old.world.length) editor.history.remove('Remove old POI parts', old.world, old.entities);
     const world = out.world.map((n) => doc.addSolid(n));
@@ -202,6 +206,11 @@ export function regeneratePoi(editor: Editor, detail: MapEntity, patch: Partial<
   const p = poiOf(detail);
   if (!p) return null;
   const spec: PoiSpec = { ...p.spec, ...patch, params: { ...p.spec.params, ...patch.params } };
+  // A new angle keeps the POI's centre and its own width and depth (the stored rectangle swaps sides with the quarter turn).
+  if (patch.rotation !== undefined) {
+    spec.rotation = normAngle(patch.rotation);
+    if (!patch.rect) spec.rect = rectForRotation(p.spec, p.type, spec.rotation);
+  }
   // The POI was moved with the gizmo: follow it (its brushes moved, the stored rectangle didn't).
   if (!patch.rect) {
     const moved = movedBy(detail);
@@ -229,9 +238,14 @@ export function handleDragged(editor: Editor, handle: MapEntity, mode: 'translat
   const detail = poiOwner(editor, handle);
   const p = detail && poiOf(detail);
   if (!detail || !p || !handle.solids[0]) return;
+  const ground = groundSampler(editor, p.spec.uid, p.spec.z, null, 0);
+  // A POI at an angle: its handle is turned, and the gizmo moved or scaled the box round it.
+  const turnedTo = placeFromTurnedHandle(p.spec, p.type, handle, mode, ground);
+  if (turnedTo === 'same') { const end = editor.history.begin('Fit POI handle', [], [handle]); fitHandle(editor.doc, handle, p.spec); end(); return; }
+  if (turnedTo) return void regeneratePoi(editor, detail, turnedTo, `${mode === 'translate' ? 'Move' : 'Resize'} ${p.type.label.toLowerCase()}`);
   const box = solidBounds(handle.solids[0]), r = p.spec.rect;
   if (box.min.x === r.x0 && box.min.y === r.y0 && box.max.x === r.x1 && box.max.y === r.y1 && box.min.z === p.spec.z) return;
-  const at = placeFromHandle(p.spec, p.type, box, mode, groundSampler(editor, p.spec.uid, p.spec.z, null, 0));
+  const at = placeFromHandle(p.spec, p.type, box, mode, ground);
   regeneratePoi(editor, detail, at, `${mode === 'translate' ? 'Move' : 'Resize'} ${p.type.label.toLowerCase()}`);
 }
 
@@ -241,12 +255,29 @@ export function turnPoi(editor: Editor, detail: MapEntity, dir: 1 | -1): void {
   if (p) regeneratePoi(editor, detail, turned(p.spec, p.type, dir), `Turn ${p.type.label.toLowerCase()}`);
 }
 
+/**
+ * Turns a POI `degrees` counter-clockwise about its centre (the rotate gizmo, the angle field). The handle was
+ * turned by the gizmo while dragging; the rebuild fits it again.
+ */
+export function turnPoiBy(editor: Editor, detail: MapEntity, degrees: number): void {
+  const p = poiOf(detail);
+  if (!p) return;
+  if (!normAngle(degrees)) {
+    const h = handleOf(editor.doc, p.spec.uid);
+    if (h) { const end = editor.history.begin('Fit POI handle', [], [h]); fitHandle(editor.doc, h, p.spec); end(); }
+    return;
+  }
+  regeneratePoi(editor, detail, turnedBy(p.spec, p.type, degrees), `Turn ${p.type.label.toLowerCase()}`);
+}
+
 /** Builds a copy of a POI (same settings and seed) next to it, along +x, and selects the copy. */
 export function duplicatePoi(editor: Editor, detail: MapEntity): MapEntity | null {
   const p = poiOf(detail);
   if (!p) return null;
   const { rect, rotation, seed, landscape, params } = p.spec;
-  const dx = rect.x1 - rect.x0 + 128;
+  // Beside it: past the box round it when it stands at an angle.
+  const bb = turnedBounds(rect, fineTurn(rect, rotation));
+  const dx = Math.ceil((bb.x1 - bb.x0) / 64) * 64 + 128;
   const r = { x0: rect.x0 + dx, y0: rect.y0, x1: rect.x1 + dx, y1: rect.y1 };
   const z = groundSampler(editor, null, p.spec.z, null, 0)((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
   const e = applyPoi(editor, newSpec(p.type, r, z, { rotation, seed, landscape, params }), `Duplicate ${p.type.label.toLowerCase()}`);

@@ -25,7 +25,7 @@ const SHORTCUTS: [string, string][] = [
   ['L', 'Toggle the lighting preview'],
   ['M · PageUp PageDown', 'Mission objectives in the viewport · previous / next objective'],
   ['[ ]', 'Grid size (1 to 512; the sizes in the status bar are clickable too)'],
-  [', .', 'Rotate entities (Shift: 90°); turn a selected POI or block of buildings a quarter turn'],
+  [', .', 'Rotate entities (Shift: 90°); turn a selected POI or block of buildings a quarter turn (any angle: E and its Z ring, or the Rotation field)'],
   ['F', 'Focus the selection (in Quad: every pane centres on it)'],
   ['Shift+Z', 'Quad view: maximise the pane under the mouse, and back'],
   ['Right / middle drag · wheel', 'Quad 2D panes: pan · zoom to the cursor; drag the selection to move it'],

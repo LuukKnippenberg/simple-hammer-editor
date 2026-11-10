@@ -3,14 +3,15 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import { solidBounds } from '../edit/brushes.ts';
 import { entityNode } from '../edit/actions.ts';
-import { generateBuildings, type BuildingOptions } from './buildings.ts';
+import type { BuildingOptions } from './buildings.ts';
 import type { BlockDressing } from './streets.ts';
 import { roadGround, roadOf, type RoadSpec } from './roads.ts';
 import {
-  BLOCK_ID_KEY, BLOCK_KEY, blockHandleNode, blockMembers, blockOf, blockOwner, blocksInGroup, footprintOf, groupDressing, groupStreet,
+  BLOCK_ID_KEY, BLOCK_KEY, blockHandleNode, blockMembers, blockOf, blockOwner, blocksInGroup, generateBlock, groupDressing, groupStreet,
   movedBy, newBlockUid, rememberDressing, storeBlock, type BlockSpec,
 } from './buildingStore.ts';
-import { BUILDING_HANDLE, findHandle, fitHandleTo, handleBox, kindOf } from './handle.ts';
+import { BUILDING_HANDLE, findHandle, fitHandleTo, handleBox, kindOf, turnedHandleDrag, turnedHandleUnmoved } from './handle.ts';
+import { fineTurn, normAngle, splitAngle, turnedBounds } from './turn.ts';
 
 /**
  * Editor actions for blocks of buildings: generate them from block brushes, rebuild one in place from its stored
@@ -63,7 +64,7 @@ export function applyBlock(editor: Editor, spec: BlockSpec, label: string, exist
   editor.history.group(label, () => {
     const old = existing ? blockMembers(doc, existing.get(BLOCK_ID_KEY) ?? spec.uid) : { detail: null, entities: [], world: [], handle: null };
     if (old.entities.length || old.world.length) editor.history.remove('Remove old block parts', old.world, old.entities);
-    const out = generateBuildings(doc, footprintOf(spec), spec.options);
+    const out = generateBlock(doc, spec);
     buildings = out.buildings;
     houses = out.interiorHouses;
     ring = !!out.ring;
@@ -82,7 +83,7 @@ export function applyBlock(editor: Editor, spec: BlockSpec, label: string, exist
     // The handle follows the footprint; it keeps its identity, so a selected handle stays selected.
     if (old.handle) {
       const end = editor.history.begin('Fit block handle', [], [old.handle]);
-      fitHandleTo(doc, old.handle, spec.rect, spec.z);
+      fitHandleTo(doc, old.handle, spec.rect, spec.z, spec.angle ?? 0);
       end();
     } else {
       ents.push(doc.addEntity(blockHandleNode(doc, spec)));
@@ -177,6 +178,21 @@ export function blockHandleDragged(editor: Editor, handle: MapEntity, mode: 'tra
   const b = detail && blockOf(detail);
   const box = handleBox(handle);
   if (!detail || !b || !box) return;
+  // A block at an angle: its handle is turned, and the gizmo moved or scaled the box round it.
+  const turned = turnedHandleDrag(handle, b.rect, b.angle ?? 0);
+  if (turned) {
+    if (turnedHandleUnmoved(turned, b.rect, b.z)) {
+      const end = editor.history.begin('Fit block handle', [], [handle]);
+      fitHandleTo(editor.doc, handle, b.rect, b.z, b.angle ?? 0);
+      end();
+      return;
+    }
+    const [w, h] = mode === 'scale' ? [Math.max(MIN_SIZE, Math.round(turned.w)), Math.max(MIN_SIZE, Math.round(turned.h))] : [b.rect.x1 - b.rect.x0, b.rect.y1 - b.rect.y0];
+    const x0 = Math.round(turned.cx - w / 2), y0 = Math.round(turned.cy - h / 2);
+    const z = mode === 'translate' && Math.abs(turned.z - b.z) >= 1 ? Math.round(turned.z) : b.z;
+    regenerateBlock(editor, detail, { rect: { x0, y0, x1: x0 + w, y1: y0 + h }, z }, mode === 'translate' ? 'Move buildings' : 'Resize buildings');
+    return;
+  }
   const rect = { x0: Math.round(box.min.x), y0: Math.round(box.min.y), x1: Math.round(box.max.x), y1: Math.round(box.max.y) };
   rect.x1 = Math.max(rect.x1, rect.x0 + MIN_SIZE);
   rect.y1 = Math.max(rect.y1, rect.y0 + MIN_SIZE);
@@ -185,27 +201,48 @@ export function blockHandleDragged(editor: Editor, handle: MapEntity, mode: 'tra
   if (rect.x0 === r.x0 && rect.y0 === r.y0 && rect.x1 === r.x1 && rect.y1 === r.y1 && z === b.z) {
     // Nothing to rebuild (a resize of its height): put the handle back.
     const end = editor.history.begin('Fit block handle', [], [handle]);
-    fitHandleTo(editor.doc, handle, b.rect, b.z);
+    fitHandleTo(editor.doc, handle, b.rect, b.z, b.angle ?? 0);
     end();
     return;
   }
   regenerateBlock(editor, detail, { rect, z }, mode === 'translate' ? 'Move buildings' : 'Resize buildings');
 }
 
-/** Turns a block's footprint a quarter turn around its centre (the buildings are generated anew to fit it). */
-export function turnBlock(editor: Editor, detail: MapEntity): void {
+/**
+ * Turns a block `degrees` counter-clockwise about its centre. A block has no front, so a quarter turn just swaps its
+ * footprint's sides (the buildings are generated anew to fit it, as a quarter turn always did) and only the rest is
+ * stored as its angle (within 45° of 0): the generated block is turned by that much.
+ */
+export function turnBlockBy(editor: Editor, detail: MapEntity, degrees: number, label = 'Turn buildings'): void {
   const b = blockOf(detail);
   if (!b) return;
-  const r = b.rect, cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2, w = r.y1 - r.y0, h = r.x1 - r.x0;
-  const rect = { x0: Math.round(cx - w / 2), y0: Math.round(cy - h / 2), x1: Math.round(cx - w / 2) + w, y1: Math.round(cy - h / 2) + h };
-  regenerateBlock(editor, detail, { rect }, 'Turn buildings');
+  regenerateBlock(editor, detail, blockTurnedBy(b, degrees), label);
+}
+
+/** A block's footprint and angle after turning it `degrees` (see `turnBlockBy`). */
+export function blockTurnedBy(b: BlockSpec, degrees: number): { rect: BlockSpec['rect']; angle: number } {
+  const { quarter, fine } = splitAngle((b.angle ?? 0) + degrees);
+  return { rect: quarter % 180 ? swapSides(b.rect) : b.rect, angle: normAngle(fine) };
+}
+
+/** A footprint turned a quarter turn about its centre (its sides swapped). */
+function swapSides(r: BlockSpec['rect']): BlockSpec['rect'] {
+  const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2, w = r.y1 - r.y0, h = r.x1 - r.x0;
+  return { x0: Math.round(cx - w / 2), y0: Math.round(cy - h / 2), x1: Math.round(cx - w / 2) + w, y1: Math.round(cy - h / 2) + h };
+}
+
+/** Turns a block's footprint a quarter turn around its centre (the buildings are generated anew to fit it). */
+export function turnBlock(editor: Editor, detail: MapEntity, dir: 1 | -1 = 1): void {
+  turnBlockBy(editor, detail, dir * 90);
 }
 
 /** Builds a copy of a block (same settings and seed) next to it along +x, in the same group, and selects it. */
 export function duplicateBlock(editor: Editor, detail: MapEntity): MapEntity | null {
   const b = blockOf(detail);
   if (!b) return null;
-  const dx = b.rect.x1 - b.rect.x0 + 256;
+  // Beside it: past the box round it when it stands at an angle.
+  const bb = turnedBounds(b.rect, fineTurn(b.rect, b.angle ?? 0));
+  const dx = Math.ceil(bb.x1 - bb.x0) + 256;
   const spec: BlockSpec = { ...b, uid: newBlockUid(), rect: { x0: b.rect.x0 + dx, y0: b.rect.y0, x1: b.rect.x1 + dx, y1: b.rect.y1 } };
   const e = applyBlock(editor, spec, 'Duplicate buildings').detail;
   selectBlock(editor, e);

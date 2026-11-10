@@ -4,7 +4,7 @@ import type { Editor } from '../editor.ts';
 import { applyMaterial, BRUSH_CLASSES, deleteSelection, duplicateSelection, moveToWorld, tieToEntity } from '../edit/actions.ts';
 import { remapSolid } from '../edit/brushes.ts';
 import { h, toast } from './dom.ts';
-import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, selectBlock, selectedBlocks } from '../gen/buildingAction.ts';
+import { buildingsFromSelection, deleteBlock, duplicateBlock, regenerateBlock, selectBlock, selectedBlocks, turnBlockBy } from '../gen/buildingAction.ts';
 import { blockFinder, blockOf } from '../gen/buildingStore.ts';
 import type { BuildingOptions } from '../gen/buildings.ts';
 import { buildingSheet, type BuildingRow } from './buildingOptions.ts';
@@ -25,7 +25,7 @@ import { soundBrowser } from './soundBrowser.ts';
 import { audio } from '../audio/engine.ts';
 import { presetsFor } from '../lw/soundPresets.ts';
 import { addPreset } from '../edit/presetAction.ts';
-import { poiEditor, selectedPoi } from './poiPanel.ts';
+import { poiEditor, rotationRow, selectedPoi } from './poiPanel.ts';
 import { duplicatePoi, selectedPois } from '../gen/poi/action.ts';
 import { cinemaInspector } from './cinemaPanel.ts';
 import { deleteRooms, regenerateRooms, selectedRooms } from '../gen/rooms/action.ts';
@@ -72,7 +72,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (pois.length) {
       panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
         h('div', {}, pois.length > 1 ? `${pois.length} points of interest` : 'Point of interest'),
-        h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it. The comma and period keys turn it, Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
+        h('p.hint', {}, 'Drag the gizmo to move (W), turn (E: 15° steps, Shift: free) or resize (R) it. The comma and period keys turn it a quarter turn, Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         pois.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicatePoi(editor, pois[0]) }, 'Duplicate')) : null));
       if (pois.length === 1) { const poiSheet = poiEditor(editor, pois[0]); if (poiSheet) panel.append(poiSheet); }
       return;
@@ -82,7 +82,7 @@ export function mountInspector(editor: Editor): HTMLElement {
     if (blocks.length) {
       panel.append(h('div.section', {}, h('h3', {}, 'Selection'),
         h('div', {}, blocks.length > 1 ? `${blocks.length} blocks of buildings` : LAYOUT_LABEL[blockOf(blocks[0])?.options.layout ?? 'block']),
-        h('p.hint', {}, 'Drag the gizmo to move (W) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
+        h('p.hint', {}, 'Drag the gizmo to move (W), turn (E: 15° steps, Shift: free) or resize (R) it; it is rebuilt to fit, with the street dressing of the blocks generated with it. The comma and period keys turn it a quarter turn, Ctrl+D duplicates it, Delete removes it. Hide the handles (Handles in the view bar) to pick single props and brushes.'),
         blocks.length === 1 ? h('div.row', {}, h('button', { onclick: () => duplicateBlock(editor, blocks[0]) }, 'Duplicate')) : null));
       const blockSheet = blocks.length === 1 && blockPanel(editor, blocks[0]);
       if (blockSheet) panel.append(blockSheet);
@@ -391,6 +391,8 @@ function blockPanel(editor: Editor, block: MapEntity): HTMLElement | null {
   return h('div.section', {}, h('h3', {}, stored.options.layout === 'house' ? '🏚 Simple interior building' : stored.options.layout === 'single' ? '🏠 Building' : '🏢 Buildings'),
     h('p.hint', {}, `${rect.x1 - rect.x0} × ${rect.y1 - rect.y0} units. Change the settings and press Regenerate.`),
     draftSheet(options),
+    rotationRow(stored.angle ?? 0, (angle) => turnBlockBy(editor, block, angle - (stored.angle ?? 0)),
+      'Turns the block about its centre (a quarter turn generates it anew to fit). Type any angle, or turn the selected block with the rotate gizmo (E: 15° steps, Shift: free). At an angle it gets its own lamps and trees but no cables across to the blocks generated with it', 'relative'),
     h('div.row', {},
       h('button.primary', { title: 'Rebuild with these settings', onclick: () => rebuild('Regenerate buildings') }, 'Regenerate'),
       h('button', { title: 'Same settings, new seed', onclick: () => { options.seed = Math.floor(Math.random() * 100000); rebuild('Re-roll buildings'); } }, 'Re-roll'),
