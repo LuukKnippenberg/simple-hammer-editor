@@ -2,8 +2,8 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity, MapSolid } from '../vmf/map.ts';
 import { snap } from './tools.ts';
 import { historyEdit, type PathCheck, type PathEdit, type PathTarget } from './pathPins.ts';
-import { isTree, normalizePath, pathLabels, type PathPoint, type PointPath } from './pathPoints.ts';
-import { doorGaps, fenceLayout, fenceOutline, FENCE_MODELS, modelPieces, postStations, type FenceDoor, type FenceLink, type FenceModelStyle, type FenceSpec, type Ground } from '../gen/fences.ts';
+import { childrenOf, isTree, normalizePath, parentOf, pathLabels, type PathPoint, type PointPath } from './pathPoints.ts';
+import { brushStyle, fenceLayout, fenceOutline, modelPieces, modelStyle, pieceUnit, postStations, snapToPieces, type FenceDoor, type FenceLink, type FenceSpec, type Ground } from '../gen/fences.ts';
 import { FENCE_ID_KEY, fenceMembers, fenceOf } from '../gen/fenceStore.ts';
 import { fenceGround, isFenceSolid, regenerateFence, selectedFences } from '../gen/fenceAction.ts';
 import type { GenerateTool } from './generateTool.ts';
@@ -35,10 +35,24 @@ export function withPath(spec: FenceSpec, path: PointPath): FenceSpec {
   };
 }
 
-/** A point dropped at `hit`: on the grid, on the ground there. */
-export function fenceSnap(hit: PathPoint, grid: number, ground?: Ground): PathPoint {
-  const x = snap(hit.x, grid), y = snap(hit.y, grid);
+/** What a fence's points and doorways snap to: its mode and model. */
+export type FenceKind = Partial<Pick<FenceSpec, 'mode' | 'model'>>;
+
+/**
+ * A point dropped at `hit`: on the grid, on the ground there. Model fences (`unit`: their shortest piece) instead put
+ * it a whole number of pieces from `from` (the point before it), along the line to the cursor, so the stretch fits.
+ */
+export function fenceSnap(hit: PathPoint, grid: number, ground?: Ground, from?: PathPoint | null, unit = 0): PathPoint {
+  const { x, y } = from && unit ? snapToPieces(from, hit, unit) : { x: snap(hit.x, grid), y: snap(hit.y, grid) };
   return { x, y, z: ground?.(x, y) ?? Math.round(hit.z) };
+}
+
+/** The point a dragged point measures its stretch from: the one before it, or for A the one after it. */
+export function snapAnchor(path: PointPath, i: number): PathPoint | null {
+  const p = parentOf(path, i);
+  if (p >= 0) return path.points[p];
+  const c = childrenOf(path, i)[0];
+  return c === undefined ? null : path.points[c];
 }
 
 const planLength = (path: PointPath, link: { from: number; to: number }) => {
@@ -93,15 +107,21 @@ export function carryDoors(before: PointPath, after: PointPath, moved?: number[]
   return { points: after.points, links };
 }
 
-/** How each stretch builds: its name, length, what fills it and its doorways. */
-export function fenceStretches(spec: FenceSpec, path: PointPath = fencePath(spec)): { name: string; length: number; parts: number; doors: number }[] {
+/** How each stretch builds: its name, length, what fills it, its doorways and (model fences) what is left open. */
+export function fenceStretches(spec: FenceSpec, path: PointPath = fencePath(spec)): { name: string; length: number; parts: number; doors: number; open: number }[] {
   const s = withPath(spec, path);
   const names = pathLabels(path);
   return fenceLayout(s).map((st, k) => {
     const link = path.links[k];
-    const parts = st.runs.reduce((n, run) => n + (s.mode === 'brush' ? postStations(run, s.spacing).length - 1 : modelPieces(FENCE_MODELS[s.model] as FenceModelStyle, run).length), 0);
-    return { name: `${names[link.from]} → ${names[link.to]}`, length: Math.round(st.length), parts, doors: st.gaps.length };
+    const parts = st.runs.reduce((n, run) => n + (s.mode === 'brush' ? postStations(run, s.spacing).length - 1 : modelPieces(modelStyle(s.model), run).length), 0);
+    return { name: `${names[link.from]} → ${names[link.to]}`, length: Math.round(st.length), parts, doors: st.gaps.length, open: st.open };
   });
+}
+
+/** What a stretch is filled with, for notes ("model", "panel", "segment"). */
+function partName(spec: FenceSpec): string {
+  if (spec.mode === 'model') return 'model';
+  return brushStyle(spec.style).kind === 'wall' ? 'segment' : 'panel';
 }
 
 /**
@@ -110,11 +130,11 @@ export function fenceStretches(spec: FenceSpec, path: PointPath = fencePath(spec
  */
 export function fenceCheck(spec: FenceSpec, path: PointPath, i: number): PathCheck {
   const now = fenceStretches(spec, path);
-  const unit = spec.mode === 'brush' ? 'panel' : 'model';
+  const unit = partName(spec);
   const touching = path.links.map((link, k) => ({ link: link as FenceLink, k })).filter(({ link }) => link.from === i || link.to === i);
   const numbers = touching.map(({ k }) => {
     const st = now[k];
-    return `${st.name} · ${st.length} u · ${st.parts} ${unit}${st.parts === 1 ? '' : 's'}${st.doors ? ` · ${st.doors} doorway${st.doors === 1 ? '' : 's'}` : ''}`;
+    return `${st.name} · ${st.length} u · ${st.parts} ${unit}${st.parts === 1 ? '' : 's'}${st.doors ? ` · ${st.doors} doorway${st.doors === 1 ? '' : 's'}` : ''}${st.open ? ` · ${st.open} u open` : ''}`;
   });
   for (const { k } of touching) if (now[k].length < MIN_STRETCH) return { level: 'refused', note: `${now[k].name}: the two points are on top of each other`, numbers };
   for (const { link, k } of touching) {
@@ -122,6 +142,8 @@ export function fenceCheck(spec: FenceSpec, path: PointPath, i: number): PathChe
     const squeezed = (link.doors ?? []).some((d) => d.at + d.width / 2 > length || d.at - d.width / 2 < 0 || d.width > length);
     if (squeezed) return { level: 'adjusted', note: `${now[k].name}: a doorway moved to fit the stretch`, numbers };
   }
+  const open = touching.find(({ k }) => now[k].open > 0);
+  if (open) return { level: 'adjusted', note: `${now[open.k].name}: ${now[open.k].open} u left open at its end (not whole ${pieceUnit(spec)}-unit pieces)`, numbers };
   return { level: 'fine', note: 'moved', numbers };
 }
 
@@ -137,16 +159,39 @@ export function withDoors(path: PointPath, link: number, doors: FenceDoor[]): Po
   };
 }
 
-/** Where a doorway's middle is built (clamped into its stretch), as a point along the stretch. */
-export function doorPoint(path: PointPath, link: number, door: number): PathPoint | null {
+/** A doorway's opening as built: where it runs along its stretch (clamped, for models whole pieces). */
+export function doorSpan(path: PointPath, link: number, door: number, kind: FenceKind = {}): { s0: number; s1: number } | null {
   const l = path.links[link] as FenceLink | undefined;
   const d = l?.doors?.[door];
   if (!l || !d) return null;
+  // Alone on its stretch, so a doorway merged with another still has its own place.
+  const lone = withDoors(path, link, [d]);
+  const st = fenceLayout({ points: lone.points, links: lone.links as FenceLink[], ...kind })[link];
+  return st.gaps[0] ?? null;
+}
+
+/** Where a doorway's middle is built, as a point along its stretch. */
+export function doorPoint(path: PointPath, link: number, door: number, kind: FenceKind = {}): PathPoint | null {
+  const l = path.links[link];
+  const span = doorSpan(path, link, door, kind);
+  if (!l || !span) return null;
   const a = path.points[l.from], b = path.points[l.to];
-  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-  const gap = doorGaps([d], len)[0];
-  const t = (gap.s0 + gap.s1) / 2 / len;
+  const t = (span.s0 + span.s1) / 2 / (Math.hypot(b.x - a.x, b.y - a.y) || 1);
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t };
+}
+
+/** A doorway as model fences build it (whole pieces): its stored middle and width set to that. Others unchanged. */
+export function snapDoor(path: PointPath, link: number, door: FenceDoor, kind: FenceKind): FenceDoor {
+  if (!pieceUnit(kind)) return door;
+  const span = doorSpan(withDoors(path, link, [door]), link, 0, kind);
+  return span ? { ...door, at: Math.round((span.s0 + span.s1) / 2), width: Math.round(span.s1 - span.s0) } : door;
+}
+
+/** The fence a pins' target stands for: a placed fence's spec, else the Fence tool's settings (mode and model). */
+export function fenceKindFor(editor: Editor, target: PathTarget | null): FenceKind {
+  const uid = target?.key.startsWith('fence:') ? target.key.slice(6) : null;
+  const placed = uid ? fenceOf(fenceMembers(editor.doc, uid).detail) : null;
+  return placed ?? (editor.tools.tools.fence as unknown as { settings: FenceKind }).settings;
 }
 
 /**
@@ -191,7 +236,7 @@ export function placedFenceTarget(editor: Editor, uid: string): PathTarget | nul
     key: fenceKey(uid), name: 'Fence', min: 2, ownHeight: false,
     path: () => fencePath(spec() ?? first),
     shown: (path) => path.points,
-    snap: (_path, _i, hit) => fenceSnap(hit, editor.grid, fenceGround(editor)),
+    snap: (path, i, hit) => fenceSnap(hit, editor.grid, fenceGround(editor), snapAnchor(path, i), pieceUnit(spec() ?? first)),
     check: (path, i) => fenceCheck(spec() ?? first, path, i),
     preview: (path) => fenceOutline(withPath(spec() ?? first, path), fenceGround(editor)),
     edit: (label) => doorKeeping(historyEdit(editor, label, (path) => {

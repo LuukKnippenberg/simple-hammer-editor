@@ -3,12 +3,12 @@ import type { Editor } from '../editor.ts';
 import type { MapEntity } from '../vmf/map.ts';
 import type { Tool, ToolName } from './tools.ts';
 import { pickSurface } from './tools.ts';
-import { DEFAULT_FENCE, fenceOutline, fencePatch, newFenceUid, type FenceSpec } from '../gen/fences.ts';
+import { DEFAULT_FENCE, fenceOutline, fencePatch, newFenceUid, pieceUnit, type FenceSpec } from '../gen/fences.ts';
 import { applyFence, fenceGround, regenerateFence, selectFence } from '../gen/fenceAction.ts';
 import { fenceOf } from '../gen/fenceStore.ts';
 import { PathPins, type PathTarget } from './pathPins.ts';
 import { addPoint, lastPoint, parentOf, pathLabels, removePoint, type PathPoint, type PointPath } from './pathPoints.ts';
-import { carryDoors, doorKeeping, fenceCheck, fencePath, fenceSnap, withPath } from './fencePath.ts';
+import { carryDoors, doorKeeping, fenceCheck, fencePath, fenceSnap, snapAnchor, withPath } from './fencePath.ts';
 import { FenceDoors } from './fenceDoors.ts';
 import { mountFencePlan } from './fencePlan.ts';
 
@@ -110,7 +110,9 @@ export class FenceTool implements Tool {
   private pointAt(ndc: Vector2): PathPoint | null {
     const hit = pickSurface(this.editor, ndc);
     if (!hit) return null;
-    return fenceSnap({ x: hit.point.x, y: hit.point.y, z: hit.point.z }, this.editor.grid, fenceGround(this.editor));
+    // Model fences: a whole number of pieces from the point placing carries on from.
+    const from = this.path.points.length ? this.path.points[this.from] : null;
+    return fenceSnap({ x: hit.point.x, y: hit.point.y, z: hit.point.z }, this.editor.grid, fenceGround(this.editor), from, pieceUnit(this.settings));
   }
 
   hoverAt(ndc: Vector2): void {
@@ -191,7 +193,7 @@ export class FenceTool implements Tool {
     key: '', name: 'Fence', min: 1, ownHeight: false,
     path: () => this.path,
     shown: (path) => path.points,
-    snap: (_path, _i, hit) => fenceSnap(hit, this.editor.grid, fenceGround(this.editor)),
+    snap: (path, i, hit) => fenceSnap(hit, this.editor.grid, fenceGround(this.editor), snapAnchor(path, i), pieceUnit(this.settings)),
     check: (path, i) => fenceCheck(this.spec(), path, i),
     edit: () => {
       const start = { path: this.path, from: this.from };

@@ -94,7 +94,9 @@ await withEditor(async (d, page) => {
   await d.click([1024, 768, 0]);
   check('A-B-C placed', await names(), ['A', 'B', 'C']);
   await dragTo(await pinBox('C'), [1152, 768, 0]);
-  check('C dragged while placing', (await placing()).points[2], [1152, 768]);
+  // Model fences: a point lands a whole number of 128-unit pieces from the one before (6 here, toward the cursor).
+  check('C dragged while placing: 6 pieces from B', (await placing()).points[2], [1150, 758]);
+  check('B → C is 768 long', await d.eval(() => { const p = window.__editor.editor.tools.tools.fence.path.points; return Math.round(Math.hypot(p[2].x - p[1].x, p[2].y - p[1].y)); }), 768);
   await page.locator('.path-pins:not([hidden]) .path-add[title*="between A and B"]').click();
   await d.settle(150);
   check('inserted with +', await names(), ['A', 'B', 'C', 'D']);
@@ -104,14 +106,15 @@ await withEditor(async (d, page) => {
   // A doorway in the middle of A → B, from the panel's Doorways list.
   await page.locator(`${panel} [data-add-door="0"]`).click();
   await d.settle(200);
-  check('doorway added while placing', (await placing()).links[0], [0, 1, [512, 96]]);
+  // Model fences open whole pieces: one 128-unit piece, 512..640 along A → B.
+  check('doorway added while placing', (await placing()).links[0], [0, 1, [576, 128]]);
   check('its chip shows', await page.locator(chips).count(), 1);
   // Shift+click B, then click: a branch from B (a T).
   await withKey('Shift', async () => page.mouse.click(...(await pinBox('B'))));
   check('Shift+click B places from B', (await placing()).from, 1);
   await d.click([1024, -512, 0]);
   check('branch names', await names(), ['A', 'B', 'C1', 'C2']);
-  check('the doorway stays on A → B', (await placing()).links[0], [0, 1, [512, 96]]);
+  check('the doorway stays on A → B', (await placing()).links[0], [0, 1, [576, 128]]);
   await page.mouse.move(10, 300);
   await d.settle(150);
   await shot('fence-placing');
@@ -119,16 +122,23 @@ await withEditor(async (d, page) => {
   await d.settle(400);
   let built = (await fences())[0];
   check('built: a model fence with its doorway', built && { mode: built.mode, model: built.model, links: built.links }, {
-    mode: 'model', model: 'chainlink', links: [[0, 1, [512, 96, false]], [1, 2], [1, 3]],
+    mode: 'model', model: 'chainlink', links: [[0, 1, [576, 128, false]], [1, 2], [1, 3]],
   });
   check('props, clip and a handle, no brushes', built && [built.props > 6, built.clip > 6, built.handle, built.brushes], [true, true, true, 0]);
+  check('every stretch a whole number of pieces: nothing left open', await d.eval(async () => {
+    const ed = window.__editor.editor;
+    const { fenceOf } = await import('/src/gen/fenceStore.ts');
+    const { fenceLayout } = await import('/src/gen/fences.ts');
+    const spec = ed.doc.entities.map((e) => fenceOf(e)).find(Boolean);
+    return fenceLayout(spec).map((st) => st.open);
+  }), [0, 0, 0]);
   check('Tune step keeps the pins', await names(), ['A', 'B', 'C1', 'C2']);
   check('and the chip', await page.locator(chips).count(), 1);
   // A gate on the doorway, from the list: rebuilt into the same generate.
   const stepsTune = await depth();
   await page.locator(`${panel} .door-row input[type=checkbox]`).check();
   await d.settle(300);
-  check('gate on', (await fences())[0].links[0], [0, 1, [512, 96, true]]);
+  check('gate on', (await fences())[0].links[0], [0, 1, [576, 128, true]]);
   check('one undo step with the generate', (await depth()) - stepsTune, 0);
   await shot('fence-model-tune-2d');
   // 3D of the model fence with its gate.
@@ -143,7 +153,7 @@ await withEditor(async (d, page) => {
   await page.locator(`${panel} .row:has(label:text-is("Build")) select`).selectOption('brush');
   await d.settle(300);
   built = (await fences())[0];
-  check('switched to brushes', built && [built.mode, built.props, built.brushes > 20, built.links[0]], ['brush', 0, true, [0, 1, [512, 96, true]]]);
+  check('switched to brushes', built && [built.mode, built.props, built.brushes > 20, built.links[0]], ['brush', 0, true, [0, 1, [576, 128, true]]]);
   check('the same func_detail', await d.eval(() => window.__editor.editor.tools.tools.generate.session.made[0].id), madeBefore);
   await page.locator(`${panel} .row:has(label:text-is("Style")) select`).selectOption('boards');
   await d.settle(300);
@@ -173,14 +183,14 @@ await withEditor(async (d, page) => {
       await shot('fence-drag-preview');
     },
   });
-  check('B moved, doorway kept', (await fences())[0].links[0], [0, 1, [512, 96, true]]);
+  check('B moved, doorway kept', (await fences())[0].links[0], [0, 1, [576, 128, true]]);
   check('B moved', (await fences())[0].points[1], [1280, 0]);
   check('one undo step per drag', (await depth()) - steps, 1);
   // Drag B back close to A: the doorway no longer fits where it was (amber) but is kept in the spec.
   await dragTo(await pinBox('B'), [320, 0, 0], {
     hold: async () => check('amber note', await page.$eval(tip, (e) => e.className), 'path-tip adjusted'),
   });
-  check('stored doorway unchanged', (await fences())[0].links[0], [0, 1, [512, 96, true]]);
+  check('stored doorway unchanged', (await fences())[0].links[0], [0, 1, [576, 128, true]]);
   await d.eval(() => window.__editor.editor.undo());
   await d.settle(250);
   check('undo puts B back one drag', (await fences())[0].points[1], [1280, 0]);
@@ -199,18 +209,18 @@ await withEditor(async (d, page) => {
   check('chip on the placed fence', await page.locator(chips).count(), 1);
   const stepsChip = await depth();
   await dragTo(await chipBox(), [256, 40, 0]);
-  check('chip drag moved the doorway', (await fences())[0].links[0], [0, 1, [256, 96, true]]);
+  check('chip drag moved the doorway', (await fences())[0].links[0], [0, 1, [256, 128, true]]);
   check('one undo step', (await depth()) - stepsChip, 1);
   // Alt+click removes it; undo brings it back.
   await withKey('Alt', async () => page.mouse.click(...(await chipBox())));
   check('Alt+click on the chip removes the doorway', (await fences())[0].links[0], [0, 1]);
   await d.eval(() => window.__editor.editor.undo());
   await d.settle(250);
-  check('undo brings it back', (await fences())[0].links[0], [0, 1, [256, 96, true]]);
+  check('undo brings it back', (await fences())[0].links[0], [0, 1, [256, 128, true]]);
   // A + on A → B: the new point at 512 hands the doorway (at 256) to the first half; one at 128 would go second.
   await page.locator('.path-pins:not([hidden]) .path-add[title*="between A and B"]').click();
   await d.settle(300);
-  check('+ insert: the doorway stays on the half it is on', (await fences())[0].links.slice(0, 2), [[0, 1, [256, 96, true]], [1, 2]]);
+  check('+ insert: the doorway stays on the half it is on', (await fences())[0].links.slice(0, 2), [[0, 1, [256, 128, true]], [1, 2]]);
   await d.eval(() => window.__editor.editor.undo());
   await d.settle(250);
 
@@ -227,12 +237,12 @@ await withEditor(async (d, page) => {
   check('typed x moves B', (await fences())[0].points[1], [1152, 0]);
   await page.locator('#sidebar [data-add-door="1"]').click();
   await d.settle(300);
-  check('+ Doorway on B → C1 from the Selection panel', (await fences())[0].links[1], [1, 2, [384, 96, false]]);
+  check('+ Doorway on B → C1 from the Selection panel', (await fences())[0].links[1], [1, 2, [379, 96, false]]);
   const width = page.locator('#sidebar .door-row[data-door="1:0"] input[type=number]').nth(1);
   await width.fill('160');
   await width.press('Enter');
   await d.settle(300);
-  check('typed width', (await fences())[0].links[1], [1, 2, [384, 160, false]]);
+  check('typed width', (await fences())[0].links[1], [1, 2, [379, 160, false]]);
   check('two chips', await page.locator(chips).count(), 2);
   await d.eval(() => { document.activeElement?.blur(); window.__editor.editor.tools.select.pins.select(-1); });
   await d.key('Tab');
@@ -242,7 +252,7 @@ await withEditor(async (d, page) => {
   await d.key('Delete');
   await d.settle(300);
   check('Delete removes the picked point (C1)', await names(), ['A', 'B', 'C']);
-  check('its doorway went with its stretch', (await fences())[0].links, [[0, 1, [256, 96, true]], [1, 2]]);
+  check('its doorway went with its stretch', (await fences())[0].links, [[0, 1, [256, 128, true]], [1, 2]]);
   await d.eval(() => window.__editor.editor.undo());
   await d.settle(300);
   check('undo brings C1 back', await names(), ['A', 'B', 'C1', 'C2']);
@@ -259,7 +269,7 @@ await withEditor(async (d, page) => {
   await d.settle(300);
   const all = await fences();
   check('the same fence, rebuilt', all.map((f) => f.uid), [before.uid]);
-  check('with the branch and its doorways', all[0].links, [[0, 1, [256, 96, true]], [1, 2, [384, 160, false]], [1, 3], [0, 4]]);
+  check('with the branch and its doorways', all[0].links, [[0, 1, [256, 128, true]], [1, 2, [379, 160, false]], [1, 3], [0, 4]]);
 
   // The handle moves the whole fence (as the gizmo does when its drag ends), in one undo step.
   const pts = all[0].points;
@@ -313,7 +323,7 @@ await withEditor(async (d, page) => {
   await d.key('Enter');
   await d.settle(300);
   const second = (await fences()).find((f) => f.uid !== before.uid);
-  check('second fence: wasteland models with a doorway', second && [second.mode, second.model, second.links[0]], ['model', 'wasteland', [0, 1, [512, 96, false]]]);
+  check('second fence: wasteland models with a doorway', second && [second.mode, second.model, second.links[0]], ['model', 'wasteland', [0, 1, [576, 128, false]]]);
   await top(512, 640, 3000);
   await d.eval(() => window.__editor.editor.selection.clear());
   await d.settle(300);
@@ -322,6 +332,60 @@ await withEditor(async (d, page) => {
   await d.view([260, 420, 260], [620, 980, 40]);
   await d.settle(1500);
   await shot('fence-wasteland-3d');
+
+  // --- Review shots of every style: an L with a doorway each --------------------------------------------------
+  const showcase = [
+    { uid: 'show_chain', o: { mode: 'model', model: 'chainlink' }, gate: true },
+    { uid: 'show_wallc', o: { mode: 'brush', style: 'wallConcrete' }, gate: false },
+    { uid: 'show_wallb', o: { mode: 'brush', style: 'wallBrick' }, gate: true },
+    { uid: 'show_wallt', o: { mode: 'brush', style: 'wallTall' }, gate: false },
+    { uid: 'show_wallr', o: { mode: 'brush', style: 'wallRailing' }, gate: true },
+    { uid: 'show_picket', o: { mode: 'brush', style: 'pickets' }, gate: false },
+    { uid: 'show_guard', o: { mode: 'brush', style: 'guardrail' }, gate: false },
+    // Two rows inside the empty map's floor (which ends near ±4000).
+  ].map((f, i) => ({ ...f, x0: -3600 + (i % 4) * 1280, y0: i < 4 ? 2176 : 3200 }));
+  const showStats = await d.eval(async (list) => {
+    const ed = window.__editor.editor;
+    const { applyFence } = await import('/src/gen/fenceAction.ts');
+    const { DEFAULT_FENCE, FENCE_STYLES, fenceLayout } = await import('/src/gen/fences.ts');
+    const { fenceMembers } = await import('/src/gen/fenceStore.ts');
+    const out = {};
+    for (const f of list) {
+      const style = f.o.style ? FENCE_STYLES[f.o.style] : null;
+      const spec = {
+        uid: f.uid, ...DEFAULT_FENCE, ...(style ? { height: style.height, spacing: style.spacing } : {}), ...f.o,
+        points: [{ x: f.x0, y: f.y0, z: 0 }, { x: f.x0 + 768, y: f.y0, z: 0 }, { x: f.x0 + 768, y: f.y0 + 512, z: 0 }],
+        links: [{ from: 0, to: 1, doors: [{ at: 384, width: f.o.mode === 'model' ? 128 : 96, ...(f.gate ? { gate: true } : {}) }] }, { from: 1, to: 2 }],
+      };
+      applyFence(ed, spec, 'Showcase fence');
+      const m = fenceMembers(ed.doc, f.uid);
+      out[f.uid] = { brushes: m.detail?.solids.length ?? 0, props: m.props.length, clip: m.world.length, open: fenceLayout(spec).map((st) => st.open) };
+    }
+    ed.selection.clear();
+    return out;
+  }, showcase);
+  check('showcase: chain-link models, nothing open', [showStats.show_chain.props, showStats.show_chain.open], [6, [0, 0]]);
+  check('showcase: walls have brushes and no clip', ['show_wallc', 'show_wallb', 'show_wallt', 'show_wallr'].map((k) => [showStats[k].brushes > 3, showStats[k].clip]), [[true, 0], [true, 0], [true, 0], [true, 0]]);
+  check('showcase: pickets and guardrail keep a clip', ['show_picket', 'show_guard'].map((k) => [showStats[k].brushes > 6, showStats[k].clip > 0]), [[true, true], [true, true]]);
+  await d.eval(() => window.__editor.editor.setView3dOrTop('3d'));
+  for (const f of showcase) {
+    const tall = f.o.style === 'wallTall';
+    await d.view([f.x0 + 120, f.y0 - 560, tall ? 480 : 300], [f.x0 + 560, f.y0 + 120, tall ? 60 : 20]);
+    await d.settle(1200);
+    await shot(`style-${f.uid.replace('show_', '')}-3d`);
+  }
+  // The chain-link corner close up (no doubled or crossing posts), and the whole row in the top view.
+  await d.view([showcase[0].x0 + 980, showcase[0].y0 - 260, 200], [showcase[0].x0 + 700, showcase[0].y0 + 60, 40]);
+  await d.settle(1200);
+  await shot('style-chain-corner-3d');
+  await top(showcase[0].x0 + 400, showcase[0].y0 + 240, 520);
+  await shot('style-chain-corner-2d');
+  await top(showcase[1].x0 + 400, showcase[1].y0 + 240, 520);
+  await shot('style-wallc-2d');
+  check('the map checklist has nothing new to fix', await d.eval(async () => {
+    const { mapChecklist } = await import('/src/edit/preflight.ts');
+    return mapChecklist(window.__editor.editor).checks.filter((c) => !c.ok).length;
+  }), 1);
   check('no page errors', errors, []);
 });
 

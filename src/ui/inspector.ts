@@ -392,7 +392,7 @@ function fencePanel(editor: Editor, details: MapEntity[]): HTMLElement[] {
   const sheet = h('div.section', {}, h('h3', {}, 'Fence'), ...fenceSheet(spec, (patch) => regenerateFence(editor, one, fencePatch(spec, patch))));
   const pins = editor.tools.select.pins;
   const target = pins.target?.key === fenceKey(spec.uid) && editor.tools.current === editor.tools.select ? pins.target : null;
-  return [head, sheet, fencePointsSection(editor, fenceKey(spec.uid)), fenceDoorwaysSection(target, (editor.tools.tools.fence as FenceTool).placedDoors)];
+  return [head, sheet, fencePointsSection(editor, fenceKey(spec.uid)), fenceDoorwaysSection(target, (editor.tools.tools.fence as FenceTool).placedDoors, spec)];
 }
 
 const LAYOUT_LABEL = { block: 'Block of buildings', single: 'Building', house: 'Simple interior building' } as const;

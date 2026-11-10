@@ -847,3 +847,4 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
 .fence-doorways .door-row.on { outline: 1px solid #d8b070; border-radius: 3px; }
 .fence-doorways .door-row input.num { width: 100%; }
 .fence-doorways .stretch { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; }
+.fence-doorways .stretch .open { color: var(--warn, #e0b050); }

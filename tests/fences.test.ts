@@ -6,10 +6,10 @@ import { solidBounds } from '../src/edit/brushes.ts';
 import type { KVNode } from '../src/vmf/keyvalues.ts';
 import {
   DEFAULT_FENCE, FENCE_MODELS, FENCE_STYLES, buildFence, decodeFence, doorGaps, encodeFence, fenceLayout, fenceOutline, fencePatch,
-  modelOrigin, modelPieces, modelYaw, pointAlong, postStations, type FenceSpec,
+  modelOrigin, modelPieces, modelPlacements, modelYaw, pieceUnit, pointAlong, postStations, snapToPieces, type FenceSpec, type ModelPlacement,
 } from '../src/gen/fences.ts';
 import { addStoredFence, fenceMembers, fenceOf, fenceOwner } from '../src/gen/fenceStore.ts';
-import { carryDoors, fenceCheck, fencePath, withPath } from '../src/edit/fencePath.ts';
+import { carryDoors, doorSpan, fenceCheck, fencePath, fenceSnap, snapDoor, withPath } from '../src/edit/fencePath.ts';
 import { insertPoint, removePoint } from '../src/edit/pathPoints.ts';
 import { stripHandles } from '../src/gen/handle.ts';
 import { Vector2 } from 'three';
@@ -61,13 +61,13 @@ describe('fence spec', () => {
 
 describe('fence layout', () => {
   it('one stretch per link, with plan length and direction', () => {
-    const st = fenceLayout(corner());
+    const st = fenceLayout(corner({ mode: 'brush' }));
     expect(st.map((s) => Math.round(s.length))).toEqual([512, 384]);
     expect(st[1].dir.toArray()).toEqual([0, 1]);
     expect(st[0].runs).toEqual([{ link: 0, s0: 0, s1: 512 }]);
   });
   it('a doorway cuts its stretch into two runs', () => {
-    const st = fenceLayout(corner({}, [{ at: 256, width: 96 }]))[0];
+    const st = fenceLayout(corner({ mode: 'brush' }, [{ at: 256, width: 96 }]))[0];
     expect(st.gaps).toEqual([{ link: 0, door: 0, s0: 208, s1: 304, gate: false }]);
     expect(st.runs).toEqual([{ link: 0, s0: 0, s1: 208 }, { link: 0, s0: 304, s1: 512 }]);
   });
@@ -90,22 +90,23 @@ describe('fence layout', () => {
     expect(pointAlong(st, 256).z).toBe(32);
   });
   it('posts at both ends and evenly at about the spacing', () => {
-    expect(postStations({ link: 0, s0: 0, s1: 512 }, 128)).toEqual([0, 128, 256, 384, 512]);
-    expect(postStations({ link: 0, s0: 0, s1: 300 }, 128)).toEqual([0, 150, 300]);
-    expect(postStations({ link: 0, s0: 0, s1: 40 }, 128)).toEqual([0, 40]);
+    expect(postStations({ s0: 0, s1: 512 }, 128)).toEqual([0, 128, 256, 384, 512]);
+    expect(postStations({ s0: 0, s1: 300 }, 128)).toEqual([0, 150, 300]);
+    expect(postStations({ s0: 0, s1: 40 }, 128)).toEqual([0, 40]);
   });
-  it('model pieces: the longest that fits, then shorter, spread evenly', () => {
+  it('model pieces: at their own length, the longest that fits first, the rest left open at the end', () => {
     const chain = FENCE_MODELS.chainlink;
-    const run = (s1: number) => modelPieces(chain, { link: 0, s0: 0, s1 });
+    const run = (s1: number) => modelPieces(chain, { s0: 0, s1 });
     expect(run(512).map((p) => [p.s, p.piece.step])).toEqual([[128, 256], [384, 256]]);
-    expect(run(384).map((p) => p.piece.step)).toEqual([256, 128]);
-    // 400: 256 + 128 and 16 left over at the joint; the ends stay at the run's ends.
-    expect(run(400).map((p) => p.s)).toEqual([128, 336]);
-    // 192: one 128 would leave 64 open, so two overlap (a closed fence beats a hole at a corner).
-    expect(run(192).map((p) => p.piece.step)).toEqual([128, 128]);
-    // 100 is most of a 128 piece: one, a little over the ends; 50 is too short for any.
-    expect(run(100).map((p) => p.s)).toEqual([50]);
-    expect(run(50)).toEqual([]);
+    expect(run(384).map((p) => [p.s, p.piece.step])).toEqual([[128, 256], [320, 128]]);
+    // 400: 256 + 128, and 16 open at the end (never squeezed or stretched).
+    expect(run(400).map((p) => [p.s, p.piece.step])).toEqual([[128, 256], [320, 128]]);
+    expect(run(192).map((p) => p.s)).toEqual([64]);
+    // A length rounded down by a unit still takes its piece.
+    expect(run(127.4).map((p) => p.piece.step)).toEqual([128]);
+    expect(run(100)).toEqual([]);
+    const st = fenceLayout({ ...fence([[0, 0, 0], [400, 0, 0]]), mode: 'model', model: 'chainlink' })[0];
+    expect([st.runs[0].filled, st.open]).toEqual([384, 16]);
   });
   it('model yaw turns the long axis along the stretch, and the origin centres the bounds', () => {
     expect(modelYaw('y', new Vector2(1, 0))).toBe(270);
@@ -121,25 +122,26 @@ describe('building fences', () => {
   const doc = () => VmfDocument.empty();
 
   it('model mode: props along every stretch with collision, none across a doorway, an NPC clip strip', () => {
-    const b = buildFence(doc(), corner({ mode: 'model', model: 'chainlink' }, [{ at: 256, width: 128 }]));
+    // The doorway in the middle of A → B opens 256..384: whole pieces either side.
+    const b = buildFence(doc(), corner({ mode: 'model', model: 'chainlink' }, [{ at: 320, width: 128 }]));
     expect(b.props.every((p) => p.classname === 'prop_static' && p.keys.solid === '6')).toBe(true);
     expect(new Set(b.props.map((p) => p.keys.model))).toEqual(new Set(['models/props_c17/fence01a.mdl', 'models/props_c17/fence03a.mdl']));
-    // A → B: 192 on each side of the doorway (two overlapping 128s each) and B → C 384 (256 + 128).
-    expect(b.pieces).toBe(6);
+    // A → B: 256 before the doorway, 128 after; B → C 384 (256 + 128).
+    expect(b.pieces).toBe(4);
     expect(b.detail).toEqual([]);
     expect(b.clip.length).toBeGreaterThan(0);
     expect(b.clip.every(valid)).toBe(true);
     expect([...mats(b.clip)]).toEqual(['TOOLS/TOOLSNPCCLIP']);
-    // No prop and no clip stands in the opening (x 192..320 on y 0).
+    // No prop and no clip stands in the opening (x 256..384 on y 0), past its end posts.
     for (const p of b.props) {
       if (Math.abs(p.origin.y) > 8) continue;
       const half = p.keys.model.includes('fence03a') ? 128 : 64;
-      expect(p.origin.x + half <= 192 + 2 || p.origin.x - half >= 320 - 2).toBe(true);
+      expect(p.origin.x + half <= 256 + 0.5 || p.origin.x - half >= 384 - 0.5).toBe(true);
     }
     for (const c of b.clip) {
       const box = solidBounds(solid(c));
       if (box.max.y > 16) continue;
-      expect(box.max.x <= 193 || box.min.x >= 319).toBe(true);
+      expect(box.max.x <= 257 || box.min.x >= 383).toBe(true);
     }
   });
 
@@ -274,6 +276,292 @@ describe('doorways through point changes', () => {
     const onTop = { ...p, points: p.points.map((q, i) => (i === 1 ? { ...q, x: 8 } : q)) };
     expect(fenceCheck(s, onTop, 1).level).toBe('refused');
     expect(fenceCheck(s, p, 2).level).toBe('fine');
-    expect(fenceCheck(s, p, 1).numbers[0]).toBe('A → B · 512 u · 3 models · 1 doorway');
+    // The doorway opens 384..512 (whole pieces): 256 + 128 before it.
+    expect(fenceCheck(s, p, 1).numbers[0]).toBe('A → B · 512 u · 2 models · 1 doorway');
+  });
+});
+
+// --- Overlap checks ----------------------------------------------------------------------------------------------
+
+type P2 = { x: number; y: number };
+/** Signed area of a polygon. */
+const area = (poly: P2[]) => poly.reduce((n, p, i) => n + p.x * poly[(i + 1) % poly.length].y - poly[(i + 1) % poly.length].x * p.y, 0) / 2;
+/** Clips a convex polygon by another convex (counter-clockwise) one. */
+function clip(subject: P2[], by: P2[]): P2[] {
+  let out = subject;
+  for (let i = 0; i < by.length && out.length; i++) {
+    const a = by[i], b = by[(i + 1) % by.length];
+    const inside = (p: P2) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) >= -1e-9;
+    const cut = (p: P2, q: P2): P2 => {
+      const d1 = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x), d2 = (b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x);
+      const t = d1 / (d1 - d2);
+      return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t };
+    };
+    const input = out;
+    out = [];
+    input.forEach((p, k) => {
+      const q = input[(k + 1) % input.length];
+      if (inside(q)) { if (!inside(p)) out.push(cut(p, q)); out.push(q); } else if (inside(p)) out.push(cut(p, q));
+    });
+  }
+  return out;
+}
+const ccw = (poly: P2[]) => (area(poly) < 0 ? [...poly].reverse() : poly);
+/** A placed model's bounds in plan (its full length, end posts included). */
+function rect(m: ModelPlacement): P2[] {
+  const l = { x: -m.dir.y, y: m.dir.x }, h = m.length / 2;
+  const at = (s: number, t: number) => ({ x: m.centre.x + m.dir.x * s + l.x * t, y: m.centre.y + m.dir.y * s + l.y * t });
+  return ccw([at(-h, -m.half), at(h, -m.half), at(h, m.half), at(-h, m.half)]);
+}
+/**
+ * Every pair of model pieces overlaps at most where their end posts are: along a stretch by their two overhangs, and
+ * across a corner only within the end post's square round the shared point.
+ */
+function overlapProblems(spec: FenceSpec, placed = modelPlacements(spec)): string[] {
+  const problems: string[] = [];
+  // No piece reaches past either end of its stretch by more than its end post (over a corner, into the next one).
+  const lengths = fenceLayout(spec).map((st) => st.length);
+  for (const p of placed) {
+    if (p.s - p.length / 2 < -p.over - 0.5 || p.s + p.length / 2 > lengths[p.link] + p.over + 0.5) problems.push(`stretch ${p.link}: the piece at ${p.s} reaches past its stretch`);
+  }
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i], b = placed[j];
+      const both = clip(rect(a), rect(b));
+      if (both.length < 3 || Math.abs(area(both)) < 0.5) continue;
+      if (a.link === b.link) {
+        const along = a.length / 2 + b.length / 2 - Math.abs(b.s - a.s);
+        if (along > a.over + b.over + 0.5) problems.push(`stretch ${a.link}: pieces at ${a.s} and ${b.s} overlap ${along}`);
+        continue;
+      }
+      // Across stretches: inside the end post's reach of a point both stretches share.
+      const reach = Math.max(a.half, b.half) + Math.max(a.over, b.over);
+      const shared = spec.points.filter((p) => both.every((q) => Math.hypot(q.x - p.x, q.y - p.y) <= reach * Math.SQRT2 + 0.5));
+      if (!shared.length) problems.push(`stretches ${a.link} and ${b.link}: pieces at ${a.s} and ${b.s} cross (area ${Math.round(Math.abs(area(both)))})`);
+    }
+  }
+  return problems;
+}
+
+describe('model fences never overlap more than their end posts', () => {
+  it('the check itself finds squeezed and crossing pieces', () => {
+    const s = fence([[0, 0, 0], [512, 0, 0], [512, 512, 0]], undefined, { mode: 'model', model: 'chainlink' });
+    const placed = modelPlacements(s);
+    // Two pieces of a stretch pushed 32 together, as the old spreading did.
+    const squeezed = placed.map((p, i) => (i === 1 ? { ...p, s: p.s - 32, centre: p.centre.clone().addScaledVector(p.dir, -32) } : p));
+    expect(overlapProblems(s, squeezed).length).toBeGreaterThan(0);
+    // The second stretch's first piece pulled back over the corner.
+    const k = placed.findIndex((p) => p.link === 1);
+    const crossing = placed.map((p, i) => (i === k ? { ...p, s: p.s - 64, centre: p.centre.clone().addScaledVector(p.dir, -64) } : p));
+    expect(overlapProblems(s, crossing).length).toBeGreaterThan(0);
+    expect(overlapProblems(s)).toEqual([]);
+  });
+  it("the user's chain-link A → B → C, any lengths, with a doorway", () => {
+    for (const [ab, bc] of [[1000, 700], [1024, 768], [517, 333], [1300, 90]]) {
+      const s = fence([[0, 0, 0], [ab, 0, 0], [ab, bc, 0]], [{ from: 0, to: 1, doors: [{ at: ab / 3, width: 100 }] }, { from: 1, to: 2 }], { mode: 'model', model: 'chainlink' });
+      expect(overlapProblems(s)).toEqual([]);
+      // The pieces sit at their own length: each starts a whole number of pieces after its run starts.
+      for (const st of fenceLayout(s)) for (const run of st.runs) {
+        const pieces = modelPieces(FENCE_MODELS.chainlink, run);
+        pieces.forEach((p, k) => { if (k) expect(p.s - pieces[k - 1].s).toBe((p.piece.step + pieces[k - 1].piece.step) / 2); });
+      }
+    }
+  });
+  it('every model, square and sharp corners, and a branch', () => {
+    for (const model of Object.keys(FENCE_MODELS) as (keyof typeof FENCE_MODELS)[]) {
+      const square = fence([[0, 0, 0], [512, 0, 0], [512, 512, 0]], undefined, { mode: 'model', model });
+      expect(overlapProblems(square)).toEqual([]);
+      // 45° back: the second stretch starts past the first one's pieces.
+      const sharp = fence([[0, 0, 0], [768, 0, 0], [256, 512, 0]], undefined, { mode: 'model', model });
+      expect(overlapProblems(sharp)).toEqual([]);
+      expect(fenceLayout(sharp)[1].start).toBeGreaterThan(0);
+      const tee = fence([[0, 0, 0], [512, 0, 0], [1024, 0, 0], [512, 512, 0], [512, -384, 0]], [{ from: 0, to: 1 }, { from: 1, to: 2 }, { from: 1, to: 3 }, { from: 1, to: 4 }], { mode: 'model', model });
+      expect(overlapProblems(tee)).toEqual([]);
+    }
+  });
+  it('a sharp corner pushes the next stretch past the corner post', () => {
+    const sharp = fence([[0, 0, 0], [768, 0, 0], [256, 512, 0]], undefined, { mode: 'model', model: 'barbed' });
+    const layout = fenceLayout(sharp);
+    expect(layout[0].start).toBe(0);
+    // Half-width 13 at 45°: 13 / tan(22.5°) + the end post.
+    expect(layout[1].start).toBe(Math.ceil(13 / Math.tan(Math.PI / 8) + 1));
+    expect(layout[1].runs[0].s0).toBe(layout[1].start);
+    // A square corner shares its post.
+    expect(fenceLayout(fence([[0, 0, 0], [512, 0, 0], [512, 512, 0]], undefined, { mode: 'model', model: 'barbed' }))[1].start).toBe(0);
+  });
+  it('the old squeezing is gone: no piece is closer to the next than its own length', () => {
+    const s = fence([[0, 0, 0], [450, 0, 0]], undefined, { mode: 'model', model: 'chainlink' });
+    const placed = modelPlacements(s);
+    expect(placed.map((p) => [p.s, p.piece.step])).toEqual([[128, 256], [320, 128]]);
+    expect(fenceLayout(s)[0].open).toBe(66);
+    // The clip stops where the pieces do: the open end stays open.
+    const b = buildFence(VmfDocument.empty(), s);
+    expect(Math.max(...b.clip.map((c) => solidBounds(solid(c)).max.x))).toBe(384);
+  });
+});
+
+describe('model fences snap to whole pieces', () => {
+  it('a point goes a whole number of the shortest piece from the one before, along the cursor', () => {
+    expect(pieceUnit({ mode: 'model', model: 'chainlink' })).toBe(128);
+    expect(pieceUnit({ mode: 'brush', model: 'chainlink' })).toBe(0);
+    expect(snapToPieces({ x: 0, y: 0 }, { x: 300, y: 10 }, 128)).toEqual({ x: 256, y: 9 });
+    expect(snapToPieces({ x: 0, y: 0 }, { x: 20, y: 0 }, 128)).toEqual({ x: 128, y: 0 });
+    // A diagonal: rounded to whole units, still a whole number of pieces (within a unit).
+    const d = snapToPieces({ x: 64, y: 64 }, { x: 400, y: 380 }, 128);
+    expect(Math.abs(Math.hypot(d.x - 64, d.y - 64) - 512)).toBeLessThan(1);
+    const st = fenceLayout({ ...fence([[64, 64, 0], [d.x, d.y, 0]]), mode: 'model', model: 'chainlink' })[0];
+    expect(st.open).toBe(0);
+    expect(modelPieces(FENCE_MODELS.chainlink, st.runs[0]).map((q) => q.piece.step)).toEqual([256, 256]);
+  });
+  it('fenceSnap: brush fences on the grid, model fences on whole pieces, both on the ground', () => {
+    const ground = () => 24;
+    expect(fenceSnap({ x: 301, y: 9, z: 0 }, 16, ground)).toEqual({ x: 304, y: 16, z: 24 });
+    expect(fenceSnap({ x: 301, y: 9, z: 0 }, 16, ground, { x: 0, y: 0, z: 0 }, 128)).toEqual({ x: 256, y: 8, z: 24 });
+  });
+});
+
+describe('model fence doorways', () => {
+  const s = (doors: FenceSpec['links'][number]['doors']) => fence([[0, 0, 0], [1024, 0, 0]], [{ from: 0, to: 1, doors }], { mode: 'model', model: 'chainlink' });
+  it('open whole pieces, starting a whole number of pieces along', () => {
+    const gaps = (doors: FenceSpec['links'][number]['doors']) => fenceLayout(s(doors))[0].gaps.map((g) => [g.s0, g.s1]);
+    expect(gaps([{ at: 500, width: 96 }])).toEqual([[384, 512]]);
+    expect(gaps([{ at: 500, width: 160 }])).toEqual([[384, 640]]);
+    expect(gaps([{ at: 30, width: 96 }])).toEqual([[0, 128]]);
+    expect(gaps([{ at: 1000, width: 96 }])).toEqual([[896, 1024]]);
+  });
+  it('the pieces beside an opening end at it, never in it', () => {
+    for (const at of [100, 333, 500, 777, 990]) {
+      const spec = s([{ at, width: 96 }]);
+      const gap = fenceLayout(spec)[0].gaps[0];
+      for (const p of modelPlacements(spec)) {
+        const lo = p.s - p.piece.step / 2, hi = p.s + p.piece.step / 2;
+        expect(hi <= gap.s0 + 0.01 || lo >= gap.s1 - 0.01).toBe(true);
+      }
+      expect(overlapProblems(spec)).toEqual([]);
+    }
+  });
+  it('the doorway list stores what is built', () => {
+    const p = fencePath(s([{ at: 500, width: 96 }]));
+    expect(snapDoor(p, 0, { at: 500, width: 96, gate: true }, { mode: 'model', model: 'chainlink' })).toEqual({ at: 448, width: 128, gate: true });
+    expect(snapDoor(p, 0, { at: 500, width: 96 }, { mode: 'brush' })).toEqual({ at: 500, width: 96 });
+    expect(doorSpan(p, 0, 0, { mode: 'model', model: 'chainlink' })).toEqual({ door: 0, link: 0, s0: 384, s1: 512, gate: false });
+  });
+});
+
+// --- Walls and the other brush styles --------------------------------------------------------------------------
+
+/** A brush's plan outline (counter-clockwise) and its height range. */
+function plan(node: KVNode): { poly: P2[]; zmin: number; zmax: number } {
+  const verts = buildBrushFaces(solid(node)).flatMap((f) => f.verts);
+  const pts = verts.map((v) => ({ x: Math.round(v.x * 100) / 100, y: Math.round(v.y * 100) / 100 }));
+  const sorted = [...new Map(pts.map((p) => [`${p.x},${p.y}`, p])).values()].sort((a, b) => a.x - b.x || a.y - b.y);
+  const cr = (o: P2, a: P2, b: P2) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower: P2[] = [], upper: P2[] = [];
+  for (const p of sorted) { while (lower.length >= 2 && cr(lower[lower.length - 2], lower[lower.length - 1], p) <= 1e-9) lower.pop(); lower.push(p); }
+  for (const p of [...sorted].reverse()) { while (upper.length >= 2 && cr(upper[upper.length - 2], upper[upper.length - 1], p) <= 1e-9) upper.pop(); upper.push(p); }
+  return { poly: [...lower.slice(0, -1), ...upper.slice(0, -1)], zmin: Math.min(...verts.map((v) => v.z)), zmax: Math.max(...verts.map((v) => v.z)) };
+}
+/** Pairs of brushes that overlap in volume (plan overlap over 0.5 square units, heights overlapping). */
+function overlapping(nodes: KVNode[]): [number, number][] {
+  const plans = nodes.map(plan);
+  const out: [number, number][] = [];
+  for (let i = 0; i < plans.length; i++) for (let j = i + 1; j < plans.length; j++) {
+    const a = plans[i], b = plans[j];
+    if (Math.min(a.zmax, b.zmax) - Math.max(a.zmin, b.zmin) < 0.5) continue;
+    const both = clip(a.poly, b.poly);
+    if (both.length >= 3 && Math.abs(area(both)) > 0.5) out.push([i, j]);
+  }
+  return out;
+}
+const wallSpec = (style: FenceSpec['style'], points: [number, number, number][], links?: FenceSpec['links'], o: Partial<FenceSpec> = {}) =>
+  fence(points, links, { mode: 'brush', style, height: FENCE_STYLES[style].height, spacing: FENCE_STYLES[style].spacing, ...o });
+
+describe('walls', () => {
+  const doc = () => VmfDocument.empty();
+  it('a short wall: valid solid brushes, mitred at the corner, no gaps or overlaps, no clip', () => {
+    for (const style of ['wallConcrete', 'wallBrick', 'wallTall'] as const) {
+      const b = buildFence(doc(), wallSpec(style, [[0, 0, 0], [512, 0, 0], [512, 384, 0]]));
+      // Two wall segments and two copings.
+      expect(b.detail).toHaveLength(4);
+      expect(b.detail.every(valid)).toBe(true);
+      expect(b.clip).toEqual([]);
+      expect(overlapping(b.detail)).toEqual([]);
+      const [w1, , w2] = b.detail.map(plan);
+      // The mitre: both walls reach the outer corner (520, -8) and share the inner one (504, 8): no gap.
+      for (const corner of [{ x: 520, y: -8 }, { x: 504, y: 8 }]) {
+        for (const w of [w1, w2]) expect(w.poly.some((p) => Math.hypot(p.x - corner.x, p.y - corner.y) < 0.01)).toBe(true);
+      }
+      const walls = b.detail.filter((n) => mats([n]).has(FENCE_STYLES[style].material));
+      expect(walls).toHaveLength(2);
+      expect(Math.max(...walls.map((n) => plan(n).zmax))).toBe(FENCE_STYLES[style].height);
+    }
+  });
+  it('the coping is optional, and the wall material can be changed', () => {
+    const s = wallSpec('wallBrick', [[0, 0, 0], [512, 0, 0]]);
+    expect(mats(buildFence(doc(), s).detail)).toEqual(new Set(['BRICK/BRICKWALL001A', 'CONCRETE/CONCRETEFLOOR027A']));
+    expect(mats(buildFence(doc(), { ...s, cap: false }).detail)).toEqual(new Set(['BRICK/BRICKWALL001A']));
+    expect(mats(buildFence(doc(), { ...s, material: 'STONE/STONEWALL017A' }).detail).has('STONE/STONEWALL017A')).toBe(true);
+    expect(decodeFence(encodeFence({ ...s, cap: false }))!.cap).toBe(false);
+  });
+  it('a doorway cuts a clean opening, with pillars beside a gate', () => {
+    const s = wallSpec('wallConcrete', [[0, 0, 0], [512, 0, 0]], [{ from: 0, to: 1, doors: [{ at: 256, width: 96 }] }]);
+    const b = buildFence(doc(), s);
+    expect(b.detail.every(valid)).toBe(true);
+    // Nothing between x 208 and 304.
+    for (const n of b.detail) { const box = solidBounds(solid(n)); expect(box.max.x <= 208.01 || box.min.x >= 303.99).toBe(true); }
+    const gate = buildFence(doc(), { ...s, links: [{ from: 0, to: 1, doors: [{ at: 256, width: 96, gate: true }] }] });
+    expect(gate.detail.every(valid)).toBe(true);
+    for (const n of gate.detail) { const box = solidBounds(solid(n)); expect(box.max.x <= 208.01 + 2 || box.min.x >= 303.99 - 2).toBe(true); }
+    // Pillars stand taller than the wall, and nothing overlaps.
+    expect(gate.detail.filter((n) => solidBounds(solid(n)).max.z > 48 + 4).length).toBe(4);
+    expect(overlapping(gate.detail)).toEqual([]);
+  });
+  it('a T junction: the branch stops at the main wall\'s face', () => {
+    const s = wallSpec('wallConcrete', [[0, 0, 0], [512, 0, 0], [1024, 0, 0], [512, 512, 0]], [{ from: 0, to: 1 }, { from: 1, to: 2 }, { from: 1, to: 3 }], { cap: false });
+    const b = buildFence(doc(), s);
+    expect(b.detail.every(valid)).toBe(true);
+    expect(overlapping(b.detail)).toEqual([]);
+    const branch = plan(b.detail[2]);
+    expect(Math.min(...branch.poly.map((p) => p.y))).toBeCloseTo(8, 3);
+  });
+  it('a wall on sloping ground follows it in segments that meet', () => {
+    const ground = (x: number) => (x < 256 ? 0 : 32);
+    const b = buildFence(doc(), wallSpec('wallConcrete', [[0, 0, 0], [768, 0, 32]], undefined, { cap: false, spacing: 256 }), ground);
+    expect(b.detail.length).toBeGreaterThan(1);
+    expect(b.detail.every(valid)).toBe(true);
+    expect(overlapping(b.detail)).toEqual([]);
+  });
+});
+
+describe('the other new brush styles', () => {
+  const doc = () => VmfDocument.empty();
+  it('low wall with a railing, pickets and a guardrail build valid brushes round a corner with a doorway', () => {
+    for (const style of ['wallRailing', 'pickets', 'guardrail'] as const) {
+      const b = buildFence(doc(), wallSpec(style, [[0, 0, 0], [512, 0, 0], [512, 384, 0]], [{ from: 0, to: 1, doors: [{ at: 256, width: 96, gate: true }] }, { from: 1, to: 2 }]));
+      expect(b.detail.length).toBeGreaterThan(6);
+      expect([...b.detail, ...b.clip].every(valid)).toBe(true);
+      // Nothing in the opening below head height (gate posts stand at its sides).
+      for (const n of b.detail) {
+        const box = solidBounds(solid(n));
+        if (box.max.y > 16) continue;
+        expect(box.max.x <= 208 + 6 || box.min.x >= 304 - 6).toBe(true);
+      }
+    }
+  });
+  it("the railing stands on the wall's coping; walls have no clip, the others keep it", () => {
+    const rail = buildFence(doc(), wallSpec('wallRailing', [[0, 0, 0], [512, 0, 0]]));
+    expect(rail.clip).toEqual([]);
+    const pipes = rail.detail.filter((n) => mats([n]).has('METAL/METALPIPE001A')).map((n) => solidBounds(solid(n)));
+    expect(Math.min(...pipes.map((b) => b.min.z))).toBeGreaterThanOrEqual(32 + 4 - 2);
+    expect(Math.max(...pipes.map((b) => b.max.z))).toBeCloseTo(32 + 4 + 44 + 1.5, 0);
+    expect(buildFence(doc(), wallSpec('pickets', [[0, 0, 0], [512, 0, 0]])).clip.length).toBeGreaterThan(0);
+    expect(buildFence(doc(), wallSpec('guardrail', [[0, 0, 0], [512, 0, 0]])).clip.length).toBeGreaterThan(0);
+  });
+  it('pickets stand between the posts, clear of them', () => {
+    const b = buildFence(doc(), wallSpec('pickets', [[0, 0, 0], [256, 0, 0]], undefined, { clip: false }));
+    const pickets = b.detail.filter((n) => { const box = solidBounds(solid(n)); return box.max.x - box.min.x < 5 && box.max.y - box.min.y < 3; });
+    expect(pickets.length).toBeGreaterThan(15);
+    const posts = b.detail.filter((n) => solidBounds(solid(n)).max.x - solidBounds(solid(n)).min.x >= 5.9 && solidBounds(solid(n)).max.y - solidBounds(solid(n)).min.y >= 5.9);
+    for (const p of pickets) for (const q of posts) expect(overlapping([p, q])).toEqual([]);
   });
 });
