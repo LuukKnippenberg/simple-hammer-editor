@@ -4,7 +4,8 @@ import { h } from '../ui/dom.ts';
 import type { PathTarget } from './pathPins.ts';
 import type { PathPoint } from './pathPoints.ts';
 import type { FenceLink } from '../gen/fences.ts';
-import { doorPoint, withDoors } from './fencePath.ts';
+import { doorPoint, fenceKindFor, snapDoor, withDoors } from './fencePath.ts';
+import { pieceUnit } from '../gen/fences.ts';
 
 /**
  * Doorway chips over a fence in the viewport (the fence's pins' target): one at the middle of every doorway. Drag a
@@ -35,9 +36,12 @@ export class FenceDoors {
     const t = this.target();
     const path = t?.path();
     const chips: { link: number; door: number; at: PathPoint; gate: boolean }[] = [];
+    const kind = fenceKindFor(this.editor, t);
     if (path) {
       (path.links as FenceLink[]).forEach((l, link) => (l.doors ?? []).forEach((d, door) => {
-        const at = this.drag?.link === link && this.drag.door === door ? this.along(path, link, this.drag.at) : doorPoint(path, link, door);
+        // While dragged: where it would be built (model fences: whole pieces).
+        const shown = this.drag?.link === link && this.drag.door === door ? withDoors(path, link, (l.doors ?? []).map((x, i) => (i === door ? { ...x, at: this.drag!.at } : x))) : path;
+        const at = doorPoint(shown, link, door, kind);
         if (at) chips.push({ link, door, at, gate: !!d.gate });
       }));
     }
@@ -52,13 +56,6 @@ export class FenceDoors {
       Object.assign(el.dataset, { link: String(c.link), door: String(c.door), x: String(c.at.x), y: String(c.at.y), z: String(c.at.z) });
     });
     this.place();
-  }
-
-  /** The point `s` along a stretch of a path. */
-  private along(path: { points: PathPoint[]; links: { from: number; to: number }[] }, link: number, s: number): PathPoint {
-    const l = path.links[link], a = path.points[l.from], b = path.points[l.to];
-    const t = s / (Math.hypot(b.x - a.x, b.y - a.y) || 1);
-    return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t };
   }
 
   private down(e: PointerEvent): void {
@@ -91,7 +88,8 @@ export class FenceDoors {
     const s = ((hit.x - a.x) * (b.x - a.x) + (hit.y - a.y) * (b.y - a.y)) / len;
     const grid = Math.min(ed.grid, 16);
     d.at = Math.round(Math.max(Math.min(width, len) / 2, Math.min(len - Math.min(width, len) / 2, s)) / grid) * grid;
-    ed.status = `Doorway · ${Math.round(d.at)} units along its stretch · let go to rebuild`;
+    const unit = pieceUnit(fenceKindFor(ed, t));
+    ed.status = `Doorway · ${Math.round(d.at)} units along its stretch${unit ? ` · whole ${unit}-unit pieces` : ''} · let go to rebuild`;
     this.draw();
   };
 
@@ -109,7 +107,7 @@ export class FenceDoors {
       this.picked = null;
       setDoors(t, d.link, doors, 'Remove doorway');
     } else if (d.moved) {
-      doors[d.door] = { ...doors[d.door], at: d.at };
+      doors[d.door] = snapDoor(path, d.link, { ...doors[d.door], at: d.at }, fenceKindFor(this.editor, t));
       this.picked = { link: d.link, door: d.door };
       setDoors(t, d.link, doors, 'Move doorway');
     } else {

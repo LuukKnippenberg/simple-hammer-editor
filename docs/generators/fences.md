@@ -18,13 +18,28 @@ stretches' doorways.
 - **+ Doorway** next to a stretch in the Doorways list (Generate panel, or the Selection panel of a placed fence) adds
   one in its middle; the list edits where it is, how wide and whether it has a gate.
 - In the viewport every doorway has a chip: drag it along the fence to slide the doorway, Alt+click it to remove it.
-- A **gate** adds taller gate posts beside the opening (brush fences, wooden models) or an open chain-link gate leaf
-  (`props_c17/gate_door02a`, not solid) on chain-link models. The opening itself stays clear.
+- A **gate** adds taller gate posts beside the opening (brush fences, wooden models), pillars (walls) or an open
+  chain-link gate leaf (`props_c17/gate_door02a`, not solid) on chain-link models. The opening itself stays clear.
+- Model fences open whole pieces: a doorway is a whole number of the shortest piece wide (128) and starts a whole
+  number of pieces along its stretch, so the pieces either side end exactly at it. The list stores what is built.
 
 ## Two ways to build
 
-**Models** (prop_static, `solid 6`): the longest piece that fits, then shorter ones, end to end along each run between
-doorways (the leftover is shared between the joints). The models, all with a `.phy` collision model:
+**Models** (prop_static, `solid 6`): each piece at its own nominal length, end to end from the start of each run
+between doorways, the longest that fits first. Neighbours share only their end post (the few units their bounds stand
+past the nominal length); pieces are never squeezed, stretched or overlapped more than that.
+
+- **Points snap to whole pieces.** While placing or dragging a point of a model fence it lands a whole number of the
+  shortest piece (128 for every style) from the point before it (for A, the point after it), along the line to the
+  cursor, so the stretch fits exactly.
+- **A stretch that still doesn't fit** (a point typed in the list, a + insert, the stretch after a moved point) is
+  **left open at its end** rather than overlapping: the drag note turns amber ("40 u left open at its end"), the
+  Doorways list shows "40 u open" on the stretch, and the preview draws a low cross over the open part. The NPC clip
+  stops where the pieces stop, so the opening is really open.
+- **Corners:** at 90° or more the two stretches share the corner's end post. At a sharper corner the next stretch
+  starts past the first one's pieces (half the model's width ÷ tan(half the angle), plus the end post).
+
+The models, all with a `.phy` collision model:
 
 | Choice | Models | Height |
 |---|---|---|
@@ -39,17 +54,34 @@ doorways (the leftover is shared between the joints). The models, all with a `.p
 They were picked from the editor's model index (`/api/models`), checked to have both `.mdl` and `.phy` in the mounted
 game content (`/api/file`), and their bounds measured with `scripts/model-bounds.mjs`.
 
-**Brushes** (func_detail): posts at about the post spacing, with a panel (the material fitted to the panel's height,
-textured along the fence) or rails between them. Styles: chain-link on pipes (`METAL/METALFENCE004A`), wooden boards
-(`WOOD/WOODFENCE001`), wooden rails (`WOOD/WOODBEAM002A`) and metal bars (`METAL/METALFENCE003A`); posts
-`METAL/METALPIPE001A` or `WOOD/WOODBEAM001A`. The panel material can be changed (all alpha-tested fence materials in
-the list are 512 × 512 and exist in the game). Height and post spacing are options.
+**Brushes** (func_detail). Height, post spacing and material are options; every material is in the game's content and
+already used by other generators.
+
+| Style | What | Materials |
+|---|---|---|
+| Chain-link on pipes | posts, panel fitted to the height, top rail | `METAL/METALFENCE004A`, `METAL/METALPIPE001A` |
+| Wooden boards | posts, panel | `WOOD/WOODFENCE001`, `WOOD/WOODBEAM001A` |
+| Wooden rails | posts, two rails | `WOOD/WOODBEAM002A`, `WOOD/WOODBEAM001A` |
+| Metal bars | posts, panel, top rail | `METAL/METALFENCE003A`, `METAL/METALPIPE001A` |
+| Short wall, concrete | 48 high, 16 thick, coping | `CONCRETE/CONCRETEWALL001A`, coping `CONCRETE/CONCRETEFLOOR027A` |
+| Short wall, brick | 48 high, 16 thick, coping | `BRICK/BRICKWALL001A`, coping `CONCRETE/CONCRETEFLOOR027A` |
+| Wall, full height | 192 high, 16 thick, coping | `CONCRETE/CONCRETEWALL001A` |
+| Low wall with railing | 32 high wall, coping, 44 pipe railing | `CONCRETE/CONCRETEWALL001A`, `METAL/METALPIPE001A` |
+| Picket fence | posts, two rails, pickets every 10 | `WOOD/WOODWALL009A`, `WOOD/WOODBEAM001A` |
+| Metal guardrail | posts every 96, a beam 18–30 up | `METAL/METALWALL001A`, `METAL/METALPIPE001A` |
+
+**Walls** are solid brushes segmented at the points (and where the ground bends), mitred where two stretches meet
+(no gap, no overlap), square at doorways; a branch stops at the face of the wall it leaves. The coping is a toggle.
+A doorway with a gate gets pillars that take the ends of the wall beside it, so the opening keeps its width. Wall
+faces are textured along the wall, top-aligned.
 
 ## Units and the navmesh
 
 Recast reads world brushes and static props with VPhysics collision (`recast_mapmesh.cpp`), so both modes block units.
 **NPC clip** (on by default) also runs a strip of `TOOLS/TOOLSNPCCLIP` along the fence (world brushes, like the stairs'
-clip), not across doorways, so units can't slip under rails or through the joints between models.
+clip), not across doorways, so units can't slip under rails or through the joints between models. **Walls get none**:
+a solid func_detail wall at least 32 high blocks units by itself (Recast's step height is 18), so the option is hidden
+for them.
 
 ## Stored
 

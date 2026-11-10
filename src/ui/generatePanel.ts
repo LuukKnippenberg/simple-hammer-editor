@@ -173,7 +173,7 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
     });
     const target = fenceTool.pins.target;
     if (!target) return sheet;
-    return [...sheet, fencePointsSection(editor, target.key, fenceTool.pins), fenceDoorwaysSection(target, fenceTool.doors)];
+    return [...sheet, fencePointsSection(editor, target.key, fenceTool.pins), fenceDoorwaysSection(target, fenceTool.doors, placed ?? fenceTool.settings)];
   };
 
   /** POI type (while placing) and its settings; in Tune they rebuild the POI. */
