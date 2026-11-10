@@ -4,7 +4,7 @@ import type { BuildingLayout } from '../gen/buildings.ts';
  * What the Generate menu offers (see generateTool.ts): each generator, how it is placed, and the pure parts of the
  * menu and the placing (keys, the ghost footprint, what a lot becomes), kept free of the DOM for tests.
  */
-export type GeneratorId = 'building' | 'block' | 'house' | 'interior' | 'road' | 'powerline' | 'poi' | 'stairs';
+export type GeneratorId = 'building' | 'block' | 'house' | 'interior' | 'road' | 'powerline' | 'poi' | 'stairs' | 'fence';
 export type GeneratorGroup = 'Buildings' | 'Infrastructure' | 'Places';
 /** Drag a rectangle, click points along a route (stairs: points with heights), or open the room designer. */
 export type PlaceHow = 'drag' | 'points' | 'heights' | 'designer';
@@ -33,6 +33,7 @@ export const GENERATORS: GeneratorDef[] = [
   { id: 'powerline', key: '6', group: 'Infrastructure', name: 'Powerline', icon: '⚡', how: 'points', fills: false, desc: 'Poles and sagging wires, with feeds to houses', direct: '9' },
   { id: 'poi', key: '7', group: 'Places', name: 'Point of interest', icon: '⛲', how: 'drag', fills: true, desc: 'Squares, parks, camps, docks, quarries…', direct: 'p' },
   { id: 'stairs', key: '8', group: 'Places', name: 'Stairs', icon: '🪜', how: 'heights', fills: false, desc: 'Flights and landings from A to B, chains and T junctions' },
+  { id: 'fence', key: '9', group: 'Infrastructure', name: 'Fence', icon: '🚧', how: 'points', fills: false, desc: 'Fence models or posts and panels along points, with doorways' },
 ];
 
 export const GROUPS: GeneratorGroup[] = ['Buildings', 'Infrastructure', 'Places'];

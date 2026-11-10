@@ -831,3 +831,19 @@ input.switch:checked::before { transform: translateX(14px); background: var(--ac
   position: absolute; pointer-events: none; transform: translateX(-50%); padding: 1px 6px; border-radius: 3px; background: rgba(11, 12, 13, 0.85);
   border: 1px solid rgba(59, 108, 240, 0.6); font: 12px var(--font-mono); color: var(--text);
 }
+
+/* Fence doorway chips (fenceDoors.ts): drag along the fence, Alt+click removes. */
+.fence-doors { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.fence-doors[hidden] { display: none; }
+.fence-door {
+  position: absolute; transform: translate(-50%, -50%); box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 20px; padding: 0 5px; border-radius: 4px; font-size: 13px; line-height: 1; pointer-events: auto; cursor: ew-resize; user-select: none;
+  color: var(--bg); background: #d8b070; border: 2px solid var(--bg);
+}
+.fence-door:hover { box-shadow: 0 0 0 3px #fff; }
+.fence-door.sel { background: #fff; box-shadow: 0 0 0 3px #d8b070; }
+.fence-door.gate { background: #e0c890; }
+.fence-doorways .door-row { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 4px; align-items: center; margin: 2px 0 2px 12px; }
+.fence-doorways .door-row.on { outline: 1px solid #d8b070; border-radius: 3px; }
+.fence-doorways .door-row input.num { width: 100%; }
+.fence-doorways .stretch { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; }

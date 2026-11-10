@@ -8,12 +8,17 @@ import type { RoadTool } from './roadTool.ts';
 import type { PowerlineTool } from './powerlineTool.ts';
 import type { PoiTool } from './poiTool.ts';
 import type { StairsTool } from './stairsTool.ts';
+import type { FenceTool } from './fenceTool.ts';
 import { ARCHITECTURES, type BuildingOptions } from '../gen/buildings.ts';
 import { applyBlock, deleteBlock, dressGroup, selectBlock } from '../gen/buildingAction.ts';
 import { blockOf, newBlockUid, type BlockSpec } from '../gen/buildingStore.ts';
-import { BUILDING_HANDLE, findHandle, STAIRS_HANDLE } from '../gen/handle.ts';
+import { BUILDING_HANDLE, FENCE_HANDLE, findHandle, STAIRS_HANDLE } from '../gen/handle.ts';
 import { deleteStairs } from '../gen/stairsAction.ts';
 import { stairsOf } from '../gen/stairsStore.ts';
+import { FENCE_ID_KEY, fenceOf } from '../gen/fenceStore.ts';
+import { deleteFence } from '../gen/fenceAction.ts';
+import { fenceLayout, fenceSummary } from '../gen/fences.ts';
+import { placedFenceTarget } from './fencePath.ts';
 import { deletePoi, poisFromBlocks, regeneratePoi } from '../gen/poi/action.ts';
 import { poiOf } from '../gen/poi/registry.ts';
 import { POI_ID_KEY } from '../gen/poi/spec.ts';
@@ -50,10 +55,10 @@ export interface GenSession {
 
 /** The tool that places each generator. */
 export const TOOL_OF: Record<GeneratorId, ToolName | null> = {
-  building: 'generate', block: 'generate', house: 'generate', interior: null, road: 'road', powerline: 'powerline', stairs: 'stairs', poi: 'poi',
+  building: 'generate', block: 'generate', house: 'generate', interior: null, road: 'road', powerline: 'powerline', stairs: 'stairs', poi: 'poi', fence: 'fence',
 };
 /** Tools that belong to the Generate menu (the rail shows them on its Generate button). */
-export const GENERATE_TOOLS = new Set<ToolName>(['generate', 'road', 'powerline', 'stairs', 'poi']);
+export const GENERATE_TOOLS = new Set<ToolName>(['generate', 'road', 'powerline', 'stairs', 'poi', 'fence']);
 
 /** A POI's size and type, for the Tune step. */
 function poiSummary(e: MapEntity): string {
@@ -61,6 +66,14 @@ function poiSummary(e: MapEntity): string {
   if (!p) return 'Point of interest';
   const r = p.spec.rect;
   return `${r.x1 - r.x0} × ${r.y1 - r.y0} · ${p.type.label} · turned ${p.spec.rotation}°`;
+}
+
+/** A fence's stretches, length and doorways, for the Tune step. */
+export function fenceTuneSummary(e: MapEntity): string {
+  const s = fenceOf(e);
+  if (!s) return 'Fence';
+  const layout = fenceLayout(s);
+  return fenceSummary({ length: layout.reduce((n, st) => n + st.length, 0), doors: layout.reduce((n, st) => n + st.gaps.length, 0) }, layout.length);
 }
 
 const seed = () => Math.floor(Math.random() * 100000);
@@ -289,6 +302,7 @@ export class GenerateTool implements Tool {
       if (blockOf(d)) deleteBlock(ed, d);
       else if (poiOf(d)) deletePoi(ed, d);
       else if (stairsOf(d)) deleteStairs(ed, d);
+      else if (fenceOf(d)) deleteFence(ed, d);
     }
     ed.selection.clear();
     s.made = [];
@@ -373,7 +387,8 @@ export class GenerateTool implements Tool {
     const doc = this.editor.doc;
     const ents = made.map((d) => (blockOf(d) ? findHandle(doc, BUILDING_HANDLE, d.get(BUILDING_HANDLE.idKey) ?? '')
       : poiOf(d) ? handleOf(doc, d.get(POI_ID_KEY) ?? '')
-        : stairsOf(d) ? findHandle(doc, STAIRS_HANDLE, d.get(STAIRS_HANDLE.idKey) ?? '') : null) ?? d);
+        : stairsOf(d) ? findHandle(doc, STAIRS_HANDLE, d.get(STAIRS_HANDLE.idKey) ?? '')
+          : fenceOf(d) ? findHandle(doc, FENCE_HANDLE, d.get(FENCE_ID_KEY) ?? '') : null) ?? d);
     if (made.length === 1 && blockOf(made[0])) selectBlock(this.editor, made[0]);
     else this.editor.selection.set([], ents);
   }
@@ -396,6 +411,9 @@ export class GenerateTool implements Tool {
       return line ? placedPowerlineTarget(this.editor, line.name) : null;
     });
     (t.poi as PoiTool).onBuilt = (e) => this.built('poi', e, poiSummary(e));
+    const fence = t.fence as FenceTool;
+    fence.onBuilt = (e) => this.built('fence', e, fenceTuneSummary(e));
+    fence.tuned = () => this.tunedPath('fence', (e) => placedFenceTarget(this.editor, e.get(FENCE_ID_KEY) ?? ''));
     const stairs = t.stairs as StairsTool;
     stairs.onBuilt = (e, summary) => this.built('stairs', e, summary);
     // Each point added or taken back joins the generate's undo step; with none left it is back to placing.

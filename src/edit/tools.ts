@@ -18,6 +18,9 @@ import { PoiTool } from './poiTool.ts';
 import { CinemaTool } from './cinemaTool.ts';
 import { GenerateTool } from './generateTool.ts';
 import { StairsTool } from './stairsTool.ts';
+import { FenceTool } from './fenceTool.ts';
+import { fenceHandleDragged } from '../gen/fenceAction.ts';
+import { fenceOwner } from '../gen/fenceStore.ts';
 import { isTyping } from '../render/cameraControls.ts';
 import { toast } from '../ui/dom.ts';
 import { handleDragged } from '../gen/poi/action.ts';
@@ -25,7 +28,7 @@ import { handleOf } from '../gen/poi/handle.ts';
 import { POI_ID_KEY } from '../gen/poi/spec.ts';
 import { blockHandleDragged } from '../gen/buildingAction.ts';
 import { blockOfSolid, blockOwner } from '../gen/buildingStore.ts';
-import { BUILDING_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE, ROOMS_HANDLE, STAIRS_HANDLE } from '../gen/handle.ts';
+import { BUILDING_HANDLE, FENCE_HANDLE, findHandle, isGeneratorHandle, kindOf, POI_HANDLE, ROOMS_HANDLE, STAIRS_HANDLE } from '../gen/handle.ts';
 import { stairsHandleDragged } from '../gen/stairsAction.ts';
 import { stairsOwner } from '../gen/stairsStore.ts';
 import { PathPins } from './pathPins.ts';
@@ -41,7 +44,7 @@ import { DecalTool, EntityTool } from './entityTool.ts';
 import { SnapMoveTool } from './snapMoveTool.ts';
 import type { PaneGrab } from '../render/quadView.ts';
 
-export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema' | 'stairs' | 'generate';
+export type ToolName = 'select' | 'block' | 'paint' | 'entity' | 'kit' | 'decal' | 'road' | 'ground' | 'powerline' | 'sound' | 'poi' | 'cinema' | 'stairs' | 'fence' | 'generate';
 
 export interface Tool {
   name: ToolName;
@@ -514,6 +517,8 @@ export class SelectTool implements Tool {
     if (rooms) { const h = findHandle(doc, ROOMS_HANDLE, rooms.get(ROOMS_HANDLE.idKey) ?? ''); return h ? { entity: h } : null; }
     const stairs = stairsOwner(doc, owner, owner ? null : solid);
     if (stairs) { const h = findHandle(doc, STAIRS_HANDLE, stairs.get(STAIRS_HANDLE.idKey) ?? ''); return h ? { entity: h } : null; }
+    const fence = fenceOwner(doc, owner, owner ? null : solid);
+    if (fence) { const h = findHandle(doc, FENCE_HANDLE, fence.get(FENCE_HANDLE.idKey) ?? ''); return h ? { entity: h } : null; }
     const block = owner ? blockOwner(doc, owner) : solid ? blockOfSolid(doc, solid) : null;
     const h = block && findHandle(doc, BUILDING_HANDLE, block.get(BUILDING_HANDLE.idKey) ?? '');
     return h ? { entity: h } : null;
@@ -700,12 +705,13 @@ export class SelectTool implements Tool {
     if (handle && kind && this.dragMode !== 'rotate') {
       // A dragged generator handle: what it stands for is rebuilt to fit, in the same undo step as the drag.
       const mode = this.dragMode;
-      const what = kind === POI_HANDLE ? 'POI' : kind === ROOMS_HANDLE ? 'interior building' : kind === STAIRS_HANDLE ? 'stairs' : 'buildings';
+      const what = kind === POI_HANDLE ? 'POI' : kind === ROOMS_HANDLE ? 'interior building' : kind === STAIRS_HANDLE ? 'stairs' : kind === FENCE_HANDLE ? 'fence' : 'buildings';
       this.editor.history.group(mode === 'translate' ? `Move ${what}` : `Resize ${what}`, () => {
         this.endHistory?.();
         if (kind === POI_HANDLE) handleDragged(this.editor, handle, mode);
         else if (kind === ROOMS_HANDLE) roomsHandleDragged(this.editor, handle, mode);
         else if (kind === STAIRS_HANDLE) stairsHandleDragged(this.editor, handle, mode);
+        else if (kind === FENCE_HANDLE) fenceHandleDragged(this.editor, handle, mode);
         else blockHandleDragged(this.editor, handle, mode);
       });
     } else {
@@ -1005,7 +1011,7 @@ export class ToolManager {
     this.tools = {
       select: this.select, block: new BlockTool(editor), paint: new PaintTool(editor), entity: new EntityTool(editor),
       kit: new KitTool(editor), decal: new DecalTool(editor), road: new RoadTool(editor), ground: new GroundTool(editor), powerline: new PowerlineTool(editor), sound: new SoundTool(editor), poi: new PoiTool(editor), cinema: new CinemaTool(editor),
-      stairs: new StairsTool(editor), generate: new GenerateTool(editor),
+      stairs: new StairsTool(editor), fence: new FenceTool(editor), generate: new GenerateTool(editor),
     };
     this.current = this.select;
     const dom = editor.renderer.domElement;

@@ -6,6 +6,11 @@ import type { RoadTool } from '../edit/roadTool.ts';
 import { editPowerline, type PowerlineTool } from '../edit/powerlineTool.ts';
 import type { PoiTool } from '../edit/poiTool.ts';
 import type { StairsTool } from '../edit/stairsTool.ts';
+import type { FenceTool } from '../edit/fenceTool.ts';
+import { regenerateFence } from '../gen/fenceAction.ts';
+import { fenceOf } from '../gen/fenceStore.ts';
+import { fencePatch } from '../gen/fences.ts';
+import { fenceDoorwaysSection, fencePointsSection, fenceSheet } from './fenceOptions.ts';
 import { roadOf } from '../gen/roads.ts';
 import { rebuildRoads } from '../gen/roadAction.ts';
 import { POI_TYPES, poiOf, poiParams } from '../gen/poi/registry.ts';
@@ -58,6 +63,7 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
     else if (session.id === 'powerline') body = powerlineRows(tune);
     else if (session.id === 'poi') body = poiRows(tune);
     else if (session.id === 'stairs') body = stairsRows(tune);
+    else if (session.id === 'fence') body = fenceRows(tune);
     rows.push(...body);
     if (tune) {
       rows.push(h('div.gen-actions', {},
@@ -152,6 +158,24 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
     return [points, ...stairsSheet({ spec, result, set, setFlight, hot: hotFlight, onHot: (i) => { hotFlight = hotFlight === i ? -1 : i; render(); } })];
   };
 
+  /**
+   * Fence settings: the next fence's, and in Tune also the one just built (rebuilt in place). The Points and
+   * Doorways lists edit the fence being placed, or in Tune the one built.
+   */
+  const fenceRows = (tune: boolean): HTMLElement[] => {
+    const fenceTool = editor.tools.tools.fence as FenceTool;
+    const made = tune ? tool.session?.made[0] : null;
+    const placed = made && editor.doc.entities.includes(made) ? fenceOf(made) : null;
+    const sheet = fenceSheet(placed ?? fenceTool.settings, (patch) => {
+      fenceTool.set(patch);
+      if (placed && made) { regenerateFence(editor, made, fencePatch(placed, patch), 'Edit fence'); tool.squashed([made]); }
+      render();
+    });
+    const target = fenceTool.pins.target;
+    if (!target) return sheet;
+    return [...sheet, fencePointsSection(editor, target.key, fenceTool.pins), fenceDoorwaysSection(target, fenceTool.doors)];
+  };
+
   /** POI type (while placing) and its settings; in Tune they rebuild the POI. */
   const poiRows = (tune: boolean): HTMLElement[] => {
     const poiTool = editor.tools.tools.poi as PoiTool;
@@ -196,9 +220,11 @@ export function mountGeneratePanel(editor: Editor, viewport: HTMLElement): void 
   };
 
   editor.on('generate', render);
+  // Points placed or moved, doorways added: the fence's lists follow.
+  editor.on('fence', () => { if (tool.session?.id === 'fence') render(); });
   editor.on('stairs', () => { if (tool.session?.id === 'stairs') render(); });
   // The picked pin lights its row in the stairs' Points list.
-  editor.on('pathpins', () => { if (tool.session?.id === 'stairs' && tool.session.step === 'tune') render(); });
+  editor.on('pathpins', () => { if ((tool.session?.id === 'stairs' && tool.session.step === 'tune') || tool.session?.id === 'fence') render(); });
   editor.on('toolchange', render);
   // The block brush hint depends on the selection.
   editor.on('selection', () => { if (tool.session?.step === 'place' && selectedBlockBrushes(editor).length) render(); });
@@ -216,9 +242,10 @@ const TUNE_ROWS: Record<BuildingGenerator, { rows: BuildingRow[]; more: Building
 };
 
 function hintFor(id: string, tune: boolean): string {
-  if (tune) return `Every change rebuilds it · ${id === 'road' || id === 'powerline' ? 'click points' : 'drag again'} for another · Enter: done · Esc: back`;
+  if (tune) return `Every change rebuilds it · ${id === 'road' || id === 'powerline' || id === 'fence' ? 'click points' : 'drag again'} for another · Enter: done · Esc: back`;
   if (id === 'road') return 'Click to add A, B, C… · snaps onto roads to join them · drag a pin to move it, click a + to insert one, Alt+click a pin to remove it, Shift+click a pin to branch (a second road, T junction) · Enter or double-click builds · Backspace removes a point · Esc: back to the menu';
   if (id === 'powerline') return 'Click points along the route (they snap to the pavement of streets) · drag a pin to move it · + inserts · Alt+click removes · Shift+click a pin branches (a tee pole) · Enter or double-click places poles and wires · Esc: back to the menu';
+  if (id === 'fence') return 'Click points along the fence (on the ground) · drag a pin to move it · + inserts · Alt+click removes · Shift+click a pin branches · doorways: + Doorway in the list below, drag their chips · Enter or double-click builds · Esc: back to the menu';
   if (id === 'poi') return 'Drag a rectangle on the ground (a click: its default size) · Esc: back to the menu';
   return 'Drag a rectangle on the ground · Shift: square · Esc: back to the menu';
 }

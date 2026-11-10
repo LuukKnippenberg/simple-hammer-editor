@@ -91,8 +91,8 @@ screenshots of the game and the editor in `docs/screenshots/`.
    of interest, free streets and areas), or paint a coarse layout in **⚙ Generate map**. Both build a complete map
    you can keep editing, and the sketch is saved with the map so it can be redrawn and regenerated.
 3. **Edit it.** Block out brushes, paint materials, place entities and props, sculpt and paint terrain. The
-   **Generate** menu (G) adds buildings, building blocks, interior buildings, roads, powerlines, points of interest
-   and stairs, and keeps their settings so they can be changed and regenerated later.
+   **Generate** menu (G) adds buildings, building blocks, interior buildings, roads, powerlines, fences, points of
+   interest and stairs, and keeps their settings so they can be changed and regenerated later.
 4. **Script it.** Place Lambda Wars kits (capture points, starts, unit groups, attack waves), wire entity outputs,
    and build a mission as a flowchart of stages, objectives and conditions in the **Mission** panel. Add camera
    shots, flybys and atmosphere in the **Cinema** panel, soundscapes and local sounds with the Sound tool.
@@ -176,7 +176,7 @@ Reference for every part of the editor is in [docs/](docs/README.md):
 - Generators: [whole maps (Sketch, Generate map)](docs/generators/maps.md),
   [buildings](docs/generators/buildings.md), [simple interior buildings](docs/generators/interior-buildings.md),
   [interior buildings with rooms](docs/generators/rooms.md),
-  [roads and powerlines](docs/generators/roads-powerlines.md),
+  [roads and powerlines](docs/generators/roads-powerlines.md), [fences](docs/generators/fences.md),
   [points of interest](docs/generators/points-of-interest.md)
 - [Example maps](docs/example-maps.md): the Sofia, Civil Protection and Garden District missions
 - [Development](docs/development.md): tests, scripts, worktree ports, source layout

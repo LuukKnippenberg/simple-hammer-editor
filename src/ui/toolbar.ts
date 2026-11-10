@@ -6,6 +6,7 @@ import { deletePoi, duplicatePoi, selectedPois, turnPoi } from '../gen/poi/actio
 import { deleteBlock, duplicateBlock, selectedBlocks, turnBlock } from '../gen/buildingAction.ts';
 import { deleteRooms, selectedRooms } from '../gen/rooms/action.ts';
 import { deleteStairs, duplicateStairs, selectedStairs } from '../gen/stairsAction.ts';
+import { deleteFence, duplicateFence, selectedFences } from '../gen/fenceAction.ts';
 import { h, toast } from './dom.ts';
 import { tip } from './tooltip.ts';
 import { mountGenerateButton } from './generateMenu.ts';
@@ -132,6 +133,15 @@ export function mountToolbar(editor: Editor, bar: HTMLElement, hooks: { hoverPoi
     if (stairs.length && (k === 'delete' || k === 'backspace' || (ctrl && k === 'd' && stairs.length === 1))) {
       if (k === 'd') duplicateStairs(editor, stairs[0]);
       else editor.history.group('Delete stairs', () => stairs.forEach((s) => deleteStairs(editor, s)));
+      e.preventDefault();
+      return;
+    }
+    // Selected fence handles: Delete removes the fence (the Select tool's pins take Delete first for a picked point),
+    // Ctrl+D duplicates it.
+    const fences = selectedFences(editor);
+    if (fences.length && (k === 'delete' || k === 'backspace' || (ctrl && k === 'd' && fences.length === 1))) {
+      if (k === 'd') duplicateFence(editor, fences[0]);
+      else editor.history.group('Delete fence', () => fences.forEach((f) => deleteFence(editor, f)));
       e.preventDefault();
       return;
     }
